@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251116144840_RemoveDefaultFlag")]
+    partial class RemoveDefaultFlag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,10 +73,6 @@ namespace Autoprint.Server.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
 
@@ -100,10 +99,6 @@ namespace Autoprint.Server.Migrations
 
                     b.Property<string>("AdresseIp")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Code")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -137,11 +132,16 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("NomPartage")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("PiloteId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EmplacementId");
 
                     b.HasIndex("ModeleId");
+
+                    b.HasIndex("PiloteId");
 
                     b.ToTable("Imprimantes");
                 });
@@ -178,10 +178,6 @@ namespace Autoprint.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
 
@@ -196,14 +192,9 @@ namespace Autoprint.Server.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int?>("PiloteId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("MarqueId");
-
-                    b.HasIndex("PiloteId");
 
                     b.ToTable("Modeles");
                 });
@@ -227,9 +218,6 @@ namespace Autoprint.Server.Migrations
 
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("EstInstalle")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
@@ -347,27 +335,6 @@ namespace Autoprint.Server.Migrations
                             Description = "Dossier Pilotes",
                             Type = "STRING",
                             Value = "drivers"
-                        },
-                        new
-                        {
-                            Key = "NamingTemplate",
-                            Description = "Gabarit de nommage (Tokens: {LIEU}, {MODELE}, {MARQUE}, {IP}, {IP_LAST})",
-                            Type = "STRING",
-                            Value = "IMP_{LIEU}_{MODELE}"
-                        },
-                        new
-                        {
-                            Key = "NamingEnabled",
-                            Description = "Activer le nommage automatique",
-                            Type = "BOOL",
-                            Value = "false"
-                        },
-                        new
-                        {
-                            Key = "NamingSameShare",
-                            Description = "Forcer le nom de partage identique au nom d'imprimante",
-                            Type = "BOOL",
-                            Value = "false"
                         });
                 });
 
@@ -385,9 +352,17 @@ namespace Autoprint.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Autoprint.Shared.Pilote", "Pilote")
+                        .WithMany()
+                        .HasForeignKey("PiloteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Emplacement");
 
                     b.Navigation("Modele");
+
+                    b.Navigation("Pilote");
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Modele", b =>
@@ -398,13 +373,7 @@ namespace Autoprint.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Autoprint.Shared.Pilote", "Pilote")
-                        .WithMany()
-                        .HasForeignKey("PiloteId");
-
                     b.Navigation("Marque");
-
-                    b.Navigation("Pilote");
                 });
 #pragma warning restore 612, 618
         }

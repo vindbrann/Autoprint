@@ -18,7 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Models\" />
     <Folder Include="wwwroot\drivers\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Autoprint.Shared\Autoprint.Shared.csproj" />
   </ItemGroup>
 
 </Project>

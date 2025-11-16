@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Data;
-using Autoprint.Server.Models;
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {

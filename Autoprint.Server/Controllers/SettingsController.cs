@@ -1,8 +1,8 @@
-﻿using Autoprint.Server.Data;
-using Autoprint.Server.Models;
-using Autoprint.Server.Services;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Autoprint.Server.Data;
+using Autoprint.Server.Services;
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
@@ -12,79 +12,127 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly ISettingsService _settingsService; // AJOUTÉ : Pour gérer les fichiers
 
-        public SettingsController(ApplicationDbContext context, IEmailService emailService)
+        // On injecte les 3 services nécessaires
+        public SettingsController(ApplicationDbContext context, IEmailService emailService, ISettingsService settingsService)
         {
             _context = context;
             _emailService = emailService;
-        }
-
-        public SettingsController(ApplicationDbContext context)
-        {
-            _context = context;
+            _settingsService = settingsService;
         }
 
         // GET: api/Settings
-        // Retourne toute la configuration
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ServerSetting>>> GetSettings()
         {
             return await _context.ServerSettings.ToListAsync();
         }
 
-        // PUT: api/Settings/SmtpHost
-        // Modifie une valeur spécifique
-        [HttpPut("{key}")]
-        public async Task<IActionResult> UpdateSetting(string key, ServerSetting setting)
+        // POST: api/Settings/Save
+        // C'est cette méthode que la nouvelle page "Paramètres" va appeler
+        [HttpPost("Save")]
+        public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)
         {
-            // Sécurité : on vérifie que la clé de l'URL correspond à l'objet envoyé
-            if (key != setting.Key) return BadRequest();
+            // 1. GESTION DU STOCKAGE (Spéciale à cause du déplacement physique)
+            var currentPath = await _settingsService.GetDriversPathAsync();
 
-            var existing = await _context.ServerSettings.FindAsync(key);
-            if (existing == null) return NotFound();
+            // Si le chemin a changé, on appelle le service intelligent
+            if (!string.Equals(dto.DriverPath, currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    // Le service s'occupe de déplacer les fichiers ET de mettre à jour la clé "DriverPath"
+                    await _settingsService.UpdateDriversPathAsync(dto.DriverPath, dto.MoveFiles);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, "Erreur critique lors du déplacement des fichiers : " + ex.Message);
+                }
+            }
 
-            // On garde l'ancienne valeur pour le log
-            string ancienneValeur = existing.Value;
+            // 2. GESTION DU SMTP (Mise à jour classique des valeurs)
+            await UpdateSetting("SmtpHost", dto.SmtpHost);
+            await UpdateSetting("SmtpPort", dto.SmtpPort.ToString());
+            await UpdateSetting("SmtpUser", dto.SmtpUser);
+            await UpdateSetting("SmtpPass", dto.SmtpPass);          // Ta clé
+            await UpdateSetting("SmtpEnableSsl", dto.SmtpEnableSsl.ToString()); // Ta clé
+            await UpdateSetting("SmtpFromAddress", dto.SmtpFromAddress); // Ta clé
 
-            // On met à jour uniquement la valeur (on ne touche pas à la Description ou au Type)
-            existing.Value = setting.Value;
-
-            // Traçabilité : On enregistre qui a modifié quoi
-            // Attention : Si c'est un mot de passe, on évite de l'écrire en clair dans les logs !
-            string detailsLog = existing.Type == "PASSWORD"
-                ? $"Modification du mot de passe {key}"
-                : $"Modification de {key} : '{ancienneValeur}' -> '{setting.Value}'";
-
+            await UpdateSetting("NamingTemplate", dto.NamingTemplate);
+            await UpdateSetting("NamingEnabled", dto.NamingEnabled.ToString());
+            await UpdateSetting("NamingSameShare", dto.NamingSameShare.ToString());
+            // On loggue l'action globale
             _context.AuditLogs.Add(new AuditLog
             {
-                Action = "CONFIG_CHANGE",
-                Details = detailsLog,
-                Utilisateur = "Admin", // Sera remplacé par le vrai user connecté plus tard
+                Action = "CONFIG_UPDATE",
+                Details = "Mise à jour globale de la configuration",
+                Utilisateur = "Admin",
                 Niveau = "WARNING"
             });
 
             await _context.SaveChangesAsync();
-
-            return NoContent();
+            return Ok(new { Message = "Configuration sauvegardée avec succès." });
         }
 
         // POST: api/Settings/TestEmail
+        // Teste la config envoyée par le formulaire (Draft)
         [HttpPost("TestEmail")]
-        public async Task<IActionResult> SendTestEmail(string emailDestinataire)
+        public async Task<IActionResult> TestEmail([FromBody] TestEmailDto dto)
         {
             try
             {
-                await _emailService.SendEmailAsync(
-                    emailDestinataire,
-                    "Test Autoprint",
-                    "<h1>Ceci est un test</h1><p>Si vous lisez ça, la config SMTP fonctionne !</p>"
+                // On utilise la méthode DE TEST de l'interface (celle qui prend les args)
+                await _emailService.SendTestEmailAsync(
+                    dto.Host, dto.Port, dto.User, dto.Password, dto.Ssl, dto.From, dto.To
                 );
-                return Ok("Email envoyé avec succès.");
+                return Ok(new { Message = "Connexion SMTP réussie !" });
             }
             catch (Exception ex)
             {
-                return BadRequest($"Erreur d'envoi : {ex.Message}");
+                return BadRequest("Echec du test SMTP : " + ex.Message);
             }
         }
+
+        // Helper pour mettre à jour une clé sans planter si elle n'existe pas
+        private async Task UpdateSetting(string key, string value)
+        {
+            var setting = await _context.ServerSettings.FindAsync(key);
+            if (setting != null)
+            {
+                // On ne touche qu'à la valeur
+                setting.Value = value ?? "";
+            }
+        }
+    }
+
+    // --- LES DTOs (Objets de transfert de données) ---
+    // Ils doivent correspondre exactement aux champs de ta page Razor
+
+    public class SettingsUpdateDto
+    {
+        public string DriverPath { get; set; } = "";
+        public bool MoveFiles { get; set; } = false;
+
+        public string SmtpHost { get; set; } = "";
+        public int SmtpPort { get; set; } = 25;
+        public string SmtpUser { get; set; } = "";
+        public string SmtpPass { get; set; } = "";
+        public bool SmtpEnableSsl { get; set; } = false;
+        public string SmtpFromAddress { get; set; } = "";
+        public string NamingTemplate { get; set; } = "";
+        public bool NamingEnabled { get; set; } = false;
+        public bool NamingSameShare { get; set; } = false;
+    }
+
+    public class TestEmailDto
+    {
+        public string Host { get; set; } = "";
+        public int Port { get; set; }
+        public string User { get; set; } = "";
+        public string Password { get; set; } = "";
+        public bool Ssl { get; set; }
+        public string From { get; set; } = "";
+        public string To { get; set; } = "";
     }
 }

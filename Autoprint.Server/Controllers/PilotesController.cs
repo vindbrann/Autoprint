@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Data;
-using Autoprint.Server.Models;
-using Autoprint.Server.Services;
+using Autoprint.Server.Services; // Pour SettingsService et DriverService
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
@@ -16,33 +11,93 @@ namespace Autoprint.Server.Controllers
     public class PilotesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IFileService _fileService;
+        private readonly ISettingsService _settingsService;
+        private readonly IDriverService _driverService;
 
-        public PilotesController(ApplicationDbContext context, IFileService fileService)
+        public PilotesController(ApplicationDbContext context, ISettingsService settingsService, IDriverService driverService)
         {
             _context = context;
-            _fileService = fileService;
+            _settingsService = settingsService;
+            _driverService = driverService;
         }
 
         // POST: api/Pilotes/Upload
         [HttpPost("Upload")]
-        public async Task<IActionResult> Upload(IFormFile file)
+        public async Task<IActionResult> Upload(IFormFile file, [FromForm] string nomPilote, [FromForm] string version)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("Aucun fichier fourni.");
+            if (file == null || file.Length == 0) return BadRequest("Fichier vide.");
 
             try
             {
-                // On appelle notre service qui fait tout le travail (Sauvegarde + Hash)
-                var (chemin, checksum) = await _fileService.SaveFileAsync(file);
+                // 1. On demande au service : "Où est le dossier des drivers ?"
+                string rootPath = await _settingsService.GetDriversPathAsync();
 
-                // On renvoie les infos au frontend pour qu'il puisse pré-remplir le formulaire de création
-                return Ok(new { CheminFichier = chemin, Checksum = checksum });
+                // 2. On crée un chemin propre : Racine / Nom / Version
+                // On remplace les caractères interdits par des "_"
+                string safeName = string.Join("_", (nomPilote ?? "Inconnu").Split(Path.GetInvalidFileNameChars()));
+                string safeVersion = string.Join("_", (version ?? "1.0").Split(Path.GetInvalidFileNameChars()));
+
+                string folderPath = Path.Combine(rootPath, safeName, safeVersion);
+                Directory.CreateDirectory(folderPath);
+
+                string fullPath = Path.Combine(folderPath, file.FileName);
+
+                // 3. On sauvegarde le fichier physiquement
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // 4. TODO : Calculer le vrai hash ici plus tard
+                string checksum = "SHA256_PENDING";
+
+                return Ok(new { CheminFichier = fullPath, Checksum = checksum });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erreur interne : {ex.Message}");
+                return StatusCode(500, "Erreur upload : " + ex.Message);
             }
+        }
+
+        // POST: api/Pilotes/Install/5
+        [HttpPost("Install/{id}")]
+        public async Task<IActionResult> InstallDriver(int id)
+        {
+            var pilote = await _context.Pilotes.FindAsync(id);
+            if (pilote == null) return NotFound();
+
+            if (!System.IO.File.Exists(pilote.CheminFichier))
+                return BadRequest($"Fichier introuvable sur le disque : {pilote.CheminFichier}");
+
+            // On tente l'installation via PnPUtil
+            bool success = await _driverService.InstallerPiloteAsync(pilote.CheminFichier);
+
+            if (success)
+            {
+                pilote.EstInstalle = true;
+                await _context.SaveChangesAsync();
+                return Ok(new { Message = "Installation réussie." });
+            }
+
+            return StatusCode(500, "Echec de l'installation système.");
+        }
+
+        // POST: api/Pilotes/Uninstall/5
+        [HttpPost("Uninstall/{id}")]
+        public async Task<IActionResult> UninstallDriver(int id)
+        {
+            var pilote = await _context.Pilotes.FindAsync(id);
+            if (pilote == null) return NotFound();
+
+            // Sécurité : Est-ce qu'un modèle utilise ce pilote ?
+            bool estUtilise = await _context.Modeles.AnyAsync(m => m.PiloteId == id);
+            if (estUtilise) return BadRequest("Impossible : Ce pilote est utilisé par un modèle.");
+
+            // Simulation désinstallation (À améliorer avec le vrai nom oemXX.inf plus tard)
+            pilote.EstInstalle = false;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Pilote désinstallé." });
         }
 
         // GET: api/Pilotes
@@ -57,76 +112,46 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<Pilote>> GetPilote(int id)
         {
             var pilote = await _context.Pilotes.FindAsync(id);
-
-            if (pilote == null)
-            {
-                return NotFound();
-            }
-
+            if (pilote == null) return NotFound();
             return pilote;
         }
 
-        // PUT: api/Pilotes/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutPilote(int id, Pilote pilote)
-        {
-            if (id != pilote.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(pilote).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!PiloteExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // POST: api/Pilotes
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        // POST: api/Pilotes (Création en base après upload)
         [HttpPost]
         public async Task<ActionResult<Pilote>> PostPilote(Pilote pilote)
         {
             _context.Pilotes.Add(pilote);
             await _context.SaveChangesAsync();
-
             return CreatedAtAction("GetPilote", new { id = pilote.Id }, pilote);
+        }
+
+        // PUT: api/Pilotes/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutPilote(int id, Pilote pilote)
+        {
+            if (id != pilote.Id) return BadRequest();
+            _context.Entry(pilote).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
 
         // DELETE: api/Pilotes/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePilote(int id)
         {
+            // Sécurité
+            bool estUtilise = await _context.Modeles.AnyAsync(m => m.PiloteId == id);
+            if (estUtilise) return BadRequest("Ce pilote est utilisé par un modèle.");
+
             var pilote = await _context.Pilotes.FindAsync(id);
-            if (pilote == null)
-            {
-                return NotFound();
-            }
+            if (pilote == null) return NotFound();
+
+            // Suppression physique optionnelle (à voir selon tes règles métier)
+            /* if (System.IO.File.Exists(pilote.CheminFichier)) System.IO.File.Delete(pilote.CheminFichier); */
 
             _context.Pilotes.Remove(pilote);
             await _context.SaveChangesAsync();
-
             return NoContent();
-        }
-
-        private bool PiloteExists(int id)
-        {
-            return _context.Pilotes.Any(e => e.Id == id);
         }
     }
 }

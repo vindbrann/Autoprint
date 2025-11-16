@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Data;
-using Autoprint.Server.Models;
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
@@ -25,32 +20,48 @@ namespace Autoprint.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Modele>>> GetModeles()
         {
-            return await _context.Modeles.ToListAsync();
+            // CORRECTION ICI : On ajoute les .Include pour charger les noms
+            return await _context.Modeles
+                .Include(m => m.Marque)
+                .Include(m => m.Pilote)
+                .ToListAsync();
         }
 
         // GET: api/Modeles/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Modele>> GetModele(int id)
         {
-            var modele = await _context.Modeles.FindAsync(id);
+            var modele = await _context.Modeles
+                .Include(m => m.Marque)
+                .Include(m => m.Pilote)
+                .FirstOrDefaultAsync(m => m.Id == id);
 
-            if (modele == null)
-            {
-                return NotFound();
-            }
+            if (modele == null) return NotFound();
 
             return modele;
         }
 
+        // POST: api/Modeles
+        [HttpPost]
+        public async Task<ActionResult<Modele>> PostModele(Modele modele)
+        {
+            _context.Modeles.Add(modele);
+            await _context.SaveChangesAsync();
+
+            // On recharge l'objet complet pour renvoyer les noms au frontend tout de suite
+            var newModele = await _context.Modeles
+                .Include(m => m.Marque)
+                .Include(m => m.Pilote)
+                .FirstOrDefaultAsync(m => m.Id == modele.Id);
+
+            return CreatedAtAction("GetModele", new { id = modele.Id }, newModele);
+        }
+
         // PUT: api/Modeles/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutModele(int id, Modele modele)
         {
-            if (id != modele.Id)
-            {
-                return BadRequest();
-            }
+            if (id != modele.Id) return BadRequest();
 
             _context.Entry(modele).State = EntityState.Modified;
 
@@ -60,28 +71,11 @@ namespace Autoprint.Server.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ModeleExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!ModeleExists(id)) return NotFound();
+                else throw;
             }
 
             return NoContent();
-        }
-
-        // POST: api/Modeles
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Modele>> PostModele(Modele modele)
-        {
-            _context.Modeles.Add(modele);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetModele", new { id = modele.Id }, modele);
         }
 
         // DELETE: api/Modeles/5
@@ -89,10 +83,7 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> DeleteModele(int id)
         {
             var modele = await _context.Modeles.FindAsync(id);
-            if (modele == null)
-            {
-                return NotFound();
-            }
+            if (modele == null) return NotFound();
 
             _context.Modeles.Remove(modele);
             await _context.SaveChangesAsync();

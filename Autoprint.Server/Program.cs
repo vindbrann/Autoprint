@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Data;
+using Autoprint.Server.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,10 +28,27 @@ else
 // Service d'envoi d'emails (basé sur la config BDD)
 builder.Services.AddScoped<Autoprint.Server.Services.IEmailService, Autoprint.Server.Services.SmtpEmailService>();
 
+builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<IDriverService, DriverService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INamingService, NamingService>();
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorOrigin", policy =>
+    {
+        // Remplace par ton URL_WEB notée à l'étape 1 (ex: https://localhost:7123)
+        // ATTENTION : Pas de slash "/" à la fin !
+        policy.WithOrigins("https://localhost:7169")
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 var app = builder.Build();
 
@@ -42,6 +60,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowBlazorOrigin");
 
 app.UseAuthorization();
 

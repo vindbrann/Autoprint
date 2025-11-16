@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Autoprint.Server.Models
+namespace Autoprint.Shared
 {
     public class Pilote : BaseEntity
     {
@@ -20,5 +20,7 @@ namespace Autoprint.Server.Models
         // Sécurité : Hash pour valider que le fichier n'est pas corrompu [cite: 63]
         [MaxLength(64)]
         public string Checksum { get; set; } = string.Empty;
+
+        public bool EstInstalle { get; set; } = false;
     }
 }

@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Data;
-using Autoprint.Server.Models;
 using Autoprint.Server.Services;
 using Autoprint.Server.DTOs;
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
@@ -26,8 +26,9 @@ namespace Autoprint.Server.Controllers
         {
             return await _context.Imprimantes
                 .Include(i => i.Emplacement)
+                // On charge le Modèle ET le Pilote associé à ce modèle
                 .Include(i => i.Modele)
-                .Include(i => i.Pilote)
+                    .ThenInclude(m => m.Pilote)
                 .ToListAsync();
         }
 
@@ -38,7 +39,7 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele)
-                .Include(i => i.Pilote)
+                    .ThenInclude(m => m.Pilote)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
@@ -47,18 +48,23 @@ namespace Autoprint.Server.Controllers
         }
 
         // POST: api/Imprimantes
-        // Ajout simple en BDD uniquement (Rapide)
         [HttpPost]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
             _context.Imprimantes.Add(imprimante);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, imprimante);
+            // On recharge l'objet complet pour le renvoyer au client (avec les noms de Modèle/Emplacement)
+            // C'est ce qui permet d'afficher "HP" au lieu de "ID 4" juste après l'ajout
+            var newImp = await _context.Imprimantes
+                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
+                .Include(i => i.Emplacement)
+                .FirstOrDefaultAsync(i => i.Id == imprimante.Id);
+
+            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, newImp);
         }
 
         // POST: api/Imprimantes/Batch
-        // Import de masse en BDD uniquement (Rapide)
         [HttpPost("Batch")]
         public async Task<ActionResult<BatchResult>> PostBatch(List<ImprimanteDto> imprimantesDtos)
         {
@@ -68,7 +74,6 @@ namespace Autoprint.Server.Controllers
             {
                 try
                 {
-                    // 1. Conversion DTO -> Entité
                     var imprimante = new Imprimante
                     {
                         NomAffiche = dto.NomAffiche,
@@ -76,14 +81,12 @@ namespace Autoprint.Server.Controllers
                         EstPartagee = dto.EstPartagee,
                         NomPartage = dto.NomPartage,
                         Commentaire = dto.Commentaire,
-                        EstParDefaut = dto.EstParDefaut,
                         EmplacementId = dto.EmplacementId,
                         Localisation = dto.Localisation,
-                        ModeleId = dto.ModeleId,
-                        PiloteId = dto.PiloteId
+                        ModeleId = dto.ModeleId
+                        // PiloteId supprimé ici car il est maintenant lié au Modele
                     };
 
-                    // 2. Sauvegarde BDD UNIQUEMENT (On ne touche pas à Windows ici)
                     _context.Imprimantes.Add(imprimante);
                     resultat.SuccesBdd++;
                 }
@@ -94,22 +97,20 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            // Sauvegarde en un seul bloc
             await _context.SaveChangesAsync();
-
             return Ok(resultat);
         }
 
         // POST: api/Imprimantes/Synchroniser
-        // C'est le bouton "Appliquer la configuration au serveur"
         [HttpPost("Synchroniser")]
         public async Task<ActionResult<BatchResult>> SynchroniserServeur()
         {
             var resultat = new BatchResult();
 
-            // On récupère TOUT ce qu'il y a en base
+            // Récupération de l'arbre complet : Imprimante -> Modele -> Pilote
             var imprimantesBdd = await _context.Imprimantes
-                .Include(i => i.Pilote)
+                .Include(i => i.Modele)
+                    .ThenInclude(m => m.Pilote)
                 .ToListAsync();
 
             resultat.TotalTraites = imprimantesBdd.Count;
@@ -118,14 +119,15 @@ namespace Autoprint.Server.Controllers
             {
                 try
                 {
-                    if (imp.Pilote == null)
+                    // Vérification : Est-ce que le modèle a bien un pilote ?
+                    if (imp.Modele?.Pilote == null)
                     {
                         resultat.Erreurs++;
-                        resultat.DetailsErreurs.Add($"Imprimante {imp.NomAffiche} ignorée : Pas de pilote.");
+                        resultat.DetailsErreurs.Add($"Imprimante {imp.NomAffiche} ignorée : Modèle '{imp.Modele?.Nom}' sans pilote.");
                         continue;
                     }
 
-                    // A. Création Port
+                    // A. Création Port TCP/IP
                     _spoolerService.CreerPortTcp(imp.AdresseIp, imp.AdresseIp);
 
                     // B. Création Imprimante Windows
@@ -133,7 +135,7 @@ namespace Autoprint.Server.Controllers
 
                     _spoolerService.CreerImprimante(
                         nom: imp.NomAffiche,
-                        nomDriver: imp.Pilote.Nom,
+                        nomDriver: imp.Modele.Pilote.Nom, // On va chercher le nom via le Modèle
                         nomPort: imp.AdresseIp,
                         commentaire: commentaireComplet,
                         nomPartage: imp.EstPartagee ? (imp.NomPartage ?? "") : ""
@@ -146,7 +148,6 @@ namespace Autoprint.Server.Controllers
                     resultat.Erreurs++;
                     resultat.DetailsErreurs.Add($"Erreur Système '{imp.NomAffiche}' : {ex.Message}");
 
-                    // Log audit
                     _context.AuditLogs.Add(new AuditLog
                     {
                         Action = "SYNC_ERROR",
@@ -157,7 +158,7 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            await _context.SaveChangesAsync(); // Sauvegarde des logs
+            await _context.SaveChangesAsync();
             return Ok(resultat);
         }
 
@@ -189,7 +190,6 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes.FindAsync(id);
             if (imprimante == null) return NotFound();
 
-            // Suppression Système Directe (Pour éviter les imprimantes fantômes)
             try
             {
                 _spoolerService.SupprimerImprimante(imprimante.NomAffiche);

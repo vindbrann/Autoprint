@@ -1,0 +1,325 @@
+﻿@using Autoprint.Shared
+@using System.Text.Json
+@inject HttpClient Http
+
+@if (Show)
+{
+    <div class="modal-backdrop fade show"></div>
+
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(Model.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">
+                                    Nom affiché
+                                    @if (namingEnabled)
+                                    {
+                                        <span class="badge bg-info ms-2"><i class="bi bi-robot"></i> Auto</span>
+                                    }
+                                </label>
+                                <div class="input-group">
+                                    <InputText class="form-control" @bind-Value="Model.NomAffiche" disabled="@namingEnabled" placeholder="Ex: IMP_ACCUEIL" />
+                                    @if (namingEnabled)
+                                    {
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="ForcerRefreshNom" title="Forcer la régénération">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Code Inventaire</label>
+                                <InputText class="form-control"
+                                           Value="@Model.Code"
+                                           ValueChanged="@((string val) => OnCodeChanged(val))"
+                                           ValueExpression="@(() => Model.Code)"
+                                           placeholder="Ex: P001" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Adresse IP</label>
+                                <InputText class="form-control"
+                                           Value="@Model.AdresseIp"
+                                           ValueChanged="@((string val) => OnIpChanged(val))"
+                                           ValueExpression="@(() => Model.AdresseIp)"
+                                           placeholder="192.168.x.x" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Localisation physique (Détail)</label>
+                                <InputText class="form-control" @bind-Value="Model.Localisation" placeholder="Ex: Bureau 204" />
+                            </div>
+                        </div>
+
+                        <div class="card p-3 mb-3 border-primary bg-light bg-opacity-10">
+                            <h6 class="text-primary">Configuration Matérielle</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">1. Choisir la Marque</label>
+                                    <select class="form-select" @onchange="OnMarqueChanged" value="@selectedMarqueId">
+                                        <option value="0">-- Sélectionner une marque --</option>
+                                        @if (listeMarques != null)
+                                        {
+                                            @foreach (var m in listeMarques)
+                                            {
+                                                <option value="@m.Id">@m.Nom</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">2. Choisir le Modèle</label>
+                                    <InputSelect class="form-select"
+                                                 Value="@Model.ModeleId"
+                                                 ValueChanged="@((int val) => OnModeleChanged(val))"
+                                                 ValueExpression="@(() => Model.ModeleId)"
+                                                 disabled="@(selectedMarqueId == 0)">
+                                        <option value="0">-- Sélectionner un modèle --</option>
+                                        @if (listeModelesFiltres != null)
+                                        {
+                                            @foreach (var m in listeModelesFiltres)
+                                            {
+                                                <option value="@m.Id">@m.Nom</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Emplacement (Lieu)</label>
+                            <InputSelect class="form-select"
+                                         Value="@Model.EmplacementId"
+                                         ValueChanged="@((int val) => OnLieuChanged(val))"
+                                         ValueExpression="@(() => Model.EmplacementId)">
+                                <option value="0">-- Sélectionner un lieu --</option>
+                                @if (listeEmplacements != null)
+                                {
+                                    @foreach (var e in listeEmplacements)
+                                    {
+                                        <option value="@e.Id">@e.Nom</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="card p-3 mb-3 bg-light">
+                            <div class="form-check form-switch">
+                                <InputCheckbox class="form-check-input" @bind-Value="Model.EstPartagee" id="chkPartage" />
+                                <label class="form-check-label" for="chkPartage">Partager sur le réseau Windows ?</label>
+                            </div>
+                            @if (Model.EstPartagee)
+                            {
+                                <div class="mt-2">
+                                    <label class="form-label">Nom du partage</label>
+                                    <InputText class="form-control"
+                                               Value="@Model.NomPartage"
+                                               ValueChanged="@((string val) => Model.NomPartage = val)"
+                                               ValueExpression="@(() => Model.NomPartage)"
+                                               disabled="@(namingEnabled && namingSameShare)" />
+                                </div>
+                            }
+                        </div>
+
+                        <button type="submit" style="display:none" id="submitBtn"></button>
+                    </EditForm>
+                </div>
+
+                <div class="modal-footer justify-content-between">
+                    <div>
+                        @if (Model.Id != 0)
+                        {
+                            <button type="button" class="btn btn-danger" @onclick="HandleDelete">
+                                <i class="bi bi-trash"></i> Supprimer
+                            </button>
+                        }
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                        <label for="submitBtn" class="btn btn-primary">💾 Enregistrer</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public Imprimante Model { get; set; } = new();
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    // Listes
+    private List<Marque>? listeMarques;
+    private List<Modele>? listeTousModeles;
+    private List<Emplacement>? listeEmplacements;
+    private List<Modele>? listeModelesFiltres;
+    private int selectedMarqueId = 0;
+
+    // Configuration Nommage
+    private bool namingEnabled = false;
+    private bool namingSameShare = false;
+    private string namingTemplate = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var t1 = Http.GetFromJsonAsync<List<Marque>>("api/Marques");
+            var t2 = Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
+            var t3 = Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
+            // On charge aussi les settings pour savoir si on active le mode auto
+            var t4 = Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+
+            await Task.WhenAll(t1, t2, t3, t4);
+
+            listeMarques = t1.Result;
+            listeTousModeles = t2.Result;
+            listeEmplacements = t3.Result;
+
+            var settings = t4.Result;
+            namingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
+            namingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
+            namingTemplate = GetVal(settings, "NamingTemplate", "");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement: {ex.Message}");
+        }
+    }
+
+    private string GetVal(List<ServerSetting>? list, string key, string def) => list?.FirstOrDefault(s => s.Key == key)?.Value ?? def;
+
+    protected override void OnParametersSet()
+    {
+        if (Show && listeTousModeles != null)
+        {
+            if (Model.Id == 0)
+            {
+                selectedMarqueId = 0;
+                listeModelesFiltres = new List<Modele>();
+            }
+            else
+            {
+                var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
+                if (currentModele != null)
+                {
+                    selectedMarqueId = currentModele.MarqueId;
+                    FilterModeles();
+                }
+            }
+        }
+    }
+
+    private void OnMarqueChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            selectedMarqueId = id;
+            FilterModeles();
+            Model.ModeleId = 0;
+        }
+    }
+
+    private void FilterModeles()
+    {
+        if (listeTousModeles != null)
+        {
+            listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList();
+        }
+    }
+
+    // --- LOGIQUE DE NOMMAGE AUTO ---
+    // Ces méthodes sont appelées à chaque changement de valeur d'un champ clé
+
+    private async Task OnIpChanged(string val) { Model.AdresseIp = val; await CalculerNom(); }
+    private async Task OnCodeChanged(string val) { Model.Code = val; await CalculerNom(); }
+
+    private async Task OnModeleChanged(int val)
+    {
+        Model.ModeleId = val;
+        await CalculerNom();
+    }
+
+    private async Task OnLieuChanged(int val)
+    {
+        Model.EmplacementId = val;
+        await CalculerNom();
+    }
+
+    private async Task ForcerRefreshNom() => await CalculerNom();
+
+    private async Task CalculerNom()
+    {
+        // Si le nommage auto est désactivé, on ne touche à rien
+        if (!namingEnabled) return;
+
+        // Récupération des objets liés pour les Noms et Codes
+        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == Model.EmplacementId);
+        var modele = listeTousModeles?.FirstOrDefault(m => m.Id == Model.ModeleId);
+        var marque = listeMarques?.FirstOrDefault(m => m.Id == selectedMarqueId);
+
+        var dto = new
+        {
+            Template = namingTemplate,
+            Ip = Model.AdresseIp ?? "",
+            LieuNom = lieu?.Nom ?? "",
+            LieuCode = lieu?.Code ?? "",
+            ModeleNom = modele?.Nom ?? "",
+            MarqueNom = marque?.Nom ?? "",
+            ImpCode = Model.Code ?? ""
+        };
+
+        var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+        if (response.IsSuccessStatusCode)
+        {
+            using var jsonDoc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            if (jsonDoc.RootElement.TryGetProperty("generatedName", out var prop))
+            {
+                string generatedName = prop.GetString() ?? "";
+
+                // 1. On applique le nom d'affichage
+                Model.NomAffiche = generatedName;
+
+                // 2. On applique le nom de partage SI l'option est active dans les paramètres
+                // (Même si Model.EstPartagee est faux, on le prépare quand même)
+                if (namingSameShare)
+                {
+                    Model.NomPartage = generatedName;
+                }
+
+                // 3. IMPORTANT : On force l'interface à se rafraîchir pour voir le changement
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (Model.ModeleId == 0 || Model.EmplacementId == 0) return;
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task HandleDelete()
+    {
+        await OnDelete.InvokeAsync();
+    }
+}

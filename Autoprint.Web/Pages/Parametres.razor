@@ -1,0 +1,401 @@
+﻿@page "/parametres"
+@using Autoprint.Shared
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+
+<PageTitle>Configuration</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>⚙️ Configuration Serveur</h3>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+<ul class="nav nav-tabs mb-4 align-items-end">
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "stockage" ? "active" : "")" 
+                        type="button"
+                        style="cursor: pointer;"
+                        @onclick="@(() => activeTab = "stockage")">
+                    <i class="bi bi-hdd-fill me-2"></i>Stockage
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "smtp" ? "active" : "")" 
+                        type="button"
+                        style="cursor: pointer;"
+                        @onclick="@(() => activeTab = "smtp")">
+                    <i class="bi bi-envelope-at-fill me-2"></i>SMTP
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "nommage" ? "active" : "")" 
+                        type="button"
+                        style="cursor: pointer;"
+                        @onclick="@(() => activeTab = "nommage")">
+                    <i class="bi bi-tags-fill me-2"></i>Nommage
+                </button>
+            </li>
+        </ul>
+
+        <div class="card shadow-sm border-top-0" style="border-top-left-radius: 0; border-top-right-radius: 0;">
+            <div class="card-body p-4">
+                
+                @if (activeTab == "stockage")
+                {
+                    <h5 class="card-title mb-3 text-primary">Gestion du Repository de Pilotes</h5>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Chemin racine du stockage</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-folder2-open"></i></span>
+                                    <input class="form-control" @bind="model.DriverPath" placeholder="Ex: D:\AutoprintRepository" />
+                                </div>
+                                <div class="form-text">
+                                    Chemin local (C:\...) ou réseau (\\Serveur\Partage) où les fichiers .inf et .zip seront stockés.
+                                    Assurez-vous que le service Windows a les droits d'écriture.
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="moveFiles" @bind="model.MoveFiles" style="cursor: pointer;">
+                                    <label class="form-check-label fw-bold" for="moveFiles" style="cursor: pointer;">
+                                        Déplacer les fichiers existants lors de la sauvegarde ?
+                                    </label>
+                                    <div class="small mt-1">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> 
+                                        Si vous changez le chemin ci-dessus et cochez cette case, le serveur tentera de déplacer physiquement tous les drivers vers le nouveau dossier.
+                                        Cette opération peut prendre plusieurs minutes.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (activeTab == "smtp")
+                {
+                    <h5 class="card-title mb-3 text-primary">Configuration du Serveur de Mail</h5>
+                    <p class="text-muted mb-4">Nécessaire pour l'envoi d'alertes et de rapports automatiques.</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Serveur SMTP (Host)</label>
+                            <input class="form-control" @bind="model.SmtpHost" placeholder="smtp.office365.com" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Port</label>
+                            <input type="number" class="form-control" @bind="model.SmtpPort" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Utilisateur / Email</label>
+                            <input class="form-control" @bind="model.SmtpUser" autocomplete="off" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mot de passe</label>
+                            <input type="password" class="form-control" @bind="model.SmtpPass" autocomplete="new-password" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Adresse d'expédition (From)</label>
+                            <input class="form-control" @bind="model.SmtpFromAddress" placeholder="noreply@mondomaine.com" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="ssl" @bind="model.SmtpEnableSsl">
+                                <label class="form-check-label" for="ssl">Activer SSL / TLS (Sécurisé)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <div class="bg-light p-3 rounded border">
+                        <label class="form-label fw-bold">Tester la configuration</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Votre adresse email..." @bind="testEmailTo" />
+                            <button class="btn btn-outline-primary" type="button" @onclick="TesterEmail" disabled="@testEnCours">
+                                @if (testEnCours) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                                else { <i class="bi bi-send-fill me-2"></i> } 
+                                Envoyer un mail de test
+                            </button>
+                        </div>
+                        <small class="text-muted">Le test utilise les paramètres saisis ci-dessus (même non sauvegardés).</small>
+                    </div>
+                }
+
+@if (activeTab == "nommage")
+                {
+                    <h5 class="card-title mb-3 text-primary">Règles de Nommage Automatique</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="card bg-light border-primary mb-3">
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="namingOn" @bind="model.NamingEnabled">
+                                        <label class="form-check-label fw-bold" for="namingOn">Activer le nommage automatique</label>
+                                    </div>
+                                    <p class="small text-muted mb-0">
+                                        Verrouille le nom lors de la création et le génère selon le modèle.
+                                    </p>
+                                    <hr/>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="shareOn" @bind="model.NamingSameShare" disabled="@(!model.NamingEnabled)">
+                                        <label class="form-check-label" for="shareOn">Appliquer aussi au Nom de Partage</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Modèle de Nom (Template)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-magic"></i></span>
+                                    <input class="form-control font-monospace" @bind="model.NamingTemplate" disabled="@(!model.NamingEnabled)" placeholder="IMP_{LIEU_CODE}_{IP_LAST}" />
+                                </div>
+                                <div class="form-text mt-2">
+                                    <strong>Tokens disponibles :</strong><br />
+                                    <span class="badge bg-secondary me-1">{LIEU}</span> Nom complet<br />
+                                    <span class="badge bg-secondary me-1">{LIEU_CODE}</span> Code Lieu (ex: BAT1)<br />
+                                    <span class="badge bg-secondary me-1">{IMP_CODE}</span> Code Imprimante (ex: P01)<br />
+                                    <span class="badge bg-secondary me-1">{MARQUE}</span> / <span class="badge bg-secondary me-1">{MODELE}</span><br />
+                                    <span class="badge bg-secondary me-1">{IP}</span> / <span class="badge bg-secondary me-1">{IP_LAST}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-5">
+                            <div class="card bg-white border-info h-100">
+                                <div class="card-header bg-info text-white">
+                                    <i class="bi bi-eye"></i> Simulateur en direct
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted">Testez votre modèle sans sauvegarder.</p>
+                                    
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="small form-label">Lieu (Nom)</label>
+                                            <input class="form-control form-control-sm" @bind="testLieu" placeholder="Accueil" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small form-label">Lieu (Code)</label>
+                                            <input class="form-control form-control-sm" @bind="testLieuCode" placeholder="ACC" /> </div>
+                                        <div class="col-12">
+                                            <label class="small form-label">IP</label>
+                                            <input class="form-control form-control-sm" @bind="testIp" placeholder="192.168.1.55" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="small form-label">Code Imprimante</label>
+                                            <input class="form-control form-control-sm" @bind="testImpCode" placeholder="P001" /> </div>
+                                    </div>
+                                    
+                                    <div class="d-grid my-3">
+                                        <button class="btn btn-sm btn-outline-info" @onclick="SimulerNom">
+                                            <i class="bi bi-play-fill"></i> Générer l'aperçu
+                                        </button>
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(previewResult))
+                                    {
+                                        <div class="alert alert-success text-center mb-0 shadow-sm">
+                                            <div class="small text-muted mb-1">Résultat :</div>
+                                            <strong class="fs-5">@previewResult</strong>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+            </div>
+            
+            <div class="card-footer bg-white p-3 d-flex justify-content-end border-top">
+                 <button class="btn btn-success px-4" @onclick="Sauvegarder" disabled="@sauvegardeEnCours">
+                    @if (sauvegardeEnCours)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span> <span>Sauvegarde...</span>
+                    }
+                    else
+                    {
+                        <span><i class="bi bi-save me-2"></i> Enregistrer la configuration</span>
+                    }
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Gestion des onglets
+    private string activeTab = "stockage";
+
+    private SettingsModel model = new();
+    private bool isLoading = true;
+    private bool sauvegardeEnCours = false;
+    private bool testEnCours = false;
+    private string testEmailTo = "";
+
+    private class SettingsModel
+    {
+        public string DriverPath { get; set; } = "";
+        public bool MoveFiles { get; set; } = false;
+        public string SmtpHost { get; set; } = "";
+        public int SmtpPort { get; set; } = 25;
+        public string SmtpUser { get; set; } = "";
+        public string SmtpPass { get; set; } = "";
+        public bool SmtpEnableSsl { get; set; } = false;
+        public string SmtpFromAddress { get; set; } = "";
+        public string NamingTemplate { get; set; } = "";
+        public bool NamingEnabled { get; set; } = false;
+        public bool NamingSameShare { get; set; } = false;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settings = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            
+            model.DriverPath = GetVal(settings, "DriverPath");
+            model.SmtpHost = GetVal(settings, "SmtpHost");
+            model.SmtpPort = int.Parse(GetVal(settings, "SmtpPort", "25"));
+            model.SmtpUser = GetVal(settings, "SmtpUser");
+            model.SmtpPass = GetVal(settings, "SmtpPass");
+            model.SmtpEnableSsl = bool.Parse(GetVal(settings, "SmtpEnableSsl", "false"));
+            model.SmtpFromAddress = GetVal(settings, "SmtpFromAddress");
+            model.NamingTemplate = GetVal(settings, "NamingTemplate");
+            model.NamingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
+            model.NamingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
+        }
+        catch (Exception ex) 
+        { 
+            await JS.InvokeVoidAsync("alert", "Erreur chargement: " + ex.Message); 
+        }
+        finally 
+        { 
+            isLoading = false; 
+        }
+    }
+
+    private string testLieu = "Bureau Chef";
+    private string testLieuCode = "BUR";
+    private string testImpCode = "PRT01";
+    private string testIp = "10.0.0.12";
+    private string previewResult = "";
+
+    private string GetVal(List<ServerSetting>? list, string key, string def = "") 
+        => list?.FirstOrDefault(s => s.Key == key)?.Value ?? def;
+
+private async Task Sauvegarder()
+    {
+        sauvegardeEnCours = true;
+        try
+        {
+            // 1. Sauvegarde normale
+            var res = await Http.PostAsJsonAsync("api/Settings/Save", model);
+            
+            if (res.IsSuccessStatusCode) 
+            {
+                // 2. Logique de correction rétroactive
+                if (model.NamingEnabled)
+                {
+                    bool confirmer = await JS.InvokeAsync<bool>("confirm", 
+                        "Configuration sauvegardée !\n\n" +
+                        "Le nommage automatique est ACTIF.\n" +
+                        "Voulez-vous renommer immédiatement toutes les imprimantes existantes selon ces nouvelles règles ?");
+
+                    if (confirmer)
+                    {
+                        var resNaming = await Http.PostAsync("api/Naming/ApplyToAll", null);
+                        if (resNaming.IsSuccessStatusCode)
+                        {
+                             await JS.InvokeVoidAsync("alert", "Opération réussie : Les imprimantes ont été renommées.");
+                        }
+                        else
+                        {
+                             await JS.InvokeVoidAsync("alert", "Erreur lors du renommage : " + await resNaming.Content.ReadAsStringAsync());
+                        }
+                    }
+                    else
+                    {
+                        await JS.InvokeVoidAsync("alert", "Configuration sauvegardée. Les anciens noms sont conservés.");
+                    }
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("alert", "Configuration sauvegardée avec succès !");
+                }
+
+                model.MoveFiles = false; 
+            }
+            else 
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur: " + await res.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex) 
+        { 
+            await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message); 
+        }
+        finally 
+        { 
+            sauvegardeEnCours = false; 
+        }
+    }
+
+    private async Task TesterEmail()
+    {
+        if (string.IsNullOrEmpty(testEmailTo)) return;
+        testEnCours = true;
+        try 
+        {
+            var dto = new { Host = model.SmtpHost, Port = model.SmtpPort, User = model.SmtpUser, Password = model.SmtpPass, Ssl = model.SmtpEnableSsl, From = model.SmtpFromAddress, To = testEmailTo };
+            var res = await Http.PostAsJsonAsync("api/Settings/TestEmail", dto);
+            if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "✅ Email envoyé !");
+            else await JS.InvokeVoidAsync("alert", "❌ Erreur SMTP: " + await res.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message);
+        }
+        finally 
+        { 
+            testEnCours = false; 
+        }
+    }
+
+    private async Task SimulerNom()
+{
+    var dto = new {
+        Template = model.NamingTemplate,
+        Ip = testIp,
+        LieuNom = testLieu,
+        LieuCode = testLieuCode,
+        ImpCode = testImpCode,
+        ModeleNom = "LaserJet",
+        MarqueNom = "HP"
+    };
+    
+    var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+    if (response.IsSuccessStatusCode)
+    {
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        previewResult = result.GetProperty("generatedName").GetString() ?? "";
+    }
+}
+}

@@ -1,13 +1,16 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Autoprint.Server.Models
+namespace Autoprint.Shared
 {
     public class Imprimante : BaseEntity
     {
         [Required]
         [MaxLength(200)]
         public string NomAffiche { get; set; } = string.Empty;
+
+        [MaxLength(50)]
+        public string? Code { get; set; }
 
         [Required]
         [MaxLength(50)]
@@ -17,18 +20,14 @@ namespace Autoprint.Server.Models
         public string? NomPartage { get; set; }
         public string? Commentaire { get; set; }
 
-        public bool EstParDefaut { get; set; } = false;
-
         // Relations
         public int EmplacementId { get; set; }
         public Emplacement? Emplacement { get; set; }
 
         [MaxLength(100)]
-        public string? Localisation { get; set; } // Ex: "Bureau 402", "Accueil"
+        public string? Localisation { get; set; }
         public int ModeleId { get; set; }
         public Modele? Modele { get; set; }
 
-        public int PiloteId { get; set; }
-        public Pilote? Pilote { get; set; }
     }
 }

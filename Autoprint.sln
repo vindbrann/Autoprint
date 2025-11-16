@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36705.20 d17.14
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11205.157 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Server", "Autoprint.Server\Autoprint.Server.csproj", "{071BB9F7-5ED4-4566-8D85-B856EF1FD12F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Web", "Autoprint.Web\Autoprint.Web.csproj", "{B224A00E-D95B-4428-A59D-558B35789D12}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Shared", "Autoprint.Shared\Autoprint.Shared.csproj", "{233EFFA8-D172-4352-B17B-3216C8E40535}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{071BB9F7-5ED4-4566-8D85-B856EF1FD12F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{071BB9F7-5ED4-4566-8D85-B856EF1FD12F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{071BB9F7-5ED4-4566-8D85-B856EF1FD12F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B224A00E-D95B-4428-A59D-558B35789D12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B224A00E-D95B-4428-A59D-558B35789D12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B224A00E-D95B-4428-A59D-558B35789D12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B224A00E-D95B-4428-A59D-558B35789D12}.Release|Any CPU.Build.0 = Release|Any CPU
+		{233EFFA8-D172-4352-B17B-3216C8E40535}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{233EFFA8-D172-4352-B17B-3216C8E40535}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{233EFFA8-D172-4352-B17B-3216C8E40535}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{233EFFA8-D172-4352-B17B-3216C8E40535}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

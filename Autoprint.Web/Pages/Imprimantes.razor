@@ -1,0 +1,172 @@
+﻿@page "/imprimantes"
+@using Autoprint.Shared
+@inject HttpClient Http
+
+<PageTitle>Gestion des Imprimantes</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>🖨️ Parc d'Imprimantes</h3>
+    <button class="btn btn-success" @onclick="OuvrirAjout">
+        <i class="bi bi-plus-circle"></i> Ajouter une imprimante
+    </button>
+</div>
+
+@if (messageErreur != null)
+{
+    <div class="alert alert-danger">@messageErreur</div>
+}
+else if (imprimantes == null)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else
+{
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+<tr>
+                <th>Nom</th>
+                <th>Code</th> <th>Modèle</th>
+                <th>IP</th>
+                <th>Lieu (Emplacement)</th>
+                <th>Partage</th>
+                <th>Localisation (Détail)</th>
+                <th style="width: 150px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var imp in imprimantes)
+            {
+                <tr>
+                    <td><strong>@imp.NomAffiche</strong></td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(imp.Code))
+                        {
+                            <span class="badge bg-light text-dark border">@imp.Code</span>
+                        }
+                    </td>
+                    <td>
+                        @if (imp.Modele != null)
+                        {
+                            <span class="badge bg-primary">@imp.Modele.Nom</span>
+                        }
+                    </td>
+                    <td><code>@imp.AdresseIp</code></td>
+                    <td>
+                        @if (imp.Emplacement != null)
+                        {
+                            <span class="badge bg-info text-dark">@imp.Emplacement.Nom</span>
+                        }
+                    </td>
+                    <td>
+                        @if (imp.EstPartagee)
+                        {
+                            <span class="badge bg-success">Oui (@imp.NomPartage)</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Non</span>
+                        }
+                    </td>
+                    <td>@imp.Localisation</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(imp)">
+                            <i class="bi bi-pencil"></i> Modifier
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<ImprimanteModal Show="afficherModal"
+                 Model="imprimanteEnCours"
+                 OnCancel="FermerModal"
+                 OnSave="Sauvegarder"
+                 OnDelete="Supprimer" />
+
+@code {
+    private List<Imprimante>? imprimantes;
+    private Imprimante imprimanteEnCours = new();
+    private bool afficherModal = false;
+    private string? messageErreur;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerListe();
+    }
+
+    private async Task ChargerListe()
+    {
+        try
+        {
+            imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes");
+        }
+        catch (Exception ex)
+        {
+            messageErreur = "Erreur chargement : " + ex.Message;
+        }
+    }
+
+    // --- GESTION DE LA MODALE ---
+
+    private void OuvrirAjout()
+    {
+        // Initialisation pour une nouvelle imprimante
+        // On met les IDs à 0 pour forcer le choix dans la liste déroulante
+        imprimanteEnCours = new Imprimante { ModeleId = 0, EmplacementId = 0 };
+        afficherModal = true;
+    }
+
+    private void OuvrirEdition(Imprimante imp)
+    {
+        // Copie de l'objet (sans PiloteId qui n'existe plus)
+        imprimanteEnCours = new Imprimante
+        {
+            Id = imp.Id,
+            NomAffiche = imp.NomAffiche,
+            Code = imp.Code,
+            AdresseIp = imp.AdresseIp,
+            Localisation = imp.Localisation,
+            EstPartagee = imp.EstPartagee,
+            NomPartage = imp.NomPartage,
+            Commentaire = imp.Commentaire,
+            ModeleId = imp.ModeleId,
+            EmplacementId = imp.EmplacementId
+            // PiloteId supprimé ici !
+        };
+        afficherModal = true;
+    }
+
+    private void FermerModal()
+    {
+        afficherModal = false;
+    }
+
+    // --- ACTIONS CRUD ---
+
+    private async Task Sauvegarder()
+    {
+        if (imprimanteEnCours.Id == 0)
+        {
+            await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEnCours);
+        }
+        else
+        {
+            await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEnCours.Id}", imprimanteEnCours);
+        }
+
+        afficherModal = false;
+        await ChargerListe();
+    }
+
+    private async Task Supprimer()
+    {
+        if (imprimanteEnCours.Id > 0)
+        {
+            await Http.DeleteAsync($"api/Imprimantes/{imprimanteEnCours.Id}");
+            afficherModal = false;
+            await ChargerListe();
+        }
+    }
+}

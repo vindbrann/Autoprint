@@ -1,0 +1,121 @@
+﻿@using Autoprint.Shared
+@inject HttpClient Http
+
+@if (Show)
+{
+    <div class="modal-backdrop fade show"></div>
+
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(Model.Id == 0 ? "➕ Nouveau Modèle" : "✏️ Modifier Modèle")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label">Nom du Modèle</label>
+                            <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: LaserJet Pro 400" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Marque</label>
+                            <InputSelect class="form-select" @bind-Value="Model.MarqueId">
+                                <option value="0">-- Choisir une marque --</option>
+                                @if (listeMarques != null)
+                                {
+                                    @foreach (var m in listeMarques)
+                                    {
+                                        <option value="@m.Id">@m.Nom</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pilote par défaut</label>
+                            <InputSelect class="form-select" @bind-Value="Model.PiloteId">
+                                <option value="">-- Choisir un pilote --</option>
+                                @if (listePilotes != null)
+                                {
+                                    @foreach (var p in listePilotes)
+                                    {
+                                        <option value="@p.Id">@p.Nom</option>
+                                    }
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Le pilote choisi ici sera automatiquement appliqué à toutes les imprimantes de ce modèle.</small>
+                        </div>
+
+                        <button type="submit" style="display:none" id="submitModeleBtn"></button>
+                    </EditForm>
+                </div>
+
+                <div class="modal-footer justify-content-between">
+                    @if (Model.Id != 0)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
+                    }
+                    else
+                    {
+                        <div></div>
+                    }
+
+                    <div>
+                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                        <label for="submitModeleBtn" class="btn btn-primary">💾 Enregistrer</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public Modele Model { get; set; } = new();
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private List<Marque>? listeMarques;
+    private List<Pilote>? listePilotes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // On charge les Marques ET les Pilotes pour les listes déroulantes
+            var t1 = Http.GetFromJsonAsync<List<Marque>>("api/Marques");
+            var t2 = Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes");
+
+            await Task.WhenAll(t1, t2);
+
+            listeMarques = t1.Result;
+            listePilotes = t2.Result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erreur chargement données: " + ex.Message);
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (Model.MarqueId == 0) return;
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task HandleDelete()
+    {
+        await OnDelete.InvokeAsync();
+    }
+}

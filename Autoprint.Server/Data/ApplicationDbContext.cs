@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Models;
+using Autoprint.Shared;
 
 namespace Autoprint.Server.Data 
 {
@@ -58,7 +58,13 @@ namespace Autoprint.Server.Data
                 new ServerSetting { Key = "SmtpDisplayName", Value = "Autoprint Server", Description = "Nom Affiché", Type = "STRING" },
 
                 // 5. Système
-                new ServerSetting { Key = "DriverPath", Value = "drivers", Description = "Dossier Pilotes", Type = "STRING" }
+                new ServerSetting { Key = "DriverPath", Value = "drivers", Description = "Dossier Pilotes", Type = "STRING" },
+
+                // 6. Nommage
+                new ServerSetting { Key = "NamingTemplate", Value = "IMP_{LIEU}_{MODELE}", Description = "Gabarit de nommage (Tokens: {LIEU}, {MODELE}, {MARQUE}, {IP}, {IP_LAST})", Type = "STRING"},
+                new ServerSetting { Key = "NamingEnabled", Value = "false", Description = "Activer le nommage automatique", Type = "BOOL" },
+                new ServerSetting { Key = "NamingSameShare", Value = "false", Description = "Forcer le nom de partage identique au nom d'imprimante", Type = "BOOL" }
+
             );
         }
     }

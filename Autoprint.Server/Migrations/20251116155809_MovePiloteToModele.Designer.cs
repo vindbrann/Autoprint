@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251116155809_MovePiloteToModele")]
+    partial class MovePiloteToModele
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,10 +73,6 @@ namespace Autoprint.Server.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
 
@@ -100,10 +99,6 @@ namespace Autoprint.Server.Migrations
 
                     b.Property<string>("AdresseIp")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Code")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -178,10 +173,6 @@ namespace Autoprint.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
 
@@ -227,9 +218,6 @@ namespace Autoprint.Server.Migrations
 
                     b.Property<DateTime>("DateModification")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("EstInstalle")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
@@ -347,27 +335,6 @@ namespace Autoprint.Server.Migrations
                             Description = "Dossier Pilotes",
                             Type = "STRING",
                             Value = "drivers"
-                        },
-                        new
-                        {
-                            Key = "NamingTemplate",
-                            Description = "Gabarit de nommage (Tokens: {LIEU}, {MODELE}, {MARQUE}, {IP}, {IP_LAST})",
-                            Type = "STRING",
-                            Value = "IMP_{LIEU}_{MODELE}"
-                        },
-                        new
-                        {
-                            Key = "NamingEnabled",
-                            Description = "Activer le nommage automatique",
-                            Type = "BOOL",
-                            Value = "false"
-                        },
-                        new
-                        {
-                            Key = "NamingSameShare",
-                            Description = "Forcer le nom de partage identique au nom d'imprimante",
-                            Type = "BOOL",
-                            Value = "false"
                         });
                 });
 

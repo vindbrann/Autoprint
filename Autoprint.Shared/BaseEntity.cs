@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Autoprint.Server.Models
+namespace Autoprint.Shared
 {
     public abstract class BaseEntity
     {

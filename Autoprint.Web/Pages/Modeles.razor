@@ -1,0 +1,127 @@
+﻿@page "/modeles"
+@using Autoprint.Shared
+@inject HttpClient Http
+
+<PageTitle>Gestion des Modèles</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>📄 Gestion des Modèles</h3>
+    <button class="btn btn-success" @onclick="OuvrirAjout">
+        <i class="bi bi-plus-circle"></i> Nouveau Modèle
+    </button>
+</div>
+
+@if (messageErreur != null)
+{
+    <div class="alert alert-danger">@messageErreur</div>
+}
+else if (modeles == null)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else
+{
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Nom du Modèle</th>
+                <th>Marque</th>
+                <th style="width: 150px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in modeles)
+            {
+                <tr>
+                    <td>@m.Nom</td>
+                    <td>
+                        @if (m.Marque != null)
+                        {
+                            <span class="badge bg-secondary">@m.Marque.Nom</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">ID: @m.MarqueId</span>
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(m)">
+                            <i class="bi bi-pencil"></i> Modifier
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<ModeleModal Show="afficherModal"
+             Model="modeleEnCours"
+             OnCancel="FermerModal"
+             OnSave="Sauvegarder"
+             OnDelete="Supprimer" />
+
+@code {
+    private List<Modele>? modeles;
+    private Modele modeleEnCours = new();
+    private bool afficherModal = false;
+    private string? messageErreur;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerListe();
+    }
+
+    private async Task ChargerListe()
+    {
+        try
+        {
+            modeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
+        }
+        catch (Exception ex)
+        {
+            messageErreur = "Erreur : " + ex.Message;
+        }
+    }
+
+    private void OuvrirAjout()
+    {
+        // On initialise avec MarqueId = 0 (ou une valeur par défaut)
+        modeleEnCours = new Modele { MarqueId = 0 };
+        afficherModal = true;
+    }
+
+    private void OuvrirEdition(Modele m)
+    {
+        modeleEnCours = new Modele
+        {
+            Id = m.Id,
+            Nom = m.Nom,
+            MarqueId = m.MarqueId
+        };
+        afficherModal = true;
+    }
+
+    private void FermerModal() => afficherModal = false;
+
+    private async Task Sauvegarder()
+    {
+        if (modeleEnCours.Id == 0)
+            await Http.PostAsJsonAsync("api/Modeles", modeleEnCours);
+        else
+            await Http.PutAsJsonAsync($"api/Modeles/{modeleEnCours.Id}", modeleEnCours);
+
+        afficherModal = false;
+        await ChargerListe();
+    }
+
+    private async Task Supprimer()
+    {
+        if (modeleEnCours.Id > 0)
+        {
+            await Http.DeleteAsync($"api/Modeles/{modeleEnCours.Id}");
+            afficherModal = false;
+            await ChargerListe();
+        }
+    }
+}

@@ -1,0 +1,81 @@
+﻿@using Autoprint.Shared
+
+@if (Show)
+{
+    <div class="modal-backdrop fade show"></div>
+
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(Model.Id == 0 ? "📍 Nouveau Lieu" : "✏️ Modifier Lieu")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Nom du Lieu <span class="text-danger">*</span></label>
+                                <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: Siège Social" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Code</label>
+                                <InputText class="form-control" @bind-Value="Model.Code" placeholder="Ex: SIEGE" />
+                                <small class="text-muted" style="font-size: 0.7rem">Pour le nommage auto</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Plage IP (CIDR) <span class="text-danger">*</span></label>
+                            <InputText class="form-control" @bind-Value="Model.CidrIpv4" placeholder="Ex: 192.168.10.0/24" />
+                            <small class="text-muted">Sert à la détection automatique du lieu.</small>
+                        </div>
+
+                        <button type="submit" style="display:none" id="submitLieuBtn"></button>
+                    </EditForm>
+                </div>
+
+                <div class="modal-footer justify-content-between">
+                    @if (Model.Id != 0)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
+                    }
+                    else
+                    {
+                        <div></div>
+                    }
+
+                    <div>
+                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                        <label for="submitLieuBtn" class="btn btn-primary">💾 Enregistrer</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public Emplacement Model { get; set; } = new();
+
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task HandleDelete()
+    {
+        await OnDelete.InvokeAsync();
+    }
+}
