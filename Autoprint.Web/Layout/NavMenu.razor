@@ -1,65 +1,111 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Autoprint.Web.Services
+@inject IAuthService AuthService
+@inject NavigationManager NavManager
+
+<div class="top-row ps-3 navbar navbar-dark border-bottom border-secondary bg-black bg-opacity-25">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Autoprint Admin</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+        <a class="navbar-brand d-flex align-items-center" href="">
+            <i class="bi bi-hdd-network-fill me-3 fs-4"></i>
+            <span class="fw-bold">Autoprint</span>
+        </a>
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Accueil
-            </NavLink>
-        </div>
+<div class="d-flex flex-column" style="height: calc(100vh - 3.5rem);">
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="imprimantes">
-                <span class="bi bi-printer-fill" aria-hidden="true"></span> Imprimantes
-            </NavLink>
-        </div>
+    <div class="flex-grow-1 overflow-auto custom-scrollbar">
+        <nav class="flex-column pt-3">
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="lieux">
-                <span class="bi bi-geo-alt-fill" aria-hidden="true"></span> Lieux
-            </NavLink>
-        </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-speedometer2" aria-hidden="true"></span> Tableau de bord
+                </NavLink>
+            </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="marques">
-                <span class="bi bi-tags-fill" aria-hidden="true"></span> Marques
-            </NavLink>
-        </div>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="nav-item px-3 mt-2">
+                        <span class="text-uppercase text-white-50 fw-bold small ps-3" style="font-size: 0.65rem; letter-spacing: 1px;">Gestion</span>
+                    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="modeles">
-                <span class="bi bi-file-earmark-text-fill" aria-hidden="true"></span> Modèles
-            </NavLink>
-        </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="imprimantes">
+                            <span class="bi bi-printer" aria-hidden="true"></span> Imprimantes
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="lieux">
+                            <span class="bi bi-geo-alt" aria-hidden="true"></span> Lieux
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="marques">
+                            <span class="bi bi-tags" aria-hidden="true"></span> Marques
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="modeles">
+                            <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="pilotes">
+                            <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
+                        </NavLink>
+                    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="pilotes">
-                <span class="bi bi-usb-drive-fill" aria-hidden="true"></span> Pilotes
-            </NavLink>
-        </div>
+                    <div class="nav-item px-3 mt-4">
+                        <span class="text-uppercase text-white-50 fw-bold small ps-3" style="font-size: 0.65rem; letter-spacing: 1px;">Système</span>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="parametres">
+                            <span class="bi bi-gear" aria-hidden="true"></span> Paramètres
+                        </NavLink>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </nav>
+    </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="parametres">
-                <span class="bi bi-gear-fill" aria-hidden="true"></span> Paramètres
-            </NavLink>
-        </div>
-    </nav>
+    <AuthorizeView>
+        <Authorized>
+            <div class="p-3 bg-black bg-opacity-50 border-top border-secondary mt-auto">
+                <div class="d-flex align-items-center justify-content-between px-1">
+
+                    <div class="d-flex align-items-center overflow-hidden">
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
+                             style="width: 36px; height: 36px; min-width: 36px;">
+                            <span class="fs-5">@GetInitials(context.User.Identity?.Name)</span>
+                        </div>
+                        <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
+                            <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;" title="@context.User.Identity?.Name">
+                                @context.User.Identity?.Name
+                            </span>
+                            <span class="text-white-50 small" style="font-size: 0.7rem;">Connecté</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-link text-danger p-0 ms-2" @onclick="BeginLogout" title="Déconnecter">
+                        <i class="bi bi-power fs-5"></i>
+                    </button>
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+
 </div>
 
 @code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
+    private async Task BeginLogout()
     {
-        collapseNavMenu = !collapseNavMenu;
+        await AuthService.Logout();
+        NavManager.NavigateTo("/login");
+    }
+
+    // Petite fonction bonus pour avoir les initiales (ex: "admin" -> "A")
+    private string GetInitials(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        return name.Substring(0, 1).ToUpper();
     }
 }

@@ -1,0 +1,72 @@
+﻿@page "/login"
+@using Autoprint.Shared
+@using Autoprint.Web.Services
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-7 col-lg-5">
+
+            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+
+                <div class="bg-dark text-white text-center py-5">
+                    <i class="bi bi-hdd-network-fill" style="font-size: 4rem;"></i>
+                    <h2 class="fw-bold mt-3">Autoprint Serveur</h2>
+                </div>
+
+                <div class="card-body p-5 bg-white">
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                            <i class="bi bi-exclamation-circle-fill me-2"></i>
+                            <div>@ErrorMessage</div>
+                        </div>
+                    }
+
+                    <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
+
+                        <div class="form-floating mb-4">
+                            <InputText @bind-Value="loginRequest.Username" id="username" class="form-control form-control-lg" placeholder="Nom d'utilisateur" />
+                            <label for="username" class="text-muted">Identifiant</label>
+                        </div>
+
+                        <div class="form-floating mb-4">
+                            <InputText @bind-Value="loginRequest.Password" type="password" id="password" class="form-control form-control-lg" placeholder="Mot de passe" />
+                            <label for="password" class="text-muted">Mot de passe</label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                                SE CONNECTER
+                            </button>
+                        </div>
+
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginRequest = new LoginRequest();
+    private string ErrorMessage = string.Empty;
+
+    private async Task HandleLogin()
+    {
+        ErrorMessage = string.Empty;
+        var result = await AuthService.Login(loginRequest);
+
+        if (!string.IsNullOrEmpty(result.Token))
+        {
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            ErrorMessage = "Identifiants incorrects. Veuillez réessayer.";
+        }
+    }
+}
