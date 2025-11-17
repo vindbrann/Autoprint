@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Autoprint.Shared; // Assure-toi que tes entités de base sont ici
-using Autoprint.Server.Models.Security; // On ajoute le namespace des nouvelles classes
+using Autoprint.Shared;
+using Autoprint.Server.Models.Security;
 
 namespace Autoprint.Server.Data
 {
@@ -44,17 +44,55 @@ namespace Autoprint.Server.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- CONFIGURATION DES CLÉS COMPOSITES (Many-to-Many) ---
             modelBuilder.Entity<UserRole>().HasKey(ur => new { ur.UserId, ur.RoleId });
             modelBuilder.Entity<RolePermission>().HasKey(rp => new { rp.RoleId, rp.PermissionId });
 
             // --- SEEDING (Données de démarrage pour la sécurité) ---
 
-            // 1. Créer les permissions de base (Liste non exhaustive, on en ajoutera)
             modelBuilder.Entity<Permission>().HasData(
-                new Permission { Id = 1, Code = "ADMIN_ACCESS", Description = "Accès complet au système" },
+                // --- ADMINISTRATION GLOBALE ---
+                new Permission { Id = 1, Code = "ADMIN_ACCESS", Description = "Accès complet (SuperAdmin)" },
+
+                // --- IMPRIMANTES ---
                 new Permission { Id = 2, Code = "PRINTER_READ", Description = "Voir les imprimantes" },
-                new Permission { Id = 3, Code = "PRINTER_WRITE", Description = "Modifier les imprimantes" }
+                new Permission { Id = 3, Code = "PRINTER_WRITE", Description = "Ajouter/Modifier des imprimantes" },
+                new Permission { Id = 4, Code = "PRINTER_DELETE", Description = "Supprimer des imprimantes" },
+
+                // --- LIEUX (Locations) ---
+                new Permission { Id = 5, Code = "LOCATION_READ", Description = "Voir les lieux" },
+                new Permission { Id = 6, Code = "LOCATION_WRITE", Description = "Ajouter/Modifier des lieux" },
+                new Permission { Id = 7, Code = "LOCATION_DELETE", Description = "Supprimer des lieux" },
+
+                // --- PILOTES & MODÈLES (Drivers) ---
+                new Permission { Id = 8, Code = "DRIVER_READ", Description = "Voir les pilotes et modèles" },
+                new Permission { Id = 9, Code = "DRIVER_WRITE", Description = "Uploader/Modifier métadonnées pilotes" },
+                new Permission { Id = 10, Code = "DRIVER_DELETE", Description = "Supprimer pilotes de la BDD" },
+                // NOUVEAU : Actions Système Windows
+                new Permission { Id = 15, Code = "DRIVER_INSTALL", Description = "Installer dans Windows (PnPUtil)" },
+                new Permission { Id = 16, Code = "DRIVER_UNINSTALL", Description = "Désinstaller de Windows" },
+
+                // --- UTILISATEURS (Users) ---
+                new Permission { Id = 11, Code = "USER_READ", Description = "Voir les utilisateurs" },
+                new Permission { Id = 12, Code = "USER_WRITE", Description = "Créer/Modifier utilisateurs" },
+                new Permission { Id = 13, Code = "USER_DELETE", Description = "Supprimer utilisateurs" },
+
+                // --- RÔLES & PERMISSIONS (Roles) ---
+                new Permission { Id = 17, Code = "ROLE_READ", Description = "Voir les rôles et permissions" },
+                new Permission { Id = 18, Code = "ROLE_WRITE", Description = "Créer/Modifier des rôles" },
+                new Permission { Id = 19, Code = "ROLE_DELETE", Description = "Supprimer des rôles" },
+
+                // --- MARQUES (Brands) ---
+                new Permission { Id = 20, Code = "BRAND_READ", Description = "Voir les marques" },
+                new Permission { Id = 21, Code = "BRAND_WRITE", Description = "Ajouter/Modifier des marques" },
+                new Permission { Id = 22, Code = "BRAND_DELETE", Description = "Supprimer des marques" },
+
+                // --- MODÈLES (Models) ---
+                new Permission { Id = 23, Code = "MODEL_READ", Description = "Voir les modèles" },
+                new Permission { Id = 24, Code = "MODEL_WRITE", Description = "Ajouter/Modifier des modèles" },
+                new Permission { Id = 25, Code = "MODEL_DELETE", Description = "Supprimer des modèles" },
+
+                // --- PARAMÈTRES SERVEUR (Settings) ---
+                new Permission { Id = 14, Code = "SETTINGS_MANAGE", Description = "Gérer la configuration serveur (SMTP, Chemins...)" }
             );
 
             // 2. Créer un Rôle "Super Admin"
@@ -62,26 +100,28 @@ namespace Autoprint.Server.Data
                 new Role { Id = 1, Name = "SuperAdmin", Description = "Administrateur Global" }
             );
 
-            // 3. Donner la permission ADMIN au rôle SuperAdmin
-            modelBuilder.Entity<RolePermission>().HasData(
-                new RolePermission { RoleId = 1, PermissionId = 1 }
-            );
+            // 3. Assigner TOUTES les permissions
+            var adminPermissions = new List<RolePermission>();
+            for (int i = 1; i <= 25; i++)
+            {
+                adminPermissions.Add(new RolePermission { RoleId = 1, PermissionId = i });
+            }
+            modelBuilder.Entity<RolePermission>().HasData(adminPermissions);
 
             // 4. Créer un Utilisateur Local par défaut
-            // Login: "admin" / Pass: "admin123" (Hashé en SHA256 pour l'exemple, on fera mieux plus tard)
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
                     Id = 1,
                     Username = "admin",
                     DisplayName = "Administrateur Local",
-                    PasswordHash = "jZae727K08KaOmKSgOaGzww/XVqGr/PKEgIMkjrcbJI=",
+                    PasswordHash = "JAvlGPq9JyTdtvBO6x2llnRI1+gxwIyPqCKAn3THIKk=",
                     IsAdUser = false,
                     IsActive = true
                 }
             );
 
-            // 5. Mettre l'admin dans le groupe Admin
+            // 5. Mettre l'admin dans le groupe SuperAdmin
             modelBuilder.Entity<UserRole>().HasData(
                 new UserRole { UserId = 1, RoleId = 1 }
             );

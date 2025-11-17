@@ -1,12 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "MODEL_READ")]
     public class ModelesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -43,6 +45,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Modeles
         [HttpPost]
+        [Authorize(Policy = "MODEL_WRITE")]
         public async Task<ActionResult<Modele>> PostModele(Modele modele)
         {
             _context.Modeles.Add(modele);
@@ -59,6 +62,7 @@ namespace Autoprint.Server.Controllers
 
         // PUT: api/Modeles/5
         [HttpPut("{id}")]
+        [Authorize(Policy = "MODEL_WRITE")]
         public async Task<IActionResult> PutModele(int id, Modele modele)
         {
             if (id != modele.Id) return BadRequest();
@@ -80,6 +84,7 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Modeles/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "MODEL_DELETE")]
         public async Task<IActionResult> DeleteModele(int id)
         {
             var modele = await _context.Modeles.FindAsync(id);

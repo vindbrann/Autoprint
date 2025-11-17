@@ -2,16 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Autoprint.Server.Data;
+using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
-using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "LOCATION_READ")]
     public class EmplacementsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -45,6 +47,7 @@ namespace Autoprint.Server.Controllers
         // PUT: api/Emplacements/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "LOCATION_WRITE")]
         public async Task<IActionResult> PutEmplacement(int id, Emplacement emplacement)
         {
             if (id != emplacement.Id)
@@ -76,6 +79,7 @@ namespace Autoprint.Server.Controllers
         // POST: api/Emplacements
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "LOCATION_WRITE")]
         public async Task<ActionResult<Emplacement>> PostEmplacement(Emplacement emplacement)
         {
             _context.Emplacements.Add(emplacement);
@@ -86,6 +90,7 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Emplacements/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "LOCATION_DELETE")]
         public async Task<IActionResult> DeleteEmplacement(int id)
         {
             var emplacement = await _context.Emplacements.FindAsync(id);

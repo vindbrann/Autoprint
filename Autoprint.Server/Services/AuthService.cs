@@ -162,7 +162,8 @@ namespace Autoprint.Server.Services
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim("DisplayName", user.DisplayName ?? "")
             };
             foreach (var perm in permissions) claims.Add(new Claim("Permission", perm));
 

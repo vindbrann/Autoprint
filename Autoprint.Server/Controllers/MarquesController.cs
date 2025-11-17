@@ -2,16 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Autoprint.Server.Data;
+using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
-using Autoprint.Shared;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "BRAND_READ")]
     public class MarquesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -45,6 +47,7 @@ namespace Autoprint.Server.Controllers
         // PUT: api/Marques/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
+        [Authorize(Policy = "BRAND_WRITE")]
         public async Task<IActionResult> PutMarque(int id, Marque marque)
         {
             if (id != marque.Id)
@@ -76,6 +79,7 @@ namespace Autoprint.Server.Controllers
         // POST: api/Marques
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [Authorize(Policy = "BRAND_WRITE")]
         public async Task<ActionResult<Marque>> PostMarque(Marque marque)
         {
             _context.Marques.Add(marque);
@@ -86,6 +90,7 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Marques/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "BRAND_DELETE")]
         public async Task<IActionResult> DeleteMarque(int id)
         {
             var marque = await _context.Marques.FindAsync(id);

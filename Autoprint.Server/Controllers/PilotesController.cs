@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Server.Services; // Pour SettingsService et DriverService
 using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "DRIVER_READ")]
     public class PilotesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -23,6 +25,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Pilotes/Upload
         [HttpPost("Upload")]
+        [Authorize(Policy = "DRIVER_WRITE")]
         public async Task<IActionResult> Upload(IFormFile file, [FromForm] string nomPilote, [FromForm] string version)
         {
             if (file == null || file.Length == 0) return BadRequest("Fichier vide.");
@@ -61,6 +64,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Pilotes/Install/5
         [HttpPost("Install/{id}")]
+        [Authorize(Policy = "DRIVER_INSTALL")]
         public async Task<IActionResult> InstallDriver(int id)
         {
             var pilote = await _context.Pilotes.FindAsync(id);
@@ -84,6 +88,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Pilotes/Uninstall/5
         [HttpPost("Uninstall/{id}")]
+        [Authorize(Policy = "DRIVER_UNINSTALL")]
         public async Task<IActionResult> UninstallDriver(int id)
         {
             var pilote = await _context.Pilotes.FindAsync(id);
@@ -118,6 +123,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Pilotes (Création en base après upload)
         [HttpPost]
+        [Authorize(Policy = "DRIVER_WRITE")]
         public async Task<ActionResult<Pilote>> PostPilote(Pilote pilote)
         {
             _context.Pilotes.Add(pilote);
@@ -127,6 +133,7 @@ namespace Autoprint.Server.Controllers
 
         // PUT: api/Pilotes/5
         [HttpPut("{id}")]
+        [Authorize(Policy = "DRIVER_WRITE")]
         public async Task<IActionResult> PutPilote(int id, Pilote pilote)
         {
             if (id != pilote.Id) return BadRequest();
@@ -137,6 +144,7 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Pilotes/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "DRIVER_DELETE")]
         public async Task<IActionResult> DeletePilote(int id)
         {
             // Sécurité

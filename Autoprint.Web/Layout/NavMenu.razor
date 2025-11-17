@@ -16,52 +16,87 @@
     <div class="flex-grow-1 overflow-auto custom-scrollbar">
         <nav class="flex-column pt-3">
 
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                    <span class="bi bi-speedometer2" aria-hidden="true"></span> Tableau de bord
-                </NavLink>
-            </div>
-
             <AuthorizeView>
-                <Authorized>
+                <Authorized Context="menuAuth">
+
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Tableau de bord
+                        </NavLink>
+                    </div>
+
                     <div class="nav-item px-3 mt-2">
                         <span class="text-uppercase text-white-50 fw-bold small ps-3" style="font-size: 0.65rem; letter-spacing: 1px;">Gestion</span>
                     </div>
 
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="imprimantes">
-                            <span class="bi bi-printer" aria-hidden="true"></span> Imprimantes
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="lieux">
-                            <span class="bi bi-geo-alt" aria-hidden="true"></span> Lieux
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="marques">
-                            <span class="bi bi-tags" aria-hidden="true"></span> Marques
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="modeles">
-                            <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="pilotes">
-                            <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
-                        </NavLink>
-                    </div>
+                    <AuthorizeView Policy="PRINTER_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="imprimantes">
+                                <span class="bi bi-printer" aria-hidden="true"></span> Imprimantes
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="LOCATION_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="lieux">
+                                <span class="bi bi-geo-alt" aria-hidden="true"></span> Lieux
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="BRAND_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="marques">
+                                <span class="bi bi-tags" aria-hidden="true"></span> Marques
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="MODEL_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="modeles">
+                                <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="DRIVER_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="pilotes">
+                                <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
 
                     <div class="nav-item px-3 mt-4">
                         <span class="text-uppercase text-white-50 fw-bold small ps-3" style="font-size: 0.65rem; letter-spacing: 1px;">Système</span>
                     </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="parametres">
-                            <span class="bi bi-gear" aria-hidden="true"></span> Paramètres
-                        </NavLink>
-                    </div>
+
+                    <AuthorizeView Policy="SETTINGS_MANAGE">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="parametres">
+                                <span class="bi bi-gear" aria-hidden="true"></span> Paramètres
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="USER_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="users">
+                                <span class="oi oi-people" aria-hidden="true"></span> Utilisateurs
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="ROLE_READ">
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="roles">
+                                <span class="oi oi-shield" aria-hidden="true"></span> Rôles & Droits
+                            </NavLink>
+                        </div>
+                    </AuthorizeView>
+
                 </Authorized>
             </AuthorizeView>
         </nav>
@@ -75,11 +110,13 @@
                     <div class="d-flex align-items-center overflow-hidden">
                         <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
                              style="width: 36px; height: 36px; min-width: 36px;">
-                            <span class="fs-5">@GetInitials(context.User.Identity?.Name)</span>
+                            <span class="fs-5">@GetInitials(GetNomAffichage(context.User))</span>
                         </div>
+
                         <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
-                            <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;" title="@context.User.Identity?.Name">
-                                @context.User.Identity?.Name
+                            <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;"
+                                  title="@GetNomAffichage(context.User)">
+                                @GetNomAffichage(context.User)
                             </span>
                             <span class="text-white-50 small" style="font-size: 0.7rem;">Connecté</span>
                         </div>
@@ -102,7 +139,16 @@
         NavManager.NavigateTo("/login");
     }
 
-    // Petite fonction bonus pour avoir les initiales (ex: "admin" -> "A")
+    // Récupère le DisplayName, sinon le Username
+    private string GetNomAffichage(System.Security.Claims.ClaimsPrincipal user)
+    {
+        // On cherche la claim "DisplayName" qu'on a ajoutée dans AuthService
+        var display = user.FindFirst("DisplayName")?.Value;
+
+        // Si vide, on prend le login (Identity.Name)
+        return !string.IsNullOrEmpty(display) ? display : user.Identity?.Name ?? "?";
+    }
+
     private string GetInitials(string? name)
     {
         if (string.IsNullOrEmpty(name)) return "?";

@@ -1,14 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
-using Autoprint.Server.Services;
+﻿using Autoprint.Server.Data;
 using Autoprint.Server.DTOs;
+using Autoprint.Server.Services;
 using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "PRINTER_READ")]
     public class ImprimantesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -49,6 +51,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Imprimantes
         [HttpPost]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
             _context.Imprimantes.Add(imprimante);
@@ -66,6 +69,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Imprimantes/Batch
         [HttpPost("Batch")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<BatchResult>> PostBatch(List<ImprimanteDto> imprimantesDtos)
         {
             var resultat = new BatchResult { TotalTraites = imprimantesDtos.Count };
@@ -103,6 +107,7 @@ namespace Autoprint.Server.Controllers
 
         // POST: api/Imprimantes/Synchroniser
         [HttpPost("Synchroniser")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<BatchResult>> SynchroniserServeur()
         {
             var resultat = new BatchResult();
@@ -164,6 +169,7 @@ namespace Autoprint.Server.Controllers
 
         // PUT: api/Imprimantes/5
         [HttpPut("{id}")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<IActionResult> PutImprimante(int id, Imprimante imprimante)
         {
             if (id != imprimante.Id) return BadRequest();
@@ -185,6 +191,7 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Imprimantes/5
         [HttpDelete("{id}")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<IActionResult> DeleteImprimante(int id)
         {
             var imprimante = await _context.Imprimantes.FindAsync(id);

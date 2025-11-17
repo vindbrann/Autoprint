@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "SETTINGS_MANAGE")]
     public class SettingsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
