@@ -6,9 +6,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>🏷️ Gestion des Marques</h3>
-    <button class="btn btn-success" @onclick="OuvrirAjout">
-        <i class="bi bi-plus-circle"></i> Nouvelle Marque
-    </button>
+    <AuthorizeView Policy="BRAND_WRITE">
+        <Authorized>
+            <button class="btn btn-success" @onclick="OuvrirAjout">
+                <i class="bi bi-plus-circle"></i> Nouvelle Marque
+            </button>
+		</Authorized>
+	</AuthorizeView>
+
 </div>
 
 @if (messageErreur != null)
@@ -34,9 +39,18 @@ else
                 <tr>
                     <td>@m.Nom</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(m)">
-                            <i class="bi bi-pencil"></i> Modifier
-                        </button>
+                        <AuthorizeView Policy="BRAND_WRITE">
+                            <Authorized>
+                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(m)">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                            </Authorized>
+                            <NotAuthorized>
+                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                            </NotAuthorized>
+                        </AuthorizeView>
                     </td>
                 </tr>
             }

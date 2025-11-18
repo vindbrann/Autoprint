@@ -9,9 +9,13 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>👥 Gestion des Utilisateurs</h2>
-        <button class="btn btn-primary" @onclick="ShowAddForm">
-            <i class="oi oi-plus"></i> Nouvel Utilisateur
-        </button>
+        <AuthorizeView Policy="USER_WRITE">
+            <Authorized>
+                <button class="btn btn-primary" @onclick="ShowAddForm">
+                    <i class="oi oi-plus"></i> Nouvel Utilisateur
+                </button>
+            </Authorized>
+		</AuthorizeView>
     </div>
 
     @if (showForm)
@@ -138,12 +142,31 @@
                                     }
                                 </td>
                                 <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditUser(u)">
-                                        ✏️
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u)">
-                                        🗑️
-                                    </button>
+                                    <AuthorizeView Policy="USER_WRITE">
+                                        <Authorized>
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditUser(u)">
+                                                ✏️
+                                            </button>
+                                        </Authorized>
+                                        <NotAuthorized>
+                                            <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
+                                                <i class="bi bi-pencil"></i> ✏️
+                                            </button>
+                                        </NotAuthorized>
+                                    </AuthorizeView>
+                                    <AuthorizeView Policy="USER_DELETE">
+                                        <Authorized>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u)">
+                                                🗑️
+                                            </button>
+                                        </Authorized>
+                                        <NotAuthorized>
+                                            <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
+                                                <i class="bi bi-pencil"></i> 🗑️
+                                            </button>
+                                        </NotAuthorized>
+                                    </AuthorizeView>
+
                                 </td>
                             </tr>
                         }
@@ -192,8 +215,11 @@
     private void ShowAddForm()
     {
         newUserModel = new CreateUserDto();
-        // On remet le select sur le premier rôle dispo ou 1 par défaut
-        selectedRoleId = availableRoles.Any() ? availableRoles.First().Id : 1;
+        var defaultRole = availableRoles.FirstOrDefault(r => r.Name != "SuperAdmin")
+                          ?? availableRoles.FirstOrDefault();
+
+        selectedRoleId = defaultRole?.Id ?? 1;
+
         editMode = false;
         showForm = true;
     }

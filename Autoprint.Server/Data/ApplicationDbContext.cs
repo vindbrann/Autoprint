@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Autoprint.Shared;
+﻿using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
+using Autoprint.Shared;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Data
 {
@@ -115,7 +116,7 @@ namespace Autoprint.Server.Data
                     Id = 1,
                     Username = "admin",
                     DisplayName = "Administrateur Local",
-                    PasswordHash = "JAvlGPq9JyTdtvBO6x2llnRI1+gxwIyPqCKAn3THIKk=",
+                    PasswordHash = SecurityHelper.ComputeSha256Hash("admin123"),
                     IsAdUser = false,
                     IsActive = true
                 }

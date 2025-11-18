@@ -109,7 +109,11 @@
                     <div>
                         @if (Model.Id != 0)
                         {
-                            <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
+                            <AuthorizeView Policy="DRIVER_DELETE">
+                                <Authorized>
+                                    <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
+								</Authorized>
+							</AuthorizeView>
                         }
                     </div>
                     <div>

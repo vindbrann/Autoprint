@@ -6,9 +6,13 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>📍 Gestion des Lieux</h3>
+    <AuthorizeView Policy="LOCATION_WRITE">
+    <Authorized>
     <button class="btn btn-success" @onclick="OuvrirAjout">
         <i class="bi bi-plus-circle"></i> Nouveau Lieu
     </button>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 @if (messageErreur != null)
@@ -49,9 +53,18 @@ else
                         <span class="badge bg-info text-dark">@lieu.CidrIpv4</span>
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(lieu)">
-                            <i class="bi bi-pencil"></i> Modifier
-                        </button>
+                        <AuthorizeView Policy="LOCATION_WRITE">
+                            <Authorized>
+                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(lieu)">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                            </Authorized>
+                            <NotAuthorized>
+                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                            </NotAuthorized>
+                        </AuthorizeView>
                     </td>
                 </tr>
             }

@@ -61,7 +61,11 @@
                 <div class="modal-footer justify-content-between">
                     @if (Model.Id != 0)
                     {
+                        <AuthorizeView Policy="MODEL_DELETE">
+                                <Authorized>
                         <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
+							</Authorized>
+						</AuthorizeView>
                     }
                     else
                     {

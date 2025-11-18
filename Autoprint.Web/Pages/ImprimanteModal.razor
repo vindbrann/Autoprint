@@ -144,9 +144,13 @@
                     <div>
                         @if (Model.Id != 0)
                         {
-                            <button type="button" class="btn btn-danger" @onclick="HandleDelete">
-                                <i class="bi bi-trash"></i> Supprimer
-                            </button>
+                            <AuthorizeView Policy="PRINTER_DELETE">
+                                <Authorized>
+                                    <button type="button" class="btn btn-danger" @onclick="HandleDelete">
+                                        <i class="bi bi-trash"></i> Supprimer
+                                    </button>
+                                </Authorized>
+                            </AuthorizeView>
                         }
                     </div>
                     <div>

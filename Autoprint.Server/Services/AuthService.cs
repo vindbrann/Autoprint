@@ -4,8 +4,10 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
-using Autoprint.Shared;
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
+using Autoprint.Shared;
+using Azure.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -31,19 +33,25 @@ namespace Autoprint.Server.Services
         {
             User? user = null;
 
-            // 1. Essayer de trouver l'utilisateur en LOCAL
+            // 1. Recherche de l'utilisateur (Optimisée avec AsSplitQuery)
             var localUser = await _context.Users
+                .AsSplitQuery()
                 .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Username == request.Username);
 
+            // 2. Vérification Compte LOCAL
             if (localUser != null && !localUser.IsAdUser)
             {
-                if (VerifyPassword(request.Password, localUser.PasswordHash))
+                // Vérification du Hash via le Helper centralisé
+                if (localUser.PasswordHash == SecurityHelper.ComputeSha256Hash(request.Password))
                 {
                     user = localUser;
                 }
             }
-            // 2. Sinon, Essayer ACTIVE DIRECTORY (Windows uniquement)
+            // 3. Vérification ACTIVE DIRECTORY (Windows uniquement)
             else if (OperatingSystem.IsWindows())
             {
                 if (CheckAdCredentials(request.Username, request.Password))
@@ -52,9 +60,10 @@ namespace Autoprint.Server.Services
                 }
             }
 
+            // Si user non trouvé ou inactif -> Echec
             if (user == null || !user.IsActive) return null;
 
-            // 3. Récupérer les permissions et générer le Token
+            // 4. Génération du Token
             var permissions = await GetUserPermissionsAsync(user);
             var token = GenerateJwtToken(user, permissions);
 
@@ -65,15 +74,6 @@ namespace Autoprint.Server.Services
                 DisplayName = user.DisplayName,
                 Permissions = permissions
             };
-        }
-
-        private bool VerifyPassword(string password, string? storedHash)
-        {
-            if (string.IsNullOrEmpty(storedHash)) return false;
-            using var sha256 = SHA256.Create();
-            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            var computedHash = Convert.ToBase64String(bytes);
-            return computedHash == storedHash;
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]

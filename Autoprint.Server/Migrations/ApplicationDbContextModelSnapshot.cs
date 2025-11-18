@@ -428,7 +428,7 @@ namespace Autoprint.Server.Migrations
                             IsActive = true,
                             IsAdUser = false,
                             LastLogin = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            PasswordHash = "JAvnGPq9JyTdtvBO6x2llnQCEhhuY2j4BaeOIVm6EgA=",
+                            PasswordHash = "JAvlGPq9JyTdtvBO6x2llnRI1+gxwIyPqCKAn3THIKk=",
                             Username = "admin"
                         });
                 });

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251117130555_FixAdminPasswordHash2")]
-    partial class FixAdminPasswordHash2
+    [Migration("20251118151310_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -72,7 +72,7 @@ namespace Autoprint.Server.Migrations
                         {
                             Id = 1,
                             Code = "ADMIN_ACCESS",
-                            Description = "Accès complet au système"
+                            Description = "Accès complet (SuperAdmin)"
                         },
                         new
                         {
@@ -84,7 +84,139 @@ namespace Autoprint.Server.Migrations
                         {
                             Id = 3,
                             Code = "PRINTER_WRITE",
-                            Description = "Modifier les imprimantes"
+                            Description = "Ajouter/Modifier des imprimantes"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "PRINTER_DELETE",
+                            Description = "Supprimer des imprimantes"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "LOCATION_READ",
+                            Description = "Voir les lieux"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "LOCATION_WRITE",
+                            Description = "Ajouter/Modifier des lieux"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Code = "LOCATION_DELETE",
+                            Description = "Supprimer des lieux"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Code = "DRIVER_READ",
+                            Description = "Voir les pilotes et modèles"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Code = "DRIVER_WRITE",
+                            Description = "Uploader/Modifier métadonnées pilotes"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Code = "DRIVER_DELETE",
+                            Description = "Supprimer pilotes de la BDD"
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Code = "DRIVER_INSTALL",
+                            Description = "Installer dans Windows (PnPUtil)"
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Code = "DRIVER_UNINSTALL",
+                            Description = "Désinstaller de Windows"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Code = "USER_READ",
+                            Description = "Voir les utilisateurs"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Code = "USER_WRITE",
+                            Description = "Créer/Modifier utilisateurs"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Code = "USER_DELETE",
+                            Description = "Supprimer utilisateurs"
+                        },
+                        new
+                        {
+                            Id = 17,
+                            Code = "ROLE_READ",
+                            Description = "Voir les rôles et permissions"
+                        },
+                        new
+                        {
+                            Id = 18,
+                            Code = "ROLE_WRITE",
+                            Description = "Créer/Modifier des rôles"
+                        },
+                        new
+                        {
+                            Id = 19,
+                            Code = "ROLE_DELETE",
+                            Description = "Supprimer des rôles"
+                        },
+                        new
+                        {
+                            Id = 20,
+                            Code = "BRAND_READ",
+                            Description = "Voir les marques"
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Code = "BRAND_WRITE",
+                            Description = "Ajouter/Modifier des marques"
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Code = "BRAND_DELETE",
+                            Description = "Supprimer des marques"
+                        },
+                        new
+                        {
+                            Id = 23,
+                            Code = "MODEL_READ",
+                            Description = "Voir les modèles"
+                        },
+                        new
+                        {
+                            Id = 24,
+                            Code = "MODEL_WRITE",
+                            Description = "Ajouter/Modifier des modèles"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Code = "MODEL_DELETE",
+                            Description = "Supprimer des modèles"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Code = "SETTINGS_MANAGE",
+                            Description = "Gérer la configuration serveur (SMTP, Chemins...)"
                         });
                 });
 
@@ -136,6 +268,126 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 1
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 2
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 3
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 4
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 5
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 6
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 7
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 8
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 9
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 10
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 11
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 12
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 13
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 14
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 15
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 16
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 17
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 18
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 19
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 20
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 21
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 22
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 23
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 24
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 25
                         });
                 });
 
@@ -179,7 +431,7 @@ namespace Autoprint.Server.Migrations
                             IsActive = true,
                             IsAdUser = false,
                             LastLogin = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            PasswordHash = "jZae727K08KaOmKSgOaGzww/XVqGr/PKEgIMkjrcbJI=",
+                            PasswordHash = "JAvlGPq9JyTdtvBO6x2llnRI1+gxwIyPqCKAn3THIKk=",
                             Username = "admin"
                         });
                 });

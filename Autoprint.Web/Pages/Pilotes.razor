@@ -7,9 +7,13 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>💾 Bibliothèque de Pilotes</h3>
+    <AuthorizeView Policy="DRIVER_WRITE">
+    <Authorized>
     <button class="btn btn-success" @onclick="OuvrirAjout">
         <i class="bi bi-cloud-upload-fill"></i> Ajouter un pilote
     </button>
+		</Authorized>
+	</AuthorizeView>
 </div>
 
 @if (!string.IsNullOrEmpty(messageAction))
@@ -71,9 +75,18 @@ else
                         }
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(p)">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                        <AuthorizeView Policy="DRIVER_WRITE">
+                            <Authorized>
+                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(p)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </Authorized>
+                            <NotAuthorized>
+                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                            </NotAuthorized>
+                        </AuthorizeView>
                         <button class="btn btn-sm btn-danger" @onclick="() => SupprimerBdd(p)">
                             <i class="bi bi-x-lg"></i>
                         </button>

@@ -3,64 +3,92 @@
 @using Autoprint.Web.Services
 @inject IRoleService RoleService
 @inject IJSRuntime JS
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ROLE_READ")]
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>🛡️ Gestion des Rôles et Permissions</h2>
-        <button class="btn btn-primary" @onclick="ShowAddForm">
-            <i class="oi oi-plus"></i> Nouveau Rôle
-        </button>
+
+        @if (!showForm)
+        {
+            <AuthorizeView Policy="ROLE_WRITE">
+                <Authorized>
+                    <button class="btn btn-primary" @onclick="ShowAddForm">
+                        <i class="bi bi-plus-lg"></i> Nouveau Rôle
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        }
     </div>
 
     @if (showForm)
     {
-        <div class="card p-4 mb-4 shadow-sm bg-light">
-            <h4>@(editMode ? "Modifier le rôle" : "Créer un rôle")</h4>
+        <div class="card p-4 mb-4 shadow border-primary">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0 text-primary">@(editMode ? "Modifier le rôle" : "Créer un nouveau rôle")</h4>
+                <button class="btn-close" @onclick="CancelForm"></button>
+            </div>
+
             <EditForm Model="@currentModel" OnValidSubmit="SaveRole">
                 <DataAnnotationsValidator />
 
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Nom du Groupe</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Name" disabled="@isSuperAdminEdit" />
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Nom du Groupe</label>
+                        <InputText class="form-control" @bind-Value="currentModel.Name" disabled="@isSuperAdminEdit" placeholder="ex: Techniciens" />
                         <ValidationMessage For="@(() => currentModel.Name)" />
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Description</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Description" />
-                    </div>
-
-                    <div class="col-12 mt-4">
-                        <label class="form-label fw-bold">Permissions autorisées :</label>
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="row">
-                                    @foreach (var perm in allPermissions)
-                                    {
-                                        <div class="col-md-4 mb-2">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox"
-                                                       checked="@currentModel.PermissionIds.Contains(perm.Id)"
-                                                       @onchange="(e) => TogglePermission(perm.Id, e.Value)"
-                                                       id="perm_@perm.Id">
-                                                <label class="form-check-label" for="perm_@perm.Id">
-                                                    <strong>@perm.Code</strong> <br />
-                                                    <small class="text-muted">@perm.Description</small>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">Description</label>
+                        <InputText class="form-control" @bind-Value="currentModel.Description" placeholder="Courte description des responsabilités..." />
                     </div>
                 </div>
 
-                <div class="mt-3 text-end">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light text-center">
+                            <tr>
+                                <th class="text-start" style="width: 20%">Module</th>
+                                <th style="width: 15%">👁️ Lecture</th>
+                                <th style="width: 15%">✏️ Écriture</th>
+                                <th style="width: 15%">🗑️ Suppression</th>
+                                <th class="text-start">✨ Autres / Spécifique</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var group in PermissionGroups)
+                            {
+                                <tr>
+                                    <td class="fw-bold bg-light">@group.Title</td>
+                                    <td class="text-center">@RenderCheckbox(group.Prefix, "READ")</td>
+                                    <td class="text-center">@RenderCheckbox(group.Prefix, "WRITE")</td>
+                                    <td class="text-center">@RenderCheckbox(group.Prefix, "DELETE")</td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @foreach (var perm in GetOtherPermissions(group.Prefix))
+                                            {
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           checked="@currentModel.PermissionIds.Contains(perm.Id)"
+                                                           @onchange="(e) => TogglePermission(perm.Id, e.Value)"
+                                                           id="perm_@perm.Id">
+                                                    <label class="form-check-label small" for="perm_@perm.Id">
+                                                        @perm.Description.Replace(group.Title, "").Trim()
+                                                        <span class="text-muted fst-italic">(@perm.Code)</span>
+                                                    </label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3 text-end border-top pt-3">
                     <button type="button" class="btn btn-secondary me-2" @onclick="CancelForm">Annuler</button>
-                    <button type="submit" class="btn btn-success">Enregistrer</button>
+                    <button type="submit" class="btn btn-success px-4">Enregistrer</button>
                 </div>
             </EditForm>
         </div>
@@ -69,44 +97,86 @@
     <div class="row">
         @if (roles == null)
         {
-            <p class="text-center">Chargement...</p>
+            <p class="text-center text-muted">Chargement des rôles...</p>
         }
         else
         {
             @foreach (var role in roles)
             {
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100 shadow-sm border-start border-4 border-primary">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm hover-shadow transition">
                         <div class="card-body">
-                            <h5 class="card-title d-flex justify-content-between">
-                                @role.Name
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title fw-bold text-primary">@role.Name</h5>
+
                                 @if (role.Name != "SuperAdmin")
                                 {
-                                    <div class="btn-group">
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditRole(role.Id)">✏️</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRole(role)">🗑️</button>
+                                    <div class="dropdown">
+                                        <button class="btn btn-link text-secondary p-0" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <AuthorizeView Policy="ROLE_WRITE">
+                                                    <Authorized>
+                                                        <button class="dropdown-item" @onclick="() => EditRole(role.Id)">
+                                                            ✏️ Modifier
+                                                        </button>
+                                                    </Authorized>
+                                                    <NotAuthorized>
+                                                        <span class="dropdown-item disabled" title="Droit de modification requis">
+                                                            ✏️ Modifier (Interdit)
+                                                        </span>
+                                                    </NotAuthorized>
+                                                </AuthorizeView>
+                                            </li>
+
+                                            <li><hr class="dropdown-divider"></li>
+
+                                            <li>
+                                                <AuthorizeView Policy="ROLE_DELETE">
+                                                    <Authorized>
+                                                        <button class="dropdown-item text-danger" @onclick="() => DeleteRole(role)">
+                                                            🗑️ Supprimer
+                                                        </button>
+                                                    </Authorized>
+                                                    <NotAuthorized>
+                                                        <span class="dropdown-item disabled" title="Droit de suppression requis">
+                                                            🗑️ Supprimer (Interdit)
+                                                        </span>
+                                                    </NotAuthorized>
+                                                </AuthorizeView>
+                                            </li>
+                                        </ul>
                                     </div>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditRole(role.Id)">👁️ Voir</button>
+                                    <span class="badge bg-warning text-dark">Système</span>
                                 }
-                            </h5>
-                            <p class="card-text text-muted">@role.Description</p>
-                            <hr />
-                            <h6>Droits :</h6>
-                            @if (role.PermissionCodes.Any())
-                            {
-                                <div class="d-flex flex-wrap gap-1">
-                                    @foreach (var p in role.PermissionCodes)
+                            </div>
+
+                            <p class="card-text text-muted small">@role.Description</p>
+
+                            <div class="mt-3 pt-3 border-top">
+                                <small class="fw-bold text-uppercase text-secondary" style="font-size: 0.7rem;">Accès rapides</small>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    @foreach (var p in role.PermissionCodes.Take(5))
                                     {
-                                        <span class="badge bg-info text-dark">@p</span>
+                                        <span class="badge bg-light text-dark border">@p</span>
+                                    }
+                                    @if (role.PermissionCodes.Count > 5)
+                                    {
+                                        <span class="badge bg-light text-secondary border">+@(role.PermissionCodes.Count - 5)</span>
                                     }
                                 </div>
-                            }
-                            else
+                            </div>
+
+                            @if (role.Name == "SuperAdmin")
                             {
-                                <span class="text-muted fst-italic">Aucune permission spécifique</span>
+                                <div class="mt-3 d-grid">
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => EditRole(role.Id)">👁️ Voir les détails</button>
+                                </div>
                             }
                         </div>
                     </div>
@@ -120,10 +190,22 @@
     private List<RoleViewDto>? roles;
     private List<PermissionDto> allPermissions = new();
 
+    private List<(string Prefix, string Title)> PermissionGroups = new()
+    {
+        ("ADMIN", "Administration"),
+        ("PRINTER", "Imprimantes"),
+        ("LOCATION", "Lieux"),
+        ("BRAND", "Marques"),
+        ("MODEL", "Modèles"),
+        ("DRIVER", "Pilotes"),
+        ("USER", "Utilisateurs"),
+        ("ROLE", "Rôles"),
+        ("SETTINGS", "Paramètres Système")
+    };
+
     private bool showForm = false;
     private bool editMode = false;
-    private bool isSuperAdminEdit = false; // Pour verrouiller le nom SuperAdmin
-
+    private bool isSuperAdminEdit = false;
     private RoleEditDto currentModel = new();
     private int editingRoleId = 0;
 
@@ -134,9 +216,43 @@
 
     private async Task LoadData()
     {
-        // On charge les permissions (la liste de référence) et les rôles existants
-        allPermissions = await RoleService.GetAllPermissions();
-        roles = await RoleService.GetRoles();
+        var pTask = RoleService.GetAllPermissions();
+        var rTask = RoleService.GetRoles();
+        await Task.WhenAll(pTask, rTask);
+
+        allPermissions = pTask.Result;
+        roles = rTask.Result;
+    }
+
+    // Astuce __builder pour le rendu dynamique
+    private RenderFragment RenderCheckbox(string prefix, string suffix) => __builder =>
+    {
+        var expectedCode = $"{prefix}_{suffix}";
+        var perm = allPermissions.FirstOrDefault(p => p.Code == expectedCode);
+
+        if (perm != null)
+        {
+            <div class="form-check d-flex justify-content-center">
+                <input class="form-check-input" type="checkbox"
+                       style="transform: scale(1.3);"
+                       checked="@currentModel.PermissionIds.Contains(perm.Id)"
+                       @onchange="@((ChangeEventArgs e) => TogglePermission(perm.Id, e.Value))" />
+            </div>
+        }
+        else
+        {
+            <span class="text-muted opacity-25">-</span>
+        }
+    };
+
+    private List<PermissionDto> GetOtherPermissions(string prefix)
+    {
+        return allPermissions
+            .Where(p => p.Code.StartsWith(prefix + "_")
+                     && !p.Code.EndsWith("_READ")
+                     && !p.Code.EndsWith("_WRITE")
+                     && !p.Code.EndsWith("_DELETE"))
+            .ToList();
     }
 
     private void ShowAddForm()
@@ -149,7 +265,6 @@
 
     private async Task EditRole(int id)
     {
-        // On va chercher le détail complet (avec les IDs des perms cochées)
         currentModel = await RoleService.GetRoleForEdit(id);
         editingRoleId = id;
         editMode = true;
@@ -157,15 +272,12 @@
         showForm = true;
     }
 
-    // Logique pour ajouter/retirer l'ID de la liste quand on clique
     private void TogglePermission(int permId, object? checkedValue)
     {
         bool isChecked = (bool)(checkedValue ?? false);
-
         if (isChecked)
         {
-            if (!currentModel.PermissionIds.Contains(permId))
-                currentModel.PermissionIds.Add(permId);
+            if (!currentModel.PermissionIds.Contains(permId)) currentModel.PermissionIds.Add(permId);
         }
         else
         {
@@ -173,21 +285,12 @@
         }
     }
 
-    private void CancelForm()
-    {
-        showForm = false;
-    }
+    private void CancelForm() => showForm = false;
 
     private async Task SaveRole()
     {
-        if (editMode)
-        {
-            await RoleService.UpdateRole(editingRoleId, currentModel);
-        }
-        else
-        {
-            await RoleService.CreateRole(currentModel);
-        }
+        if (editMode) await RoleService.UpdateRole(editingRoleId, currentModel);
+        else await RoleService.CreateRole(currentModel);
 
         showForm = false;
         await LoadData();
@@ -195,9 +298,7 @@
 
     private async Task DeleteRole(RoleViewDto role)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", $"Supprimer le groupe {role.Name} ?"))
-            return;
-
+        if (!await JS.InvokeAsync<bool>("confirm", $"Supprimer le rôle {role.Name} ?")) return;
         await RoleService.DeleteRole(role.Id);
         await LoadData();
     }

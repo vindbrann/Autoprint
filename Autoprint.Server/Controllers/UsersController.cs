@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared; // Si tu as des DTOs ici, sinon voir classe en bas
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
@@ -87,7 +88,7 @@ namespace Autoprint.Server.Controllers
             // 2. Hachage du mot de passe (SHA256 standard)
             if (!string.IsNullOrEmpty(request.Password))
             {
-                newUser.PasswordHash = ComputeSha256Hash(request.Password);
+                newUser.PasswordHash = SecurityHelper.ComputeSha256Hash(request.Password);
             }
 
             _context.Users.Add(newUser);
@@ -126,7 +127,7 @@ namespace Autoprint.Server.Controllers
             // Mise à jour du mot de passe (seulement si un nouveau est fourni)
             if (!string.IsNullOrWhiteSpace(request.NewPassword))
             {
-                user.PasswordHash = ComputeSha256Hash(request.NewPassword);
+                user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
             }
 
             // Gestion des rôles (Simplifié : on supprime tout et on remet le nouveau pour l'instant)
@@ -169,18 +170,6 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
-        // --- Helper Privé pour le Hachage (Même logique que AuthController/Service) ---
-        private static string ComputeSha256Hash(string rawData)
-        {
-            using (SHA256 sha256Hash = SHA256.Create())
-            {
-                // ComputeHash - returns byte array
-                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-
-                // Convert byte array to a string
-                return Convert.ToBase64String(bytes);
-            }
-        }
     }
 
     // --- DTOs (Data Transfer Objects) ---

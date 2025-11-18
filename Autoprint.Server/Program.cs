@@ -12,8 +12,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Configurer la Base de Données
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        // C'est ici qu'on active le découpage pour éviter l'explosion des données
+        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+    })
+);
+
 
 // 2. Injection des Services
 builder.Services.AddScoped<Autoprint.Server.Services.IFileService, Autoprint.Server.Services.LocalFileService>();
