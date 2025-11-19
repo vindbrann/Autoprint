@@ -12,7 +12,8 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "USER_READ")]
+    // ❌ ON ENLÈVE [Authorize(Policy = "USER_READ")] D'ICI
+    // Pour éviter de bloquer l'accès au profil
     public class UsersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,21 +25,20 @@ namespace Autoprint.Server.Controllers
 
         // GET: api/users
         [HttpGet]
+        [Authorize(Policy = "USER_READ")]
         public async Task<ActionResult<IEnumerable<object>>> GetUsers()
         {
-            // On récupère les users avec leurs rôles
-            // On projette dans un objet anonyme pour NE PAS renvoyer le PasswordHash au client (Sécurité)
             var users = await _context.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .Select(u => new
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .Select(u => new UserViewDto // On mappe directement vers le DTO
                 {
-                    u.Id,
-                    u.Username,
-                    u.DisplayName,
-                    u.IsAdUser,
-                    u.IsActive,
-                    u.LastLogin,
+                    Id = u.Id,
+                    Username = u.Username,
+                    DisplayName = u.DisplayName,
+                    Email = u.Email, // <-- IMPORTANT : On renvoie l'email
+                    IsAdUser = u.IsAdUser,
+                    IsActive = u.IsActive,
+                    LastLogin = u.LastLogin,
                     Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
                 })
                 .ToListAsync();
@@ -48,6 +48,7 @@ namespace Autoprint.Server.Controllers
 
         // GET: api/users/5
         [HttpGet("{id}")]
+        [Authorize(Policy = "USER_READ")] // ✅ ET ICI (Admin seulement)
         public async Task<ActionResult<User>> GetUser(int id)
         {
             var user = await _context.Users
@@ -55,12 +56,8 @@ namespace Autoprint.Server.Controllers
                 .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Id == id);
 
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
-            // Petit nettoyage de sécurité avant l'envoi
             user.PasswordHash = null;
             return user;
         }
@@ -75,17 +72,16 @@ namespace Autoprint.Server.Controllers
                 return BadRequest("Ce nom d'utilisateur existe déjà.");
             }
 
-            // 1. Création de l'objet User
             var newUser = new User
             {
                 Username = request.Username,
                 DisplayName = request.DisplayName,
-                IsAdUser = false, // Création locale par défaut ici
+                Email = request.Email,
+                IsAdUser = false,
                 IsActive = true,
                 LastLogin = DateTime.MinValue
             };
 
-            // 2. Hachage du mot de passe (SHA256 standard)
             if (!string.IsNullOrEmpty(request.Password))
             {
                 newUser.PasswordHash = SecurityHelper.ComputeSha256Hash(request.Password);
@@ -94,15 +90,9 @@ namespace Autoprint.Server.Controllers
             _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
 
-            // 3. Assignation du Rôle (si fourni, sinon utilisateur par défaut ?)
             if (request.RoleId > 0)
             {
-                var userRole = new UserRole
-                {
-                    UserId = newUser.Id,
-                    RoleId = request.RoleId
-                };
-                _context.UserRoles.Add(userRole);
+                _context.UserRoles.Add(new UserRole { UserId = newUser.Id, RoleId = request.RoleId });
                 await _context.SaveChangesAsync();
             }
 
@@ -115,56 +105,115 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto request)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
-            // Mise à jour des champs simples
             user.DisplayName = request.DisplayName;
+            user.Email = request.Email;
             user.IsActive = request.IsActive;
 
-            // Mise à jour du mot de passe (seulement si un nouveau est fourni)
+            user.ForceChangePassword = request.ForceChangePassword;
             if (!string.IsNullOrWhiteSpace(request.NewPassword))
             {
-                user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
+
+                user.LastPasswordChangeDate = DateTime.UtcNow;
             }
 
-            // Gestion des rôles (Simplifié : on supprime tout et on remet le nouveau pour l'instant)
-            // Note : Une gestion plus fine serait nécessaire pour du multi-rôle complexe
             if (request.RoleId > 0)
             {
-                // 1. Nettoyer les rôles existants
                 var existingRoles = _context.UserRoles.Where(ur => ur.UserId == id);
                 _context.UserRoles.RemoveRange(existingRoles);
-
-                // 2. Ajouter le nouveau
                 _context.UserRoles.Add(new UserRole { UserId = id, RoleId = request.RoleId });
             }
 
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
         // DELETE: api/users/5
         [HttpDelete("{id}")]
-        [Authorize(Policy = "USER_DELETE")]
+        [Authorize(Policy = "USER_DELETE")] // Celui-là était déjà bon
         public async Task<IActionResult> DeleteUser(int id)
         {
+            // ... (Ton code DeleteUser reste identique)
             var user = await _context.Users.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
-            // Protection : On empêche de supprimer le dernier admin ou soi-même (à améliorer)
-            if (user.Username == "admin")
-            {
-                return BadRequest("Impossible de supprimer l'administrateur racine.");
-            }
+            if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
 
             _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // --- PARTIE PROFIL (Accessible à tout utilisateur connecté) ---
+
+        // GET: api/users/profile
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<ActionResult<UserProfileDto>> GetMyProfile()
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var user = await _context.Users
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Username == username);
+
+            if (user == null) return NotFound();
+
+            // --- CALCUL DE L'EXPIRATION ---
+            // 1. On récupère le réglage (par défaut 90 jours)
+            var setting = await _context.ServerSettings
+                .FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
+
+            int maxDays = setting != null && int.TryParse(setting.Value, out int d) ? d : 90;
+
+            // 2. On calcule
+            int daysRemaining = 0;
+            bool isExpired = false;
+
+            if (user.LastPasswordChangeDate.HasValue)
+            {
+                var expirationDate = user.LastPasswordChangeDate.Value.AddDays(maxDays);
+                daysRemaining = (int)(expirationDate - DateTime.UtcNow).TotalDays;
+                if (daysRemaining < 0) isExpired = true;
+            }
+            else
+            {
+                // Si jamais changé => Considéré comme expiré ou à changer immédiatement
+                daysRemaining = 0;
+                isExpired = true;
+            }
+
+            return new UserProfileDto
+            {
+                Username = user.Username,
+                DisplayName = user.DisplayName,
+                Email = user.Email,
+                Role = user.UserRoles.FirstOrDefault()?.Role?.Name ?? "Aucun",
+                DaysUntilExpiration = daysRemaining, // <-- Info envoyée au front
+                PasswordExpired = isExpired
+            };
+        }
+
+        // PUT: api/users/change-password (NOUVELLE ROUTE DÉDIÉE)
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto request)
+        {
+            var username = User.Identity?.Name;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return NotFound();
+
+            // 1. Vérif ancien MDP
+            var oldHash = SecurityHelper.ComputeSha256Hash(request.CurrentPassword);
+            if (user.PasswordHash != oldHash)
+                return BadRequest("Le mot de passe actuel est incorrect.");
+
+            // 2. Application nouveau MDP
+            user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
+            user.LastPasswordChangeDate = DateTime.UtcNow; // Reset du compteur
+
             await _context.SaveChangesAsync();
             return NoContent();
         }

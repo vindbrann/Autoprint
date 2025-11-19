@@ -1,23 +1,36 @@
 ﻿@inherits LayoutComponentBase
+@using System.Security.Claims
+@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Pages
+@using Autoprint.Web.Services
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
+@inject IAuthService AuthService
+@inject IJSRuntime JS
 
 <AuthorizeView>
     <Authorized>
-        <div class="page">
-            <div class="sidebar">
-                <NavMenu />
-            </div>
-
-            <main>
-                <div class="top-row px-4">
-
+        @if (IsBlocked(context.User) && !processCompleted)
+        {
+            <SecurityWall Show="true"
+                          OnSuccess="HandleSuccess"
+                          OnLogout="HandleLogout" />
+        }
+        else
+        {
+            <div class="page">
+                <div class="sidebar">
+                    <NavMenu />
                 </div>
 
-                <article class="content px-4">
-                    @Body
-                </article>
-            </main>
-        </div>
+                <main>
+                    <div class="top-row px-4"></div>
+                    <article class="content px-4">
+                        @Body
+                    </article>
+                </main>
+            </div>
+        }
     </Authorized>
 
     <NotAuthorized>
@@ -28,3 +41,38 @@
         </div>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    // Cette variable est la clé : elle permet de cacher le mur localement
+    // sans attendre que le token soit mis à jour.
+    private bool processCompleted = false;
+
+    private bool IsBlocked(ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == "ForcePasswordChange" && c.Value == "true");
+    }
+
+    private async Task HandleSuccess()
+    {
+        // 1. IMMÉDIATEMENT : On cache le mur visuellement
+        processCompleted = true;
+        StateHasChanged();
+
+        // Le mur disparaît ici, l'utilisateur voit l'interface (ou du blanc)
+
+        // 2. Petit délai pour laisser le temps au DOM de supprimer la modale
+        await Task.Delay(100);
+
+        // 3. On affiche le message (maintenant qu'il n'y a plus de modale par dessus)
+        await JS.InvokeVoidAsync("alert", "✅ Mot de passe mis à jour ! Vous allez être redirigé.");
+
+        // 4. On déconnecte proprement
+        await HandleLogout();
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.Logout();
+        NavManager.NavigateTo("/login", true);
+    }
+}

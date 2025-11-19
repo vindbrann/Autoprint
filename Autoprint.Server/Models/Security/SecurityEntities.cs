@@ -3,16 +3,18 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Autoprint.Server.Models.Security
 {
-    // 1. L'Utilisateur (Local ou AD)
     public class User
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        public string Username { get; set; } = string.Empty; // ex: "jdupont"
+        public string Username { get; set; } = string.Empty;
 
-        public string DisplayName { get; set; } = string.Empty; // ex: "Jean Dupont"
+        public string DisplayName { get; set; } = string.Empty;
+
+        public string? Email { get; set; }
+        public DateTime? LastPasswordChangeDate { get; set; }
 
         // Si local : contient le Hash. Si AD : vide ou null.
         public string? PasswordHash { get; set; }
@@ -24,6 +26,11 @@ namespace Autoprint.Server.Models.Security
 
         // Relation : Un user a plusieurs rôles (groupes)
         public List<UserRole> UserRoles { get; set; } = new();
+
+        public bool ForceChangePassword { get; set; } = false;
+
+        public string? PasswordResetToken { get; set; }
+        public DateTime? ResetTokenExpires { get; set; }
     }
 
     // 2. Le Rôle (Tes "Groupes" : Admin, Support, Stagiaire...)

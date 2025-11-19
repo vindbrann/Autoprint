@@ -1,8 +1,8 @@
 ﻿using System.Net.Http.Json;
 using Autoprint.Shared;
+using Autoprint.Shared.DTOs;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
-using System.Net.Http.Headers;
 
 namespace Autoprint.Web.Services
 {
@@ -21,40 +21,37 @@ namespace Autoprint.Web.Services
             _localStorage = localStorage;
         }
 
-        public async Task<LoginResponse> Login(LoginRequest loginRequest)
+        // La signature correspond ici exactement à l'interface (Task<LoginResponse?>)
+        public async Task<LoginResponse?> Login(LoginRequest request)
         {
-            var result = await _httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
-
-            if (!result.IsSuccessStatusCode)
+            try
             {
-                return new LoginResponse { Token = string.Empty };
+                var result = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+
+                if (result.IsSuccessStatusCode)
+                {
+                    var response = await result.Content.ReadFromJsonAsync<LoginResponse>();
+
+                    if (response != null)
+                    {
+                        await _localStorage.SetItemAsync("authToken", response.Token);
+                        ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(response.Token);
+                        return response;
+                    }
+                }
+            }
+            catch
+            {
+                return null;
             }
 
-            var response = await result.Content.ReadFromJsonAsync<LoginResponse>();
-
-            if (response != null && !string.IsNullOrEmpty(response.Token))
-            {
-                // 1. Stockage
-                await _localStorage.SetItemAsync("authToken", response.Token);
-
-                // 2. Notification immédiate au système (Le FIX est ici)
-                ((CustomAuthStateProvider)_authStateProvider).NotifyUserAuthentication(response.Token);
-
-                // 3. Header HTTP
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", response.Token);
-            }
-
-            return response!;
+            return null;
         }
 
         public async Task Logout()
         {
             await _localStorage.RemoveItemAsync("authToken");
-
-            // Notification de déconnexion
-            ((CustomAuthStateProvider)_authStateProvider).NotifyUserLogout();
-
+            ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
             _httpClient.DefaultRequestHeaders.Authorization = null;
         }
     }

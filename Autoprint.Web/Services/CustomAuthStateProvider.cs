@@ -1,8 +1,8 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
+using System.Net.Http.Headers;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
-using System.Net.Http.Headers;
 
 namespace Autoprint.Web.Services
 {
@@ -19,64 +19,60 @@ namespace Autoprint.Web.Services
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            string? token = await _localStorage.GetItemAsStringAsync("authToken");
+            // Au démarrage, on regarde si un token existe dans le navigateur
+            var token = await _localStorage.GetItemAsync<string>("authToken");
 
-            var identity = new ClaimsIdentity();
-            _http.DefaultRequestHeaders.Authorization = null;
-
-            if (!string.IsNullOrEmpty(token))
+            if (string.IsNullOrWhiteSpace(token))
             {
-                try
-                {
-                    identity = new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt");
-                    _http.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", token.Replace("\"", ""));
-                }
-                catch
-                {
-                    await _localStorage.RemoveItemAsync("authToken");
-                    identity = new ClaimsIdentity();
-                }
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
-            var user = new ClaimsPrincipal(identity);
-            var state = new AuthenticationState(user);
+            // On prépare le HttpClient pour les futures requêtes
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("bearer", token);
 
-            // Important : On ne notifie PAS ici pour éviter les boucles
-            return state;
+            // On crée l'identité à partir du token
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt")));
         }
 
-        // --- NOUVELLES MÉTHODES POUR FORCER LA MAJ ---
-
-        public void NotifyUserAuthentication(string token)
+        // --- MÉTHODE 1 MANQUANTE : Connecter l'utilisateur ---
+        public void MarkUserAsAuthenticated(string token)
         {
             var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt"));
             var authState = Task.FromResult(new AuthenticationState(authenticatedUser));
+
+            // On configure le HTTP Client immédiatement
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("bearer", token);
+
+            // On notifie Blazor que l'état a changé (ça rafraîchit l'interface)
             NotifyAuthenticationStateChanged(authState);
         }
 
-        public void NotifyUserLogout()
+        // --- MÉTHODE 2 MANQUANTE : Déconnecter l'utilisateur ---
+        public void MarkUserAsLoggedOut()
         {
             var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
             var authState = Task.FromResult(new AuthenticationState(anonymousUser));
+
+            // On nettoie le HTTP Client
+            _http.DefaultRequestHeaders.Authorization = null;
+
+            // On notifie Blazor
             NotifyAuthenticationStateChanged(authState);
         }
 
-        // --- CORRECTION DU PARSING POUR AFFICHER LE NOM ---
-        public static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
+        // --- Utilitaire pour lire le Token JWT ---
+        private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
         {
+            var claims = new List<Claim>();
             var payload = jwt.Split('.')[1];
             var jsonBytes = ParseBase64WithoutPadding(payload);
             var keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
-            var claims = new List<Claim>();
 
             if (keyValuePairs == null) return claims;
 
             foreach (var kvp in keyValuePairs)
             {
-                var value = kvp.Value.ToString() ?? "";
-
-                // 1. Gestion des rôles multiples (Array)
+                // Gère les tableaux de rôles/permissions ou les valeurs simples
                 if (kvp.Value is JsonElement element && element.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var item in element.EnumerateArray())
@@ -86,22 +82,14 @@ namespace Autoprint.Web.Services
                 }
                 else
                 {
-                    // 2. Ajouter la claim brute
-                    claims.Add(new Claim(kvp.Key, value));
-
-                    // 3. MAPPING MAGIQUE (Le Fix est ici)
-                    // Si la clé est "unique_name" (standard JWT pour le nom), 
-                    // on l'ajoute aussi comme ClaimTypes.Name pour que Blazor le comprenne.
-                    if (kvp.Key == "unique_name" || kvp.Key == "name")
-                    {
-                        claims.Add(new Claim(ClaimTypes.Name, value));
-                    }
+                    claims.Add(new Claim(kvp.Key, kvp.Value.ToString()!));
                 }
             }
+
             return claims;
         }
 
-        private static byte[] ParseBase64WithoutPadding(string base64)
+        private byte[] ParseBase64WithoutPadding(string base64)
         {
             switch (base64.Length % 4)
             {

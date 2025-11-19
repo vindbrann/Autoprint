@@ -1,0 +1,134 @@
+﻿@page "/profile"
+@using Autoprint.Shared.DTOs
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="container mt-4">
+    <h2>👤 Mon Profil</h2>
+
+    @if (isLoading)
+    {
+        <p>Chargement...</p>
+    }
+    else
+    {
+        <div class="card p-4 shadow-sm bg-light mb-4">
+            <h5 class="text-primary mb-3">Mes informations</h5>
+            <EditForm Model="@profileModel" OnValidSubmit="HandleInfoSubmit">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Identifiant</label>
+                        <input type="text" class="form-control" value="@userProfile.Username" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Rôle</label>
+                        <input type="text" class="form-control" value="@userProfile.Role" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nom Affiché</label>
+                        <InputText class="form-control" @bind-Value="profileModel.DisplayName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" @bind-Value="profileModel.Email" />
+                    </div>
+                </div>
+                <div class="text-end mt-3">
+                    <button type="submit" class="btn btn-success">💾 Enregistrer les infos</button>
+                </div>
+            </EditForm>
+        </div>
+
+        <div class="card p-4 shadow-sm border-warning border-opacity-25">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="text-dark mb-1"><i class="bi bi-shield-lock"></i> Sécurité du compte</h5>
+                    <p class="text-muted mb-0">Gérez votre mot de passe et sa validité.</p>
+                </div>
+                <button class="btn btn-outline-dark" @onclick="() => showPasswordModal = true">
+                    <i class="bi bi-key"></i> Modifier mon mot de passe
+                </button>
+            </div>
+
+            <hr class="my-3" />
+
+            <div class="d-flex align-items-center">
+                <div class="me-3 display-6">
+                    @if (userProfile.DaysUntilExpiration > 30)
+                    {
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    }
+                    else if (userProfile.DaysUntilExpiration > 7)
+                    {
+                        <i class="bi bi-exclamation-circle-fill text-warning"></i>
+                    }
+                    else
+                    {
+                        <i class="bi bi-x-circle-fill text-danger"></i>
+                    }
+                </div>
+                <div>
+                    <strong>Validité du mot de passe :</strong><br />
+                    @if (userProfile.PasswordExpired)
+                    {
+                        <span class="text-danger fw-bold">Expiré ! Vous devez le changer immédiatement.</span>
+                    }
+                    else
+                    {
+                        <span>Il vous reste <span class="fw-bold">@userProfile.DaysUntilExpiration jours</span> avant expiration.</span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<PasswordModal Show="showPasswordModal"
+               OnCancel="() => showPasswordModal = false"
+               OnConfirm="ChangePassword" />
+
+@code {
+    private UserProfileDto userProfile = new();
+    private UpdateProfileDto profileModel = new(); // (DTO simple sans password)
+    private bool isLoading = true;
+    private bool showPasswordModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        userProfile = await Http.GetFromJsonAsync<UserProfileDto>("api/users/profile") ?? new();
+        profileModel = new UpdateProfileDto { DisplayName = userProfile.DisplayName, Email = userProfile.Email };
+        isLoading = false;
+    }
+
+    private async Task HandleInfoSubmit()
+    {
+        // Sauvegarde uniquement DisplayName et Email
+        var res = await Http.PutAsJsonAsync("api/users/profile", profileModel);
+        if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Infos mises à jour !");
+    }
+
+    private async Task ChangePassword(ChangePasswordDto dto)
+    {
+        // Appel API dédié
+        var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
+
+        if (res.IsSuccessStatusCode)
+        {
+            showPasswordModal = false;
+            await JS.InvokeVoidAsync("alert", "Mot de passe modifié avec succès !");
+            await LoadProfile(); // Pour rafraîchir le compteur de jours
+        }
+        else
+        {
+            var msg = await res.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("alert", "Erreur : " + msg);
+        }
+    }
+}

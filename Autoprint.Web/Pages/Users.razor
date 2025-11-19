@@ -15,83 +15,8 @@
                     <i class="oi oi-plus"></i> Nouvel Utilisateur
                 </button>
             </Authorized>
-		</AuthorizeView>
+        </AuthorizeView>
     </div>
-
-    @if (showForm)
-    {
-        <div class="card p-4 mb-4 shadow-sm bg-light">
-            <h4>@(editMode ? "Modifier l'utilisateur" : "Créer un utilisateur")</h4>
-            <EditForm Model="@currentUserModel" OnValidSubmit="SaveUser">
-                <DataAnnotationsValidator />
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Identifiant (Login)</label>
-                        @if (editMode)
-                        {
-                            <input type="text" class="form-control" value="@editingUsername" disabled />
-                        }
-                        else
-                        {
-                            <InputText class="form-control" @bind-Value="newUserModel.Username" placeholder="ex: jdupont" />
-                            <ValidationMessage For="@(() => newUserModel.Username)" />
-                        }
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Nom Affiché</label>
-                        @if (editMode)
-                        {
-                            <InputText class="form-control" @bind-Value="editUserModel.DisplayName" />
-                        }
-                        else
-                        {
-                            <InputText class="form-control" @bind-Value="newUserModel.DisplayName" placeholder="ex: Jean Dupont" />
-                        }
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Mot de passe @(editMode ? "(Laisser vide pour ne pas changer)" : "*")</label>
-                        @if (editMode)
-                        {
-                            <InputText type="password" class="form-control" @bind-Value="editUserModel.NewPassword" />
-                        }
-                        else
-                        {
-                            <InputText type="password" class="form-control" @bind-Value="newUserModel.Password" />
-                            <ValidationMessage For="@(() => newUserModel.Password)" />
-                        }
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Rôle</label>
-                        <select class="form-select" @bind="selectedRoleId">
-                            @foreach (var role in availableRoles)
-                            {
-                                <option value="@role.Id">@role.Name</option>
-                            }
-                        </select>
-                    </div>
-
-                    @if (editMode)
-                    {
-                        <div class="col-12">
-                            <div class="form-check">
-                                <InputCheckbox class="form-check-input" @bind-Value="editUserModel.IsActive" />
-                                <label class="form-check-label">Compte Actif</label>
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                <div class="mt-3 text-end">
-                    <button type="button" class="btn btn-secondary me-2" @onclick="CancelForm">Annuler</button>
-                    <button type="submit" class="btn btn-success">Enregistrer</button>
-                </div>
-            </EditForm>
-        </div>
-    }
 
     <div class="card shadow-sm">
         <div class="card-body p-0">
@@ -101,11 +26,12 @@
             }
             else
             {
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Nom</th>
                             <th>Identifiant</th>
+                            <th>Nom</th>
+                            <th>Email</th>
                             <th>Rôle</th>
                             <th>Dernière connexion</th>
                             <th>État</th>
@@ -116,13 +42,23 @@
                         @foreach (var u in users)
                         {
                             <tr>
-                                <td>@u.DisplayName</td>
                                 <td>
                                     @if (u.IsAdUser)
                                     {
-                                        <span class="badge bg-info text-dark me-1">AD</span>
+                                        <span class="badge bg-info text-dark me-1" title="Utilisateur Active Directory">AD</span>
                                     }
-                                    @u.Username
+                                    <span class="fw-bold">@u.Username</span>
+                                </td>
+                                <td>@u.DisplayName</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(u.Email))
+                                    {
+                                        <a href="mailto:@u.Email" class="text-decoration-none">@u.Email</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Non renseigné</span>
+                                    }
                                 </td>
                                 <td>
                                     @foreach (var r in u.Roles)
@@ -130,7 +66,7 @@
                                         <span class="badge bg-secondary me-1">@r</span>
                                     }
                                 </td>
-                                <td>@(u.LastLogin == DateTime.MinValue ? "Jamais" : u.LastLogin.ToString("g"))</td>
+                                <td class="small text-muted">@(u.LastLogin == DateTime.MinValue ? "Jamais" : u.LastLogin.ToString("g"))</td>
                                 <td>
                                     @if (u.IsActive)
                                     {
@@ -143,30 +79,19 @@
                                 </td>
                                 <td class="text-end">
                                     <AuthorizeView Policy="USER_WRITE">
-                                        <Authorized>
+                                        <Authorized Context="authContext">
                                             <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditUser(u)">
                                                 ✏️
                                             </button>
                                         </Authorized>
-                                        <NotAuthorized>
-                                            <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                                <i class="bi bi-pencil"></i> ✏️
-                                            </button>
-                                        </NotAuthorized>
                                     </AuthorizeView>
                                     <AuthorizeView Policy="USER_DELETE">
-                                        <Authorized>
+                                        <Authorized Context="authContext">
                                             <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u)">
                                                 🗑️
                                             </button>
                                         </Authorized>
-                                        <NotAuthorized>
-                                            <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                                <i class="bi bi-pencil"></i> 🗑️
-                                            </button>
-                                        </NotAuthorized>
                                     </AuthorizeView>
-
                                 </td>
                             </tr>
                         }
@@ -177,9 +102,131 @@
     </div>
 </div>
 
+@if (showForm)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title">
+                        @(editMode ? "✏️ Modifier l'utilisateur" : "➕ Créer un utilisateur")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CancelForm"></button>
+                </div>
+
+                <EditForm Model="@currentUserModel" OnValidSubmit="SaveUser">
+                    <DataAnnotationsValidator />
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Identifiant (Login)</label>
+                                @if (editMode)
+                                {
+                                    <input type="text" class="form-control bg-light" value="@editingUsername" disabled readonly />
+                                    <div class="form-text">L'identifiant ne peut pas être modifié.</div>
+                                }
+                                else
+                                {
+                                    <InputText class="form-control" @bind-Value="newUserModel.Username" placeholder="ex: jdupont" />
+                                    <ValidationMessage For="@(() => newUserModel.Username)" />
+                                }
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Rôle</label>
+                                <select class="form-select" @bind="selectedRoleId">
+                                    @foreach (var role in availableRoles)
+                                    {
+                                        <option value="@role.Id">@role.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Nom Affiché</label>
+                                @if (editMode)
+                                {
+                                    <InputText class="form-control" @bind-Value="editUserModel.DisplayName" />
+                                }
+                                else
+                                {
+                                    <InputText class="form-control" @bind-Value="newUserModel.DisplayName" placeholder="ex: Jean Dupont" />
+                                }
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                @if (editMode)
+                                {
+                                    <InputText class="form-control" @bind-Value="editUserModel.Email" type="email" placeholder="jean.dupont@societe.com" />
+                                    <ValidationMessage For="@(() => editUserModel.Email)" />
+                                }
+                                else
+                                {
+                                    <InputText class="form-control" @bind-Value="newUserModel.Email" type="email" placeholder="jean.dupont@societe.com" />
+                                    <ValidationMessage For="@(() => newUserModel.Email)" />
+                                }
+                            </div>
+
+                            <div class="col-12"><hr /></div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    Mot de passe @(editMode ? "(Optionnel)" : "*")
+                                </label>
+                                @if (editMode)
+                                {
+                                    <InputText type="password" class="form-control" @bind-Value="editUserModel.NewPassword" placeholder="Laisser vide pour ne pas changer" />
+                                }
+                                else
+                                {
+                                    <InputText type="password" class="form-control" @bind-Value="newUserModel.Password" />
+                                    <ValidationMessage For="@(() => newUserModel.Password)" />
+                                }
+                            </div>
+
+                            @if (editMode)
+                            {
+                                <div class="col-md-6">
+                                    <div class="card bg-light h-100">
+                                        <div class="card-body d-flex flex-column justify-content-center">
+
+                                            <div class="form-check form-switch mb-2">
+                                                <InputCheckbox class="form-check-input" @bind-Value="editUserModel.IsActive" id="chkActive" />
+                                                <label class="form-check-label" for="chkActive">Compte Actif</label>
+                                            </div>
+
+                                            <div class="form-check form-switch">
+                                                <InputCheckbox class="form-check-input" @bind-Value="editUserModel.ForceChangePassword" id="chkForce" />
+                                                <label class="form-check-label text-warning fw-bold" for="chkForce">
+                                                    Forcer le changement de mot de passe
+                                                </label>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelForm">Annuler</button>
+                        <button type="submit" class="btn btn-success px-4">
+                            @(editMode ? "Enregistrer les modifications" : "Créer l'utilisateur")
+                        </button>
+                    </div>
+
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<UserViewDto>? users;
-    // Ajout de la liste pour le menu déroulant
     private List<RoleViewDto> availableRoles = new();
 
     private bool showForm = false;
@@ -196,16 +243,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // On charge les utilisateurs ET les rôles disponibles en parallèle
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
         var usersTask = UserService.GetUsers();
         var rolesTask = RoleService.GetRoles();
-
         await Task.WhenAll(usersTask, rolesTask);
-
         users = usersTask.Result;
         availableRoles = rolesTask.Result;
 
-        // Petite sécurité : si on a des rôles, on sélectionne le premier par défaut
         if (availableRoles.Any())
         {
             selectedRoleId = availableRoles.First().Id;
@@ -215,11 +263,8 @@
     private void ShowAddForm()
     {
         newUserModel = new CreateUserDto();
-        var defaultRole = availableRoles.FirstOrDefault(r => r.Name != "SuperAdmin")
-                          ?? availableRoles.FirstOrDefault();
-
+        var defaultRole = availableRoles.FirstOrDefault(r => r.Name != "SuperAdmin") ?? availableRoles.FirstOrDefault();
         selectedRoleId = defaultRole?.Id ?? 1;
-
         editMode = false;
         showForm = true;
     }
@@ -232,13 +277,12 @@
         editUserModel = new UpdateUserDto
         {
             DisplayName = user.DisplayName,
+            Email = user.Email, // <-- On charge l'email existant
             IsActive = user.IsActive,
-            RoleId = 1
+            RoleId = 1,
+            ForceChangePassword = false // Par défaut à false quand on ouvre
         };
 
-        // Ici, on essaie de trouver le rôle actuel de l'user pour le présélectionner
-        // (Note: C'est une approximation car un user peut avoir plusieurs rôles,
-        // mais pour cette version simple on prend le nom du premier rôle trouvé)
         var userRoleName = user.Roles.FirstOrDefault();
         if (userRoleName != null)
         {
@@ -257,20 +301,25 @@
 
     private async Task SaveUser()
     {
-        if (editMode)
+        try
         {
-            editUserModel.RoleId = selectedRoleId;
-            await UserService.UpdateUser(editingUserId, editUserModel);
+            if (editMode)
+            {
+                editUserModel.RoleId = selectedRoleId;
+                await UserService.UpdateUser(editingUserId, editUserModel);
+            }
+            else
+            {
+                newUserModel.RoleId = selectedRoleId;
+                await UserService.CreateUser(newUserModel);
+            }
+            showForm = false;
+            await LoadData();
         }
-        else
+        catch (Exception ex)
         {
-            newUserModel.RoleId = selectedRoleId;
-            await UserService.CreateUser(newUserModel);
+            await JS.InvokeVoidAsync("alert", "Erreur lors de l'enregistrement : " + ex.Message);
         }
-
-        showForm = false;
-        // On recharge juste la liste des users
-        users = await UserService.GetUsers();
     }
 
     private async Task DeleteUser(UserViewDto user)
@@ -279,6 +328,6 @@
             return;
 
         await UserService.DeleteUser(user.Id);
-        users = await UserService.GetUsers();
+        await LoadData();
     }
 }

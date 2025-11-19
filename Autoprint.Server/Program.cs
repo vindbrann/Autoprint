@@ -38,7 +38,7 @@ builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
-builder.Services.AddScoped<Autoprint.Server.Services.IEmailService, Autoprint.Server.Services.SmtpEmailService>();
+builder.Services.AddScoped<Autoprint.Server.Services.IEmailService, Autoprint.Server.Services.EmailService>();
 
 // --- SÉCURITÉ JWT ---
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");

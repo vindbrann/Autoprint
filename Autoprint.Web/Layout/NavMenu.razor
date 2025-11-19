@@ -120,10 +120,13 @@
                 <div class="d-flex align-items-center justify-content-between px-1">
 
                     <div class="d-flex align-items-center overflow-hidden">
-                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
-                             style="width: 36px; height: 36px; min-width: 36px;">
-                            <span class="fs-5">@GetInitials(GetNomAffichage(context.User))</span>
-                        </div>
+
+                        <NavLink href="profile" class="text-decoration-none" title="Modifier mon profil">
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
+                                 style="width: 36px; height: 36px; min-width: 36px; cursor: pointer;">
+                                <span class="fs-5">@GetInitials(GetNomAffichage(context.User))</span>
+                            </div>
+                        </NavLink>
 
                         <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
                             <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;"

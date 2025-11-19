@@ -1,13 +1,11 @@
 ﻿using System.DirectoryServices.AccountManagement;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
-using Autoprint.Shared;
-using Azure.Core;
+using Autoprint.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -33,48 +31,82 @@ namespace Autoprint.Server.Services
         {
             User? user = null;
 
-            // 1. Recherche de l'utilisateur (Optimisée avec AsSplitQuery)
+            // 1. Recherche (inchangé)
             var localUser = await _context.Users
                 .AsSplitQuery()
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
-                    .ThenInclude(r => r.RolePermissions)
-                    .ThenInclude(rp => rp.Permission)
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role).ThenInclude(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Username == request.Username);
 
-            // 2. Vérification Compte LOCAL
+            // 2. Auth Locale (inchangé)
             if (localUser != null && !localUser.IsAdUser)
             {
-                // Vérification du Hash via le Helper centralisé
-                if (localUser.PasswordHash == SecurityHelper.ComputeSha256Hash(request.Password))
-                {
-                    user = localUser;
-                }
+                if (localUser.PasswordHash == SecurityHelper.ComputeSha256Hash(request.Password)) user = localUser;
             }
-            // 3. Vérification ACTIVE DIRECTORY (Windows uniquement)
+            // 3. Auth AD (inchangé)
             else if (OperatingSystem.IsWindows())
             {
-                if (CheckAdCredentials(request.Username, request.Password))
-                {
-                    user = await SyncAdUserAsync(request.Username);
-                }
+                if (CheckAdCredentials(request.Username, request.Password)) user = await SyncAdUserAsync(request.Username);
             }
 
-            // Si user non trouvé ou inactif -> Echec
             if (user == null || !user.IsActive) return null;
 
-            // 4. Génération du Token
+            // --- LOGIQUE D'EXPIRATION BLINDÉE ---
+            bool passwordExpired = false;
+
+            if (!user.IsAdUser)
+            {
+                // Cas 1 : Flag forcé (Prioritaire)
+                if (user.ForceChangePassword)
+                {
+                    passwordExpired = true;
+                }
+                else
+                {
+                    // Cas 2 : Date d'expiration
+                    int maxDays = 90; // Valeur par défaut
+
+                    // On essaie de récupérer la config, sinon on garde 90
+                    var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
+                    if (setting != null && int.TryParse(setting.Value, out int days))
+                    {
+                        maxDays = days;
+                    }
+
+                    // Si maxDays est 0 ou moins, l'expiration est DÉSACTIVÉE
+                    if (maxDays > 0)
+                    {
+                        if (user.LastPasswordChangeDate == null)
+                        {
+                            // Jamais changé -> Expiré
+                            passwordExpired = true;
+                        }
+                        else
+                        {
+                            var expirationDate = user.LastPasswordChangeDate.Value.AddDays(maxDays);
+                            if (DateTime.UtcNow > expirationDate)
+                            {
+                                passwordExpired = true;
+                            }
+                        }
+                    }
+                }
+            }
+            // -----------------------------------
+
             var permissions = await GetUserPermissionsAsync(user);
-            var token = GenerateJwtToken(user, permissions);
+            var token = GenerateJwtToken(user, permissions, passwordExpired);
 
             return new LoginResponse
             {
                 Token = token,
                 Username = user.Username,
                 DisplayName = user.DisplayName,
-                Permissions = permissions
+                Permissions = permissions,
+                PasswordExpired = passwordExpired
             };
         }
+
+        // --- Méthodes Privées ---
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private bool CheckAdCredentials(string username, string password)
@@ -86,10 +118,7 @@ namespace Autoprint.Server.Services
                 using var context = new PrincipalContext(contextType, domain);
                 return context.ValidateCredentials(username, password);
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private async Task<User> SyncAdUserAsync(string username)
@@ -109,10 +138,7 @@ namespace Autoprint.Server.Services
                 await _context.SaveChangesAsync();
             }
 
-            if (OperatingSystem.IsWindows())
-            {
-                await ApplyAdGroupMappings(user);
-            }
+            if (OperatingSystem.IsWindows()) await ApplyAdGroupMappings(user);
             return user;
         }
 
@@ -143,7 +169,7 @@ namespace Autoprint.Server.Services
                     await _context.SaveChangesAsync();
                 }
             }
-            catch { /* Ignorer les erreurs de mapping silencieusement */ }
+            catch { /* Ignorer */ }
         }
 
         private async Task<List<string>> GetUserPermissionsAsync(User user)
@@ -156,7 +182,7 @@ namespace Autoprint.Server.Services
                 .ToListAsync();
         }
 
-        private string GenerateJwtToken(User user, List<string> permissions)
+        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired)
         {
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
             var claims = new List<Claim>
@@ -165,6 +191,13 @@ namespace Autoprint.Server.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim("DisplayName", user.DisplayName ?? "")
             };
+
+            // Si expiré, on ajoute le claim spécial pour bloquer côté API aussi
+            if (passwordExpired)
+            {
+                claims.Add(new Claim("ForcePasswordChange", "true"));
+            }
+
             foreach (var perm in permissions) claims.Add(new Claim("Permission", perm));
 
             var tokenDescriptor = new SecurityTokenDescriptor
