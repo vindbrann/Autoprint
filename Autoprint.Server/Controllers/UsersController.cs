@@ -3,7 +3,7 @@ using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
-using Autoprint.Shared; // Si tu as des DTOs ici, sinon voir classe en bas
+using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -166,27 +166,7 @@ namespace Autoprint.Server.Controllers
 
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
-
-    }
-
-    // --- DTOs (Data Transfer Objects) ---
-    // Tu peux les déplacer dans Autoprint.Shared plus tard si tu veux les utiliser côté Blazor
-    public class CreateUserDto
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public int RoleId { get; set; } // L'ID du rôle à donner (ex: 1 pour Admin)
-    }
-
-    public class UpdateUserDto
-    {
-        public string DisplayName { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public string? NewPassword { get; set; } // Optionnel
-        public int RoleId { get; set; }
     }
 }
