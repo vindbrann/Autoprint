@@ -7,11 +7,15 @@
 <PageTitle>Gestion des Pilotes</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>💾 Bibliothèque des Pilotes</h3>
-    <AuthorizeView Policy="DRIVER_WRITE">
+    <div>
+        <h3>💾 Bibliothèque des Pilotes</h3>
+        <p class="text-muted mb-0">Inventaire des pilotes détectés sur le serveur d'impression.</p>
+    </div>
+
+    <AuthorizeView Policy="DRIVER_SCAN">
         <Authorized Context="authContext">
-            <button class="btn btn-success" @onclick="OuvrirAjout">
-                <i class="bi bi-plus-circle"></i> Ajouter manuellement
+            <button class="btn btn-primary" @onclick="() => afficherScanModal = true">
+                <i class="bi bi-hdd-network me-2"></i> Scanner le Serveur
             </button>
         </Authorized>
     </AuthorizeView>
@@ -27,45 +31,38 @@ else if (pilotes == null)
 }
 else
 {
-    <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Nom du Pilote</th>
-                <th>Version</th>
-                <th style="width: 100px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var p in pilotes)
-            {
+    <div class="card shadow-sm">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
                 <tr>
-                    <td>@p.Nom</td>
-                    <td>@p.Version</td>
-                    <td>
-                        <AuthorizeView Policy="DRIVER_WRITE">
-                            <Authorized Context="authContext">
-                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(p)">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                            </Authorized>
-                        </AuthorizeView>
-                    </td>
+                    <th>Nom du Pilote</th>
+                    <th>Version</th>
+                    <th class="text-end">Dernière Maj</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var p in pilotes)
+                {
+                    <tr>
+                        <td class="fw-bold">@p.Nom</td>
+                        <td><span class="badge bg-secondary font-monospace">@p.Version</span></td>
+                        <td class="text-end text-muted small">@p.DateModification.ToShortDateString()</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-2 text-muted small text-end">
+        Total : @pilotes.Count pilotes répertoriés.
+    </div>
 }
 
-<PiloteModal Show="afficherModal"
-             Model="piloteEnCours"
-             OnCancel="FermerModal"
-             OnSave="Sauvegarder"
-             OnDelete="Supprimer" />
+@* MODALE DE SCAN *@
+<ScanDriversModal Show="afficherScanModal" OnCancel="() => afficherScanModal = false" />
 
 @code {
     private List<Pilote>? pilotes;
-    private Pilote piloteEnCours = new();
-    private bool afficherModal = false;
+    private bool afficherScanModal = false;
     private string? messageErreur;
     private bool CanReadDrivers;
 
@@ -92,46 +89,6 @@ else
         catch (Exception ex)
         {
             messageErreur = "Erreur : " + ex.Message;
-        }
-    }
-
-    private void OuvrirAjout()
-    {
-        piloteEnCours = new Pilote();
-        afficherModal = true;
-    }
-
-    private void OuvrirEdition(Pilote p)
-    {
-        piloteEnCours = new Pilote
-        {
-            Id = p.Id,
-            Nom = p.Nom,
-            Version = p.Version
-        };
-        afficherModal = true;
-    }
-
-    private void FermerModal() => afficherModal = false;
-
-    private async Task Sauvegarder()
-    {
-        if (piloteEnCours.Id == 0)
-            await Http.PostAsJsonAsync("api/Pilotes", piloteEnCours);
-        else
-            await Http.PutAsJsonAsync($"api/Pilotes/{piloteEnCours.Id}", piloteEnCours);
-
-        afficherModal = false;
-        await ChargerListe();
-    }
-
-    private async Task Supprimer()
-    {
-        if (piloteEnCours.Id > 0)
-        {
-            await Http.DeleteAsync($"api/Pilotes/{piloteEnCours.Id}");
-            afficherModal = false;
-            await ChargerListe();
         }
     }
 }

@@ -18,6 +18,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.Get
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<Autoprint.Web.Services.ISyncService, Autoprint.Web.Services.SyncService>();
 
 builder.Services.AddAuthorizationCore(options =>
 {
@@ -28,6 +29,7 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("PRINTER_READ", policy => policy.RequireClaim("Permission", "PRINTER_READ"));
     options.AddPolicy("PRINTER_WRITE", policy => policy.RequireClaim("Permission", "PRINTER_WRITE"));
     options.AddPolicy("PRINTER_DELETE", policy => policy.RequireClaim("Permission", "PRINTER_DELETE"));
+    options.AddPolicy("PRINTER_SYNC", policy => policy.RequireClaim("Permission", "PRINTER_SYNC"));
 
     // --- LIEUX ---
     options.AddPolicy("LOCATION_READ", policy => policy.RequireClaim("Permission", "LOCATION_READ"));
@@ -46,10 +48,7 @@ builder.Services.AddAuthorizationCore(options =>
 
     // --- PILOTES ---
     options.AddPolicy("DRIVER_READ", policy => policy.RequireClaim("Permission", "DRIVER_READ"));
-    options.AddPolicy("DRIVER_WRITE", policy => policy.RequireClaim("Permission", "DRIVER_WRITE"));
-    options.AddPolicy("DRIVER_DELETE", policy => policy.RequireClaim("Permission", "DRIVER_DELETE"));
-    options.AddPolicy("DRIVER_INSTALL", policy => policy.RequireClaim("Permission", "DRIVER_INSTALL"));
-    options.AddPolicy("DRIVER_UNINSTALL", policy => policy.RequireClaim("Permission", "DRIVER_UNINSTALL"));
+    options.AddPolicy("DRIVER_SCAN", policy => policy.RequireClaim("Permission", "DRIVER_SCAN"));
 
     // --- UTILISATEURS ---
     options.AddPolicy("USER_READ", policy => policy.RequireClaim("Permission", "USER_READ"));

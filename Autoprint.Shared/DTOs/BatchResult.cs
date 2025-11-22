@@ -1,15 +1,20 @@
-﻿namespace Autoprint.Server.DTOs
+﻿namespace Autoprint.Shared.DTOs
 {
     public class BatchResult
     {
+        // --- PROPRIÉTÉS EXISTANTES (Compatibilité Import) ---
         public int TotalTraites { get; set; }
         public int SuccesBdd { get; set; }
         public int SuccesSysteme { get; set; }
         public int Erreurs { get; set; }
         public List<string> DetailsErreurs { get; set; } = new List<string>();
+
+        // --- PROPRIÉTÉS POUR LA SYNCHRO ---
+        public bool Success { get; set; } = true;
+        public List<string> Messages { get; set; } = new List<string>();
     }
 
-    // Cet objet sert à recevoir une liste d'imprimantes à créer sans l'ID (puisque c'est nouveau)
+    // On déplace aussi cette classe qui était souvent dans le même fichier
     public class ImprimanteDto
     {
         public string NomAffiche { get; set; } = string.Empty;

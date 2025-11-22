@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251122084128_AddPrinterSyncPermission")]
+    partial class AddPrinterSyncPermission
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -92,38 +95,50 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 5,
-                            Code = "PRINTER_SYNC",
-                            Description = "Synchroniser vers Windows (Spouleur)"
-                        },
-                        new
-                        {
-                            Id = 6,
                             Code = "LOCATION_READ",
                             Description = "Voir les lieux"
                         },
                         new
                         {
-                            Id = 7,
+                            Id = 6,
                             Code = "LOCATION_WRITE",
                             Description = "Ajouter/Modifier des lieux"
                         },
                         new
                         {
-                            Id = 8,
+                            Id = 7,
                             Code = "LOCATION_DELETE",
                             Description = "Supprimer des lieux"
                         },
                         new
                         {
-                            Id = 9,
+                            Id = 8,
                             Code = "DRIVER_READ",
-                            Description = "Voir les pilotes"
+                            Description = "Voir les pilotes et modèles"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Code = "DRIVER_WRITE",
+                            Description = "Uploader/Modifier métadonnées pilotes"
                         },
                         new
                         {
                             Id = 10,
-                            Code = "DRIVER_SCAN",
-                            Description = "Scanner/Mettre à jour les pilotes"
+                            Code = "DRIVER_DELETE",
+                            Description = "Supprimer pilotes de la BDD"
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Code = "DRIVER_INSTALL",
+                            Description = "Installer dans Windows (PnPUtil)"
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Code = "DRIVER_UNINSTALL",
+                            Description = "Désinstaller de Windows"
                         },
                         new
                         {
@@ -145,63 +160,69 @@ namespace Autoprint.Server.Migrations
                         },
                         new
                         {
-                            Id = 14,
-                            Code = "SETTINGS_MANAGE",
-                            Description = "Gérer la configuration serveur"
-                        },
-                        new
-                        {
-                            Id = 15,
+                            Id = 17,
                             Code = "ROLE_READ",
                             Description = "Voir les rôles et permissions"
                         },
                         new
                         {
-                            Id = 16,
+                            Id = 18,
                             Code = "ROLE_WRITE",
                             Description = "Créer/Modifier des rôles"
                         },
                         new
                         {
-                            Id = 17,
+                            Id = 19,
                             Code = "ROLE_DELETE",
                             Description = "Supprimer des rôles"
                         },
                         new
                         {
-                            Id = 18,
+                            Id = 20,
                             Code = "BRAND_READ",
                             Description = "Voir les marques"
                         },
                         new
                         {
-                            Id = 19,
+                            Id = 21,
                             Code = "BRAND_WRITE",
                             Description = "Ajouter/Modifier des marques"
                         },
                         new
                         {
-                            Id = 20,
+                            Id = 22,
                             Code = "BRAND_DELETE",
                             Description = "Supprimer des marques"
                         },
                         new
                         {
-                            Id = 21,
+                            Id = 23,
                             Code = "MODEL_READ",
                             Description = "Voir les modèles"
                         },
                         new
                         {
-                            Id = 22,
+                            Id = 24,
                             Code = "MODEL_WRITE",
                             Description = "Ajouter/Modifier des modèles"
                         },
                         new
                         {
-                            Id = 23,
+                            Id = 25,
                             Code = "MODEL_DELETE",
                             Description = "Supprimer des modèles"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Code = "PRINTER_SYNC",
+                            Description = "Synchroniser vers Windows (Spouleur)"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Code = "SETTINGS_MANAGE",
+                            Description = "Gérer la configuration serveur (SMTP, Chemins...)"
                         });
                 });
 
@@ -363,6 +384,21 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 23
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 24
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 25
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 26
                         });
                 });
 
@@ -523,7 +559,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(297),
+                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(4490),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -615,7 +651,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 657, DateTimeKind.Utc).AddTicks(9777),
+                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(3114),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -662,7 +698,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(894),
+                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(6098),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

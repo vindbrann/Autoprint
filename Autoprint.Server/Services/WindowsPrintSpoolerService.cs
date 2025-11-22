@@ -8,7 +8,7 @@ namespace Autoprint.Server.Services
     public class WindowsPrintSpoolerService : IPrintSpoolerService
     {
         // ============================================================
-        // 1. GESTION (ÉCRITURE / ACTIONS SYSTÈME)
+        // 1. GESTION (ACTIONS SYSTÈME)
         // ============================================================
 
         public Task CreerPortTcp(string ipAddress)
@@ -76,6 +76,85 @@ namespace Autoprint.Server.Services
             return Task.CompletedTask;
         }
 
+        public Task ModifierImprimante(string nomActuel, string? comment, string? location)
+        {
+            try
+            {
+                var query = new SelectQuery("Win32_Printer", $"Name = '{nomActuel}'");
+                using var searcher = new ManagementObjectSearcher(query);
+
+                foreach (ManagementObject printer in searcher.Get())
+                {
+                    bool changed = false;
+
+                    // Mapping : Le "Commentaire" Windows reçoit ta "Localisation" (Détails)
+                    if (comment != null && printer["Comment"]?.ToString() != comment)
+                    {
+                        printer["Comment"] = comment;
+                        changed = true;
+                    }
+
+                    // Mapping : La "Location" Windows reçoit ton "Emplacement" (Bâtiment)
+                    if (location != null && printer["Location"]?.ToString() != location)
+                    {
+                        printer["Location"] = location;
+                        changed = true;
+                    }
+
+                    if (changed) printer.Put();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur modif Windows: {ex.Message}");
+            }
+            return Task.CompletedTask;
+        }
+
+        // --- NOUVELLES MÉTHODES INTELLIGENTES ---
+
+        public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
+        {
+            try
+            {
+                // On cherche l'imprimante qui utilise le port "IP_xxx"
+                string portName = $"IP_{ipAddress}";
+                // Note: WQL est sensible aux 'quotes'
+                var query = new SelectQuery("Win32_Printer", $"PortName = '{portName}'");
+                using var searcher = new ManagementObjectSearcher(query);
+
+                foreach (ManagementObject printer in searcher.Get())
+                {
+                    return Task.FromResult<string?>(printer["Name"]?.ToString());
+                }
+            }
+            catch { }
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task RenommerImprimante(string ancienNom, string nouveauNom)
+        {
+            try
+            {
+                var query = new SelectQuery("Win32_Printer", $"Name = '{ancienNom}'");
+                using var searcher = new ManagementObjectSearcher(query);
+
+                foreach (ManagementObject printer in searcher.Get())
+                {
+                    // La méthode RenamePrinter() est disponible sur Win32_Printer
+                    var paramsCim = printer.GetMethodParameters("RenamePrinter");
+                    paramsCim["NewPrinterName"] = nouveauNom;
+                    printer.InvokeMethod("RenamePrinter", paramsCim, null);
+                    return Task.CompletedTask;
+                }
+                throw new Exception($"Imprimante '{ancienNom}' introuvable pour renommage.");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur renommage : {ex.Message}");
+            }
+        }
+
         private bool PortExists(string ip)
         {
             try
@@ -85,6 +164,7 @@ namespace Autoprint.Server.Services
             }
             catch { return false; }
         }
+
 
         // ============================================================
         // 2. SCAN IMPRIMANTES (AVEC RÉSOLUTION D'IP)
@@ -114,8 +194,7 @@ namespace Autoprint.Server.Services
                 scope = new ManagementScope(path, options);
                 scope.Connect();
 
-                // --- ÉTAPE A : Pré-chargement des Ports TCP/IP pour la correspondance ---
-                // On crée un dictionnaire : [Nom du Port] -> [Vraie IP]
+                // Pré-chargement des Ports
                 var portMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
@@ -132,13 +211,8 @@ namespace Autoprint.Server.Services
                         }
                     }
                 }
-                catch
-                {
-                    // Si on n'arrive pas à lire les ports, on continue sans résolution, ce n'est pas bloquant.
-                    Console.WriteLine("Impossible de lire la table des ports TCP/IP pour la résolution.");
-                }
+                catch { }
 
-                // --- ÉTAPE B : Scan des Imprimantes ---
                 var query = new ObjectQuery("SELECT * FROM Win32_Printer WHERE Local = TRUE");
                 using var searcher = new ManagementObjectSearcher(scope, query);
 
@@ -147,22 +221,20 @@ namespace Autoprint.Server.Services
                     string rawPortName = GetWmiValue(printer, "PortName");
                     string resolvedIp = rawPortName;
 
-                    // 1. Tentative de résolution via la map TCP/IP
                     if (portMap.ContainsKey(rawPortName))
                     {
                         resolvedIp = portMap[rawPortName];
                     }
-                    // 2. Si échec ET que c'est un port WSD (inutilisable), on vide le champ
                     else if (rawPortName.StartsWith("WSD-", StringComparison.OrdinalIgnoreCase))
                     {
-                        resolvedIp = ""; // On force le vide pour obliger la saisie
+                        resolvedIp = "";
                     }
 
                     results.Add(new DiscoveredPrinterDto
                     {
                         Name = GetWmiValue(printer, "Name"),
                         DriverName = GetWmiValue(printer, "DriverName"),
-                        PortName = resolvedIp, // Sera vide si WSD non résolu
+                        PortName = resolvedIp,
                         IsShared = (bool)(printer["Shared"] ?? false),
                         ShareName = GetWmiValue(printer, "ShareName")
                     });
@@ -181,7 +253,7 @@ namespace Autoprint.Server.Services
         }
 
         // ============================================================
-        // 3. SCAN PILOTES (AVEC PRIVILÈGES)
+        // 3. SCAN PILOTES
         // ============================================================
 
         public Task<List<DiscoveredDriverDto>> ScanLocalDriversAsync()
@@ -190,7 +262,6 @@ namespace Autoprint.Server.Services
 
             try
             {
-                // Options critiques pour voir les drivers (Admin + Privilèges)
                 var options = new ConnectionOptions
                 {
                     Impersonation = ImpersonationLevel.Impersonate,
@@ -206,9 +277,8 @@ namespace Autoprint.Server.Services
                 foreach (ManagementObject driver in searcher.Get())
                 {
                     string rawName = GetWmiValue(driver, "Name");
-                    string cleanName = rawName.Split(',')[0]; // Nettoyage "HP,3,Windows x64" -> "HP"
+                    string cleanName = rawName.Split(',')[0];
 
-                    // Lecture sécurisée de la version
                     string version = GetWmiValue(driver, "DriverVersion");
                     if (string.IsNullOrEmpty(version))
                     {
@@ -224,14 +294,12 @@ namespace Autoprint.Server.Services
             }
             catch (Exception ex)
             {
-                // On ne bloque pas l'appli pour une erreur de driver, on loggue juste
                 Console.WriteLine("Erreur WMI Drivers: " + ex.Message);
             }
 
             return Task.FromResult(results);
         }
 
-        // --- HELPER POUR ÉVITER LES CRASHS "NON TROUVÉ" ---
         private string GetWmiValue(ManagementBaseObject obj, string propertyName)
         {
             try

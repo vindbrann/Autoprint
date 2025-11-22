@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251122104858_RenumberPermissions")]
+    partial class RenumberPermissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -122,7 +125,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 10,
-                            Code = "DRIVER_SCAN",
+                            Code = "DRIVER_WRITE",
                             Description = "Scanner/Mettre à jour les pilotes"
                         },
                         new
@@ -523,7 +526,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(297),
+                            DateModification = new DateTime(2025, 11, 22, 10, 48, 57, 444, DateTimeKind.Utc).AddTicks(9803),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -615,7 +618,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 657, DateTimeKind.Utc).AddTicks(9777),
+                            DateModification = new DateTime(2025, 11, 22, 10, 48, 57, 444, DateTimeKind.Utc).AddTicks(8799),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -662,7 +665,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(894),
+                            DateModification = new DateTime(2025, 11, 22, 10, 48, 57, 445, DateTimeKind.Utc).AddTicks(936),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

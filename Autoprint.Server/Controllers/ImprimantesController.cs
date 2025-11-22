@@ -1,5 +1,4 @@
 ﻿using Autoprint.Server.Data;
-using Autoprint.Server.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -13,12 +12,11 @@ namespace Autoprint.Server.Controllers
     public class ImprimantesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly IPrintSpoolerService _spoolerService;
 
-        public ImprimantesController(ApplicationDbContext context, IPrintSpoolerService spoolerService)
+        // On n'injecte PLUS le SpoolerService ici. Le contrôleur ne parle qu'à la BDD.
+        public ImprimantesController(ApplicationDbContext context)
         {
             _context = context;
-            _spoolerService = spoolerService;
         }
 
         // GET: api/Imprimantes
@@ -45,7 +43,6 @@ namespace Autoprint.Server.Controllers
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
-
             return imprimante;
         }
 
@@ -54,46 +51,14 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
-            // 1. Sauvegarde en BDD
-            // On force le statut "En attente de création" pour le background service ou l'action manuelle
+            // On force le statut : En attente de création
             imprimante.Status = PrinterStatus.PendingCreation;
+
+            // On vide les champs techniques si l'utilisateur tente de les forcer
+            imprimante.NomPartage = imprimante.NomAffiche; // Par défaut même nom
 
             _context.Imprimantes.Add(imprimante);
             await _context.SaveChangesAsync();
-
-            // 2. Tentative de création immédiate sur Windows (Optionnel, ou via bouton "Appliquer")
-            // Pour l'instant, on le fait en direct pour garder le comportement Phase 1
-            // Il faudra peut-être déplacer ça dans une action "Synchroniser" plus tard.
-            try
-            {
-                // On a besoin des infos du pilote liées au modèle
-                var modele = await _context.Modeles
-                    .Include(m => m.Pilote)
-                    .FirstOrDefaultAsync(m => m.Id == imprimante.ModeleId);
-
-                if (modele?.Pilote != null && !string.IsNullOrEmpty(imprimante.AdresseIp))
-                {
-                    // A. Création du Port (Signature corrigée : juste l'IP)
-                    await _spoolerService.CreerPortTcp(imprimante.AdresseIp);
-
-                    // B. Création de l'imprimante (Signature corrigée)
-                    await _spoolerService.CreerImprimante(
-                        nom: imprimante.NomAffiche,
-                        driverName: modele.Pilote.Nom, // On utilise le nom du pilote Windows
-                        ipAddress: imprimante.AdresseIp
-                    );
-
-                    // Si succès, on passe en Vert
-                    imprimante.Status = PrinterStatus.Synchronized;
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                // En cas d'erreur Windows, on ne bloque pas la création BDD mais on loggue
-                Console.WriteLine($"Erreur création Windows : {ex.Message}");
-                // On pourrait passer le statut en "Error" ici
-            }
 
             return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, imprimante);
         }
@@ -105,17 +70,32 @@ namespace Autoprint.Server.Controllers
         {
             if (id != imprimante.Id) return BadRequest();
 
-            // On détecte les changements pour le statut (simplifié ici)
-            imprimante.Status = PrinterStatus.PendingUpdate;
+            // On charge l'original pour ne pas écraser n'importe quoi
+            var original = await _context.Imprimantes.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
+            if (original == null) return NotFound();
+
+            // Logique de changement de statut
+            if (original.Status == PrinterStatus.Synchronized)
+            {
+                // Si elle était synchro, elle devient "En attente de modif"
+                imprimante.Status = PrinterStatus.PendingUpdate;
+            }
+            else if (original.Status == PrinterStatus.PendingCreation)
+            {
+                // Si elle n'était pas encore créée, elle reste "PendingCreation"
+                imprimante.Status = PrinterStatus.PendingCreation;
+            }
+            // Si elle était en Error, on retente un Update
+            else if (original.Status == PrinterStatus.SyncError)
+            {
+                imprimante.Status = PrinterStatus.PendingUpdate;
+            }
 
             _context.Entry(imprimante).State = EntityState.Modified;
 
             try
             {
                 await _context.SaveChangesAsync();
-
-                // Mise à jour Windows (Simplifiée : on ne gère pas tout ici pour l'instant)
-                // L'idéal sera le module de Synchro dédié.
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -134,18 +114,21 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes.FindAsync(id);
             if (imprimante == null) return NotFound();
 
-            // 1. Suppression Windows (Signature corrigée)
-            try
+            // STRATÉGIE "SOFT DELETE" (Option B)
+
+            // Cas 1 : Elle n'a jamais été créée sur Windows (PendingCreation ou ImportedNeedsFix)
+            // -> On peut la supprimer directement de la BDD, pas besoin de déranger le spouleur.
+            if (imprimante.Status == PrinterStatus.PendingCreation || imprimante.Status == PrinterStatus.ImportedNeedsFix)
             {
-                await _spoolerService.SupprimerImprimante(imprimante.NomAffiche);
+                _context.Imprimantes.Remove(imprimante);
             }
-            catch (Exception ex)
+            // Cas 2 : Elle existe (ou a existé) sur Windows -> On marque pour suppression différée
+            else
             {
-                Console.WriteLine($"Erreur suppression Windows : {ex.Message}");
+                imprimante.Status = PrinterStatus.PendingDelete;
+                _context.Entry(imprimante).State = EntityState.Modified;
             }
 
-            // 2. Suppression BDD
-            _context.Imprimantes.Remove(imprimante);
             await _context.SaveChangesAsync();
 
             return NoContent();

@@ -1,122 +1,173 @@
 ﻿@page "/imprimantes"
 @using Autoprint.Shared
+@using Autoprint.Shared.DTOs
 @using Autoprint.Shared.Enums
 @using Autoprint.Web.Services
 @inject HttpClient Http
 @inject CustomAuthStateProvider AuthProvider
+@inject ISyncService SyncService
 
 <PageTitle>Gestion des Imprimantes</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>🖨️ Parc d'Imprimantes</h3>
-    <AuthorizeView Policy="PRINTER_WRITE">
-        <Authorized Context="authContext">
-            <button class="btn btn-success" @onclick="OuvrirAjout">
-                <i class="bi bi-plus-circle"></i> Ajouter une imprimante
-            </button>
-        </Authorized>
-    </AuthorizeView>
+    
+    <div class="d-flex gap-2">
+        @* BOUTON IMPORT / SCAN (Nouveau) *@
+        <AuthorizeView Policy="PRINTER_WRITE">
+            <Authorized Context="authContext">
+                <button class="btn btn-outline-info" @onclick="() => afficherScanModal = true">
+                    <i class="bi bi-search"></i> Scanner Réseau
+                </button>
+                <button class="btn btn-success" @onclick="OuvrirAjout">
+                    <i class="bi bi-plus-circle"></i> Ajouter manuellement
+                </button>
+            </Authorized>
+        </AuthorizeView>
+    </div>
 </div>
+
+@* --- ZONE DASHBOARD DE SYNCHRO --- *@
+@if (imprimantes != null)
+{
+    var toCreate = imprimantes.Count(i => i.Status == PrinterStatus.PendingCreation);
+    var toUpdate = imprimantes.Count(i => i.Status == PrinterStatus.PendingUpdate);
+    var toDelete = imprimantes.Count(i => i.Status == PrinterStatus.PendingDelete);
+    var errors = imprimantes.Count(i => i.Status == PrinterStatus.SyncError);
+    var totalPending = toCreate + toUpdate + toDelete;
+
+    @if (errors > 0)
+    {
+        <div class="alert alert-danger d-flex justify-content-between align-items-center shadow-sm">
+            <div>
+                <i class="bi bi-exclamation-octagon-fill fs-4 me-2"></i>
+                <strong>Attention !</strong> Il y a @errors erreur(s) de synchronisation.
+            </div>
+            <AuthorizeView Policy="PRINTER_SYNC">
+                <Authorized Context="authCtx">
+                    <button class="btn btn-danger btn-sm" @onclick="ApplyChanges" disabled="@isSyncing">
+                        <i class="bi bi-arrow-repeat"></i> Réessayer
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    }
+    else if (totalPending > 0)
+    {
+        <div class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm border-warning">
+            <div>
+                <i class="bi bi-info-circle-fill fs-4 me-2 text-warning"></i>
+                <span class="fw-bold">Modifications en attente :</span>
+                <div class="mt-1">
+                    @if(toCreate > 0) { <span class="badge bg-success me-1"><i class="bi bi-plus-lg"></i> @toCreate Création(s)</span> }
+                    @if(toUpdate > 0) { <span class="badge bg-primary me-1"><i class="bi bi-pencil"></i> @toUpdate Mise(s) à jour</span> }
+                    @if(toDelete > 0) { <span class="badge bg-danger me-1"><i class="bi bi-trash"></i> @toDelete Suppression(s)</span> }
+                </div>
+            </div>
+
+            <AuthorizeView Policy="PRINTER_SYNC">
+                <Authorized Context="authCtx">
+                    <button class="btn btn-warning text-dark fw-bold px-4" @onclick="ApplyChanges" disabled="@isSyncing">
+                        @if (isSyncing)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span> Analyse...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-arrow-repeat"></i> <span> Synchroniser Maintenant</span>
+                        }
+                    </button>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    }
+    
+    @if (syncResult != null)
+    {
+        <div class="alert @(syncResult.Success ? "alert-success" : "alert-danger") alert-dismissible fade show mt-2" role="alert">
+            <strong>@(syncResult.Success ? "Opération terminée" : "Erreur survenue")</strong>
+            <ul class="mb-0 small">
+                @foreach(var msg in syncResult.Messages) { <li>@msg</li> }
+            </ul>
+            <button type="button" class="btn-close" @onclick="() => syncResult = null"></button>
+        </div>
+    }
+}
 
 @if (messageErreur != null)
 {
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i> @messageErreur
-    </div>
+    <div class="alert alert-warning mt-3"><i class="bi bi-exclamation-triangle-fill me-2"></i> @messageErreur</div>
 }
 else if (imprimantes == null)
 {
-    <div class="d-flex align-items-center">
+    <div class="d-flex align-items-center mt-4">
         <div class="spinner-border text-primary me-2" role="status"></div>
         <span>Chargement du parc...</span>
     </div>
 }
 else
 {
-    <table class="table table-striped table-hover align-middle">
+    <table class="table table-striped table-hover align-middle mt-3">
         <thead class="table-dark">
             <tr>
-                <th class="text-center" style="width: 50px;" title="Statut de synchronisation"><i class="bi bi-activity"></i></th>
+                <th class="text-center" style="width: 50px;"><i class="bi bi-activity"></i></th>
                 <th>Nom</th>
                 <th>Code</th>
                 <th>Modèle</th>
                 <th>IP</th>
                 <th>Lieu</th>
                 <th>Partage</th>
-                <th style="width: 120px;">Actions</th>
+                <th style="width: 80px;">Détail</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var imp in imprimantes)
             {
                 <tr>
-                    @* COLONNE STATUT (NOUVEAU) *@
                     <td class="text-center fs-5">
                         @switch (imp.Status)
                         {
-                            case PrinterStatus.Synchronized:
-                                <i class="bi bi-check-circle-fill text-success" title="Synchronisé"></i>
+                            case PrinterStatus.Synchronized: <i class="bi bi-check-circle-fill text-success" title="Synchronisé"></i> break;
+                            case PrinterStatus.ImportedNeedsFix: 
+                                <i class="bi bi-exclamation-diamond-fill text-danger" style="cursor: help;" data-bs-toggle="tooltip" title="@GenererMessageIncomplet(imp)"></i> 
                                 break;
-                            case PrinterStatus.ImportedNeedsFix:
-                                <i class="bi bi-exclamation-diamond-fill text-danger" title="Données incomplètes (Modèle/Lieu à définir)"></i>
-                                break;
-                            case PrinterStatus.PendingCreation:
-                                <i class="bi bi-plus-circle-fill text-info" title="En attente de création sur Windows"></i>
-                                break;
-                            case PrinterStatus.PendingUpdate:
-                                <i class="bi bi-pencil-fill text-warning" title="Modifications en attente de synchronisation"></i>
-                                break;
-                            default:
-                                <i class="bi bi-question-circle text-muted"></i>
-                                break;
+                            case PrinterStatus.PendingCreation: <i class="bi bi-plus-circle-fill text-success" title="En attente de création"></i> break;
+                            case PrinterStatus.PendingUpdate: <i class="bi bi-pencil-fill text-warning" title="En attente de mise à jour"></i> break;
+                            case PrinterStatus.PendingDelete: <i class="bi bi-trash-fill text-danger" title="En attente de suppression"></i> break;
+                            case PrinterStatus.SyncError: <i class="bi bi-x-circle-fill text-danger" title="Erreur de synchro"></i> break;
+                            default: <i class="bi bi-question-circle text-muted"></i> break;
                         }
                     </td>
-
-                    <td><strong>@imp.NomAffiche</strong></td>
                     <td>
-                        @if (!string.IsNullOrEmpty(imp.Code))
+                        <strong>@imp.NomAffiche</strong>
+                        @if(imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
                         {
-                            <span class="badge bg-light text-dark border">@imp.Code</span>
+                            <div class="text-danger small fst-italic"><i class="bi bi-arrow-return-right"></i> @imp.Commentaire</div>
                         }
                     </td>
+                    <td>@if (!string.IsNullOrEmpty(imp.Code)) { <span class="badge bg-light text-dark border">@imp.Code</span> }</td>
                     <td>
                         @if (imp.Modele != null)
                         {
-                            if (imp.Modele.Nom == "GÉNÉRIQUE" || imp.Modele.Nom == "NON DÉFINI")
-                            {
-                                <span class="badge bg-danger">@imp.Modele.Nom</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-primary">@imp.Modele.Nom</span>
-                            }
+                            if (imp.Modele.Nom == "GÉNÉRIQUE" || imp.Modele.Nom == "NON DÉFINI") { <span class="badge bg-danger">@imp.Modele.Nom</span> }
+                            else { <span class="badge bg-primary">@imp.Modele.Nom</span> }
                         }
                     </td>
                     <td><code>@imp.AdresseIp</code></td>
                     <td>
                         @if (imp.Emplacement != null)
                         {
-                            if (imp.Emplacement.Nom == "NON DÉFINI")
-                            {
-                                <span class="badge bg-danger">@imp.Emplacement.Nom</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-info text-dark">@imp.Emplacement.Nom</span>
-                            }
+                            if (imp.Emplacement.Nom == "NON DÉFINI") { <span class="badge bg-danger">@imp.Emplacement.Nom</span> }
+                            else { <span class="badge bg-info text-dark">@imp.Emplacement.Nom</span> }
                         }
                     </td>
                     <td>
-                        @if (imp.EstPartagee)
-                        {
-                            <span class="badge bg-success">Oui (@imp.NomPartage)</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-secondary">Non</span>
-                        }
+                        @if (imp.EstPartagee) { <span class="badge bg-success">Oui (@imp.NomPartage)</span> }
+                        else { <span class="badge bg-secondary">Non</span> }
                     </td>
                     <td>
+                        @* Bouton d'édition uniquement (Suppression retirée du tableau) *@
                         <AuthorizeView Policy="PRINTER_WRITE">
                             <Authorized Context="authContext">
                                 <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(imp)">
@@ -131,56 +182,90 @@ else
     </table>
 }
 
+@* MODALES *@
 <ImprimanteModal Show="afficherModal"
                  Model="imprimanteEnCours"
                  OnCancel="FermerModal"
                  OnSave="Sauvegarder"
-                 OnDelete="Supprimer" />
+                 OnDelete="SupprimerDepuisModal" />
+
+<SyncPreviewModal Show="afficherPreview" 
+                  Items="previewItems" 
+                  OnCancel="() => afficherPreview = false" 
+                  OnConfirm="ExecuterSynchroReelle" />
+
+@* NOUVELLE MODALE IMPORT *@
+<ScanPrintersModal Show="afficherScanModal" 
+                   OnCancel="() => afficherScanModal = false" 
+                   OnImportDone="SurImportTermine" />
 
 @code {
     private List<Imprimante>? imprimantes;
     private Imprimante imprimanteEnCours = new();
     private bool afficherModal = false;
     private string? messageErreur;
+    
+    // Synchro
+    private bool isSyncing = false;
+    private BatchResult? syncResult;
+    private bool afficherPreview = false;
+    private List<SyncPreviewDto>? previewItems;
+
+    // Import
+    private bool afficherScanModal = false;
 
     private bool CanReadPrinters { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         CanReadPrinters = await AuthProvider.HasPermission("Permission", "PRINTER_READ");
-
-        if (CanReadPrinters)
-        {
-            await ChargerListe();
-        }
-        else
-        {
-            messageErreur = "Vous n'avez pas l'autorisation de consulter la liste des imprimantes.";
-            imprimantes = new List<Imprimante>();
-        }
+        if (CanReadPrinters) await ChargerListe();
+        else { messageErreur = "Accès non autorisé."; imprimantes = new List<Imprimante>(); }
     }
 
     private async Task ChargerListe()
     {
-        try
-        {
-            imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes");
-        }
-        catch (Exception ex)
-        {
-            messageErreur = "Erreur chargement : " + ex.Message;
-        }
+        try { imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes"); }
+        catch (Exception ex) { messageErreur = "Erreur chargement : " + ex.Message; }
     }
 
+    // --- ACTIONS ---
+    private async Task ApplyChanges()
+    {
+        isSyncing = true;
+        try { previewItems = await SyncService.GetPreview(); afficherPreview = true; }
+        catch (Exception ex) { syncResult = new BatchResult { Success = false, Messages = new List<string> { "Erreur : " + ex.Message } }; }
+        finally { isSyncing = false; }
+    }
+
+    private async Task ExecuterSynchroReelle(List<int> ids)
+    {
+        afficherPreview = false; isSyncing = true; syncResult = null;
+        try 
+        {
+            syncResult = await SyncService.ApplyChanges(ids);
+            if (syncResult.Success) await ChargerListe();
+        }
+        catch (Exception ex) { syncResult = new BatchResult { Success = false, Messages = new List<string> { ex.Message } }; }
+        finally { isSyncing = false; }
+    }
+
+    private async Task SurImportTermine()
+    {
+        afficherScanModal = false;
+        await ChargerListe();
+    }
+
+    // --- CRUD ---
     private void OuvrirAjout()
     {
-        imprimanteEnCours = new Imprimante { ModeleId = 0, EmplacementId = 0 };
+        imprimanteEnCours = new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation };
         afficherModal = true;
     }
 
     private void OuvrirEdition(Imprimante imp)
     {
-        // Copie de l'objet pour édition
+        // Clone manuel pour éviter l'édition en direct
         imprimanteEnCours = new Imprimante
         {
             Id = imp.Id,
@@ -193,7 +278,7 @@ else
             Commentaire = imp.Commentaire,
             ModeleId = imp.ModeleId,
             EmplacementId = imp.EmplacementId,
-            Status = imp.Status // On garde le statut actuel
+            Status = imp.Status
         };
         afficherModal = true;
     }
@@ -202,29 +287,20 @@ else
 
     private async Task Sauvegarder()
     {
-        // Logique de changement d'état automatique
-        // Si l'imprimante était "A corriger" et qu'on a mis un vrai modèle/lieu, elle passe en "Mise à jour"
-        if (imprimanteEnCours.Status == PrinterStatus.ImportedNeedsFix
-            && imprimanteEnCours.ModeleId > 1
-            && imprimanteEnCours.EmplacementId > 1)
+        // Passage en update si c'était une import incomplète
+        if (imprimanteEnCours.Status == PrinterStatus.ImportedNeedsFix && imprimanteEnCours.ModeleId > 1 && imprimanteEnCours.EmplacementId > 0)
         {
             imprimanteEnCours.Status = PrinterStatus.PendingUpdate;
         }
 
-        if (imprimanteEnCours.Id == 0)
-        {
-            await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEnCours);
-        }
-        else
-        {
-            await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEnCours.Id}", imprimanteEnCours);
-        }
+        if (imprimanteEnCours.Id == 0) await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEnCours);
+        else await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEnCours.Id}", imprimanteEnCours);
 
         afficherModal = false;
         await ChargerListe();
     }
 
-    private async Task Supprimer()
+    private async Task SupprimerDepuisModal()
     {
         if (imprimanteEnCours.Id > 0)
         {
@@ -232,5 +308,14 @@ else
             afficherModal = false;
             await ChargerListe();
         }
+    }
+
+    private string GenererMessageIncomplet(Imprimante imp)
+    {
+        var manquants = new List<string>();
+        if (imp.ModeleId <= 1) manquants.Add("Modèle");
+        if (imp.EmplacementId == 0) manquants.Add("Emplacement");
+        if (string.IsNullOrWhiteSpace(imp.AdresseIp)) manquants.Add("Adresse IP");
+        return manquants.Any() ? "Action requise : Sélectionnez " + string.Join(", ", manquants) : "Données incomplètes";
     }
 }

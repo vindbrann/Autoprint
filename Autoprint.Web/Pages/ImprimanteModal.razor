@@ -9,9 +9,9 @@
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">@(Model.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante")</h5>
-                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
+                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
                 </div>
                 <div class="modal-body">
                     <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
@@ -21,80 +21,97 @@
                         @* --- NOM ET CODE --- *@
                         <div class="row mb-3">
                             <div class="col-md-8">
-                                <label class="form-label">
-                                    Nom affiché
-                                    @if (namingEnabled)
-                                    {
-                                        <span class="badge bg-info ms-2"><i class="oi oi-cog"></i> Auto</span>
-                                    }
-                                </label>
+                                <label class="form-label fw-bold">Nom affiché</label>
                                 <div class="input-group">
                                     <InputText class="form-control" @bind-Value="Model.NomAffiche" disabled="@namingEnabled" placeholder="Ex: IMP_ACCUEIL" />
                                     @if (namingEnabled)
-                                        {
-                                            @* Bouton de régénération manuelle *@
-                                            <button class="btn btn-outline-secondary" type="button"
-                                                    @onclick="ForcerRefreshNom"
-                                                    title="Recalculer le nom automatique (Forcer la mise à jour)">
-
-                                                @* Icône double flèche circulaire *@
-                                                <i class="bi bi-arrow-clockwise"></i>
-                                            </button>
-                                        }
+                                    {
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="ForcerRefreshNom" title="Recalculer le nom">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    }
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Code Inventaire</label>
+                                <label class="form-label fw-bold">Code Inventaire</label>
                                 <InputText class="form-control" @bind-Value="Model.Code" @onblur="GenerateNameIfEnabled" placeholder="Ex: P001" />
                             </div>
                         </div>
 
-                        @* --- IP ET LOCALISATION --- *@
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Adresse IP</label>
-                                <InputText class="form-control" @bind-Value="Model.AdresseIp" @onblur="GenerateNameIfEnabled" placeholder="192.168.x.x" />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Localisation physique</label>
-                                <InputText class="form-control" @bind-Value="Model.Localisation" placeholder="Ex: Bureau 204" />
-                            </div>
-                        </div>
+                        @* --- BLOC RÉSEAU INTELLIGENT --- *@
+                        <div class="card p-3 mb-3 border-info bg-light bg-opacity-10">
+                            <h6 class="text-info border-bottom pb-2 mb-3"><i class="bi bi-geo-alt"></i> Localisation & Réseau</h6>
 
-                        @* --- SÉLECTION EMPLACEMENT (SÉCURISÉ) --- *@
-                        <div class="mb-3">
-                            <label class="form-label">Emplacement (Lieu)</label>
-                            <InputSelect class="form-select"
-                                         Value="@Model.EmplacementId"
-                                         ValueChanged="@((int id) => OnLieuChanged(id))"
-                                         ValueExpression="@(() => Model.EmplacementId)"
-                                         disabled="@(!CanReadEmplacements)">
-                                <option value="0">-- Choisir un emplacement --</option>
-                                @if (listeEmplacements != null)
-                                {
-                                    @foreach (var lieu in listeEmplacements)
+                            @* 1. Choix du Lieu *@
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">1. Emplacement (Réseau)</label>
+                                <InputSelect class="form-select"
+                                             Value="@Model.EmplacementId"
+                                             ValueChanged="@((int id) => OnLieuChanged(id))"
+                                             ValueExpression="@(() => Model.EmplacementId)"
+                                             disabled="@(!CanReadEmplacements)">
+                                    <option value="0">-- Choisir un emplacement --</option>
+                                    @if (listeEmplacements != null)
                                     {
-                                        <option value="@lieu.Id">@lieu.Nom</option>
+                                        @foreach (var lieu in listeEmplacements)
+                                        {
+                                            <option value="@lieu.Id">@lieu.Nom @(string.IsNullOrEmpty(lieu.CidrIpv4) ? "" : $"({lieu.CidrIpv4})")</option>
+                                        }
                                     }
-                                }
-                            </InputSelect>
-                            @if (!CanReadEmplacements)
-                            {
-                                <div class="form-text text-danger">
-                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les emplacements.
+                                </InputSelect>
+                            </div>
+
+                            <div class="row">
+                                @* 2. IP (Suffixe adaptatif ou IP complète) *@
+                                <div class="col-md-7">
+                                    <label class="form-label fw-bold">2. Adresse IP</label>
+                                    <div class="input-group">
+                                        @if (!string.IsNullOrEmpty(prefixeReseau))
+                                        {
+                                            @* Le préfixe gris *@
+                                            <span class="input-group-text bg-white text-dark fw-bold border-end-0" title="Sous-réseau imposé par le lieu">
+                                                @prefixeReseau
+                                            </span>
+
+                                            @* L'Input avec taille dynamique selon le masque *@
+                                            <input type="text"
+                                                   class="form-control border-start-0 ps-1"
+                                                   value="@ipSuffix"
+                                                   @onchange="OnSuffixChanged"
+                                                   style="max-width: @inputMaxWidth;"
+                                                   placeholder="Ex: 50" />
+                                        }
+                                        else
+                                        {
+                                            @* Cas sans préfixe (Full IP) *@
+                                            <InputText class="form-control"
+                                                       @bind-Value="Model.AdresseIp"
+                                                       placeholder="192.168.x.x" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(prefixeReseau))
+                                    {
+                                        <div class="form-text text-muted small">
+                                            <i class="bi bi-info-circle"></i> Masque détecté. Saisissez uniquement la fin de l'IP.
+                                        </div>
+                                    }
                                 </div>
-                            }
+
+                                <div class="col-md-5">
+                                    <label class="form-label fw-bold">3. Détail (Bureau...)</label>
+                                    <InputText class="form-control" @bind-Value="Model.Localisation" placeholder="Ex: Bureau 204" />
+                                </div>
+                            </div>
                         </div>
 
-                        @* --- CONFIGURATION MATÉRIELLE (MARQUE / MODÈLE) --- *@
-                        <div class="card p-3 mb-3 border-primary bg-light bg-opacity-10">
-                            <h6 class="text-primary">Configuration Matérielle</h6>
+                        @* --- CONFIGURATION MATÉRIELLE --- *@
+                        <div class="card p-3 mb-3 border-secondary bg-light bg-opacity-10">
+                            <h6 class="text-secondary border-bottom pb-2 mb-3">Configuration Matérielle</h6>
                             <div class="row">
-                                @* MARQUE (Filtre UI seulement) *@
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">1. Choisir la Marque</label>
+                                    <label class="form-label">Marque</label>
                                     <select class="form-select" @onchange="OnMarqueChange" value="@selectedMarqueId" disabled="@(!CanReadMarques)">
-                                        <option value="0">-- Sélectionner une marque --</option>
+                                        <option value="0">-- Marque --</option>
                                         @if (listeMarques != null)
                                         {
                                             @foreach (var marque in listeMarques)
@@ -103,23 +120,15 @@
                                             }
                                         }
                                     </select>
-                                    @if (!CanReadMarques)
-                                    {
-                                        <div class="form-text text-danger">
-                                            <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les marques.
-                                        </div>
-                                    }
                                 </div>
-
-                                @* MODÈLE (Lié à l'imprimante) *@
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">2. Choisir le Modèle</label>
+                                    <label class="form-label">Modèle</label>
                                     <InputSelect class="form-select"
                                                  Value="@Model.ModeleId"
                                                  ValueChanged="@((int id) => OnModeleChange(id))"
                                                  ValueExpression="@(() => Model.ModeleId)"
                                                  disabled="@(selectedMarqueId == 0 || !CanReadModeles)">
-                                        <option value="0">-- Sélectionner un modèle --</option>
+                                        <option value="0">-- Modèle --</option>
                                         @if (listeModelesFiltres != null)
                                         {
                                             @foreach (var modele in listeModelesFiltres)
@@ -128,43 +137,37 @@
                                             }
                                         }
                                     </InputSelect>
-                                    @if (!CanReadModeles)
-                                    {
-                                        <div class="form-text text-danger">
-                                            <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les modèles.
-                                        </div>
-                                    }
                                 </div>
                             </div>
                         </div>
 
                         @* --- PARTAGE --- *@
-                        <div class="card p-3 mb-3 bg-light">
-                            <div class="form-check form-switch">
-                                <InputCheckbox class="form-check-input" @bind-Value="Model.EstPartagee" id="chkPartage" />
-                                <label class="form-check-label" for="chkPartage">Partager sur le réseau Windows ?</label>
-                            </div>
-                            @if (Model.EstPartagee)
-                            {
-                                <div class="mt-2">
-                                    <label class="form-label">Nom du partage</label>
-                                    <InputText class="form-control" @bind-Value="Model.NomPartage" disabled="@(namingEnabled && namingSameShare)" />
-                                </div>
-                            }
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="Model.EstPartagee" id="chkPartage" />
+                            <label class="form-check-label fw-bold" for="chkPartage">Partager sur le réseau Windows ?</label>
                         </div>
 
-                        <div class="modal-footer">
+                        @if (Model.EstPartagee)
+                        {
+                            <div class="mb-3 ps-4 border-start border-3 border-success">
+                                <label class="form-label">Nom du partage</label>
+                                <InputText class="form-control" @bind-Value="Model.NomPartage" disabled="@(namingEnabled && namingSameShare)" />
+                            </div>
+                        }
+
+                        <div class="modal-footer bg-light">
                             @if (Model.Id != 0)
                             {
-                                @* CORRECTION ICI : Ajout de Context="authContext" *@
                                 <AuthorizeView Policy="PRINTER_DELETE">
                                     <Authorized Context="authContext">
-                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
+                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">
+                                            <i class="bi bi-trash"></i> Supprimer
+                                        </button>
                                     </Authorized>
                                 </AuthorizeView>
                             }
                             <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                            <button type="submit" class="btn btn-primary px-4">Enregistrer</button>
                         </div>
                     </EditForm>
                 </div>
@@ -176,29 +179,34 @@
 @code {
     [Parameter] public bool Show { get; set; }
     [Parameter] public Imprimante Model { get; set; } = new();
-
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
 
+    // Listes
     private List<Emplacement>? listeEmplacements;
     private List<Marque>? listeMarques;
     private List<Modele>? listeTousModeles;
     private List<Modele>? listeModelesFiltres;
-
     private int selectedMarqueId = 0;
 
-    private bool namingEnabled = false;
-    private bool namingSameShare = false;
-    private string namingTemplate = "";
-
+    // Droits
     private bool CanReadEmplacements { get; set; }
     private bool CanReadMarques { get; set; }
     private bool CanReadModeles { get; set; }
 
+    // Settings Naming
+    private bool namingEnabled = false;
+    private bool namingSameShare = false;
+    private string namingTemplate = "";
+
+    // GESTION IP INTELLIGENTE
+    private string prefixeReseau = "";
+    private string ipSuffix = "";
+    private string inputMaxWidth = "100%"; // Pour gérer la taille visuelle
+
     protected override async Task OnInitializedAsync()
     {
-        // Mise à jour avec les clés anglaises du Program.cs
         CanReadEmplacements = await AuthProvider.HasPermission("Permission", "LOCATION_READ");
         CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
         CanReadModeles = await AuthProvider.HasPermission("Permission", "MODEL_READ");
@@ -206,50 +214,116 @@
         try
         {
             var tasks = new List<Task>();
-
-            if (CanReadEmplacements)
-            {
-                tasks.Add(Task.Run(async () => listeEmplacements = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements")));
-            }
-
-            if (CanReadMarques)
-            {
-                tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
-            }
-
-            if (CanReadModeles)
-            {
-                tasks.Add(Task.Run(async () => listeTousModeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles")));
-            }
-
+            if (CanReadEmplacements) tasks.Add(Task.Run(async () => listeEmplacements = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements")));
+            if (CanReadMarques) tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
+            if (CanReadModeles) tasks.Add(Task.Run(async () => listeTousModeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles")));
             tasks.Add(LoadSettingsAsync());
-
             if (tasks.Any()) await Task.WhenAll(tasks);
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erreur chargement données : {ex.Message}");
-        }
+        catch { }
     }
 
     protected override void OnParametersSet()
     {
-        if (Show && listeTousModeles != null && Model.Id != 0)
+        if (Show)
         {
-            var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
-            if (currentModele != null)
+            // Initialisation des listes Modèles
+            if (listeTousModeles != null && Model.Id != 0)
             {
-                selectedMarqueId = currentModele.MarqueId;
-                FilterModeles();
+                var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
+                if (currentModele != null) { selectedMarqueId = currentModele.MarqueId; FilterModeles(); }
             }
-        }
-        else if (Show && Model.Id == 0)
-        {
-            selectedMarqueId = 0;
-            listeModelesFiltres = new List<Modele>();
+            else if (Model.Id == 0)
+            {
+                selectedMarqueId = 0;
+                listeModelesFiltres = new List<Modele>();
+            }
+
+            // Initialisation IP : On calcule le préfixe selon le lieu actuel
+            CalculerPrefixe(Model.EmplacementId);
+
+            // On extrait le suffixe si l'IP correspond déjà au préfixe
+            if (!string.IsNullOrEmpty(prefixeReseau) && !string.IsNullOrEmpty(Model.AdresseIp) && Model.AdresseIp.StartsWith(prefixeReseau))
+            {
+                ipSuffix = Model.AdresseIp.Replace(prefixeReseau, "");
+            }
+            else
+            {
+                ipSuffix = Model.AdresseIp ?? "";
+            }
         }
     }
 
+    private void OnLieuChanged(int id)
+    {
+        Model.EmplacementId = id;
+        CalculerPrefixe(id);
+        GenerateNameIfEnabled();
+    }
+
+    private void CalculerPrefixe(int emplacementId)
+    {
+        prefixeReseau = "";
+        inputMaxWidth = "100%"; // Reset
+
+        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == emplacementId);
+
+        if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
+        {
+            try
+            {
+                var parts = lieu.CidrIpv4.Split('/');
+                var ipParts = parts[0].Split('.');
+
+                if (parts.Length > 1 && int.TryParse(parts[1], out int cidr))
+                {
+                    // CAS CLASSIQUE /24 (Standard)
+                    if (cidr >= 24)
+                    {
+                        prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
+                        inputMaxWidth = "80px"; // Juste assez pour "254"
+                    }
+                    // CAS /16 (Moyen)
+                    else if (cidr >= 16)
+                    {
+                        prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.";
+                        inputMaxWidth = "150px"; // Assez pour "10.254"
+                    }
+                    // CAS /8 (Large)
+                    else if (cidr >= 8)
+                    {
+                        prefixeReseau = $"{ipParts[0]}.";
+                        inputMaxWidth = "220px"; // Assez pour "10.20.30"
+                    }
+                }
+            }
+            catch { prefixeReseau = ""; }
+        }
+    }
+
+    // Appelé quand l'utilisateur tape dans la case "50"
+    private void OnSuffixChanged(ChangeEventArgs e)
+    {
+        ipSuffix = e.Value?.ToString() ?? "";
+
+        // On reconstruit l'IP complète immédiatement
+        if (!string.IsNullOrEmpty(prefixeReseau))
+        {
+            if (ipSuffix.StartsWith(prefixeReseau))
+            {
+                ipSuffix = ipSuffix.Replace(prefixeReseau, "");
+            }
+            Model.AdresseIp = prefixeReseau + ipSuffix;
+        }
+        else
+        {
+            Model.AdresseIp = ipSuffix;
+        }
+
+        GenerateNameIfEnabled();
+    }
+
+    // --- LOGIQUE NAMING ---
     private async Task LoadSettingsAsync()
     {
         try
@@ -264,46 +338,22 @@
         }
         catch { }
     }
-
     private string GetVal(List<ServerSetting> list, string key, string def) => list.FirstOrDefault(s => s.Key == key)?.Value ?? def;
 
     private void OnMarqueChange(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int id))
         {
-            selectedMarqueId = id;
-            FilterModeles();
-            Model.ModeleId = 0;
-            GenerateNameIfEnabled();
+            selectedMarqueId = id; FilterModeles(); Model.ModeleId = 0; GenerateNameIfEnabled();
         }
     }
-
-    private void FilterModeles()
-    {
-        if (listeTousModeles != null)
-        {
-            listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList();
-        }
-    }
-
-    private void OnModeleChange(int id)
-    {
-        Model.ModeleId = id;
-        GenerateNameIfEnabled();
-    }
-
-    private void OnLieuChanged(int id)
-    {
-        Model.EmplacementId = id;
-        GenerateNameIfEnabled();
-    }
-
+    private void FilterModeles() { if (listeTousModeles != null) listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList(); }
+    private void OnModeleChange(int id) { Model.ModeleId = id; GenerateNameIfEnabled(); }
     private async Task ForcerRefreshNom() => await GenerateNameIfEnabled();
 
     private async Task GenerateNameIfEnabled()
     {
         if (!namingEnabled) return;
-
         var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == Model.EmplacementId);
         var modele = listeTousModeles?.FirstOrDefault(m => m.Id == Model.ModeleId);
         var marque = listeMarques?.FirstOrDefault(m => m.Id == selectedMarqueId);
@@ -333,10 +383,7 @@
                 }
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Erreur Naming: " + ex.Message);
-        }
+        catch { }
     }
 
     private async Task HandleValidSubmit()

@@ -58,6 +58,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<Autoprint.Server.Services.ISyncSpoolerService, Autoprint.Server.Services.SyncSpoolerService>();
 
 // 4. OpenAPI Standard (Sans configuration complexe)
 builder.Services.AddOpenApi(); // Version minimale qui marche à tous les coups
@@ -81,6 +82,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("PRINTER_READ", policy => policy.RequireClaim("Permission", "PRINTER_READ"));
     options.AddPolicy("PRINTER_WRITE", policy => policy.RequireClaim("Permission", "PRINTER_WRITE"));
     options.AddPolicy("PRINTER_DELETE", policy => policy.RequireClaim("Permission", "PRINTER_DELETE"));
+    options.AddPolicy("PRINTER_SYNC", policy => policy.RequireClaim("Permission", "PRINTER_SYNC"));
 
     // Lieux
     options.AddPolicy("LOCATION_READ", policy => policy.RequireClaim("Permission", "LOCATION_READ"));
@@ -99,10 +101,7 @@ builder.Services.AddAuthorization(options =>
 
     // Pilotes
     options.AddPolicy("DRIVER_READ", policy => policy.RequireClaim("Permission", "DRIVER_READ"));
-    options.AddPolicy("DRIVER_WRITE", policy => policy.RequireClaim("Permission", "DRIVER_WRITE"));
-    options.AddPolicy("DRIVER_DELETE", policy => policy.RequireClaim("Permission", "DRIVER_DELETE"));
-    options.AddPolicy("DRIVER_INSTALL", policy => policy.RequireClaim("Permission", "DRIVER_INSTALL"));
-    options.AddPolicy("DRIVER_UNINSTALL", policy => policy.RequireClaim("Permission", "DRIVER_UNINSTALL"));
+    options.AddPolicy("DRIVER_SCAN", policy => policy.RequireClaim("Permission", "DRIVER_SCAN"));
 
     // Utilisateurs
     options.AddPolicy("USER_READ", policy => policy.RequireClaim("Permission", "USER_READ"));
