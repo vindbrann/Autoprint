@@ -37,54 +37,55 @@ namespace Autoprint.Server.Controllers
             return Ok(new { GeneratedName = resultat });
         }
 
-        // POST: api/Naming/ApplyToAll
-        [HttpPost("ApplyToAll")]
-        public async Task<ActionResult> ApplyToAll()
+        // POST: api/Naming/ApplyToNames (Renomme uniquement le NomAffiche)
+        [HttpPost("ApplyToNames")]
+        public async Task<ActionResult> ApplyToNames()
         {
-            // 1. On récupère le réglage "Même nom de partage" de façon robuste
-            var settingShare = await _context.ServerSettings.FindAsync("NamingSameShare");
-            bool sameShare = false;
-            if (settingShare != null)
-            {
-                bool.TryParse(settingShare.Value, out sameShare);
-            }
-
-            // 2. On récupère toutes les imprimantes
             var imprimantes = await _context.Imprimantes
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)
                 .ToListAsync();
 
             int count = 0;
-
             foreach (var imp in imprimantes)
             {
                 string nouveauNom = await _namingService.GenererNomAsync(imp);
-                bool aEteModifie = false;
-
-                // A. Mise à jour du Nom
                 if (imp.NomAffiche != nouveauNom)
                 {
                     imp.NomAffiche = nouveauNom;
-                    aEteModifie = true;
+                    count++;
                 }
-
-                // B. Mise à jour du Partage
-                if (sameShare && imp.EstPartagee)
-                {
-                    // On force la mise à jour si le nom de partage est différent du nouveau nom
-                    if (imp.NomPartage != nouveauNom)
-                    {
-                        imp.NomPartage = nouveauNom;
-                        aEteModifie = true;
-                    }
-                }
-
-                if (aEteModifie) count++;
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { Message = $"{count} imprimantes (noms ou partages) ont été mises à jour." });
+            return Ok(new { Message = $"{count} noms d'imprimantes mis à jour." });
+        }
+
+        // POST: api/Naming/ApplyToShares (Renomme uniquement le NomPartage pour celles qui sont partagées)
+        [HttpPost("ApplyToShares")]
+        public async Task<ActionResult> ApplyToShares()
+        {
+            var imprimantes = await _context.Imprimantes
+                .Include(i => i.Emplacement)
+                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Where(i => i.EstPartagee) // On ne touche qu'aux partagées
+                .ToListAsync();
+
+            int count = 0;
+            foreach (var imp in imprimantes)
+            {
+                string nouveauNom = await _namingService.GenererNomAsync(imp);
+
+                // On applique le nouveau nom comme nom de partage
+                if (imp.NomPartage != nouveauNom)
+                {
+                    imp.NomPartage = nouveauNom;
+                    count++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = $"{count} noms de partages mis à jour." });
         }
     }
 

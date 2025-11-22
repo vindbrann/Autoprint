@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251120152013_AddPiloteSyncStatus")]
+    partial class AddPiloteSyncStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -444,8 +447,7 @@ namespace Autoprint.Server.Migrations
                             IsActive = true,
                             IsAdUser = false,
                             LastLogin = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            LastPasswordChangeDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            PasswordHash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+                            PasswordHash = "JAvlGPq9JyTdtvBO6x2llnRI1+gxwIyPqCKAn3THIKk=",
                             Username = "admin"
                         });
                 });
@@ -538,17 +540,6 @@ namespace Autoprint.Server.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Emplacements");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CidrIpv4 = "0.0.0.0/0",
-                            Code = "ND",
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(7889),
-                            EstSupprime = false,
-                            Nom = "NON DÉFINI"
-                        });
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Imprimante", b =>
@@ -598,9 +589,6 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("NomPartage")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("EmplacementId");
@@ -632,15 +620,6 @@ namespace Autoprint.Server.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Marques");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(7277),
-                            EstSupprime = false,
-                            Nom = "NON DÉFINI"
-                        });
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Modele", b =>
@@ -679,16 +658,6 @@ namespace Autoprint.Server.Migrations
                     b.HasIndex("PiloteId");
 
                     b.ToTable("Modeles");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(8694),
-                            EstSupprime = false,
-                            MarqueId = 1,
-                            Nom = "GÉNÉRIQUE"
-                        });
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Pilote", b =>
@@ -813,6 +782,13 @@ namespace Autoprint.Server.Migrations
                         },
                         new
                         {
+                            Key = "DriverPath",
+                            Description = "Dossier Pilotes",
+                            Type = "STRING",
+                            Value = "drivers"
+                        },
+                        new
+                        {
                             Key = "NamingTemplate",
                             Description = "Gabarit",
                             Type = "STRING",
@@ -831,48 +807,7 @@ namespace Autoprint.Server.Migrations
                             Description = "Forcer le nom de partage",
                             Type = "BOOL",
                             Value = "false"
-                        },
-                        new
-                        {
-                            Key = "PasswordExpirationDays",
-                            Description = "Expiration MDP (jours)",
-                            Type = "INT",
-                            Value = "90"
                         });
-                });
-
-            modelBuilder.Entity("Autoprint.Shared.SystemError", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("DateModification")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DateOccured")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("EstSupprime")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StackTrace")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SystemErrors");
                 });
 
             modelBuilder.Entity("Autoprint.Server.Models.Security.AdRoleMapping", b =>

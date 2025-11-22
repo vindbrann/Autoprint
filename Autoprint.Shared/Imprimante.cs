@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Autoprint.Shared.Enums;
 
 namespace Autoprint.Shared
 {
@@ -28,6 +29,6 @@ namespace Autoprint.Shared
         public string? Localisation { get; set; }
         public int ModeleId { get; set; }
         public Modele? Modele { get; set; }
-
+        public PrinterStatus Status { get; set; } = PrinterStatus.PendingCreation;
     }
 }

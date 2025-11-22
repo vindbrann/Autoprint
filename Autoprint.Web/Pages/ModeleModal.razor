@@ -1,81 +1,88 @@
 ﻿@using Autoprint.Shared
+@using Autoprint.Web.Services
 @inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
 
 @if (Show)
 {
-    <div class="modal-backdrop fade show"></div>
-
-    <div class="modal fade show d-block" tabindex="-1">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(Model.Id == 0 ? "➕ Nouveau Modèle" : "✏️ Modifier Modèle")
-                    </h5>
+                    <h5 class="modal-title">@(Model.Id == 0 ? "Ajouter un Modèle" : "Modifier le Modèle")</h5>
                     <button type="button" class="btn-close" @onclick="OnCancel"></button>
                 </div>
-
                 <div class="modal-body">
-                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                    <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
                         <DataAnnotationsValidator />
                         <ValidationSummary />
 
+                        @* --- NOM DU MODÈLE --- *@
                         <div class="mb-3">
                             <label class="form-label">Nom du Modèle</label>
                             <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: LaserJet Pro 400" />
                         </div>
 
+                        @* --- BLOC MARQUE SÉCURISÉ --- *@
                         <div class="mb-3">
                             <label class="form-label">Marque</label>
-                            <InputSelect class="form-select" @bind-Value="Model.MarqueId">
+                            <InputSelect class="form-select" @bind-Value="Model.MarqueId" disabled="@(!CanReadMarques)">
                                 <option value="0">-- Choisir une marque --</option>
                                 @if (listeMarques != null)
                                 {
-                                    @foreach (var m in listeMarques)
+                                    @foreach (var marque in listeMarques)
                                     {
-                                        <option value="@m.Id">@m.Nom</option>
+                                        <option value="@marque.Id">@marque.Nom</option>
                                     }
                                 }
                             </InputSelect>
+                            @if (!CanReadMarques)
+                            {
+                                <div class="form-text text-danger">
+                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les marques.
+                                </div>
+                            }
                         </div>
 
+                        @* --- BLOC PILOTE SÉCURISÉ --- *@
                         <div class="mb-3">
                             <label class="form-label">Pilote par défaut</label>
-                            <InputSelect class="form-select" @bind-Value="Model.PiloteId">
-                                <option value="">-- Choisir un pilote --</option>
+
+                            <small class="text-muted d-block mb-1">Le pilote choisi ici sera automatiquement appliqué à toutes les imprimantes de ce modèle.</small>
+
+                            <InputSelect class="form-select" @bind-Value="Model.PiloteId" disabled="@(!CanReadPilotes)">
+                                <option value="">-- Aucun pilote --</option>
                                 @if (listePilotes != null)
                                 {
-                                    @foreach (var p in listePilotes)
+                                    @foreach (var pilote in listePilotes)
                                     {
-                                        <option value="@p.Id">@p.Nom</option>
+                                        <option value="@pilote.Id">@pilote.Nom</option>
                                     }
                                 }
                             </InputSelect>
-                            <small class="text-muted">Le pilote choisi ici sera automatiquement appliqué à toutes les imprimantes de ce modèle.</small>
+
+                            @if (!CanReadPilotes)
+                            {
+                                <div class="form-text text-danger">
+                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les pilotes.
+                                </div>
+                            }
                         </div>
 
-                        <button type="submit" style="display:none" id="submitModeleBtn"></button>
+                        <div class="modal-footer">
+                            @if (Model.Id != 0)
+                            {
+                                @* CORRECTION ICI : Ajout de Context="authContext" *@
+                                <AuthorizeView Policy="MODEL_DELETE">
+                                    <Authorized Context="authContext">
+                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
+                                    </Authorized>
+                                </AuthorizeView>
+                            }
+                            <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        </div>
                     </EditForm>
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                    @if (Model.Id != 0)
-                    {
-                        <AuthorizeView Policy="MODEL_DELETE">
-                                <Authorized>
-                        <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
-							</Authorized>
-						</AuthorizeView>
-                    }
-                    else
-                    {
-                        <div></div>
-                    }
-
-                    <div>
-                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                        <label for="submitModeleBtn" class="btn btn-primary">💾 Enregistrer</label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -93,22 +100,34 @@
     private List<Marque>? listeMarques;
     private List<Pilote>? listePilotes;
 
+    private bool CanReadMarques { get; set; }
+    private bool CanReadPilotes { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        // Mise à jour avec les clés anglaises du Program.cs
+        CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
+        CanReadPilotes = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
+
         try
         {
-            // On charge les Marques ET les Pilotes pour les listes déroulantes
-            var t1 = Http.GetFromJsonAsync<List<Marque>>("api/Marques");
-            var t2 = Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes");
+            var tasks = new List<Task>();
 
-            await Task.WhenAll(t1, t2);
+            if (CanReadMarques)
+            {
+                tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
+            }
 
-            listeMarques = t1.Result;
-            listePilotes = t2.Result;
+            if (CanReadPilotes)
+            {
+                tasks.Add(Task.Run(async () => listePilotes = await Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes")));
+            }
+
+            if (tasks.Any()) await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erreur chargement données: " + ex.Message);
+            Console.WriteLine($"Erreur lors du chargement des données : {ex.Message}");
         }
     }
 
@@ -116,10 +135,5 @@
     {
         if (Model.MarqueId == 0) return;
         await OnSave.InvokeAsync();
-    }
-
-    private async Task HandleDelete()
-    {
-        await OnDelete.InvokeAsync();
     }
 }

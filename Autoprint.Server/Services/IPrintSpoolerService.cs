@@ -1,17 +1,16 @@
-﻿namespace Autoprint.Server.Services
+﻿using Autoprint.Shared.DTOs;
+
+namespace Autoprint.Server.Services
 {
     public interface IPrintSpoolerService
     {
-        // Vérifie si une imprimante existe déjà sur le serveur Windows
-        bool ImprimanteExiste(string nomImprimante);
+        // --- METHODES DE GESTION (Actions) ---
+        Task CreerPortTcp(string ipAddress);
+        Task CreerImprimante(string nom, string driverName, string ipAddress);
+        Task SupprimerImprimante(string nom);
 
-        // Crée un Port TCP/IP Standard (ex: 192.168.1.50)
-        void CreerPortTcp(string nomPort, string adresseIp);
-
-        // Crée l'imprimante partagée liée à un pilote et un port
-        void CreerImprimante(string nom, string nomDriver, string nomPort, string commentaire, string nomPartage);
-
-        // Supprime une imprimante
-        void SupprimerImprimante(string nom);
+        // --- METHODES DE SCAN (Inventaire) ---
+        Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password);
+        Task<List<DiscoveredDriverDto>> ScanLocalDriversAsync();
     }
 }

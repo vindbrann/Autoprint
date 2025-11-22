@@ -1,23 +1,27 @@
 ﻿@page "/modeles"
 @using Autoprint.Shared
+@using Autoprint.Web.Services
 @inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
 
 <PageTitle>Gestion des Modèles</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3>📄 Gestion des Modèles</h3>
     <AuthorizeView Policy="MODEL_WRITE">
-        <Authorized>
+        <Authorized Context="authContext">
             <button class="btn btn-success" @onclick="OuvrirAjout">
                 <i class="bi bi-plus-circle"></i> Nouveau Modèle
             </button>
-		</Authorized>
-	</AuthorizeView>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 @if (messageErreur != null)
 {
-    <div class="alert alert-danger">@messageErreur</div>
+    <div class="alert alert-warning">
+        <i class="oi oi-warning"></i> @messageErreur
+    </div>
 }
 else if (modeles == null)
 {
@@ -50,7 +54,7 @@ else
                     </td>
                     <td>
                         <AuthorizeView Policy="MODEL_WRITE">
-                            <Authorized>
+                            <Authorized Context="authContext">
                                 <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(m)">
                                     <i class="bi bi-pencil"></i> Modifier
                                 </button>
@@ -80,9 +84,23 @@ else
     private bool afficherModal = false;
     private string? messageErreur;
 
+    // Sécurité
+    private bool CanReadModels { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        await ChargerListe();
+        // 1. Vérification du droit
+        CanReadModels = await AuthProvider.HasPermission("Permission", "MODEL_READ");
+
+        if (CanReadModels)
+        {
+            await ChargerListe();
+        }
+        else
+        {
+            messageErreur = "Vous n'avez pas l'autorisation de consulter la liste des modèles.";
+            modeles = new List<Modele>();
+        }
     }
 
     private async Task ChargerListe()
@@ -99,7 +117,6 @@ else
 
     private void OuvrirAjout()
     {
-        // On initialise avec MarqueId = 0 (ou une valeur par défaut)
         modeleEnCours = new Modele { MarqueId = 0 };
         afficherModal = true;
     }
@@ -110,7 +127,8 @@ else
         {
             Id = m.Id,
             Nom = m.Nom,
-            MarqueId = m.MarqueId
+            MarqueId = m.MarqueId,
+            PiloteId = m.PiloteId
         };
         afficherModal = true;
     }

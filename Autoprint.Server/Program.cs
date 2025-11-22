@@ -3,44 +3,33 @@ using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection; // Important pour les extensions
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
-
+// AUCUN using Microsoft.OpenApi ici !
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configurer la Base de Données
+// 1. Base de Données
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
     {
-        // C'est ici qu'on active le découpage pour éviter l'explosion des données
         sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
     })
 );
 
-
-// 2. Injection des Services
-builder.Services.AddScoped<Autoprint.Server.Services.IFileService, Autoprint.Server.Services.LocalFileService>();
+// 2. Services
 
 if (OperatingSystem.IsWindows())
-{
     builder.Services.AddScoped<Autoprint.Server.Services.IPrintSpoolerService, Autoprint.Server.Services.WindowsPrintSpoolerService>();
-}
 else
-{
     builder.Services.AddScoped<Autoprint.Server.Services.IPrintSpoolerService, Autoprint.Server.Services.StubPrintSpoolerService>();
-}
 
-builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IEmailService, Autoprint.Server.Services.EmailService>();
 
-// --- SÉCURITÉ JWT ---
+// 3. Auth JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -66,43 +55,18 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
 
-// --- CONFIGURATION SWAGGER V10 (CORRIGÉE) ---
-builder.Services.AddSwaggerGen(options =>
-{
-    // 1. Info API
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Autoprint API",
-        Version = "v1",
-        Description = "API de gestion d'impression centralisée"
-    });
-
-    // 2. Définition de la Sécurité
-    // Cela suffit pour faire apparaître le bouton "Authorize" en haut à droite !
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Description = "Entrez votre token JWT",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
-
-    // 3. REQUIREMENT : SUPPRIMÉ TEMPORAIREMENT
-    // Le bloc qui causait l'erreur "Reference not found" a été retiré.
-    // Conséquence : Tu devras cliquer sur "Authorize" manuellement dans Swagger,
-    // mais tout fonctionnera techniquement.
-});
+// 4. OpenAPI Standard (Sans configuration complexe)
+builder.Services.AddOpenApi(); // Version minimale qui marche à tous les coups
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorOrigin", policy =>
     {
-        policy.WithOrigins("https://localhost:7169")
+        policy.WithOrigins("https://localhost:7169", "http://localhost:5139")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -110,7 +74,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    // Admin Global
+    // Administration
     options.AddPolicy("ADMIN_ACCESS", policy => policy.RequireClaim("Permission", "ADMIN_ACCESS"));
 
     // Imprimantes
@@ -122,6 +86,16 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("LOCATION_READ", policy => policy.RequireClaim("Permission", "LOCATION_READ"));
     options.AddPolicy("LOCATION_WRITE", policy => policy.RequireClaim("Permission", "LOCATION_WRITE"));
     options.AddPolicy("LOCATION_DELETE", policy => policy.RequireClaim("Permission", "LOCATION_DELETE"));
+
+    // Marques
+    options.AddPolicy("BRAND_READ", policy => policy.RequireClaim("Permission", "BRAND_READ"));
+    options.AddPolicy("BRAND_WRITE", policy => policy.RequireClaim("Permission", "BRAND_WRITE"));
+    options.AddPolicy("BRAND_DELETE", policy => policy.RequireClaim("Permission", "BRAND_DELETE"));
+
+    // Modèles
+    options.AddPolicy("MODEL_READ", policy => policy.RequireClaim("Permission", "MODEL_READ"));
+    options.AddPolicy("MODEL_WRITE", policy => policy.RequireClaim("Permission", "MODEL_WRITE"));
+    options.AddPolicy("MODEL_DELETE", policy => policy.RequireClaim("Permission", "MODEL_DELETE"));
 
     // Pilotes
     options.AddPolicy("DRIVER_READ", policy => policy.RequireClaim("Permission", "DRIVER_READ"));
@@ -135,24 +109,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("USER_WRITE", policy => policy.RequireClaim("Permission", "USER_WRITE"));
     options.AddPolicy("USER_DELETE", policy => policy.RequireClaim("Permission", "USER_DELETE"));
 
-    // Gestion des Rôles
+    // Rôles
     options.AddPolicy("ROLE_READ", policy => policy.RequireClaim("Permission", "ROLE_READ"));
     options.AddPolicy("ROLE_WRITE", policy => policy.RequireClaim("Permission", "ROLE_WRITE"));
     options.AddPolicy("ROLE_DELETE", policy => policy.RequireClaim("Permission", "ROLE_DELETE"));
 
-    // Marques
-    options.AddPolicy("BRAND_READ", policy => policy.RequireClaim("Permission", "BRAND_READ"));
-    options.AddPolicy("BRAND_WRITE", policy => policy.RequireClaim("Permission", "BRAND_WRITE"));
-    options.AddPolicy("BRAND_DELETE", policy => policy.RequireClaim("Permission", "BRAND_DELETE"));
-
-    // Modèles
-    options.AddPolicy("MODEL_READ", policy => policy.RequireClaim("Permission", "MODEL_READ"));
-    options.AddPolicy("MODEL_WRITE", policy => policy.RequireClaim("Permission", "MODEL_WRITE"));
-    options.AddPolicy("MODEL_DELETE", policy => policy.RequireClaim("Permission", "MODEL_DELETE"));
-
-    // Settings
+    // Système
     options.AddPolicy("SETTINGS_MANAGE", policy => policy.RequireClaim("Permission", "SETTINGS_MANAGE"));
-
 });
 
 var app = builder.Build();
@@ -160,17 +123,31 @@ var app = builder.Build();
 // Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseWebAssemblyDebugging();
+
+    // Génération du JSON
+    app.MapOpenApi();
+
+    // Interface Swagger UI
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Autoprint API");
+    });
 }
 
 app.UseHttpsRedirection();
+
+// Hébergement Blazor
+app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
+
 app.UseCors("AllowBlazorOrigin");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapRazorPages();
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 app.Run();

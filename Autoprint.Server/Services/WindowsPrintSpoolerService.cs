@@ -1,75 +1,246 @@
-﻿using System.Management; // Nécessaire pour WMI
-using System.Runtime.Versioning; // Pour l'attribut [SupportedOSPlatform]
+﻿using System.Management;
+using System.Runtime.Versioning;
+using Autoprint.Shared.DTOs;
 
 namespace Autoprint.Server.Services
 {
-    // On précise que cette classe ne marche QUE sur Windows
     [SupportedOSPlatform("windows")]
     public class WindowsPrintSpoolerService : IPrintSpoolerService
     {
-        public bool ImprimanteExiste(string nomImprimante)
+        // ============================================================
+        // 1. GESTION (ÉCRITURE / ACTIONS SYSTÈME)
+        // ============================================================
+
+        public Task CreerPortTcp(string ipAddress)
         {
-            string query = $"SELECT * FROM Win32_Printer WHERE Name = '{nomImprimante}'";
-            using (var searcher = new ManagementObjectSearcher(query))
+            try
             {
-                return searcher.Get().Count > 0;
+                if (PortExists(ipAddress)) return Task.CompletedTask;
+
+                var portClass = new ManagementClass("Win32_TCPIPPrinterPort");
+                var newPort = portClass.CreateInstance();
+
+                newPort["Name"] = "IP_" + ipAddress;
+                newPort["Protocol"] = 1; // RAW
+                newPort["HostAddress"] = ipAddress;
+                newPort["PortNumber"] = 9100;
+                newPort["SNMPEnabled"] = false;
+
+                newPort.Put();
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur création port {ipAddress}: {ex.Message}");
+            }
+            return Task.CompletedTask;
         }
 
-        public void CreerPortTcp(string nomPort, string adresseIp)
+        public Task CreerImprimante(string nom, string driverName, string ipAddress)
         {
-            // 1. Vérifier si le port existe déjà pour éviter une erreur
-            string query = $"SELECT * FROM Win32_TCPIPPrinterPort WHERE Name = '{nomPort}'";
-            using (var searcher = new ManagementObjectSearcher(query))
+            try
             {
-                if (searcher.Get().Count > 0) return; // Il existe déjà, on ne fait rien
+                var printerClass = new ManagementClass("Win32_Printer");
+                var newPrinter = printerClass.CreateInstance();
+
+                newPrinter["Name"] = nom;
+                newPrinter["DriverName"] = driverName;
+                newPrinter["PortName"] = "IP_" + ipAddress;
+                newPrinter["DeviceID"] = nom;
+                newPrinter["Shared"] = true;
+                newPrinter["ShareName"] = nom;
+
+                newPrinter.Put();
             }
-
-            // 2. Création du port via WMI
-            var processClass = new ManagementClass("Win32_TCPIPPrinterPort");
-            var portObj = processClass.CreateInstance();
-
-            portObj["Name"] = nomPort;
-            portObj["HostAddress"] = adresseIp;
-            portObj["Protocol"] = 1; // 1 = RAW, 2 = LPR
-            portObj["PortNumber"] = 9100; // Standard RAW port
-            portObj["SNMPEnabled"] = false; // On désactive souvent SNMP pour éviter des lenteurs
-
-            portObj.Put(); // Valide la création dans Windows
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur création imprimante Windows: {ex.Message}");
+            }
+            return Task.CompletedTask;
         }
 
-        public void CreerImprimante(string nom, string nomDriver, string nomPort, string commentaire, string nomPartage)
+        public Task SupprimerImprimante(string nom)
         {
-            if (ImprimanteExiste(nom)) return;
-
-            var printerClass = new ManagementClass("Win32_Printer");
-            var printerObj = printerClass.CreateInstance();
-
-            printerObj["Name"] = nom;
-            printerObj["DriverName"] = nomDriver; // Doit correspondre EXACTEMENT au nom du pilote installé
-            printerObj["PortName"] = nomPort;
-            printerObj["DeviceID"] = nom;
-            printerObj["Comment"] = commentaire;
-
-            // Gestion du partage
-            if (!string.IsNullOrEmpty(nomPartage))
+            try
             {
-                printerObj["Shared"] = true;
-                printerObj["ShareName"] = nomPartage;
-            }
-
-            printerObj.Put(); // Crée l'imprimante
-        }
-
-        public void SupprimerImprimante(string nom)
-        {
-            string query = $"SELECT * FROM Win32_Printer WHERE Name = '{nom}'";
-            using (var searcher = new ManagementObjectSearcher(query))
-            {
+                var query = new SelectQuery("Win32_Printer", $"Name = '{nom}'");
+                using var searcher = new ManagementObjectSearcher(query);
                 foreach (ManagementObject printer in searcher.Get())
                 {
-                    printer.Delete(); // Supprime de Windows
+                    printer.Delete();
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur suppression {nom}: {ex.Message}");
+            }
+            return Task.CompletedTask;
+        }
+
+        private bool PortExists(string ip)
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher($"SELECT * FROM Win32_TCPIPPrinterPort WHERE HostAddress = '{ip}'");
+                return searcher.Get().Count > 0;
+            }
+            catch { return false; }
+        }
+
+        // ============================================================
+        // 2. SCAN IMPRIMANTES (AVEC RÉSOLUTION D'IP)
+        // ============================================================
+
+        public Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password)
+        {
+            var results = new List<DiscoveredPrinterDto>();
+            ManagementScope scope;
+
+            try
+            {
+                var options = new ConnectionOptions
+                {
+                    Impersonation = ImpersonationLevel.Impersonate,
+                    Authentication = AuthenticationLevel.PacketPrivacy,
+                    Timeout = TimeSpan.FromSeconds(10)
+                };
+
+                if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+                {
+                    options.Username = username;
+                    options.Password = password;
+                }
+
+                string path = $@"\\{targetHost}\root\cimv2";
+                scope = new ManagementScope(path, options);
+                scope.Connect();
+
+                // --- ÉTAPE A : Pré-chargement des Ports TCP/IP pour la correspondance ---
+                // On crée un dictionnaire : [Nom du Port] -> [Vraie IP]
+                var portMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    var queryPorts = new ObjectQuery("SELECT Name, HostAddress FROM Win32_TCPIPPrinterPort");
+                    using var searcherPorts = new ManagementObjectSearcher(scope, queryPorts);
+                    foreach (ManagementObject port in searcherPorts.Get())
+                    {
+                        string pName = GetWmiValue(port, "Name");
+                        string pIp = GetWmiValue(port, "HostAddress");
+
+                        if (!string.IsNullOrEmpty(pName) && !string.IsNullOrEmpty(pIp) && !portMap.ContainsKey(pName))
+                        {
+                            portMap.Add(pName, pIp);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Si on n'arrive pas à lire les ports, on continue sans résolution, ce n'est pas bloquant.
+                    Console.WriteLine("Impossible de lire la table des ports TCP/IP pour la résolution.");
+                }
+
+                // --- ÉTAPE B : Scan des Imprimantes ---
+                var query = new ObjectQuery("SELECT * FROM Win32_Printer WHERE Local = TRUE");
+                using var searcher = new ManagementObjectSearcher(scope, query);
+
+                foreach (ManagementObject printer in searcher.Get())
+                {
+                    string rawPortName = GetWmiValue(printer, "PortName");
+                    string resolvedIp = rawPortName;
+
+                    // 1. Tentative de résolution via la map TCP/IP
+                    if (portMap.ContainsKey(rawPortName))
+                    {
+                        resolvedIp = portMap[rawPortName];
+                    }
+                    // 2. Si échec ET que c'est un port WSD (inutilisable), on vide le champ
+                    else if (rawPortName.StartsWith("WSD-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolvedIp = ""; // On force le vide pour obliger la saisie
+                    }
+
+                    results.Add(new DiscoveredPrinterDto
+                    {
+                        Name = GetWmiValue(printer, "Name"),
+                        DriverName = GetWmiValue(printer, "DriverName"),
+                        PortName = resolvedIp, // Sera vide si WSD non résolu
+                        IsShared = (bool)(printer["Shared"] ?? false),
+                        ShareName = GetWmiValue(printer, "ShareName")
+                    });
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw new Exception("Accès refusé au serveur distant (Erreur WMI).");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur WMI ({targetHost}): {ex.Message}");
+            }
+
+            return Task.FromResult(results);
+        }
+
+        // ============================================================
+        // 3. SCAN PILOTES (AVEC PRIVILÈGES)
+        // ============================================================
+
+        public Task<List<DiscoveredDriverDto>> ScanLocalDriversAsync()
+        {
+            var results = new List<DiscoveredDriverDto>();
+
+            try
+            {
+                // Options critiques pour voir les drivers (Admin + Privilèges)
+                var options = new ConnectionOptions
+                {
+                    Impersonation = ImpersonationLevel.Impersonate,
+                    EnablePrivileges = true
+                };
+
+                var scope = new ManagementScope(@"\\.\root\cimv2", options);
+                scope.Connect();
+
+                var query = new ObjectQuery("SELECT * FROM Win32_PrinterDriver");
+                using var searcher = new ManagementObjectSearcher(scope, query);
+
+                foreach (ManagementObject driver in searcher.Get())
+                {
+                    string rawName = GetWmiValue(driver, "Name");
+                    string cleanName = rawName.Split(',')[0]; // Nettoyage "HP,3,Windows x64" -> "HP"
+
+                    // Lecture sécurisée de la version
+                    string version = GetWmiValue(driver, "DriverVersion");
+                    if (string.IsNullOrEmpty(version))
+                    {
+                        version = GetWmiValue(driver, "Version");
+                    }
+
+                    results.Add(new DiscoveredDriverDto
+                    {
+                        Name = cleanName,
+                        DriverVersion = version
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // On ne bloque pas l'appli pour une erreur de driver, on loggue juste
+                Console.WriteLine("Erreur WMI Drivers: " + ex.Message);
+            }
+
+            return Task.FromResult(results);
+        }
+
+        // --- HELPER POUR ÉVITER LES CRASHS "NON TROUVÉ" ---
+        private string GetWmiValue(ManagementBaseObject obj, string propertyName)
+        {
+            try
+            {
+                return obj[propertyName]?.ToString() ?? "";
+            }
+            catch
+            {
+                return "";
             }
         }
     }

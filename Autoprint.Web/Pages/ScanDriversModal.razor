@@ -1,0 +1,171 @@
+﻿@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+@if (Show)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-hdd-network me-2"></i> Scan des Pilotes (Serveur Local)</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert alert-info py-2">
+                        <small><i class="bi bi-info-circle"></i> Ce scan interroge le magasin de pilotes Windows du serveur. Cochez ceux que vous voulez ajouter à votre bibliothèque Autoprint.</small>
+                    </div>
+
+                    <div class="text-end mb-3">
+                        <button class="btn btn-primary" @onclick="LancerScan" disabled="@scanEnCours">
+                            @if (scanEnCours)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+
+                                <i class="bi bi-search me-2"></i>
+                            }
+                            Lancer le scan
+                        </button>
+                    </div>
+
+                    @if (resultats != null && resultats.Any())
+                    {
+                        <div class="table-responsive border rounded" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-hover mb-0 table-sm align-middle">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="ps-3" style="width:80px">État</th>
+                                        <th>Nom du Pilote (Windows)</th>
+                                        <th>Version</th>
+                                        <th class="text-end pe-3" style="width:100px">Importer</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in resultats)
+                                    {
+                                        <tr class="@(d.SyncStatus == "New" ? "table-info bg-opacity-10" : "")">
+                                            <td class="ps-3 text-center">
+                                                @if (d.SyncStatus == "Synced")
+                                                {
+                                                    <span class="badge bg-success">Synchronisé</span>
+                                                }
+                                                else if (d.SyncStatus == "New")
+                                                {
+                                                    <span class="badge bg-primary">Nouveau</span>
+                                                }
+                                                else if (d.SyncStatus == "Missing")
+                                                {
+                                                    <span class="badge bg-danger">Disparu</span>
+                                                }
+                                            </td>
+                                            <td><strong>@d.Name</strong></td>
+                                            <td><small class="text-muted">@d.DriverVersion</small></td>
+                                            <td class="text-center pe-3">
+                                                @if (d.SyncStatus == "New")
+                                                {
+                                                    <input type="checkbox" class="form-check-input" @bind="d.SelectedForImport" style="cursor:pointer; transform: scale(1.2);" />
+                                                }
+                                                else if (d.SyncStatus == "Synced")
+                                                {
+                                                    <i class="bi bi-check-lg text-success"></i>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else if (!scanEnCours && resultats != null)
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            Aucun pilote trouvé ou erreur lors du scan.
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Fermer</button>
+                    @if (resultats != null && resultats.Any(d => d.SelectedForImport))
+                    {
+                        <button type="button" class="btn btn-success" @onclick="ImporterSelection">
+                            <i class="bi bi-cloud-download me-2"></i> Importer la sélection (@resultats.Count(d => d.SelectedForImport))
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnImportDone { get; set; } // Pour rafraîchir si besoin
+
+    private bool scanEnCours = false;
+    private List<ImportDriverViewModel>? resultats;
+
+    // ViewModel local pour la case à cocher
+    public class ImportDriverViewModel : DiscoveredDriverDto { public bool SelectedForImport { get; set; } }
+
+    protected override void OnParametersSet()
+    {
+        // Reset quand on ouvre la modale
+        if (Show && resultats == null)
+        {
+            resultats = null;
+        }
+    }
+
+    private async Task LancerScan()
+    {
+        scanEnCours = true;
+        try
+        {
+            var res = await Http.GetFromJsonAsync<List<ImportDriverViewModel>>("api/Import/Scan/Drivers");
+            resultats = res;
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Erreur Scan Drivers: " + ex.Message);
+        }
+        finally
+        {
+            scanEnCours = false;
+        }
+    }
+
+    private async Task ImporterSelection()
+    {
+        if (resultats == null) return;
+        var toImport = resultats.Where(d => d.SelectedForImport).Select(d => d.Name).ToList();
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/Import/Import/Drivers", toImport);
+            if (res.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Import réussi !");
+                // On relance le scan pour mettre à jour l'affichage (passer en Vert)
+                await LancerScan();
+                await OnImportDone.InvokeAsync();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Erreur Import: " + await res.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message);
+        }
+    }
+}

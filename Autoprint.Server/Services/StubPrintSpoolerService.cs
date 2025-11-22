@@ -1,26 +1,23 @@
-﻿namespace Autoprint.Server.Services
+﻿using Autoprint.Shared.DTOs;
+
+namespace Autoprint.Server.Services
 {
-    // Cette classe sert de "bouchon" pour les environnements non-Windows ou de test
     public class StubPrintSpoolerService : IPrintSpoolerService
     {
-        public void CreerImprimante(string nom, string nomDriver, string nomPort, string commentaire, string nomPartage)
+        // Gestion (Ne fait rien)
+        public Task CreerPortTcp(string ipAddress) => Task.CompletedTask;
+        public Task CreerImprimante(string nom, string driverName, string ipAddress) => Task.CompletedTask;
+        public Task SupprimerImprimante(string nom) => Task.CompletedTask;
+
+        // Scan (Renvoie vide)
+        public Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password)
         {
-            // On ne fait rien (simulation)
+            return Task.FromResult(new List<DiscoveredPrinterDto>());
         }
 
-        public void CreerPortTcp(string nomPort, string adresseIp)
+        public Task<List<DiscoveredDriverDto>> ScanLocalDriversAsync()
         {
-            // On ne fait rien
-        }
-
-        public bool ImprimanteExiste(string nomImprimante)
-        {
-            return false; // On simule qu'elle n'existe pas pour forcer la création (virtuelle)
-        }
-
-        public void SupprimerImprimante(string nom)
-        {
-            // On ne fait rien
+            return Task.FromResult(new List<DiscoveredDriverDto>());
         }
     }
 }

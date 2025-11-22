@@ -60,6 +60,23 @@ namespace Autoprint.Web.Services
             NotifyAuthenticationStateChanged(authState);
         }
 
+        // --- Vérifier un droit/Claim ---
+        public async Task<bool> HasPermission(string claimType, string claimValue)
+        {
+            // Récupère l'état d'authentification actuel
+            var authState = await GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (!user.Identity?.IsAuthenticated ?? true)
+            {
+                return false; // Non authentifié n'a aucun droit
+            }
+
+            // Le JWT doit contenir un Claim de type 'permission' (ou autre si configuré)
+            // Nous vérifions si l'utilisateur a un Claim qui correspond à la valeur (ex: 'Marques_READ')
+            return user.HasClaim(claimType, claimValue);
+        }
+
         // --- Utilitaire pour lire le Token JWT ---
         private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
         {

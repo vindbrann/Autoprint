@@ -1,7 +1,7 @@
 ﻿using Autoprint.Server.Data;
-using Autoprint.Server.DTOs;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
+using Autoprint.Shared.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +10,6 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "PRINTER_READ")]
     public class ImprimantesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -24,24 +23,25 @@ namespace Autoprint.Server.Controllers
 
         // GET: api/Imprimantes
         [HttpGet]
+        [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes()
         {
             return await _context.Imprimantes
                 .Include(i => i.Emplacement)
-                // On charge le Modèle ET le Pilote associé à ce modèle
-                .Include(i => i.Modele)
-                    .ThenInclude(m => m.Pilote)
+                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .ToListAsync();
         }
 
         // GET: api/Imprimantes/5
         [HttpGet("{id}")]
+        [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<Imprimante>> GetImprimante(int id)
         {
             var imprimante = await _context.Imprimantes
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele)
-                    .ThenInclude(m => m.Pilote)
+                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
@@ -54,117 +54,48 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
+            // 1. Sauvegarde en BDD
+            // On force le statut "En attente de création" pour le background service ou l'action manuelle
+            imprimante.Status = PrinterStatus.PendingCreation;
+
             _context.Imprimantes.Add(imprimante);
             await _context.SaveChangesAsync();
 
-            // On recharge l'objet complet pour le renvoyer au client (avec les noms de Modèle/Emplacement)
-            // C'est ce qui permet d'afficher "HP" au lieu de "ID 4" juste après l'ajout
-            var newImp = await _context.Imprimantes
-                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
-                .Include(i => i.Emplacement)
-                .FirstOrDefaultAsync(i => i.Id == imprimante.Id);
-
-            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, newImp);
-        }
-
-        // POST: api/Imprimantes/Batch
-        [HttpPost("Batch")]
-        [Authorize(Policy = "PRINTER_WRITE")]
-        public async Task<ActionResult<BatchResult>> PostBatch(List<ImprimanteDto> imprimantesDtos)
-        {
-            var resultat = new BatchResult { TotalTraites = imprimantesDtos.Count };
-
-            foreach (var dto in imprimantesDtos)
+            // 2. Tentative de création immédiate sur Windows (Optionnel, ou via bouton "Appliquer")
+            // Pour l'instant, on le fait en direct pour garder le comportement Phase 1
+            // Il faudra peut-être déplacer ça dans une action "Synchroniser" plus tard.
+            try
             {
-                try
+                // On a besoin des infos du pilote liées au modèle
+                var modele = await _context.Modeles
+                    .Include(m => m.Pilote)
+                    .FirstOrDefaultAsync(m => m.Id == imprimante.ModeleId);
+
+                if (modele?.Pilote != null && !string.IsNullOrEmpty(imprimante.AdresseIp))
                 {
-                    var imprimante = new Imprimante
-                    {
-                        NomAffiche = dto.NomAffiche,
-                        AdresseIp = dto.AdresseIp,
-                        EstPartagee = dto.EstPartagee,
-                        NomPartage = dto.NomPartage,
-                        Commentaire = dto.Commentaire,
-                        EmplacementId = dto.EmplacementId,
-                        Localisation = dto.Localisation,
-                        ModeleId = dto.ModeleId
-                        // PiloteId supprimé ici car il est maintenant lié au Modele
-                    };
+                    // A. Création du Port (Signature corrigée : juste l'IP)
+                    await _spoolerService.CreerPortTcp(imprimante.AdresseIp);
 
-                    _context.Imprimantes.Add(imprimante);
-                    resultat.SuccesBdd++;
-                }
-                catch (Exception ex)
-                {
-                    resultat.Erreurs++;
-                    resultat.DetailsErreurs.Add($"Erreur BDD donnée '{dto.NomAffiche}' : {ex.Message}");
-                }
-            }
-
-            await _context.SaveChangesAsync();
-            return Ok(resultat);
-        }
-
-        // POST: api/Imprimantes/Synchroniser
-        [HttpPost("Synchroniser")]
-        [Authorize(Policy = "PRINTER_WRITE")]
-        public async Task<ActionResult<BatchResult>> SynchroniserServeur()
-        {
-            var resultat = new BatchResult();
-
-            // Récupération de l'arbre complet : Imprimante -> Modele -> Pilote
-            var imprimantesBdd = await _context.Imprimantes
-                .Include(i => i.Modele)
-                    .ThenInclude(m => m.Pilote)
-                .ToListAsync();
-
-            resultat.TotalTraites = imprimantesBdd.Count;
-
-            foreach (var imp in imprimantesBdd)
-            {
-                try
-                {
-                    // Vérification : Est-ce que le modèle a bien un pilote ?
-                    if (imp.Modele?.Pilote == null)
-                    {
-                        resultat.Erreurs++;
-                        resultat.DetailsErreurs.Add($"Imprimante {imp.NomAffiche} ignorée : Modèle '{imp.Modele?.Nom}' sans pilote.");
-                        continue;
-                    }
-
-                    // A. Création Port TCP/IP
-                    _spoolerService.CreerPortTcp(imp.AdresseIp, imp.AdresseIp);
-
-                    // B. Création Imprimante Windows
-                    string commentaireComplet = $"{imp.Localisation} - {imp.Commentaire}";
-
-                    _spoolerService.CreerImprimante(
-                        nom: imp.NomAffiche,
-                        nomDriver: imp.Modele.Pilote.Nom, // On va chercher le nom via le Modèle
-                        nomPort: imp.AdresseIp,
-                        commentaire: commentaireComplet,
-                        nomPartage: imp.EstPartagee ? (imp.NomPartage ?? "") : ""
+                    // B. Création de l'imprimante (Signature corrigée)
+                    await _spoolerService.CreerImprimante(
+                        nom: imprimante.NomAffiche,
+                        driverName: modele.Pilote.Nom, // On utilise le nom du pilote Windows
+                        ipAddress: imprimante.AdresseIp
                     );
 
-                    resultat.SuccesSysteme++;
-                }
-                catch (Exception ex)
-                {
-                    resultat.Erreurs++;
-                    resultat.DetailsErreurs.Add($"Erreur Système '{imp.NomAffiche}' : {ex.Message}");
-
-                    _context.AuditLogs.Add(new AuditLog
-                    {
-                        Action = "SYNC_ERROR",
-                        Details = ex.Message,
-                        Niveau = "ERROR",
-                        Utilisateur = "System"
-                    });
+                    // Si succès, on passe en Vert
+                    imprimante.Status = PrinterStatus.Synchronized;
+                    await _context.SaveChangesAsync();
                 }
             }
+            catch (Exception ex)
+            {
+                // En cas d'erreur Windows, on ne bloque pas la création BDD mais on loggue
+                Console.WriteLine($"Erreur création Windows : {ex.Message}");
+                // On pourrait passer le statut en "Error" ici
+            }
 
-            await _context.SaveChangesAsync();
-            return Ok(resultat);
+            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, imprimante);
         }
 
         // PUT: api/Imprimantes/5
@@ -174,11 +105,17 @@ namespace Autoprint.Server.Controllers
         {
             if (id != imprimante.Id) return BadRequest();
 
+            // On détecte les changements pour le statut (simplifié ici)
+            imprimante.Status = PrinterStatus.PendingUpdate;
+
             _context.Entry(imprimante).State = EntityState.Modified;
 
             try
             {
                 await _context.SaveChangesAsync();
+
+                // Mise à jour Windows (Simplifiée : on ne gère pas tout ici pour l'instant)
+                // L'idéal sera le module de Synchro dédié.
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -191,21 +128,23 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/Imprimantes/5
         [HttpDelete("{id}")]
-        [Authorize(Policy = "PRINTER_WRITE")]
+        [Authorize(Policy = "PRINTER_DELETE")]
         public async Task<IActionResult> DeleteImprimante(int id)
         {
             var imprimante = await _context.Imprimantes.FindAsync(id);
             if (imprimante == null) return NotFound();
 
+            // 1. Suppression Windows (Signature corrigée)
             try
             {
-                _spoolerService.SupprimerImprimante(imprimante.NomAffiche);
+                await _spoolerService.SupprimerImprimante(imprimante.NomAffiche);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Erreur suppression Windows : {ex.Message}");
             }
 
+            // 2. Suppression BDD
             _context.Imprimantes.Remove(imprimante);
             await _context.SaveChangesAsync();
 

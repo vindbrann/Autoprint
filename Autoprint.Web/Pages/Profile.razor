@@ -1,5 +1,6 @@
 ﻿@page "/profile"
 @using Autoprint.Shared.DTOs
+@using System.Net
 @attribute [Authorize]
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -9,7 +10,10 @@
 
     @if (isLoading)
     {
-        <p>Chargement...</p>
+        <div class="d-flex align-items-center">
+            <div class="spinner-border text-primary me-2" role="status"></div>
+            <span>Chargement du profil...</span>
+        </div>
     }
     else
     {
@@ -91,7 +95,7 @@
 
 @code {
     private UserProfileDto userProfile = new();
-    private UpdateProfileDto profileModel = new(); // (DTO simple sans password)
+    private UpdateProfileDto profileModel = new();
     private bool isLoading = true;
     private bool showPasswordModal = false;
 
@@ -102,33 +106,58 @@
 
     private async Task LoadProfile()
     {
-        userProfile = await Http.GetFromJsonAsync<UserProfileDto>("api/users/profile") ?? new();
-        profileModel = new UpdateProfileDto { DisplayName = userProfile.DisplayName, Email = userProfile.Email };
-        isLoading = false;
+        try
+        {
+            // CORRECTION ICI : Gestion des erreurs (401 à la déconnexion)
+            userProfile = await Http.GetFromJsonAsync<UserProfileDto>("api/users/profile") ?? new();
+            profileModel = new UpdateProfileDto { DisplayName = userProfile.DisplayName, Email = userProfile.Email };
+            isLoading = false;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // C'est normal lors de la déconnexion, on ignore silencieusement
+            Console.WriteLine("Profil : 401 Unauthorized ignoré (Déconnexion en cours).");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement profil: {ex.Message}");
+            isLoading = false; // On débloque le chargement pour ne pas laisser un spinner infini
+        }
     }
 
     private async Task HandleInfoSubmit()
     {
-        // Sauvegarde uniquement DisplayName et Email
-        var res = await Http.PutAsJsonAsync("api/users/profile", profileModel);
-        if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Infos mises à jour !");
+        try
+        {
+            var res = await Http.PutAsJsonAsync("api/users/profile", profileModel);
+            if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Infos mises à jour !");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur sauvegarde: {ex.Message}");
+        }
     }
 
     private async Task ChangePassword(ChangePasswordDto dto)
     {
-        // Appel API dédié
-        var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
-
-        if (res.IsSuccessStatusCode)
+        try
         {
-            showPasswordModal = false;
-            await JS.InvokeVoidAsync("alert", "Mot de passe modifié avec succès !");
-            await LoadProfile(); // Pour rafraîchir le compteur de jours
+            var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
+            if (res.IsSuccessStatusCode)
+            {
+                showPasswordModal = false;
+                await JS.InvokeVoidAsync("alert", "Mot de passe modifié avec succès !");
+                await LoadProfile(); // Rafraîchir le compteur
+            }
+            else
+            {
+                var msg = await res.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", "Erreur : " + msg);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            var msg = await res.Content.ReadAsStringAsync();
-            await JS.InvokeVoidAsync("alert", "Erreur : " + msg);
+            await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message);
         }
     }
 }

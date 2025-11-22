@@ -1,123 +1,144 @@
 ﻿@using Autoprint.Shared
 @using System.Text.Json
+@using Autoprint.Web.Services
 @inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
 
 @if (Show)
 {
-    <div class="modal-backdrop fade show"></div>
-
-    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(Model.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante")
-                    </h5>
+                    <h5 class="modal-title">@(Model.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante")</h5>
                     <button type="button" class="btn-close" @onclick="OnCancel"></button>
                 </div>
-
                 <div class="modal-body">
-                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                    <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
                         <DataAnnotationsValidator />
                         <ValidationSummary />
 
+                        @* --- NOM ET CODE --- *@
                         <div class="row mb-3">
                             <div class="col-md-8">
                                 <label class="form-label">
                                     Nom affiché
                                     @if (namingEnabled)
                                     {
-                                        <span class="badge bg-info ms-2"><i class="bi bi-robot"></i> Auto</span>
+                                        <span class="badge bg-info ms-2"><i class="oi oi-cog"></i> Auto</span>
                                     }
                                 </label>
                                 <div class="input-group">
                                     <InputText class="form-control" @bind-Value="Model.NomAffiche" disabled="@namingEnabled" placeholder="Ex: IMP_ACCUEIL" />
                                     @if (namingEnabled)
-                                    {
-                                        <button class="btn btn-outline-secondary" type="button" @onclick="ForcerRefreshNom" title="Forcer la régénération">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                        </button>
-                                    }
+                                        {
+                                            @* Bouton de régénération manuelle *@
+                                            <button class="btn btn-outline-secondary" type="button"
+                                                    @onclick="ForcerRefreshNom"
+                                                    title="Recalculer le nom automatique (Forcer la mise à jour)">
+
+                                                @* Icône double flèche circulaire *@
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        }
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Code Inventaire</label>
-                                <InputText class="form-control"
-                                           Value="@Model.Code"
-                                           ValueChanged="@((string val) => OnCodeChanged(val))"
-                                           ValueExpression="@(() => Model.Code)"
-                                           placeholder="Ex: P001" />
+                                <InputText class="form-control" @bind-Value="Model.Code" @onblur="GenerateNameIfEnabled" placeholder="Ex: P001" />
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
+                        @* --- IP ET LOCALISATION --- *@
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label class="form-label">Adresse IP</label>
-                                <InputText class="form-control"
-                                           Value="@Model.AdresseIp"
-                                           ValueChanged="@((string val) => OnIpChanged(val))"
-                                           ValueExpression="@(() => Model.AdresseIp)"
-                                           placeholder="192.168.x.x" />
+                                <InputText class="form-control" @bind-Value="Model.AdresseIp" @onblur="GenerateNameIfEnabled" placeholder="192.168.x.x" />
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Localisation physique (Détail)</label>
+                            <div class="col-md-6">
+                                <label class="form-label">Localisation physique</label>
                                 <InputText class="form-control" @bind-Value="Model.Localisation" placeholder="Ex: Bureau 204" />
                             </div>
                         </div>
 
-                        <div class="card p-3 mb-3 border-primary bg-light bg-opacity-10">
-                            <h6 class="text-primary">Configuration Matérielle</h6>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">1. Choisir la Marque</label>
-                                    <select class="form-select" @onchange="OnMarqueChanged" value="@selectedMarqueId">
-                                        <option value="0">-- Sélectionner une marque --</option>
-                                        @if (listeMarques != null)
-                                        {
-                                            @foreach (var m in listeMarques)
-                                            {
-                                                <option value="@m.Id">@m.Nom</option>
-                                            }
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">2. Choisir le Modèle</label>
-                                    <InputSelect class="form-select"
-                                                 Value="@Model.ModeleId"
-                                                 ValueChanged="@((int val) => OnModeleChanged(val))"
-                                                 ValueExpression="@(() => Model.ModeleId)"
-                                                 disabled="@(selectedMarqueId == 0)">
-                                        <option value="0">-- Sélectionner un modèle --</option>
-                                        @if (listeModelesFiltres != null)
-                                        {
-                                            @foreach (var m in listeModelesFiltres)
-                                            {
-                                                <option value="@m.Id">@m.Nom</option>
-                                            }
-                                        }
-                                    </InputSelect>
-                                </div>
-                            </div>
-                        </div>
-
+                        @* --- SÉLECTION EMPLACEMENT (SÉCURISÉ) --- *@
                         <div class="mb-3">
                             <label class="form-label">Emplacement (Lieu)</label>
                             <InputSelect class="form-select"
                                          Value="@Model.EmplacementId"
-                                         ValueChanged="@((int val) => OnLieuChanged(val))"
-                                         ValueExpression="@(() => Model.EmplacementId)">
-                                <option value="0">-- Sélectionner un lieu --</option>
+                                         ValueChanged="@((int id) => OnLieuChanged(id))"
+                                         ValueExpression="@(() => Model.EmplacementId)"
+                                         disabled="@(!CanReadEmplacements)">
+                                <option value="0">-- Choisir un emplacement --</option>
                                 @if (listeEmplacements != null)
                                 {
-                                    @foreach (var e in listeEmplacements)
+                                    @foreach (var lieu in listeEmplacements)
                                     {
-                                        <option value="@e.Id">@e.Nom</option>
+                                        <option value="@lieu.Id">@lieu.Nom</option>
                                     }
                                 }
                             </InputSelect>
+                            @if (!CanReadEmplacements)
+                            {
+                                <div class="form-text text-danger">
+                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les emplacements.
+                                </div>
+                            }
                         </div>
 
+                        @* --- CONFIGURATION MATÉRIELLE (MARQUE / MODÈLE) --- *@
+                        <div class="card p-3 mb-3 border-primary bg-light bg-opacity-10">
+                            <h6 class="text-primary">Configuration Matérielle</h6>
+                            <div class="row">
+                                @* MARQUE (Filtre UI seulement) *@
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">1. Choisir la Marque</label>
+                                    <select class="form-select" @onchange="OnMarqueChange" value="@selectedMarqueId" disabled="@(!CanReadMarques)">
+                                        <option value="0">-- Sélectionner une marque --</option>
+                                        @if (listeMarques != null)
+                                        {
+                                            @foreach (var marque in listeMarques)
+                                            {
+                                                <option value="@marque.Id">@marque.Nom</option>
+                                            }
+                                        }
+                                    </select>
+                                    @if (!CanReadMarques)
+                                    {
+                                        <div class="form-text text-danger">
+                                            <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les marques.
+                                        </div>
+                                    }
+                                </div>
+
+                                @* MODÈLE (Lié à l'imprimante) *@
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">2. Choisir le Modèle</label>
+                                    <InputSelect class="form-select"
+                                                 Value="@Model.ModeleId"
+                                                 ValueChanged="@((int id) => OnModeleChange(id))"
+                                                 ValueExpression="@(() => Model.ModeleId)"
+                                                 disabled="@(selectedMarqueId == 0 || !CanReadModeles)">
+                                        <option value="0">-- Sélectionner un modèle --</option>
+                                        @if (listeModelesFiltres != null)
+                                        {
+                                            @foreach (var modele in listeModelesFiltres)
+                                            {
+                                                <option value="@modele.Id">@modele.Nom</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                    @if (!CanReadModeles)
+                                    {
+                                        <div class="form-text text-danger">
+                                            <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les modèles.
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        @* --- PARTAGE --- *@
                         <div class="card p-3 mb-3 bg-light">
                             <div class="form-check form-switch">
                                 <InputCheckbox class="form-check-input" @bind-Value="Model.EstPartagee" id="chkPartage" />
@@ -127,36 +148,25 @@
                             {
                                 <div class="mt-2">
                                     <label class="form-label">Nom du partage</label>
-                                    <InputText class="form-control"
-                                               Value="@Model.NomPartage"
-                                               ValueChanged="@((string val) => Model.NomPartage = val)"
-                                               ValueExpression="@(() => Model.NomPartage)"
-                                               disabled="@(namingEnabled && namingSameShare)" />
+                                    <InputText class="form-control" @bind-Value="Model.NomPartage" disabled="@(namingEnabled && namingSameShare)" />
                                 </div>
                             }
                         </div>
 
-                        <button type="submit" style="display:none" id="submitBtn"></button>
+                        <div class="modal-footer">
+                            @if (Model.Id != 0)
+                            {
+                                @* CORRECTION ICI : Ajout de Context="authContext" *@
+                                <AuthorizeView Policy="PRINTER_DELETE">
+                                    <Authorized Context="authContext">
+                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
+                                    </Authorized>
+                                </AuthorizeView>
+                            }
+                            <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        </div>
                     </EditForm>
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                    <div>
-                        @if (Model.Id != 0)
-                        {
-                            <AuthorizeView Policy="PRINTER_DELETE">
-                                <Authorized>
-                                    <button type="button" class="btn btn-danger" @onclick="HandleDelete">
-                                        <i class="bi bi-trash"></i> Supprimer
-                                    </button>
-                                </Authorized>
-                            </AuthorizeView>
-                        }
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                        <label for="submitBtn" class="btn btn-primary">💾 Enregistrer</label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -171,75 +181,100 @@
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
 
-    // Listes
+    private List<Emplacement>? listeEmplacements;
     private List<Marque>? listeMarques;
     private List<Modele>? listeTousModeles;
-    private List<Emplacement>? listeEmplacements;
     private List<Modele>? listeModelesFiltres;
+
     private int selectedMarqueId = 0;
 
-    // Configuration Nommage
     private bool namingEnabled = false;
     private bool namingSameShare = false;
     private string namingTemplate = "";
 
+    private bool CanReadEmplacements { get; set; }
+    private bool CanReadMarques { get; set; }
+    private bool CanReadModeles { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        // Mise à jour avec les clés anglaises du Program.cs
+        CanReadEmplacements = await AuthProvider.HasPermission("Permission", "LOCATION_READ");
+        CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
+        CanReadModeles = await AuthProvider.HasPermission("Permission", "MODEL_READ");
+
         try
         {
-            var t1 = Http.GetFromJsonAsync<List<Marque>>("api/Marques");
-            var t2 = Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
-            var t3 = Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
-            // On charge aussi les settings pour savoir si on active le mode auto
-            var t4 = Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            var tasks = new List<Task>();
 
-            await Task.WhenAll(t1, t2, t3, t4);
+            if (CanReadEmplacements)
+            {
+                tasks.Add(Task.Run(async () => listeEmplacements = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements")));
+            }
 
-            listeMarques = t1.Result;
-            listeTousModeles = t2.Result;
-            listeEmplacements = t3.Result;
+            if (CanReadMarques)
+            {
+                tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
+            }
 
-            var settings = t4.Result;
-            namingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
-            namingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
-            namingTemplate = GetVal(settings, "NamingTemplate", "");
+            if (CanReadModeles)
+            {
+                tasks.Add(Task.Run(async () => listeTousModeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles")));
+            }
+
+            tasks.Add(LoadSettingsAsync());
+
+            if (tasks.Any()) await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erreur chargement: {ex.Message}");
+            Console.WriteLine($"Erreur chargement données : {ex.Message}");
         }
     }
-
-    private string GetVal(List<ServerSetting>? list, string key, string def) => list?.FirstOrDefault(s => s.Key == key)?.Value ?? def;
 
     protected override void OnParametersSet()
     {
-        if (Show && listeTousModeles != null)
+        if (Show && listeTousModeles != null && Model.Id != 0)
         {
-            if (Model.Id == 0)
+            var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
+            if (currentModele != null)
             {
-                selectedMarqueId = 0;
-                listeModelesFiltres = new List<Modele>();
+                selectedMarqueId = currentModele.MarqueId;
+                FilterModeles();
             }
-            else
-            {
-                var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
-                if (currentModele != null)
-                {
-                    selectedMarqueId = currentModele.MarqueId;
-                    FilterModeles();
-                }
-            }
+        }
+        else if (Show && Model.Id == 0)
+        {
+            selectedMarqueId = 0;
+            listeModelesFiltres = new List<Modele>();
         }
     }
 
-    private void OnMarqueChanged(ChangeEventArgs e)
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            if (settings != null)
+            {
+                namingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
+                namingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
+                namingTemplate = GetVal(settings, "NamingTemplate", "");
+            }
+        }
+        catch { }
+    }
+
+    private string GetVal(List<ServerSetting> list, string key, string def) => list.FirstOrDefault(s => s.Key == key)?.Value ?? def;
+
+    private void OnMarqueChange(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int id))
         {
             selectedMarqueId = id;
             FilterModeles();
             Model.ModeleId = 0;
+            GenerateNameIfEnabled();
         }
     }
 
@@ -251,32 +286,24 @@
         }
     }
 
-    // --- LOGIQUE DE NOMMAGE AUTO ---
-    // Ces méthodes sont appelées à chaque changement de valeur d'un champ clé
-
-    private async Task OnIpChanged(string val) { Model.AdresseIp = val; await CalculerNom(); }
-    private async Task OnCodeChanged(string val) { Model.Code = val; await CalculerNom(); }
-
-    private async Task OnModeleChanged(int val)
+    private void OnModeleChange(int id)
     {
-        Model.ModeleId = val;
-        await CalculerNom();
+        Model.ModeleId = id;
+        GenerateNameIfEnabled();
     }
 
-    private async Task OnLieuChanged(int val)
+    private void OnLieuChanged(int id)
     {
-        Model.EmplacementId = val;
-        await CalculerNom();
+        Model.EmplacementId = id;
+        GenerateNameIfEnabled();
     }
 
-    private async Task ForcerRefreshNom() => await CalculerNom();
+    private async Task ForcerRefreshNom() => await GenerateNameIfEnabled();
 
-    private async Task CalculerNom()
+    private async Task GenerateNameIfEnabled()
     {
-        // Si le nommage auto est désactivé, on ne touche à rien
         if (!namingEnabled) return;
 
-        // Récupération des objets liés pour les Noms et Codes
         var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == Model.EmplacementId);
         var modele = listeTousModeles?.FirstOrDefault(m => m.Id == Model.ModeleId);
         var marque = listeMarques?.FirstOrDefault(m => m.Id == selectedMarqueId);
@@ -292,38 +319,29 @@
             ImpCode = Model.Code ?? ""
         };
 
-        var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            using var jsonDoc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
-            if (jsonDoc.RootElement.TryGetProperty("generatedName", out var prop))
+            var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+            if (response.IsSuccessStatusCode)
             {
-                string generatedName = prop.GetString() ?? "";
-
-                // 1. On applique le nom d'affichage
-                Model.NomAffiche = generatedName;
-
-                // 2. On applique le nom de partage SI l'option est active dans les paramètres
-                // (Même si Model.EstPartagee est faux, on le prépare quand même)
-                if (namingSameShare)
+                using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+                if (doc.RootElement.TryGetProperty("generatedName", out var prop))
                 {
-                    Model.NomPartage = generatedName;
+                    string val = prop.GetString() ?? "";
+                    Model.NomAffiche = val;
+                    if (namingSameShare) Model.NomPartage = val;
                 }
-
-                // 3. IMPORTANT : On force l'interface à se rafraîchir pour voir le changement
-                StateHasChanged();
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erreur Naming: " + ex.Message);
         }
     }
 
     private async Task HandleValidSubmit()
     {
-        if (Model.ModeleId == 0 || Model.EmplacementId == 0) return;
+        if (Model.EmplacementId == 0 || Model.ModeleId == 0) return;
         await OnSave.InvokeAsync();
-    }
-
-    private async Task HandleDelete()
-    {
-        await OnDelete.InvokeAsync();
     }
 }

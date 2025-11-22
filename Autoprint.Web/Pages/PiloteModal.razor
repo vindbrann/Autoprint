@@ -1,127 +1,46 @@
 ﻿@using Autoprint.Shared
-@using System.Net.Http.Headers
+@using Autoprint.Web.Services
 @inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
 
 @if (Show)
 {
-    <div class="modal-backdrop fade show"></div>
-
-    <div class="modal fade show d-block" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(Model.Id == 0 ? "💾 Nouveau Pilote" : "✏️ Modifier Pilote")
-                    </h5>
+                    <h5 class="modal-title">@(Model.Id == 0 ? "Ajouter un Pilote" : "Modifier le Pilote")</h5>
                     <button type="button" class="btn-close" @onclick="OnCancel"></button>
                 </div>
-
                 <div class="modal-body">
-                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                    <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
                         <DataAnnotationsValidator />
                         <ValidationSummary />
 
-                        <div class="card mb-3 @(infosVerrouillees ? "bg-light" : "border-primary")">
-                            <div class="card-header @(infosVerrouillees ? "" : "bg-primary text-white")">
-                                1. Identification du Pilote
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-8 mb-3">
-                                        <label class="form-label">Nom <span class="text-danger">*</span></label>
-                                        <InputText class="form-control" @bind-Value="Model.Nom" disabled="@infosVerrouillees" placeholder="Ex: HP Universal Print Driver" />
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label">Version <span class="text-danger">*</span></label>
-                                        <InputText class="form-control" @bind-Value="Model.Version" disabled="@infosVerrouillees" placeholder="Ex: 1.0" />
-                                    </div>
-                                </div>
-
-                                @if (!infosVerrouillees)
-                                {
-                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                        <button type="button" class="btn btn-primary" @onclick="VerrouillerInfos">
-                                            Suivant <i class="bi bi-arrow-down"></i>
-                                        </button>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="d-flex justify-content-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="DeverrouillerInfos">
-                                            <i class="bi bi-pencil"></i> Modifier le nom
-                                        </button>
-                                    </div>
-                                }
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nom du Pilote (Windows)</label>
+                            <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: HP Universal Printing PCL 6" />
+                            <small class="text-muted">Copiez ici le nom exact tel qu'il apparaît dans le Gestionnaire d'impression Windows.</small>
                         </div>
 
-                        @if (infosVerrouillees)
-                        {
-                            <div class="card mb-3 border-success">
-                                <div class="card-header bg-success text-white">
-                                    2. Fichier Source
-                                </div>
-                                <div class="card-body">
-                                    @if (uploadEnCours)
-                                    {
-                                        <div class="alert alert-info">
-                                            <div class="spinner-border spinner-border-sm" role="status"></div>
-                                            Envoi vers le serveur...
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="mb-3">
-                                            <label class="form-label">Sélectionner le fichier (.inf, .zip, .exe)</label>
-                                            <InputFile OnChange="UploadFichier" class="form-control" />
-                                        </div>
-                                    }
+                        <div class="mb-3">
+                            <label class="form-label">Version</label>
+                            <InputText class="form-control" @bind-Value="Model.Version" placeholder="Ex: 7.1.0" />
+                        </div>
 
-                                    @if (!string.IsNullOrEmpty(messageUpload))
-                                    {
-                                        <div class="alert alert-success">@messageUpload</div>
-                                    }
-                                    @if (!string.IsNullOrEmpty(erreurUpload))
-                                    {
-                                        <div class="alert alert-danger">@erreurUpload</div>
-                                    }
-                                </div>
-                            </div>
-
-                            <div class="row bg-light p-2 rounded border">
-                                <div class="col-md-12 mb-2">
-                                    <label class="form-label small text-muted">Chemin Stockage</label>
-                                    <InputText class="form-control form-control-sm" @bind-Value="Model.CheminFichier" readonly />
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label small text-muted">Fichier Installation (INF)</label>
-                                    <InputText class="form-control form-control-sm" @bind-Value="Model.NomFichierInf" />
-                                </div>
-                            </div>
-                        }
-
-                        <button type="submit" style="display:none" id="submitPiloteBtn"></button>
+                        <div class="modal-footer">
+                            @if (Model.Id != 0)
+                            {
+                                <AuthorizeView Policy="DRIVER_DELETE">
+                                    <Authorized Context="authContext">
+                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
+                                    </Authorized>
+                                </AuthorizeView>
+                            }
+                            <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
+                            <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        </div>
                     </EditForm>
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                    <div>
-                        @if (Model.Id != 0)
-                        {
-                            <AuthorizeView Policy="DRIVER_DELETE">
-                                <Authorized>
-                                    <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
-								</Authorized>
-							</AuthorizeView>
-                        }
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                        <label for="submitPiloteBtn" class="btn btn-primary @((!infosVerrouillees || uploadEnCours) ? "disabled" : "")">
-                            💾 Enregistrer
-                        </label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -136,108 +55,8 @@
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
 
-    private bool uploadEnCours = false;
-    private bool infosVerrouillees = false; // État "Étape 1 validée"
-    private string? messageUpload;
-    private string? erreurUpload;
-
-    protected override void OnParametersSet()
-    {
-        // Quand la fenêtre s'ouvre
-        if (Show)
-        {
-            infosVerrouillees = false;
-            messageUpload = null;
-            erreurUpload = null;
-
-            // Si on édite un pilote existant qui a déjà un fichier, on considère que l'étape 1 est faite
-            if (Model.Id != 0 && !string.IsNullOrEmpty(Model.Nom))
-            {
-                infosVerrouillees = true;
-            }
-        }
-    }
-
-    private void VerrouillerInfos()
-    {
-        if (!string.IsNullOrWhiteSpace(Model.Nom) && !string.IsNullOrWhiteSpace(Model.Version))
-        {
-            infosVerrouillees = true;
-        }
-    }
-
-    private void DeverrouillerInfos()
-    {
-        infosVerrouillees = false;
-        messageUpload = null; // On reset les messages si on modifie le nom
-    }
-
-    private class UploadResult
-    {
-        public string CheminFichier { get; set; } = "";
-        public string Checksum { get; set; } = "";
-    }
-
-    private async Task UploadFichier(InputFileChangeEventArgs e)
-    {
-        uploadEnCours = true;
-        messageUpload = null;
-        erreurUpload = null;
-
-        try
-        {
-            var file = e.File;
-            using var content = new MultipartFormDataContent();
-
-            var maxFileSize = 1024 * 1024 * 50; // 50 Mo
-            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-
-            content.Add(fileContent, "file", file.Name);
-            content.Add(new StringContent(Model.Nom), "nomPilote");
-            content.Add(new StringContent(Model.Version ?? "1.0"), "version");
-
-            var response = await Http.PostAsync("api/Pilotes/Upload", content);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<UploadResult>();
-                if (result != null)
-                {
-                    Model.CheminFichier = result.CheminFichier;
-                    Model.Checksum = result.Checksum;
-                    if (string.IsNullOrEmpty(Model.NomFichierInf)) Model.NomFichierInf = file.Name;
-
-                    messageUpload = "✅ Fichier transféré avec succès !";
-                }
-            }
-            else
-            {
-                erreurUpload = "Erreur serveur : " + await response.Content.ReadAsStringAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            erreurUpload = "Erreur upload : " + ex.Message;
-        }
-        finally
-        {
-            uploadEnCours = false;
-        }
-    }
-
     private async Task HandleValidSubmit()
     {
-        if (string.IsNullOrEmpty(Model.CheminFichier))
-        {
-            erreurUpload = "Erreur : Aucun fichier associé.";
-            return;
-        }
         await OnSave.InvokeAsync();
-    }
-
-    private async Task HandleDelete()
-    {
-        await OnDelete.InvokeAsync();
     }
 }

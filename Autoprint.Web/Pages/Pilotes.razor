@@ -1,30 +1,27 @@
 ﻿@page "/pilotes"
 @using Autoprint.Shared
+@using Autoprint.Web.Services
 @inject HttpClient Http
-@inject IJSRuntime JS
+@inject CustomAuthStateProvider AuthProvider
 
 <PageTitle>Gestion des Pilotes</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>💾 Bibliothèque de Pilotes</h3>
+    <h3>💾 Bibliothèque des Pilotes</h3>
     <AuthorizeView Policy="DRIVER_WRITE">
-    <Authorized>
-    <button class="btn btn-success" @onclick="OuvrirAjout">
-        <i class="bi bi-cloud-upload-fill"></i> Ajouter un pilote
-    </button>
-		</Authorized>
-	</AuthorizeView>
+        <Authorized Context="authContext">
+            <button class="btn btn-success" @onclick="OuvrirAjout">
+                <i class="bi bi-plus-circle"></i> Ajouter manuellement
+            </button>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
-@if (!string.IsNullOrEmpty(messageAction))
+@if (messageErreur != null)
 {
-    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
-        @messageAction
-        <button type="button" class="btn-close" @onclick="() => messageAction = null"></button>
-    </div>
+    <div class="alert alert-warning">@messageErreur</div>
 }
-
-@if (pilotes == null)
+else if (pilotes == null)
 {
     <div class="spinner-border text-primary" role="status"></div>
 }
@@ -33,63 +30,25 @@ else
     <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
             <tr>
-                <th>Nom</th>
+                <th>Nom du Pilote</th>
                 <th>Version</th>
-                <th>Fichier</th>
-                <th>État Serveur</th>
-                <th style="width: 200px;">Actions Système</th>
-                <th>Actions BDD</th>
+                <th style="width: 100px;">Actions</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var p in pilotes)
             {
                 <tr>
-                    <td><strong>@p.Nom</strong></td>
-                    <td><span class="badge bg-secondary">@p.Version</span></td>
-                    <td class="text-muted small">
-                        <i class="bi bi-file-earmark-zip"></i> @p.NomFichierInf
-                    </td>
-                    <td>
-                        @if (p.EstInstalle)
-                        {
-                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Installé</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-warning text-dark"><i class="bi bi-dash-circle"></i> Stocké</span>
-                        }
-                    </td>
-                    <td>
-                        @if (!p.EstInstalle)
-                        {
-                            <button class="btn btn-sm btn-outline-success w-100" @onclick="() => InstallerDriver(p)">
-                                <i class="bi bi-hdd-network"></i> Installer
-                            </button>
-                        }
-                        else
-                        {
-                            <button class="btn btn-sm btn-outline-danger w-100" @onclick="() => DesinstallerDriver(p)">
-                                <i class="bi bi-trash"></i> Désinstaller
-                            </button>
-                        }
-                    </td>
+                    <td>@p.Nom</td>
+                    <td>@p.Version</td>
                     <td>
                         <AuthorizeView Policy="DRIVER_WRITE">
-                            <Authorized>
+                            <Authorized Context="authContext">
                                 <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(p)">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                             </Authorized>
-                            <NotAuthorized>
-                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                    <i class="bi bi-pencil"></i> Modifier
-                                </button>
-                            </NotAuthorized>
                         </AuthorizeView>
-                        <button class="btn btn-sm btn-danger" @onclick="() => SupprimerBdd(p)">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
                     </td>
                 </tr>
             }
@@ -101,18 +60,27 @@ else
              Model="piloteEnCours"
              OnCancel="FermerModal"
              OnSave="Sauvegarder"
-             OnDelete="@(() => SupprimerBdd(null))" />
+             OnDelete="Supprimer" />
 
 @code {
     private List<Pilote>? pilotes;
     private Pilote piloteEnCours = new();
     private bool afficherModal = false;
-    private string? messageAction;
-    private bool isError = false;
+    private string? messageErreur;
+    private bool CanReadDrivers;
 
     protected override async Task OnInitializedAsync()
     {
-        await ChargerListe();
+        CanReadDrivers = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
+        if (CanReadDrivers)
+        {
+            await ChargerListe();
+        }
+        else
+        {
+            messageErreur = "Accès non autorisé aux pilotes.";
+            pilotes = new List<Pilote>();
+        }
     }
 
     private async Task ChargerListe()
@@ -123,52 +91,9 @@ else
         }
         catch (Exception ex)
         {
-            messageAction = "Erreur chargement : " + ex.Message;
-            isError = true;
+            messageErreur = "Erreur : " + ex.Message;
         }
     }
-
-    // --- ACTIONS SYSTEME (Appels API) ---
-
-    private async Task InstallerDriver(Pilote p)
-    {
-        messageAction = $"Installation de {p.Nom} en cours...";
-        isError = false;
-        StateHasChanged(); // Force le rafraichissement pour afficher le message
-
-        var response = await Http.PostAsync($"api/Pilotes/Install/{p.Id}", null);
-
-        if (response.IsSuccessStatusCode)
-        {
-            messageAction = "✅ Pilote installé avec succès sur le serveur.";
-            await ChargerListe();
-        }
-        else
-        {
-            isError = true;
-            messageAction = "❌ Erreur : " + await response.Content.ReadAsStringAsync();
-        }
-    }
-
-    private async Task DesinstallerDriver(Pilote p)
-    {
-        if (!await JS.InvokeAsync<bool>("confirm", $"Voulez-vous vraiment retirer {p.Nom} du système Windows ?")) return;
-
-        var response = await Http.PostAsync($"api/Pilotes/Uninstall/{p.Id}", null);
-
-        if (response.IsSuccessStatusCode)
-        {
-            messageAction = "✅ Pilote retiré du système.";
-            await ChargerListe();
-        }
-        else
-        {
-            isError = true;
-            messageAction = "❌ Erreur : " + await response.Content.ReadAsStringAsync();
-        }
-    }
-
-    // --- NAVIGATION CLASSIQUE ---
 
     private void OuvrirAjout()
     {
@@ -178,16 +103,11 @@ else
 
     private void OuvrirEdition(Pilote p)
     {
-        // Copie simple
         piloteEnCours = new Pilote
         {
             Id = p.Id,
             Nom = p.Nom,
-            Version = p.Version,
-            CheminFichier = p.CheminFichier,
-            NomFichierInf = p.NomFichierInf,
-            Checksum = p.Checksum,
-            EstInstalle = p.EstInstalle
+            Version = p.Version
         };
         afficherModal = true;
     }
@@ -205,26 +125,13 @@ else
         await ChargerListe();
     }
 
-    private async Task SupprimerBdd(Pilote? p = null)
+    private async Task Supprimer()
     {
-        // Permet d'être appelé depuis le bouton rouge du tableau ou depuis la modale
-        var target = p ?? piloteEnCours;
-
-        if (target.Id > 0)
+        if (piloteEnCours.Id > 0)
         {
-            if (!await JS.InvokeAsync<bool>("confirm", "Supprimer définitivement de la base de données ?")) return;
-
-            var reponse = await Http.DeleteAsync($"api/Pilotes/{target.Id}");
-            if (reponse.IsSuccessStatusCode)
-            {
-                afficherModal = false;
-                await ChargerListe();
-            }
-            else
-            {
-                messageAction = "Impossible de supprimer : " + await reponse.Content.ReadAsStringAsync();
-                isError = true;
-            }
+            await Http.DeleteAsync($"api/Pilotes/{piloteEnCours.Id}");
+            afficherModal = false;
+            await ChargerListe();
         }
     }
 }

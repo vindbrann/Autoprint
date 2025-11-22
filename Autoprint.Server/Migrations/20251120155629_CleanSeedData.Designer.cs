@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251120155629_CleanSeedData")]
+    partial class CleanSeedData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -545,7 +548,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(7889),
+                            DateModification = new DateTime(2025, 11, 20, 15, 56, 28, 495, DateTimeKind.Utc).AddTicks(916),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -637,7 +640,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(7277),
+                            DateModification = new DateTime(2025, 11, 20, 15, 56, 28, 495, DateTimeKind.Utc).AddTicks(287),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -684,7 +687,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 20, 15, 59, 21, 630, DateTimeKind.Utc).AddTicks(8694),
+                            DateModification = new DateTime(2025, 11, 20, 15, 56, 28, 495, DateTimeKind.Utc).AddTicks(1550),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
