@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Autoprint.Shared.Enums;
 
 namespace Autoprint.Server.Models.Security
 {
@@ -61,15 +62,20 @@ namespace Autoprint.Server.Models.Security
     }
 
     // 4. Mapping AD (Lien automatique : Groupe AD -> Rôle Autoprint)
+    [Table("AdRoleMappings")]
     public class AdRoleMapping
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        public string AdGroupName { get; set; } = string.Empty; // ex: "GL_Autoprint_Admins"
+        [MaxLength(100)]
+        public string AdIdentifier { get; set; } = string.Empty;
 
-        public int RoleId { get; set; } // ex: 1 (Admin)
+        [Required]
+        public AdMappingType MappingType { get; set; } = AdMappingType.Group;
+
+        public int RoleId { get; set; }
 
         [ForeignKey("RoleId")]
         public Role Role { get; set; } = null!;
@@ -81,7 +87,6 @@ namespace Autoprint.Server.Models.Security
     {
         public int UserId { get; set; }
         public User User { get; set; } = null!;
-
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
     }
@@ -90,7 +95,6 @@ namespace Autoprint.Server.Models.Security
     {
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
-
         public int PermissionId { get; set; }
         public Permission Permission { get; set; } = null!;
     }

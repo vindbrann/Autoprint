@@ -5,7 +5,7 @@
 <div class="top-row ps-3 navbar navbar-dark border-bottom border-secondary bg-black bg-opacity-25">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
-            <i class="bi bi-hdd-network-fill me-3 fs-4"></i>
+            <i class="bi bi-printer-fill me-3 fs-4"></i>
             <span class="fw-bold">Autoprint</span>
         </a>
     </div>
@@ -100,6 +100,14 @@
                             </div>
                         </AuthorizeView>
 
+                        <AuthorizeView Policy="AUDIT_READ">
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="audit">
+                                    <span class="bi bi-activity" aria-hidden="true"></span> Journal d'Audit
+                                </NavLink>
+                            </div>
+                        </AuthorizeView>
+
                         <AuthorizeView Policy="ROLE_READ">
                             <div class="nav-item px-3">
                                 <NavLink class="nav-link" href="roles">
@@ -171,6 +179,7 @@
             return user.HasClaim(c => c.Type == "Permission" &&
                                  (c.Value == "SETTINGS_MANAGE" ||
                                   c.Value == "USER_READ" ||
+                                  c.Value == "AUDIT_READ" ||
                                   c.Value == "ROLE_READ"));
     }
 

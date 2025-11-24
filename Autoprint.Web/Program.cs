@@ -62,6 +62,9 @@ builder.Services.AddAuthorizationCore(options =>
 
     // --- SYSTÈME ---
     options.AddPolicy("SETTINGS_MANAGE", policy => policy.RequireClaim("Permission", "SETTINGS_MANAGE"));
+
+    // --- AUDIT ---
+    options.AddPolicy("AUDIT_READ", policy => policy.RequireClaim("Permission", "AUDIT_READ"));
 });
 
 await builder.Build().RunAsync();

@@ -1,7 +1,9 @@
 ﻿@page "/roles"
 @using Autoprint.Shared.DTOs
+@using Autoprint.Shared.Enums
 @using Autoprint.Web.Services
 @inject IRoleService RoleService
+@inject HttpClient Http
 @inject IJSRuntime JS
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ROLE_READ")]
 
@@ -9,7 +11,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>🛡️ Gestion des Rôles et Permissions</h2>
 
-        @if (!showForm)
+        @if (!showRoleForm && !showAdModal)
         {
             <AuthorizeView Policy="ROLE_WRITE">
                 <Authorized>
@@ -21,7 +23,7 @@
         }
     </div>
 
-    @if (showForm)
+    @if (showRoleForm)
     {
         <div class="card p-4 mb-4 shadow border-primary">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -34,25 +36,25 @@
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <label class="form-label fw-bold">Nom du Groupe</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Name" disabled="@isSuperAdminEdit" placeholder="ex: Techniciens" />
+                        <label class="form-label fw-bold">Nom du Rôle</label>
+                        <InputText class="form-control" @bind-Value="currentModel.Name" disabled="@isSuperAdminEdit" />
                         <ValidationMessage For="@(() => currentModel.Name)" />
                     </div>
                     <div class="col-md-8">
                         <label class="form-label fw-bold">Description</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Description" placeholder="Courte description des responsabilités..." />
+                        <InputText class="form-control" @bind-Value="currentModel.Description" />
                     </div>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover table-bordered align-middle">
-                        <thead class="table-light text-center">
+                <div class="table-responsive" style="max-height: 500px; overflow-y:auto;">
+                    <table class="table table-hover table-bordered align-middle table-sm">
+                        <thead class="table-light text-center sticky-top">
                             <tr>
-                                <th class="text-start" style="width: 20%">Module</th>
-                                <th style="width: 15%">👁️ Lecture</th>
-                                <th style="width: 15%">✏️ Écriture</th>
-                                <th style="width: 15%">🗑️ Suppression</th>
-                                <th class="text-start">✨ Autres / Spécifique</th>
+                                <th class="text-start">Module</th>
+                                <th>Lecture</th>
+                                <th>Écriture</th>
+                                <th>Suppression</th>
+                                <th class="text-start">Autres</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,13 +70,10 @@
                                             @foreach (var perm in GetOtherPermissions(group.Prefix))
                                             {
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox"
-                                                           checked="@currentModel.PermissionIds.Contains(perm.Id)"
-                                                           @onchange="(e) => TogglePermission(perm.Id, e.Value)"
-                                                           id="perm_@perm.Id">
+                                                    <input class="form-check-input" type="checkbox" checked="@currentModel.PermissionIds.Contains(perm.Id)"
+                                                           @onchange="(e) => TogglePermission(perm.Id, e.Value)" id="perm_@perm.Id">
                                                     <label class="form-check-label small" for="perm_@perm.Id">
                                                         @perm.Description.Replace(group.Title, "").Trim()
-                                                        <span class="text-muted fst-italic">(@perm.Code)</span>
                                                     </label>
                                                 </div>
                                             }
@@ -94,6 +93,117 @@
         </div>
     }
 
+    @if (showAdModal)
+    {
+        <div class="card p-4 mb-4 shadow border-info">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0 text-info">
+                    <i class="bi bi-windows me-2"></i>Mappage AD : <strong>@editingRoleName</strong>
+                </h4>
+                <button class="btn-close" @onclick="CloseAdModal"></button>
+            </div>
+
+            <div class="row">
+                <div class="col-md-5 border-end">
+                    <h6 class="text-muted mb-3">Ajouter un lien</h6>
+
+                    <div class="input-group mb-2">
+                        <select class="form-select" style="max-width: 120px;" @bind="adSearchType">
+                            <option value="@AdMappingType.Group">Groupe</option>
+                            <option value="@AdMappingType.User">User</option>
+                        </select>
+                        <input type="text" class="form-control" placeholder="Rechercher dans l'AD..."
+                               @bind="adSearchQuery" @bind:event="oninput" @onkeyup="HandleSearchParams" />
+                        <button class="btn btn-primary" @onclick="SearchAd" disabled="@isSearchingAd">
+                            @if (isSearchingAd)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            else
+                            {
+
+                                <i class="bi bi-search"></i>
+                            }
+                        </button>
+                    </div>
+
+                    @if (searchResults.Any())
+                    {
+                        <div class="list-group shadow-sm" style="max-height: 300px; overflow-y: auto;">
+                            @foreach (var res in searchResults)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                        @onclick="() => AddAdMapping(res)">
+                                    <div>
+                                        <strong>@res.Name</strong>
+                                        <div class="small text-muted">@res.SamAccountName</div>
+                                    </div>
+                                    <i class="bi bi-plus-circle-fill text-success fs-5"></i>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (hasSearched)
+                    {
+                        <div class="text-center text-muted mt-3">Aucun résultat trouvé.</div>
+                    }
+                </div>
+
+                <div class="col-md-7">
+                    <h6 class="text-muted mb-3">Liens existants</h6>
+                    @if (currentMappings == null)
+                    {
+                        <div class="spinner-border text-primary" role="status"></div>
+                    }
+                    else if (!currentMappings.Any())
+                    {
+                        <div class="alert alert-light text-center border">Aucun mappage actif.</div>
+                    }
+                    else
+                    {
+                        <table class="table table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Identifiant</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var map in currentMappings)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (map.MappingType == AdMappingType.Group)
+                                            {
+                                                <span class="badge bg-primary">Groupe</span>
+                                            }
+                                            else
+                                            {
+
+                                                <span class="badge bg-info text-dark">User</span>
+                                            }
+                                        </td>
+                                        <td class="font-monospace">@map.AdIdentifier</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAdMapping(map)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-3 text-end">
+                <button class="btn btn-secondary" @onclick="CloseAdModal">Fermer</button>
+            </div>
+        </div>
+    }
+
     <div class="row">
         @if (roles == null)
         {
@@ -105,79 +215,45 @@
             {
                 <div class="col-md-4 mb-4">
                     <div class="card h-100 shadow-sm hover-shadow transition">
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title fw-bold text-primary">@role.Name</h5>
-
-                                @if (role.Name != "SuperAdmin")
-                                {
-                                    <div class="dropdown">
-                                        <button class="btn btn-link text-secondary p-0" type="button" data-bs-toggle="dropdown">
-                                            <i class="bi bi-three-dots-vertical"></i>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li>
-                                                <AuthorizeView Policy="ROLE_WRITE">
-                                                    <Authorized>
-                                                        <button class="dropdown-item" @onclick="() => EditRole(role.Id)">
-                                                            ✏️ Modifier
-                                                        </button>
-                                                    </Authorized>
-                                                    <NotAuthorized>
-                                                        <span class="dropdown-item disabled" title="Droit de modification requis">
-                                                            ✏️ Modifier (Interdit)
-                                                        </span>
-                                                    </NotAuthorized>
-                                                </AuthorizeView>
-                                            </li>
-
-                                            <li><hr class="dropdown-divider"></li>
-
-                                            <li>
-                                                <AuthorizeView Policy="ROLE_DELETE">
-                                                    <Authorized>
-                                                        <button class="dropdown-item text-danger" @onclick="() => DeleteRole(role)">
-                                                            🗑️ Supprimer
-                                                        </button>
-                                                    </Authorized>
-                                                    <NotAuthorized>
-                                                        <span class="dropdown-item disabled" title="Droit de suppression requis">
-                                                            🗑️ Supprimer (Interdit)
-                                                        </span>
-                                                    </NotAuthorized>
-                                                </AuthorizeView>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                }
-                                else
+                                <h5 class="card-title fw-bold text-primary mb-0">@role.Name</h5>
+                                @if (role.Name == "SuperAdmin")
                                 {
                                     <span class="badge bg-warning text-dark">Système</span>
                                 }
                             </div>
+                            <p class="card-text text-muted small flex-grow-1">@role.Description</p>
 
-                            <p class="card-text text-muted small">@role.Description</p>
-
-                            <div class="mt-3 pt-3 border-top">
-                                <small class="fw-bold text-uppercase text-secondary" style="font-size: 0.7rem;">Accès rapides</small>
-                                <div class="d-flex flex-wrap gap-1 mt-1">
-                                    @foreach (var p in role.PermissionCodes.Take(5))
-                                    {
-                                        <span class="badge bg-light text-dark border">@p</span>
-                                    }
-                                    @if (role.PermissionCodes.Count > 5)
-                                    {
-                                        <span class="badge bg-light text-secondary border">+@(role.PermissionCodes.Count - 5)</span>
-                                    }
-                                </div>
+                            <div class="d-grid mb-2">
+                                <button class="btn btn-outline-info btn-sm" @onclick="() => OpenAdModal(role)">
+                                    <i class="bi bi-windows me-2"></i>Gérer Accès AD
+                                </button>
                             </div>
 
-                            @if (role.Name == "SuperAdmin")
-                            {
-                                <div class="mt-3 d-grid">
-                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => EditRole(role.Id)">👁️ Voir les détails</button>
-                                </div>
-                            }
+                            <div class="pt-2 border-top d-flex justify-content-between">
+                                <small class="text-muted">@role.PermissionCodes.Count permissions</small>
+
+                                @if (role.Name != "SuperAdmin")
+                                {
+                                    <div>
+                                        <AuthorizeView Policy="ROLE_WRITE">
+                                            <Authorized>
+                                                <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => EditRole(role.Id)" title="Modifier Permissions">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                        <AuthorizeView Policy="ROLE_DELETE">
+                                            <Authorized>
+                                                <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => DeleteRole(role)" title="Supprimer Rôle">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -187,27 +263,36 @@
 </div>
 
 @code {
+    // --- VARIABLES GLOBALES ---
     private List<RoleViewDto>? roles;
     private List<PermissionDto> allPermissions = new();
 
-    private List<(string Prefix, string Title)> PermissionGroups = new()
-    {
-        ("ADMIN", "Administration"),
-        ("PRINTER", "Imprimantes"),
-        ("LOCATION", "Lieux"),
-        ("BRAND", "Marques"),
-        ("MODEL", "Modèles"),
-        ("DRIVER", "Pilotes"),
-        ("USER", "Utilisateurs"),
-        ("ROLE", "Rôles"),
-        ("SETTINGS", "Paramètres Système")
-    };
-
-    private bool showForm = false;
+    // --- VARIABLES MODALE ROLE (Permissions) ---
+    private bool showRoleForm = false;
     private bool editMode = false;
     private bool isSuperAdminEdit = false;
     private RoleEditDto currentModel = new();
     private int editingRoleId = 0;
+
+    // --- VARIABLES MODALE AD (Mappage) ---
+    private bool showAdModal = false;
+    private string editingRoleName = "";
+    private List<AdRoleMappingDto>? currentMappings;
+
+    // Recherche AD
+    private string adSearchQuery = "";
+    private AdMappingType adSearchType = AdMappingType.Group;
+    private List<AdSearchResultDto> searchResults = new();
+    private bool isSearchingAd = false;
+    private bool hasSearched = false;
+
+    // Groupes de permissions pour l'affichage
+    private List<(string Prefix, string Title)> PermissionGroups = new()
+    {
+        ("ADMIN", "Administration"), ("PRINTER", "Imprimantes"), ("LOCATION", "Lieux"),
+        ("BRAND", "Marques"), ("MODEL", "Modèles"), ("DRIVER", "Pilotes"),
+        ("USER", "Utilisateurs"), ("ROLE", "Rôles"), ("SETTINGS", "Système")
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -219,48 +304,100 @@
         var pTask = RoleService.GetAllPermissions();
         var rTask = RoleService.GetRoles();
         await Task.WhenAll(pTask, rTask);
-
         allPermissions = pTask.Result;
         roles = rTask.Result;
     }
 
-    // Astuce __builder pour le rendu dynamique
-    private RenderFragment RenderCheckbox(string prefix, string suffix) => __builder =>
-    {
-        var expectedCode = $"{prefix}_{suffix}";
-        var perm = allPermissions.FirstOrDefault(p => p.Code == expectedCode);
+    // --- LOGIQUE MODALE AD & RECHERCHE ---
 
-        if (perm != null)
+    private async Task OpenAdModal(RoleViewDto role)
+    {
+        editingRoleId = role.Id;
+        editingRoleName = role.Name;
+        showAdModal = true;
+        showRoleForm = false; // Ferme l'autre modale si ouverte
+
+        // Reset recherche
+        adSearchQuery = "";
+        searchResults.Clear();
+        hasSearched = false;
+
+        await LoadAdMappings();
+    }
+
+    private void CloseAdModal() => showAdModal = false;
+
+    private async Task LoadAdMappings()
+    {
+        currentMappings = await Http.GetFromJsonAsync<List<AdRoleMappingDto>>($"api/Roles/{editingRoleId}/admappings");
+    }
+
+    private async Task HandleSearchParams(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SearchAd();
+    }
+
+    private async Task SearchAd()
+    {
+        if (string.IsNullOrWhiteSpace(adSearchQuery)) return;
+        isSearchingAd = true;
+        hasSearched = true;
+        searchResults.Clear();
+
+        try
         {
-            <div class="form-check d-flex justify-content-center">
-                <input class="form-check-input" type="checkbox"
-                       style="transform: scale(1.3);"
-                       checked="@currentModel.PermissionIds.Contains(perm.Id)"
-                       @onchange="@((ChangeEventArgs e) => TogglePermission(perm.Id, e.Value))" />
-            </div>
+            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={adSearchQuery}&type={adSearchType}");
+            if (res != null) searchResults = res;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erreur recherche : " + ex.Message);
+            await JS.InvokeVoidAsync("alert", "Erreur lors de la recherche AD (vérifiez que le serveur est bien sous Windows et connecté au domaine).");
+        }
+        finally
+        {
+            isSearchingAd = false;
+        }
+    }
+
+    private async Task AddAdMapping(AdSearchResultDto result)
+    {
+        var dto = new CreateAdMappingDto
+        {
+            RoleId = editingRoleId,
+            AdIdentifier = (result.Type == AdMappingType.Group) ? result.Name : result.SamAccountName, // Groupe = Nom, User = Login
+            MappingType = result.Type
+        };
+
+        var response = await Http.PostAsJsonAsync("api/Roles/admappings", dto);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAdMappings();
+            // Optionnel : Retirer le résultat de la liste pour éviter double clic
+            searchResults.Remove(result);
         }
         else
         {
-            <span class="text-muted opacity-25">-</span>
+            await JS.InvokeVoidAsync("alert", "Erreur : " + await response.Content.ReadAsStringAsync());
         }
-    };
-
-    private List<PermissionDto> GetOtherPermissions(string prefix)
-    {
-        return allPermissions
-            .Where(p => p.Code.StartsWith(prefix + "_")
-                     && !p.Code.EndsWith("_READ")
-                     && !p.Code.EndsWith("_WRITE")
-                     && !p.Code.EndsWith("_DELETE"))
-            .ToList();
     }
+
+    private async Task DeleteAdMapping(AdRoleMappingDto map)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Supprimer ce lien ?")) return;
+        await Http.DeleteAsync($"api/Roles/admappings/{map.Id}");
+        await LoadAdMappings();
+    }
+
+    // --- LOGIQUE MODALE ROLE (Permissions) - Inchangée ---
 
     private void ShowAddForm()
     {
         currentModel = new RoleEditDto();
         editMode = false;
         isSuperAdminEdit = false;
-        showForm = true;
+        showRoleForm = true;
+        showAdModal = false;
     }
 
     private async Task EditRole(int id)
@@ -269,30 +406,17 @@
         editingRoleId = id;
         editMode = true;
         isSuperAdminEdit = (currentModel.Name == "SuperAdmin");
-        showForm = true;
+        showRoleForm = true;
+        showAdModal = false;
     }
 
-    private void TogglePermission(int permId, object? checkedValue)
-    {
-        bool isChecked = (bool)(checkedValue ?? false);
-        if (isChecked)
-        {
-            if (!currentModel.PermissionIds.Contains(permId)) currentModel.PermissionIds.Add(permId);
-        }
-        else
-        {
-            currentModel.PermissionIds.Remove(permId);
-        }
-    }
-
-    private void CancelForm() => showForm = false;
+    private void CancelForm() => showRoleForm = false;
 
     private async Task SaveRole()
     {
         if (editMode) await RoleService.UpdateRole(editingRoleId, currentModel);
         else await RoleService.CreateRole(currentModel);
-
-        showForm = false;
+        showRoleForm = false;
         await LoadData();
     }
 
@@ -302,4 +426,33 @@
         await RoleService.DeleteRole(role.Id);
         await LoadData();
     }
+
+    // Helpers UI
+    private RenderFragment RenderCheckbox(string prefix, string suffix) => __builder =>
+    {
+        var expectedCode = $"{prefix}_{suffix}";
+        var perm = allPermissions.FirstOrDefault(p => p.Code == expectedCode);
+        if (perm != null)
+        {
+            <div class="form-check d-flex justify-content-center">
+                <input class="form-check-input" type="checkbox" style="transform: scale(1.3);"
+                       checked="@currentModel.PermissionIds.Contains(perm.Id)"
+                       @onchange="@((ChangeEventArgs e) => TogglePermission(perm.Id, e.Value))" />
+            </div>
+        }
+        else
+        {
+
+            <span class="text-muted opacity-25">-</span>
+        }
+    };
+
+    private void TogglePermission(int permId, object? checkedValue)
+    {
+        if ((bool)(checkedValue ?? false)) { if (!currentModel.PermissionIds.Contains(permId)) currentModel.PermissionIds.Add(permId); }
+        else { currentModel.PermissionIds.Remove(permId); }
+    }
+
+    private List<PermissionDto> GetOtherPermissions(string prefix) =>
+        allPermissions.Where(p => p.Code.StartsWith(prefix + "_") && !p.Code.EndsWith("_READ") && !p.Code.EndsWith("_WRITE") && !p.Code.EndsWith("_DELETE")).ToList();
 }

@@ -1,5 +1,5 @@
 ﻿using Autoprint.Server.Data;
-using Autoprint.Server.DTOs;
+using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,20 +19,35 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<DashboardStats>> GetStats()
+        public async Task<ActionResult<DashboardStatsDto>> GetStats()
         {
-            var stats = new DashboardStats();
+            var stats = new DashboardStatsDto();
 
-            // Compteurs simples (très rapides)
+            // 1. Compteurs (Sans Users)
             stats.TotalImprimantes = await _context.Imprimantes.CountAsync();
-            stats.TotalLieux = await _context.Emplacements.CountAsync();
             stats.TotalPilotes = await _context.Pilotes.CountAsync();
+            stats.TotalLieux = await _context.Emplacements.CountAsync();
 
-            // Compter les erreurs critiques dans les logs depuis 24h
-            var hier = DateTime.UtcNow.AddHours(-24);
-            stats.ImprimantesEnErreur = await _context.AuditLogs
-                .Where(l => l.Niveau == "ERROR" && l.DateAction > hier)
-                .CountAsync();
+            // 2. Répartition par Modèle (Top 5 + Autres)
+            var rawData = await _context.Imprimantes
+                .Include(i => i.Modele)
+                .GroupBy(i => i.Modele.Nom)
+                .Select(g => new { Modele = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .ToListAsync();
+
+            var top5 = rawData.Take(5)
+                .Select(x => new ChartDataDto { Label = x.Modele, Value = x.Count })
+                .ToList();
+
+            var othersCount = rawData.Skip(5).Sum(x => x.Count);
+
+            if (othersCount > 0)
+            {
+                top5.Add(new ChartDataDto { Label = "Autres", Value = othersCount });
+            }
+
+            stats.RepartitionModeles = top5;
 
             return stats;
         }

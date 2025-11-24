@@ -13,7 +13,6 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
 
-        // On n'injecte PLUS le SpoolerService ici. Le contrôleur ne parle qu'à la BDD.
         public ImprimantesController(ApplicationDbContext context)
         {
             _context = context;
@@ -51,13 +50,22 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
-            // On force le statut : En attente de création
             imprimante.Status = PrinterStatus.PendingCreation;
-
-            // On vide les champs techniques si l'utilisateur tente de les forcer
-            imprimante.NomPartage = imprimante.NomAffiche; // Par défaut même nom
+            imprimante.NomPartage = imprimante.NomAffiche;
 
             _context.Imprimantes.Add(imprimante);
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "PRINTER_CREATE",
+                Details = $"Ajout de l'imprimante '{imprimante.NomAffiche}' (IP: {imprimante.AdresseIp})",
+                Utilisateur = User.Identity?.Name ?? "Inconnu",
+                Niveau = "INFO",
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
+
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, imprimante);
@@ -70,28 +78,28 @@ namespace Autoprint.Server.Controllers
         {
             if (id != imprimante.Id) return BadRequest();
 
-            // On charge l'original pour ne pas écraser n'importe quoi
             var original = await _context.Imprimantes.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
             if (original == null) return NotFound();
 
-            // Logique de changement de statut
             if (original.Status == PrinterStatus.Synchronized)
-            {
-                // Si elle était synchro, elle devient "En attente de modif"
                 imprimante.Status = PrinterStatus.PendingUpdate;
-            }
             else if (original.Status == PrinterStatus.PendingCreation)
-            {
-                // Si elle n'était pas encore créée, elle reste "PendingCreation"
                 imprimante.Status = PrinterStatus.PendingCreation;
-            }
-            // Si elle était en Error, on retente un Update
             else if (original.Status == PrinterStatus.SyncError)
-            {
                 imprimante.Status = PrinterStatus.PendingUpdate;
-            }
 
             _context.Entry(imprimante).State = EntityState.Modified;
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "PRINTER_UPDATE",
+                Details = $"Modification de '{imprimante.NomAffiche}' (Statut: {imprimante.Status})",
+                Utilisateur = User.Identity?.Name ?? "Inconnu",
+                Niveau = "INFO",
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
 
             try
             {
@@ -114,20 +122,30 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes.FindAsync(id);
             if (imprimante == null) return NotFound();
 
-            // STRATÉGIE "SOFT DELETE" (Option B)
+            string logDetails;
 
-            // Cas 1 : Elle n'a jamais été créée sur Windows (PendingCreation ou ImportedNeedsFix)
-            // -> On peut la supprimer directement de la BDD, pas besoin de déranger le spouleur.
             if (imprimante.Status == PrinterStatus.PendingCreation || imprimante.Status == PrinterStatus.ImportedNeedsFix)
             {
                 _context.Imprimantes.Remove(imprimante);
+                logDetails = $"Suppression immédiate (BDD) de '{imprimante.NomAffiche}'";
             }
-            // Cas 2 : Elle existe (ou a existé) sur Windows -> On marque pour suppression différée
             else
             {
                 imprimante.Status = PrinterStatus.PendingDelete;
                 _context.Entry(imprimante).State = EntityState.Modified;
+                logDetails = $"Marquage pour suppression (Spouleur) de '{imprimante.NomAffiche}'";
             }
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "PRINTER_DELETE",
+                Details = logDetails,
+                Utilisateur = User.Identity?.Name ?? "Inconnu",
+                Niveau = "WARNING", // Suppression = Warning
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
 
             await _context.SaveChangesAsync();
 

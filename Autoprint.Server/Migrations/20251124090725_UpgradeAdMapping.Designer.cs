@@ -4,6 +4,7 @@ using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251124090725_UpgradeAdMapping")]
+    partial class UpgradeAdMapping
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -211,12 +214,6 @@ namespace Autoprint.Server.Migrations
                             Id = 23,
                             Code = "MODEL_DELETE",
                             Description = "Supprimer des modèles"
-                        },
-                        new
-                        {
-                            Id = 24,
-                            Code = "AUDIT_READ",
-                            Description = "Voir les logs d'audit"
                         });
                 });
 
@@ -378,11 +375,6 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 23
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 24
                         });
                 });
 
@@ -543,7 +535,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(5092),
+                            DateModification = new DateTime(2025, 11, 24, 9, 7, 24, 899, DateTimeKind.Utc).AddTicks(2759),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -635,7 +627,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(4477),
+                            DateModification = new DateTime(2025, 11, 24, 9, 7, 24, 899, DateTimeKind.Utc).AddTicks(2182),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -682,7 +674,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(5806),
+                            DateModification = new DateTime(2025, 11, 24, 9, 7, 24, 899, DateTimeKind.Utc).AddTicks(3358),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

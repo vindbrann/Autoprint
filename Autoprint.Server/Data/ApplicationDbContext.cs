@@ -57,6 +57,14 @@ namespace Autoprint.Server.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // --- CONFIG AD MAPPING ---
+            modelBuilder.Entity<AdRoleMapping>(entity =>
+            {
+                entity.HasIndex(e => e.AdIdentifier);
+                // Unicité : Un identifiant AD ne peut être mappé qu'à un seul rôle
+                entity.HasIndex(e => new { e.AdIdentifier, e.RoleId }).IsUnique();
+            });
+
             // Clés composites pour les tables de liaison
             modelBuilder.Entity<UserRole>().HasKey(ur => new { ur.UserId, ur.RoleId });
             modelBuilder.Entity<RolePermission>().HasKey(rp => new { rp.RoleId, rp.PermissionId });
@@ -107,7 +115,10 @@ namespace Autoprint.Server.Data
                 // --- MODÈLES ---
                 new Permission { Id = 21, Code = "MODEL_READ", Description = "Voir les modèles" },
                 new Permission { Id = 22, Code = "MODEL_WRITE", Description = "Ajouter/Modifier des modèles" },
-                new Permission { Id = 23, Code = "MODEL_DELETE", Description = "Supprimer des modèles" }
+                new Permission { Id = 23, Code = "MODEL_DELETE", Description = "Supprimer des modèles" },
+
+                // --- AUDIT LOGS ---
+                new Permission { Id = 24, Code = "AUDIT_READ", Description = "Voir les logs d'audit" }
             };
 
             // Injection des permissions en BDD
@@ -166,7 +177,14 @@ namespace Autoprint.Server.Data
                 new ServerSetting { Key = "NamingTemplate", Value = "IMP_{LIEU}_{MODELE}", Description = "Gabarit", Type = "STRING" },
                 new ServerSetting { Key = "NamingEnabled", Value = "false", Description = "Activer le nommage automatique", Type = "BOOL" },
                 new ServerSetting { Key = "NamingSameShare", Value = "false", Description = "Forcer le nom de partage", Type = "BOOL" },
-                new ServerSetting { Key = "PasswordExpirationDays", Value = "90", Description = "Expiration MDP (jours)", Type = "INT" }
+                new ServerSetting { Key = "PasswordExpirationDays", Value = "90", Description = "Expiration MDP (jours)", Type = "INT" },
+                // --- CONFIG AD ---
+                new ServerSetting { Key = "AdDomain", Value = "mondomaine.lan", Description = "Domaine Active Directory", Type = "STRING" },
+                new ServerSetting { Key = "AdUseServiceAccount", Value = "false", Description = "Utiliser un compte spécifique ?", Type = "BOOL" },
+                new ServerSetting { Key = "AdServiceUser", Value = "", Description = "Compte lecture AD", Type = "STRING" },
+                new ServerSetting { Key = "AdServicePassword", Value = "", Description = "Mot de passe AD", Type = "PASSWORD" },
+                new ServerSetting { Key = "AdAdminEmails", Value = "", Description = "Mails alerte panne AD (séparés par ;)", Type = "STRING" }
+
             );
 
             modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI" });

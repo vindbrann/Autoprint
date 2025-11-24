@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Autoprint.Shared.DTOs // <--- IMPORTANT : C'est DTOs ici
+namespace Autoprint.Shared.DTOs
 {
     // --- AUTHENTIFICATION ---
 
@@ -10,6 +10,7 @@ namespace Autoprint.Shared.DTOs // <--- IMPORTANT : C'est DTOs ici
         public string Username { get; set; } = string.Empty;
         [Required]
         public string Password { get; set; } = string.Empty;
+        public bool RememberMe { get; set; } = false;
     }
 
     public class LoginResponse
@@ -19,7 +20,6 @@ namespace Autoprint.Shared.DTOs // <--- IMPORTANT : C'est DTOs ici
         public string DisplayName { get; set; } = string.Empty;
         public List<string> Permissions { get; set; } = new();
 
-        // Indispensable pour la modal d'expiration !
         public bool PasswordExpired { get; set; }
     }
 
@@ -77,6 +77,7 @@ namespace Autoprint.Shared.DTOs // <--- IMPORTANT : C'est DTOs ici
         public string Role { get; set; } = string.Empty;
         public int DaysUntilExpiration { get; set; }
         public bool PasswordExpired { get; set; }
+        public bool IsAdUser { get; set; }
     }
 
     public class UpdateProfileDto

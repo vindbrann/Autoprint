@@ -1,6 +1,8 @@
 ﻿@page "/parametres"
 @using Autoprint.Shared
+@using Autoprint.Shared.DTOs
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -14,245 +16,347 @@
     @if (isLoading)
     {
         <div class="d-flex justify-content-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Chargement...</span>
-            </div>
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Chargement...</span></div>
         </div>
     }
     else
     {
         <ul class="nav nav-tabs mb-4 align-items-end">
             <li class="nav-item">
-                <button class="nav-link @(activeTab == "smtp" ? "active" : "")" type="button" @onclick="@(() => activeTab = "smtp")">
+                <button class="nav-link @(activeTab == "backup" ? "active" : "")" @onclick="@(() => activeTab = "backup")">
+                    <i class="bi bi-server me-2"></i>Sauvegarde & Logs
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "smtp" ? "active" : "")" @onclick="@(() => activeTab = "smtp")">
                     <i class="bi bi-envelope-at-fill me-2"></i>SMTP
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link @(activeTab == "nommage" ? "active" : "")" type="button" @onclick="@(() => activeTab = "nommage")">
+                <button class="nav-link @(activeTab == "nommage" ? "active" : "")" @onclick="@(() => activeTab = "nommage")">
                     <i class="bi bi-tags-fill me-2"></i>Nommage
                 </button>
             </li>
             <li class="nav-item">
-                <button class="nav-link @(activeTab == "securite" ? "active" : "")" type="button" @onclick="@(() => activeTab = "securite")">
+                <button class="nav-link @(activeTab == "ad" ? "active" : "")" @onclick="@(() => activeTab = "ad")">
+                    <i class="bi bi-windows me-2"></i>Active Directory
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "securite" ? "active" : "")" @onclick="@(() => activeTab = "securite")">
                     <i class="bi bi-shield-lock-fill me-2"></i>Sécurité
                 </button>
             </li>
         </ul>
 
-        <div class="card shadow-sm border-top-0" style="border-top-left-radius: 0; border-top-right-radius: 0;">
+        <div class="card shadow-sm border-top-0">
             <div class="card-body p-4">
 
+                @if (activeTab == "backup")
+                {
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Paramètres d'Audit</h5>
+                    <div class="row mb-5">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3 text-secondary"><i class="bi bi-clock-history fs-3"></i></div>
+                                <div>
+                                    <strong>Durée de conservation de l'historique</strong>
+                                    <div class="text-muted small">Les logs d'audit plus anciens que cette durée seront supprimés automatiquement chaque nuit.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">Conserver</span>
+                                <input type="number" class="form-control text-center" @bind="model.LogRetentionDays" />
+                                <span class="input-group-text bg-light">jours</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Maintenance des Données</h5>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card h-100 border rounded-3 bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="fw-bold text-dark"><i class="bi bi-cloud-download me-2"></i>Sauvegarde (Export)</h6>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary">JSON</span>
+                                    </div>
+                                    <p class="text-muted small mb-3">Téléchargez une copie complète de la configuration (Imprimantes, Utilisateurs, Paramètres) pour archivage.</p>
+                                    <button class="btn btn-sm btn-outline-primary w-100" @onclick="DownloadBackup"><i class="bi bi-download me-2"></i>Télécharger le fichier</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border rounded-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="fw-bold text-danger"><i class="bi bi-cloud-upload me-2"></i>Restauration (Import)</h6>
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">Danger</span>
+                                    </div>
+                                    <p class="text-muted small mb-3">Restaurez une configuration précédente. <strong class="text-danger">Attention : Ceci remplacera toutes les données actuelles.</strong></p>
+
+                                    @if (uploadedBackup == null)
+                                    {
+                                        <div class="input-group input-group-sm">
+                                            <InputFile OnChange="LoadFile" class="form-control" accept=".json" />
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-warning py-2 px-3 mb-2 small">
+                                            <strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())
+                                            <button type="button" class="btn-close float-end" @onclick="() => uploadedBackup = null"></button>
+                                        </div>
+                                        <button class="btn btn-sm btn-danger w-100" @onclick="ExecuteRestore" disabled="@isRestoring">
+                                            @if (isRestoring)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                            }
+                                            <i class="bi bi-arrow-counterclockwise me-2"></i>Confirmer l'écrasement
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
 
                 @if (activeTab == "smtp")
                 {
-                    <h5 class="card-title mb-3 text-primary">Serveur SMTP</h5>
+                    <h5 class="text-primary mb-3">SMTP</h5>
                     <div class="row g-3">
                         <div class="col-md-8"> <label class="form-label">Hôte</label> <input class="form-control" @bind="model.SmtpHost" /> </div>
                         <div class="col-md-4"> <label class="form-label">Port</label> <input type="number" class="form-control" @bind="model.SmtpPort" /> </div>
                         <div class="col-md-6"> <label class="form-label">User</label> <input class="form-control" @bind="model.SmtpUser" /> </div>
                         <div class="col-md-6"> <label class="form-label">Pass</label> <input type="password" class="form-control" @bind="model.SmtpPass" /> </div>
                         <div class="col-md-6"> <label class="form-label">From</label> <input class="form-control" @bind="model.SmtpFromAddress" /> </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <div class="form-check form-switch mb-2">
+                        <div class="col-md-6 pt-4">
+                            <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="ssl" @bind="model.SmtpEnableSsl">
                                 <label class="form-check-label" for="ssl">SSL / TLS</label>
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3 text-end">
-                        <button class="btn btn-outline-primary btn-sm" @onclick="TesterEmail" disabled="@testEnCours">Test Email</button>
+                    <div class="input-group mt-4">
+                        <input type="email" class="form-control" placeholder="Email de test..." @bind="testEmailTo" />
+                        <button class="btn btn-outline-primary" @onclick="TesterEmail" disabled="@testEnCours">Test Email</button>
                     </div>
                 }
 
-@if (activeTab == "nommage")
-
+                @if (activeTab == "nommage")
                 {
-
-                    <h5 class="card-title mb-3 text-primary">Règles de Nommage Automatique</h5>
-
-                    
+                    <h5 class="text-primary mb-3">Règles de Nommage Automatique</h5>
 
                     <div class="row">
-
                         <div class="col-md-7">
-
                             <div class="card bg-light border-primary mb-4">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="namingOn" @bind="model.NamingEnabled">
-                                            <label class="form-check-label fw-bold" for="namingOn">Activer</label>
+                                            <label class="form-check-label fw-bold" for="namingOn">Activer le nommage automatique</label>
                                         </div>
                                         <button class="btn btn-sm btn-outline-primary" @onclick="RenommerToutesImprimantes" disabled="@(!model.NamingEnabled)">Renommer Imprimantes</button>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="shareOn" @bind="model.NamingSameShare" disabled="@IsNamingDisabled">
-                                            <label class="form-check-label" for="shareOn">Appliquer au Partage</label>
+                                            <input class="form-check-input" type="checkbox" id="shareOn" @bind="model.NamingSameShare" disabled="@(!model.NamingEnabled)">
+                                            <label class="form-check-label" for="shareOn">Appliquer aussi au nom de Partage</label>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-success" @onclick="RenommerTousPartages" disabled="@(!model.NamingSameShare || !model.NamingEnabled)">Renommer Partages</button>
+                                        <button class="btn btn-sm btn-outline-success" @onclick="RenommerTousPartages" disabled="@(!model.NamingSameShare)">Renommer Partages</button>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Modèle de Nom (Template)</label>
-
                                 <div class="input-group">
-
                                     <span class="input-group-text"><i class="bi bi-magic"></i></span>
-
                                     <input class="form-control font-monospace" @bind="model.NamingTemplate" disabled="@(!model.NamingEnabled)" placeholder="IMP_{LIEU_CODE}_{IP_LAST}" />
-
                                 </div>
-
                                 <div class="form-text mt-2">
-
                                     <strong>Tokens disponibles :</strong><br />
-
-                                    <span class="badge bg-secondary me-1">{LIEU}</span> Nom complet<br />
-
-                                    <span class="badge bg-secondary me-1">{LIEU_CODE}</span> Code Lieu (ex: BAT1)<br />
-
-                                    <span class="badge bg-secondary me-1">{IMP_CODE}</span> Code Imprimante (ex: P01)<br />
-
+                                    <span class="badge bg-secondary me-1">{LIEU}</span>
+                                    <span class="badge bg-secondary me-1">{LIEU_CODE}</span>
+                                    <span class="badge bg-secondary me-1">{IMP_CODE}</span>
                                     <span class="badge bg-secondary me-1">{MARQUE}</span> / <span class="badge bg-secondary me-1">{MODELE}</span><br />
-
                                     <span class="badge bg-secondary me-1">{IP}</span> / <span class="badge bg-secondary me-1">{IP_LAST}</span>
-
                                 </div>
-
                             </div>
-
                         </div>
-
-
 
                         <div class="col-md-5">
-
                             <div class="card bg-white border-info h-100">
-
                                 <div class="card-header bg-info text-white">
-
                                     <i class="bi bi-eye"></i> Simulateur en direct
-
                                 </div>
-
                                 <div class="card-body">
-
                                     <p class="small text-muted">Testez votre modèle sans sauvegarder.</p>
 
-                                    
-
                                     <div class="row g-2">
-
                                         <div class="col-6">
-
                                             <label class="small form-label">Lieu (Nom)</label>
-
-                                            <input class="form-control form-control-sm" @bind="testLieu" placeholder="Accueil" />
-
+                                            <input class="form-control form-control-sm" @bind="testLieu" />
                                         </div>
-
                                         <div class="col-6">
-
                                             <label class="small form-label">Lieu (Code)</label>
-
-                                            <input class="form-control form-control-sm" @bind="testLieuCode" placeholder="ACC" /> </div>
-
-                                        <div class="col-12">
-
-                                            <label class="small form-label">IP</label>
-
-                                            <input class="form-control form-control-sm" @bind="testIp" placeholder="192.168.1.55" />
-
+                                            <input class="form-control form-control-sm" @bind="testLieuCode" />
                                         </div>
-
                                         <div class="col-12">
-
+                                            <label class="small form-label">IP</label>
+                                            <input class="form-control form-control-sm" @bind="testIp" />
+                                        </div>
+                                        <div class="col-12">
                                             <label class="small form-label">Code Imprimante</label>
-
-                                            <input class="form-control form-control-sm" @bind="testImpCode" placeholder="P001" /> </div>
-
+                                            <input class="form-control form-control-sm" @bind="testImpCode" />
+                                        </div>
                                     </div>
-
-                                    
 
                                     <div class="d-grid my-3">
-
                                         <button class="btn btn-sm btn-outline-info" @onclick="SimulerNom">
-
                                             <i class="bi bi-play-fill"></i> Générer l'aperçu
-
                                         </button>
-
                                     </div>
 
-
-
                                     @if (!string.IsNullOrEmpty(previewResult))
-
                                     {
-
                                         <div class="alert alert-success text-center mb-0 shadow-sm">
-
-                                            <div class="small text-muted mb-1">Résultat :</div>
-
                                             <strong class="fs-5">@previewResult</strong>
-
                                         </div>
-
                                     }
-
                                 </div>
-
                             </div>
-
                         </div>
-
                     </div>
-
                 }
 
+                @if (activeTab == "ad")
+                {
+                    <h5 class="text-primary mb-3">Active Directory</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6"> <label class="form-label fw-bold">Domaine</label> <input class="form-control" @bind="model.AdDomain" placeholder="mondomaine.lan" /> </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="svc" @bind="model.AdUseServiceAccount">
+                                <label class="form-check-label" for="svc">Compte de service</label>
+                            </div>
+                        </div>
+                        @if (model.AdUseServiceAccount)
+                        {
+                            <div class="col-md-6"><input class="form-control" @bind="model.AdServiceUser" placeholder="DOMAINE\User" /></div>
+                            <div class="col-md-6"><input type="password" class="form-control" @bind="model.AdServicePassword" placeholder="Password" /></div>
+                        }
+                        <hr />
+                        <div class="col-12"><h6 class="text-info"><i class="bi bi-funnel me-2"></i>Périmètre de Recherche</h6></div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Racine (Base DN)</label>
+                            <input class="form-control font-monospace" @bind="model.AdBaseDn" placeholder="ex: OU=Utilisateurs,DC=mondomaine,DC=lan" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Filtre LDAP</label>
+                            <div class="input-group">
+                                <span class="input-group-text font-monospace small">(&amp;(objectClass=user)</span>
+                                <input class="form-control font-monospace" @bind="model.AdLdapFilter" placeholder="" />
+                                <span class="input-group-text font-monospace small">)</span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card bg-light border-0">
+                                <div class="card-body py-2">
+                                    <span class="fw-bold small text-muted me-3">Assistant :</span>
+                                    <div class="d-inline-flex align-items-center me-3">
+                                        <input type="text" class="form-control form-control-sm me-1" style="width:150px" placeholder="Nom du Groupe" @bind="builderGroupName" />
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="AddGroupFilter">+ Groupe</button>
+                                    </div>
+                                    <button class="btn btn-sm btn-link text-danger ms-auto float-end" @onclick="() => model.AdLdapFilter = string.Empty">Effacer</button>
+                                </div>
+                            </div>
+                        </div>
 
+                        <div class="col-12 mt-4">
+                            <div class="card border shadow-sm">
+                                <div class="card-body py-4">
+                                    <h6 class="card-title fw-bold text-secondary mb-3 text-center">
+                                        <i class="bi bi-person-check-fill me-2"></i>Vérification d'accès utilisateur
+                                    </h6>
+
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-8 col-lg-6">
+
+                                            <div class="input-group">
+                                                <span class="input-group-text bg-white text-muted border-end-0">
+                                                    <i class="bi bi-search"></i>
+                                                </span>
+
+                                                <input type="text" class="form-control border-start-0 border-end-0"
+                                                       placeholder="Login (ex: j.dupont)"
+                                                       @bind="testAdQuery" />
+
+                                                <button class="btn btn-primary" @onclick="TesterFiltreAd" disabled="@testAdFilterEnCours">
+                                                    @if (testAdFilterEnCours)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                                    }
+                                                    Vérifier
+                                                </button>
+                                            </div>
+
+                                            <div class="form-text small mt-2 text-center">
+                                                Vérifie si cet utilisateur est éligible selon les filtres ci-dessus.
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mt-3 border-top pt-3">
+                            <label class="form-label">Emails Alertes Admin</label>
+                            <input class="form-control" @bind="model.AdAdminEmails" />
+                        </div>
+                    </div>
+                }
 
                 @if (activeTab == "securite")
                 {
-                    <h5 class="card-title mb-3 text-primary">Sécurité</h5>
-                    <label class="form-label">Expiration (jours)</label>
-                    <input type="number" class="form-control" @bind="model.PasswordExpirationDays" style="max-width:150px" />
+                    <h5 class="text-primary mb-3">Sécurité</h5>
+                    <label>Expiration MDP Locaux (Jours)</label>
+                    <input type="number" class="form-control w-25" @bind="model.PasswordExpirationDays" />
                 }
-
             </div>
 
-            <div class="card-footer bg-white p-3 d-flex justify-content-end border-top">
-                <button class="btn btn-success px-4" @onclick="Sauvegarder" disabled="@sauvegardeEnCours">
-                    @if (sauvegardeEnCours)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    <span>Enregistrer la configuration</span>
-                </button>
+            <div class="card-footer bg-white text-end">
+                <button class="btn btn-success" @onclick="Sauvegarder" disabled="@sauvegardeEnCours">Enregistrer</button>
             </div>
         </div>
     }
 </div>
 
 @code {
-    private string activeTab = "smtp"; // Changé par défaut
+    private string activeTab = "backup";
     private SettingsModel model = new();
     private bool isLoading = true;
     private bool sauvegardeEnCours = false;
     private bool testEnCours = false;
-    private string testEmailTo = "";
+    private bool testAdFilterEnCours = false;
 
-    // Variables Import supprimées (showDriversModal...)
+    private string testEmailTo = "";
+    private string testAdQuery = "";
+    private string builderGroupName = "";
+
+    private BackupRootDto? uploadedBackup;
+    private bool isRestoring = false;
 
     private string testLieu = "Bur", testLieuCode = "B", testImpCode = "P1", testIp = "1.1.1.1", previewResult = "";
     private bool IsNamingDisabled => !model.NamingEnabled;
 
     private class SettingsModel
     {
+        public int LogRetentionDays { get; set; } = 180;
         public string SmtpHost { get; set; } = "";
         public int SmtpPort { get; set; } = 25;
         public string SmtpUser { get; set; } = "";
@@ -263,112 +367,154 @@
         public bool NamingEnabled { get; set; } = false;
         public bool NamingSameShare { get; set; } = false;
         public int PasswordExpirationDays { get; set; } = 90;
+        public string AdDomain { get; set; } = "";
+        public string AdBaseDn { get; set; } = "";
+        public string AdLdapFilter { get; set; } = "";
+        public bool AdUseServiceAccount { get; set; } = false;
+        public string AdServiceUser { get; set; } = "";
+        public string AdServicePassword { get; set; } = "";
+        public string AdAdminEmails { get; set; } = "";
     }
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var settings = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
-            model.SmtpHost = GetVal(settings, "SmtpHost");
-            model.SmtpPort = int.Parse(GetVal(settings, "SmtpPort", "25"));
-            model.SmtpUser = GetVal(settings, "SmtpUser");
-            model.SmtpPass = GetVal(settings, "SmtpPass");
-            model.SmtpEnableSsl = bool.Parse(GetVal(settings, "SmtpEnableSsl", "false"));
-            model.SmtpFromAddress = GetVal(settings, "SmtpFromAddress");
-            model.NamingTemplate = GetVal(settings, "NamingTemplate");
-            model.NamingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
-            model.NamingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
-            model.PasswordExpirationDays = int.Parse(GetVal(settings, "PasswordExpirationDays", "90"));
+            var s = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            model.LogRetentionDays = int.Parse(GV(s, "LogRetentionDays", "180"));
+            model.SmtpHost = GV(s, "SmtpHost");
+            model.SmtpPort = int.Parse(GV(s, "SmtpPort", "25"));
+            model.SmtpUser = GV(s, "SmtpUser");
+            model.SmtpPass = GV(s, "SmtpPass");
+            model.SmtpEnableSsl = bool.Parse(GV(s, "SmtpEnableSsl", "false"));
+            model.SmtpFromAddress = GV(s, "SmtpFromAddress");
+            model.NamingTemplate = GV(s, "NamingTemplate");
+            model.NamingEnabled = bool.Parse(GV(s, "NamingEnabled", "false"));
+            model.NamingSameShare = bool.Parse(GV(s, "NamingSameShare", "false"));
+            model.PasswordExpirationDays = int.Parse(GV(s, "PasswordExpirationDays", "90"));
+            model.AdDomain = GV(s, "AdDomain");
+            model.AdBaseDn = GV(s, "AdBaseDn");
+            model.AdLdapFilter = GV(s, "AdLdapFilter");
+            model.AdUseServiceAccount = bool.Parse(GV(s, "AdUseServiceAccount", "false"));
+            model.AdServiceUser = GV(s, "AdServiceUser");
+            model.AdAdminEmails = GV(s, "AdAdminEmails");
         }
-        catch (Exception ex) { Console.WriteLine("Error loading settings: " + ex.Message); }
+        catch { }
         finally { isLoading = false; }
     }
 
-    private string GetVal(List<ServerSetting>? list, string key, string def = "") => list?.FirstOrDefault(s => s.Key == key)?.Value ?? def;
+    private string GV(List<ServerSetting>? l, string k, string d = "") => l?.FirstOrDefault(s => s.Key == k)?.Value ?? d;
 
     private async Task Sauvegarder()
     {
         sauvegardeEnCours = true;
         try
         {
-            var res = await Http.PostAsJsonAsync("api/Settings/Save", model);
-            if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Sauvegardé !");
-            else await JS.InvokeVoidAsync("alert", "Erreur: " + await res.Content.ReadAsStringAsync());
+            var r = await Http.PostAsJsonAsync("api/Settings/Save", model);
+            if (r.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Sauvegardé !");
+            else await JS.InvokeVoidAsync("alert", "Erreur: " + await r.Content.ReadAsStringAsync());
         }
-        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message); }
+        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur: " + ex.Message); }
         finally { sauvegardeEnCours = false; }
     }
 
-    private async Task RenommerToutesImprimantes() { await ActionNaming("api/Naming/ApplyToNames", "Imprimantes renommées."); }
-    private async Task RenommerTousPartages() { await ActionNaming("api/Naming/ApplyToShares", "Partages renommés."); }
-
-    private async Task ActionNaming(string url, string defaultMsg)
+    private async Task DownloadBackup()
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Confirmer l'action ?")) return;
-
-        // Sauvegarde préalable
-        await Http.PostAsJsonAsync("api/Settings/Save", model);
-
-        // Appel de l'action (Renommage)
-        var res = await Http.PostAsync(url, null);
-
-        if (res.IsSuccessStatusCode)
-        {
-            try
-            {
-                var result = await res.Content.ReadFromJsonAsync<JsonElement>();
-                // On cherche la propriété "message" (ou "Message")
-                string serverMsg = result.GetProperty("message").GetString() ?? defaultMsg;
-                await JS.InvokeVoidAsync("alert", "Succès : " + serverMsg);
-            }
-            catch
-            {
-                // Si le JSON est malformé, on affiche le message par défaut
-                await JS.InvokeVoidAsync("alert", defaultMsg);
-            }
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", "Erreur : " + await res.Content.ReadAsStringAsync());
-        }
+        await JS.InvokeVoidAsync("open", "api/Backup/export", "_blank");
     }
 
+    private async Task LoadFile(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+            uploadedBackup = await JsonSerializer.DeserializeAsync<BackupRootDto>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Fichier invalide : " + ex.Message); }
+    }
+
+    private async Task ExecuteRestore()
+    {
+        if (uploadedBackup == null) return;
+        if (!await JS.InvokeAsync<bool>("confirm", "⛔ ATTENTION : Toutes les données seront remplacées.\nContinuer ?")) return;
+
+        isRestoring = true;
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/Backup/restore", uploadedBackup);
+            if (res.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "✅ Restauration terminée !");
+                uploadedBackup = null;
+            }
+            else await JS.InvokeVoidAsync("alert", "❌ Erreur : " + await res.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message); }
+        finally { isRestoring = false; }
+    }
+
+    private async Task RenommerToutesImprimantes() { await ActionNaming("api/Naming/ApplyToNames"); }
+    private async Task RenommerTousPartages() { await ActionNaming("api/Naming/ApplyToShares"); }
+    private async Task ActionNaming(string url)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Confirmer ?")) return;
+        await Http.PostAsJsonAsync("api/Settings/Save", model);
+        var r = await Http.PostAsync(url, null);
+        if (r.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Succès");
+        else await JS.InvokeVoidAsync("alert", "Erreur");
+    }
     private async Task TesterEmail()
     {
-        if (string.IsNullOrEmpty(testEmailTo)) return;
         testEnCours = true;
         try
         {
             var dto = new { Host = model.SmtpHost, Port = model.SmtpPort, User = model.SmtpUser, Password = model.SmtpPass, Ssl = model.SmtpEnableSsl, From = model.SmtpFromAddress, To = testEmailTo };
-            var res = await Http.PostAsJsonAsync("api/Settings/TestEmail", dto);
-            if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "✅ Email envoyé !");
-            else await JS.InvokeVoidAsync("alert", "❌ Erreur SMTP: " + await res.Content.ReadAsStringAsync());
+            var r = await Http.PostAsJsonAsync("api/Settings/TestEmail", dto);
+            if (r.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "✅ Email envoyé");
+            else await JS.InvokeVoidAsync("alert", "❌ Erreur: " + await r.Content.ReadAsStringAsync());
         }
-        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message); }
+        catch { }
         finally { testEnCours = false; }
     }
-
+    private void AddGroupFilter()
+    {
+        if (string.IsNullOrWhiteSpace(builderGroupName)) return;
+        if (string.IsNullOrWhiteSpace(model.AdLdapFilter)) model.AdLdapFilter = $"(memberOf=CN={builderGroupName},CN=Users,DC=mondomaine,DC=lan)";
+        else model.AdLdapFilter += $"(memberOf=CN={builderGroupName},CN=Users,DC=mondomaine,DC=lan)";
+        builderGroupName = "";
+        JS.InvokeVoidAsync("alert", "Filtre ajouté (Vérifiez le DN).");
+    }
     private async Task SimulerNom()
     {
-        var dto = new
+        var dto = new { Template = model.NamingTemplate, Ip = testIp, LieuNom = testLieu, LieuCode = testLieuCode, ImpCode = testImpCode, ModeleNom = "X", MarqueNom = "Y" };
+        var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+        if (r.IsSuccessStatusCode)
         {
-            Template = model.NamingTemplate,
-            Ip = testIp,
-            LieuNom = testLieu,
-            LieuCode = testLieuCode,
-            ImpCode = testImpCode,
-            ModeleNom = "LaserJet",
-            MarqueNom = "HP"
-        };
-        var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
-        if (response.IsSuccessStatusCode)
-        {
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-            if (result.TryGetProperty("generatedName", out var prop))
-            {
-                previewResult = prop.GetString() ?? "";
-            }
+            var json = await r.Content.ReadFromJsonAsync<JsonElement>();
+            if (json.TryGetProperty("generatedName", out var p)) previewResult = p.GetString() ?? "";
         }
+    }
+    private async Task TesterFiltreAd()
+    {
+        testAdFilterEnCours = true;
+        try
+        {
+            var dto = new
+            {
+                Domain = model.AdDomain,
+                BaseDn = model.AdBaseDn,
+                Filter = model.AdLdapFilter,
+                TestUserQuery = testAdQuery,
+                UseServiceAccount = model.AdUseServiceAccount,
+                ServiceUser = model.AdServiceUser,
+                ServicePassword = model.AdServicePassword
+            };
+            var r = await Http.PostAsJsonAsync("api/Settings/TestAdFilter", dto);
+            var json = await r.Content.ReadFromJsonAsync<JsonElement>();
+            string msg = json.TryGetProperty("message", out var p) ? p.GetString() ?? "" : "";
+            await JS.InvokeVoidAsync("alert", msg);
+        }
+        catch { }
+        finally { testAdFilterEnCours = false; }
     }
 }

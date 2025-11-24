@@ -1,0 +1,122 @@
+﻿@page "/"
+@using Autoprint.Shared.DTOs
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Tableau de Bord</PageTitle>
+
+<div class="container-fluid mt-3">
+    <h3 class="text-dark mb-4">📊 Tableau de Bord</h3>
+
+    @if (stats == null)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Chargement des indicateurs...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="card border-left-primary shadow h-100 py-2 border-0 border-start border-4 border-primary">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Imprimantes</div>
+                                <div class="h2 mb-0 font-weight-bold text-gray-800">@stats.TotalImprimantes</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-printer-fill fs-1 text-gray-300 text-muted opacity-25"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-left-success shadow h-100 py-2 border-0 border-start border-4 border-success">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Pilotes Indexés</div>
+                                <div class="h2 mb-0 font-weight-bold text-gray-800">@stats.TotalPilotes</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-hdd-stack-fill fs-1 text-muted opacity-25"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-left-info shadow h-100 py-2 border-0 border-start border-4 border-info">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Lieux / Sites</div>
+                                <div class="h2 mb-0 font-weight-bold text-gray-800">@stats.TotalLieux</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-geo-alt-fill fs-1 text-muted opacity-25"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8 col-md-12 mx-auto">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+                        <h6 class="m-0 font-weight-bold text-primary">Répartition par Modèle</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 300px; position: relative;">
+                            @if (stats.RepartitionModeles.Any())
+                            {
+                                <canvas id="modeleChart"></canvas>
+                            }
+                            else
+                            {
+                                <p class="text-center text-muted pt-5">Pas assez de données pour afficher le graphique.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardStatsDto? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            stats = await Http.GetFromJsonAsync<DashboardStatsDto>("api/Dashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erreur Dashboard : " + ex.Message);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // On attend que le HTML soit rendu pour dessiner le graphique
+        if (stats != null && stats.RepartitionModeles.Any())
+        {
+            var labels = stats.RepartitionModeles.Select(x => x.Label).ToArray();
+            var data = stats.RepartitionModeles.Select(x => x.Value).ToArray();
+
+            // Appel à la fonction JS définie dans index.html
+            await JS.InvokeVoidAsync("setupChart", "modeleChart", labels, data);
+        }
+    }
+}

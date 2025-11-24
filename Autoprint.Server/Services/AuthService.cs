@@ -1,4 +1,5 @@
 ﻿using System.DirectoryServices.AccountManagement;
+using System.DirectoryServices;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -6,6 +7,7 @@ using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared.DTOs;
+using Autoprint.Shared.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,6 +16,7 @@ namespace Autoprint.Server.Services
     public interface IAuthService
     {
         Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
     }
 
     public class AuthService : IAuthService
@@ -31,70 +34,60 @@ namespace Autoprint.Server.Services
         {
             User? user = null;
 
-            // 1. Recherche (inchangé)
+            // 1. Recherche User
             var localUser = await _context.Users
                 .AsSplitQuery()
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role).ThenInclude(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Username == request.Username);
 
-            // 2. Auth Locale (inchangé)
+            // 2. Auth Locale
             if (localUser != null && !localUser.IsAdUser)
             {
                 if (localUser.PasswordHash == SecurityHelper.ComputeSha256Hash(request.Password)) user = localUser;
             }
-            // 3. Auth AD (inchangé)
+            // 3. Auth AD (Windows Only)
             else if (OperatingSystem.IsWindows())
             {
-                if (CheckAdCredentials(request.Username, request.Password)) user = await SyncAdUserAsync(request.Username);
+                var domainSetting = await _context.ServerSettings.FindAsync("AdDomain");
+                string domain = domainSetting?.Value ?? _configuration["Ldap:Domain"] ?? "";
+
+                if (CheckAdCredentials(request.Username, request.Password, domain))
+                    user = await SyncAdUserAsync(request.Username);
             }
 
+            // ÉCHEC AUTHENTIFICATION CLASSIQUE
             if (user == null || !user.IsActive) return null;
 
-            // --- LOGIQUE D'EXPIRATION BLINDÉE ---
+            // --- Logique Expiration ---
             bool passwordExpired = false;
-
             if (!user.IsAdUser)
             {
-                // Cas 1 : Flag forcé (Prioritaire)
-                if (user.ForceChangePassword)
-                {
-                    passwordExpired = true;
-                }
+                if (user.ForceChangePassword) passwordExpired = true;
                 else
                 {
-                    // Cas 2 : Date d'expiration
-                    int maxDays = 90; // Valeur par défaut
-
-                    // On essaie de récupérer la config, sinon on garde 90
+                    int maxDays = 90;
                     var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
-                    if (setting != null && int.TryParse(setting.Value, out int days))
-                    {
-                        maxDays = days;
-                    }
-
-                    // Si maxDays est 0 ou moins, l'expiration est DÉSACTIVÉE
+                    if (setting != null && int.TryParse(setting.Value, out int days)) maxDays = days;
                     if (maxDays > 0)
                     {
-                        if (user.LastPasswordChangeDate == null)
-                        {
-                            // Jamais changé -> Expiré
-                            passwordExpired = true;
-                        }
-                        else
-                        {
-                            var expirationDate = user.LastPasswordChangeDate.Value.AddDays(maxDays);
-                            if (DateTime.UtcNow > expirationDate)
-                            {
-                                passwordExpired = true;
-                            }
-                        }
+                        if (user.LastPasswordChangeDate == null) passwordExpired = true;
+                        else if (DateTime.UtcNow > user.LastPasswordChangeDate.Value.AddDays(maxDays)) passwordExpired = true;
                     }
                 }
             }
-            // -----------------------------------
 
+            // --- VÉRIFICATION DES DROITS ---
             var permissions = await GetUserPermissionsAsync(user);
-            var token = GenerateJwtToken(user, permissions, passwordExpired);
+
+            // 🔥 CHANGEMENT ICI : ON LANCE UNE ERREUR PRÉCISE 🔥
+            if (!permissions.Any() && !user.UserRoles.Any())
+            {
+                Console.WriteLine($"[AUTH] {user.Username} : Auth OK mais aucun rôle.");
+                // Cette exception sera attrapée par le Contrôleur pour afficher le bon message
+                throw new UnauthorizedAccessException("NO_ACCESS");
+            }
+
+            var token = GenerateJwtToken(user, permissions, passwordExpired, request.RememberMe);
 
             return new LoginResponse
             {
@@ -106,70 +99,244 @@ namespace Autoprint.Server.Services
             };
         }
 
-        // --- Méthodes Privées ---
+        // --- RECHERCHE AD ---
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        public async Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type)
+        {
+            if (!OperatingSystem.IsWindows()) return new List<AdSearchResultDto>();
+
+            var settings = await _context.ServerSettings.ToListAsync();
+            string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? "";
+            string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
+            string customFilter = settings.FirstOrDefault(s => s.Key == "AdLdapFilter")?.Value ?? "";
+
+            bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
+            string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+            string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+
+            if (string.IsNullOrEmpty(domain)) return new List<AdSearchResultDto>();
+
+            return await Task.Run(() =>
+            {
+                var results = new List<AdSearchResultDto>();
+                try
+                {
+                    string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
+
+                    using System.DirectoryServices.DirectoryEntry entry = useServiceAccount
+                        ? new System.DirectoryServices.DirectoryEntry(ldapPath, serviceUser, servicePass)
+                        : new System.DirectoryServices.DirectoryEntry(ldapPath);
+
+                    using var searcher = new System.DirectoryServices.DirectorySearcher(entry);
+
+                    string classFilter = (type == AdMappingType.Group) ? "(objectClass=group)" : "(objectClass=user)";
+                    string queryFilter = $"(|(sAMAccountName=*{query}*)(name=*{query}*))";
+                    string globalFilter = string.IsNullOrWhiteSpace(customFilter) ? "" : customFilter;
+
+                    searcher.Filter = $"(&{classFilter}{queryFilter}{globalFilter})";
+                    searcher.SizeLimit = 20;
+
+                    foreach (System.DirectoryServices.SearchResult res in searcher.FindAll())
+                    {
+                        string name = res.Properties["name"].Count > 0 ? res.Properties["name"][0].ToString()! : "Inconnu";
+                        string sam = res.Properties["sAMAccountName"].Count > 0 ? res.Properties["sAMAccountName"][0].ToString()! : "";
+                        string desc = res.Properties["description"].Count > 0 ? res.Properties["description"][0].ToString()! : "";
+
+                        if (!string.IsNullOrEmpty(sam))
+                        {
+                            results.Add(new AdSearchResultDto { Name = name, SamAccountName = sam, Description = desc, Type = type });
+                        }
+                    }
+                }
+                catch (Exception ex) { Console.WriteLine($"Erreur Recherche AD: {ex.Message}"); }
+                return results;
+            });
+        }
+
+        // --- MÉTHODES PRIVÉES ---
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-        private bool CheckAdCredentials(string username, string password)
+        private bool CheckAdCredentials(string username, string password, string domain)
         {
             try
             {
-                var domain = _configuration["Ldap:Domain"];
                 ContextType contextType = string.IsNullOrEmpty(domain) ? ContextType.Machine : ContextType.Domain;
                 using var context = new PrincipalContext(contextType, domain);
-                return context.ValidateCredentials(username, password);
+
+                if (context.ValidateCredentials(username, password)) return true;
+
+                if (!string.IsNullOrEmpty(domain) && !username.Contains("\\") && !username.Contains("@"))
+                {
+                    if (context.ValidateCredentials($"{domain}\\{username}", password)) return true;
+                }
+                return false;
             }
             catch { return false; }
         }
 
         private async Task<User> SyncAdUserAsync(string username)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
-            if (user == null)
+            string cleanUsername = username.Contains("\\") ? username.Split('\\')[1] : username;
+            string adDisplayName = cleanUsername;
+            string? adEmail = null;
+
+            if (OperatingSystem.IsWindows())
             {
-                user = new User
+                try
                 {
-                    Username = username,
-                    DisplayName = username,
-                    IsAdUser = true,
-                    IsActive = true,
-                    LastLogin = DateTime.UtcNow
-                };
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
+                    var settings = await _context.ServerSettings.ToListAsync();
+                    string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
+                    string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
+                    bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
+                    string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+                    string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+
+                    if (!string.IsNullOrEmpty(domain))
+                    {
+                        string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
+                        using DirectoryEntry entry = useServiceAccount
+                            ? new DirectoryEntry(ldapPath, serviceUser, servicePass)
+                            : new DirectoryEntry(ldapPath);
+
+                        using DirectorySearcher searcher = new DirectorySearcher(entry);
+                        searcher.Filter = $"(&(objectClass=user)(sAMAccountName={cleanUsername}))";
+                        searcher.PropertiesToLoad.Add("displayName");
+                        searcher.PropertiesToLoad.Add("mail");
+                        searcher.PropertiesToLoad.Add("givenName");
+                        searcher.PropertiesToLoad.Add("sn");
+
+                        SearchResult? result = searcher.FindOne();
+
+                        if (result != null)
+                        {
+                            string firstName = result.Properties["givenName"].Count > 0 ? result.Properties["givenName"][0].ToString()! : "";
+                            string lastName = result.Properties["sn"].Count > 0 ? result.Properties["sn"][0].ToString()! : "";
+                            string rawDisplayName = result.Properties["displayName"].Count > 0 ? result.Properties["displayName"][0].ToString()! : "";
+
+                            if (!string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(lastName))
+                                adDisplayName = $"{firstName} {lastName.ToUpper()}";
+                            else if (!string.IsNullOrEmpty(rawDisplayName))
+                                adDisplayName = rawDisplayName;
+
+                            if (result.Properties["mail"].Count > 0)
+                                adEmail = result.Properties["mail"][0].ToString();
+                        }
+                    }
+                }
+                catch (Exception ex) { Console.WriteLine($"Erreur Sync AD: {ex.Message}"); }
             }
 
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == cleanUsername);
+
+            if (user == null)
+            {
+                user = new User { Username = cleanUsername, DisplayName = adDisplayName, Email = adEmail, IsAdUser = true, IsActive = true, LastLogin = DateTime.UtcNow };
+                _context.Users.Add(user);
+            }
+            else
+            {
+                user.DisplayName = adDisplayName;
+                user.Email = adEmail;
+                user.IsAdUser = true;
+                user.LastLogin = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
             if (OperatingSystem.IsWindows()) await ApplyAdGroupMappings(user);
             return user;
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private async Task ApplyAdGroupMappings(User user)
         {
             try
             {
-                var domain = _configuration["Ldap:Domain"];
-                ContextType contextType = string.IsNullOrEmpty(domain) ? ContextType.Machine : ContextType.Domain;
-                using var context = new PrincipalContext(contextType, domain);
-                var userPrincipal = UserPrincipal.FindByIdentity(context, user.Username);
+                var settings = await _context.ServerSettings.ToListAsync();
+                string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
+                string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
-                if (userPrincipal != null)
+                bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
+                string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+
+                string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
+
+                using DirectoryEntry entry = useServiceAccount
+                    ? new DirectoryEntry(ldapPath, serviceUser, servicePass)
+                    : new DirectoryEntry(ldapPath);
+
+                using DirectorySearcher searcher = new DirectorySearcher(entry);
+
+                // 1. Trouver le DN de l'utilisateur
+                searcher.Filter = $"(&(objectClass=user)(sAMAccountName={user.Username}))";
+                searcher.PropertiesToLoad.Add("distinguishedName");
+
+                SearchResult? userResult = searcher.FindOne();
+
+                if (userResult != null)
                 {
-                    var adGroups = userPrincipal.GetAuthorizationGroups().Select(g => g.Name).ToList();
-                    var mappings = await _context.AdRoleMappings
-                        .Where(m => adGroups.Contains(m.AdGroupName))
-                        .ToListAsync();
+                    string userDn = userResult.Properties["distinguishedName"][0].ToString()!;
 
-                    var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
-                    _context.UserRoles.RemoveRange(currentRoles);
+                    // 2. Recherche récursive des groupes
+                    using DirectorySearcher groupSearcher = new DirectorySearcher(entry);
+                    groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={userDn}))";
+                    groupSearcher.PropertiesToLoad.Add("sAMAccountName");
+                    groupSearcher.PageSize = 1000;
 
-                    foreach (var map in mappings)
+                    var adGroupNames = new List<string>();
+
+                    foreach (SearchResult groupRes in groupSearcher.FindAll())
                     {
-                        _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = map.RoleId });
+                        if (groupRes.Properties["sAMAccountName"].Count > 0)
+                        {
+                            adGroupNames.Add(groupRes.Properties["sAMAccountName"][0].ToString()!);
+                        }
                     }
-                    await _context.SaveChangesAsync();
+
+                    // 3. Comparaison avec la BDD
+                    var allMappings = await _context.AdRoleMappings.ToListAsync();
+                    var applicableMappings = new List<AdRoleMapping>();
+
+                    foreach (var mapping in allMappings)
+                    {
+                        bool match = false;
+
+                        if (mapping.MappingType == AdMappingType.Group)
+                        {
+                            if (adGroupNames.Any(g => g.Equals(mapping.AdIdentifier, StringComparison.OrdinalIgnoreCase))) match = true;
+                        }
+                        else if (mapping.MappingType == AdMappingType.User)
+                        {
+                            if (mapping.AdIdentifier.Equals(user.Username, StringComparison.OrdinalIgnoreCase)) match = true;
+                        }
+
+                        if (match) applicableMappings.Add(mapping);
+                    }
+
+                    // 4. Application
+                    if (applicableMappings.Any())
+                    {
+                        var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
+                        if (currentRoles.Any()) _context.UserRoles.RemoveRange(currentRoles);
+
+                        foreach (var map in applicableMappings)
+                        {
+                            if (!_context.UserRoles.Local.Any(ur => ur.UserId == user.Id && ur.RoleId == map.RoleId))
+                            {
+                                _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = map.RoleId });
+                            }
+                        }
+                        await _context.SaveChangesAsync();
+                    }
                 }
             }
-            catch { /* Ignorer */ }
+            catch (Exception ex)
+            {
+                // On garde ce log car c'est une erreur technique importante
+                Console.WriteLine($"[AD-SYNC-ERROR] {ex.Message}");
+            }
         }
 
         private async Task<List<string>> GetUserPermissionsAsync(User user)
@@ -182,7 +349,7 @@ namespace Autoprint.Server.Services
                 .ToListAsync();
         }
 
-        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired)
+        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired, bool rememberMe)
         {
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
             var claims = new List<Claim>
@@ -192,18 +359,15 @@ namespace Autoprint.Server.Services
                 new Claim("DisplayName", user.DisplayName ?? "")
             };
 
-            // Si expiré, on ajoute le claim spécial pour bloquer côté API aussi
-            if (passwordExpired)
-            {
-                claims.Add(new Claim("ForcePasswordChange", "true"));
-            }
-
+            if (passwordExpired) claims.Add(new Claim("ForcePasswordChange", "true"));
             foreach (var perm in permissions) claims.Add(new Claim("Permission", perm));
+
+            double expireMinutes = double.Parse(_configuration["Jwt:ExpireMinutes"] ?? "60");
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(double.Parse(_configuration["Jwt:ExpireMinutes"]!)),
+                Expires = DateTime.UtcNow.AddMinutes(expireMinutes),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"]

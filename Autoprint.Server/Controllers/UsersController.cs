@@ -3,6 +3,7 @@ using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
+using Autoprint.Shared; // Pour AuditLog
 using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,8 +13,6 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // ❌ ON ENLÈVE [Authorize(Policy = "USER_READ")] D'ICI
-    // Pour éviter de bloquer l'accès au profil
     public class UsersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -30,12 +29,12 @@ namespace Autoprint.Server.Controllers
         {
             var users = await _context.Users
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-                .Select(u => new UserViewDto // On mappe directement vers le DTO
+                .Select(u => new UserViewDto
                 {
                     Id = u.Id,
                     Username = u.Username,
                     DisplayName = u.DisplayName,
-                    Email = u.Email, // <-- IMPORTANT : On renvoie l'email
+                    Email = u.Email,
                     IsAdUser = u.IsAdUser,
                     IsActive = u.IsActive,
                     LastLogin = u.LastLogin,
@@ -48,7 +47,7 @@ namespace Autoprint.Server.Controllers
 
         // GET: api/users/5
         [HttpGet("{id}")]
-        [Authorize(Policy = "USER_READ")] // ✅ ET ICI (Admin seulement)
+        [Authorize(Policy = "USER_READ")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
             var user = await _context.Users
@@ -88,6 +87,18 @@ namespace Autoprint.Server.Controllers
             }
 
             _context.Users.Add(newUser);
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "USER_CREATE",
+                Details = $"Création utilisateur : {newUser.Username} ({newUser.DisplayName})",
+                Utilisateur = User.Identity?.Name ?? "Inconnu",
+                Niveau = "WARNING", // Créer un user est une action sensible
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
+
             await _context.SaveChangesAsync();
 
             if (request.RoleId > 0)
@@ -109,12 +120,28 @@ namespace Autoprint.Server.Controllers
 
             user.DisplayName = request.DisplayName;
             user.Email = request.Email;
-            user.IsActive = request.IsActive;
 
+            // Log changement statut
+            if (user.IsActive != request.IsActive)
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    Action = "USER_UPDATE",
+                    Details = $"Statut utilisateur {user.Username} modifié : {(request.IsActive ? "Activé" : "Désactivé")}",
+                    Utilisateur = User.Identity?.Name ?? "Inconnu",
+                    Niveau = "WARNING",
+                    DateAction = DateTime.UtcNow
+                });
+            }
+
+            user.IsActive = request.IsActive;
             user.ForceChangePassword = request.ForceChangePassword;
+
             if (!string.IsNullOrWhiteSpace(request.NewPassword))
             {
-
+                // Note: on ne logue PAS qu'on a changé le mot de passe ici pour éviter le spam log si c'est l'admin
+                // Mais on pourrait le faire si on voulait être strict.
+                user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
                 user.LastPasswordChangeDate = DateTime.UtcNow;
             }
 
@@ -131,23 +158,33 @@ namespace Autoprint.Server.Controllers
 
         // DELETE: api/users/5
         [HttpDelete("{id}")]
-        [Authorize(Policy = "USER_DELETE")] // Celui-là était déjà bon
+        [Authorize(Policy = "USER_DELETE")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            // ... (Ton code DeleteUser reste identique)
             var user = await _context.Users.FindAsync(id);
             if (user == null) return NotFound();
 
             if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
 
             _context.Users.Remove(user);
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "USER_DELETE",
+                Details = $"Suppression utilisateur : {user.Username}",
+                Utilisateur = User.Identity?.Name ?? "Inconnu",
+                Niveau = "ERROR", // Suppression user = critique
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // --- PARTIE PROFIL (Accessible à tout utilisateur connecté) ---
+        // --- PARTIE PROFIL ---
 
-        // GET: api/users/profile
         [HttpGet("profile")]
         [Authorize]
         public async Task<ActionResult<UserProfileDto>> GetMyProfile()
@@ -161,14 +198,9 @@ namespace Autoprint.Server.Controllers
 
             if (user == null) return NotFound();
 
-            // --- CALCUL DE L'EXPIRATION ---
-            // 1. On récupère le réglage (par défaut 90 jours)
-            var setting = await _context.ServerSettings
-                .FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
-
+            var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
             int maxDays = setting != null && int.TryParse(setting.Value, out int d) ? d : 90;
 
-            // 2. On calcule
             int daysRemaining = 0;
             bool isExpired = false;
 
@@ -180,7 +212,6 @@ namespace Autoprint.Server.Controllers
             }
             else
             {
-                // Si jamais changé => Considéré comme expiré ou à changer immédiatement
                 daysRemaining = 0;
                 isExpired = true;
             }
@@ -191,12 +222,12 @@ namespace Autoprint.Server.Controllers
                 DisplayName = user.DisplayName,
                 Email = user.Email,
                 Role = user.UserRoles.FirstOrDefault()?.Role?.Name ?? "Aucun",
-                DaysUntilExpiration = daysRemaining, // <-- Info envoyée au front
+                IsAdUser = user.IsAdUser,
+                DaysUntilExpiration = daysRemaining,
                 PasswordExpired = isExpired
             };
         }
 
-        // PUT: api/users/change-password (NOUVELLE ROUTE DÉDIÉE)
         [HttpPut("change-password")]
         [Authorize]
         public async Task<IActionResult> ChangePassword(ChangePasswordDto request)
@@ -205,14 +236,23 @@ namespace Autoprint.Server.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound();
 
-            // 1. Vérif ancien MDP
             var oldHash = SecurityHelper.ComputeSha256Hash(request.CurrentPassword);
             if (user.PasswordHash != oldHash)
                 return BadRequest("Le mot de passe actuel est incorrect.");
 
-            // 2. Application nouveau MDP
             user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
-            user.LastPasswordChangeDate = DateTime.UtcNow; // Reset du compteur
+            user.LastPasswordChangeDate = DateTime.UtcNow;
+
+            // --- LOG AUDIT ---
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "USER_PWD_CHANGE",
+                Details = "Changement de mot de passe utilisateur",
+                Utilisateur = user.Username, // C'est l'utilisateur lui-même
+                Niveau = "INFO",
+                DateAction = DateTime.UtcNow
+            });
+            // -----------------
 
             await _context.SaveChangesAsync();
             return NoContent();

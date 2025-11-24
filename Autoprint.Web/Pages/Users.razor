@@ -80,14 +80,24 @@
                                 <td class="text-end">
                                     <AuthorizeView Policy="USER_WRITE">
                                         <Authorized Context="authContext">
-                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditUser(u)">
-                                                ✏️
-                                            </button>
+                                            @if (!u.IsAdUser)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditUser(u)" title="Modifier">
+                                                    ✏️
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary me-1" disabled title="Compte géré par Active Directory">
+                                                    <i class="bi bi-lock-fill"></i>
+                                                </button>
+                                            }
                                         </Authorized>
                                     </AuthorizeView>
+
                                     <AuthorizeView Policy="USER_DELETE">
                                         <Authorized Context="authContext">
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u)">
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u)" title="Supprimer">
                                                 🗑️
                                             </button>
                                         </Authorized>
@@ -148,7 +158,11 @@
                                 <label class="form-label">Nom Affiché</label>
                                 @if (editMode)
                                 {
-                                    <InputText class="form-control" @bind-Value="editUserModel.DisplayName" />
+                                    <InputText class="form-control" @bind-Value="editUserModel.DisplayName" disabled="@isEditingAdUser" />
+                                    @if (isEditingAdUser)
+                                    {
+                                        <div class="form-text small text-muted">Géré par Active Directory</div>
+                                    }
                                 }
                                 else
                                 {
@@ -160,8 +174,7 @@
                                 <label class="form-label">Email</label>
                                 @if (editMode)
                                 {
-                                    <InputText class="form-control" @bind-Value="editUserModel.Email" type="email" placeholder="jean.dupont@societe.com" />
-                                    <ValidationMessage For="@(() => editUserModel.Email)" />
+                                    <InputText class="form-control" @bind-Value="editUserModel.Email" type="email" disabled="@isEditingAdUser" />
                                 }
                                 else
                                 {
@@ -173,12 +186,12 @@
                             <div class="col-12"><hr /></div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">
-                                    Mot de passe @(editMode ? "(Optionnel)" : "*")
-                                </label>
+                                <label class="form-label fw-bold">Mot de passe ...</label>
                                 @if (editMode)
                                 {
-                                    <InputText type="password" class="form-control" @bind-Value="editUserModel.NewPassword" placeholder="Laisser vide pour ne pas changer" />
+                                    <InputText type="password" class="form-control" @bind-Value="editUserModel.NewPassword"
+                                               disabled="@isEditingAdUser"
+                                               placeholder="@(isEditingAdUser ? "Géré par Windows" : "Laisser vide...")" />
                                 }
                                 else
                                 {
@@ -199,7 +212,7 @@
                                             </div>
 
                                             <div class="form-check form-switch">
-                                                <InputCheckbox class="form-check-input" @bind-Value="editUserModel.ForceChangePassword" id="chkForce" />
+                                                <InputCheckbox class="form-check-input" @bind-Value="editUserModel.ForceChangePassword" id="chkForce" disabled="@isEditingAdUser" />
                                                 <label class="form-check-label text-warning fw-bold" for="chkForce">
                                                     Forcer le changement de mot de passe
                                                 </label>
@@ -235,6 +248,7 @@
     private CreateUserDto newUserModel = new();
     private UpdateUserDto editUserModel = new();
     private string editingUsername = "";
+    private bool isEditingAdUser = false;
     private int editingUserId = 0;
 
     private int selectedRoleId = 1;
@@ -273,6 +287,7 @@
     {
         editingUserId = user.Id;
         editingUsername = user.Username;
+        isEditingAdUser = user.IsAdUser;
 
         editUserModel = new UpdateUserDto
         {

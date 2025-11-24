@@ -1,5 +1,4 @@
 ﻿using System.Net.Http.Json;
-using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -21,31 +20,32 @@ namespace Autoprint.Web.Services
             _localStorage = localStorage;
         }
 
-        // La signature correspond ici exactement à l'interface (Task<LoginResponse?>)
-        public async Task<LoginResponse?> Login(LoginRequest request)
+        public async Task<LoginResponse> Login(LoginRequest loginRequest)
         {
-            try
-            {
-                var result = await _httpClient.PostAsJsonAsync("api/auth/login", request);
+            var response = await _httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
 
-                if (result.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
+            {
+                // C'EST ICI QUE ÇA SE JOUE : On lit le message du serveur
+                // Le serveur renvoie "Identifiants incorrects" (401) OU "Connexion réussie mais..." (403)
+                var serverMessage = await response.Content.ReadAsStringAsync();
+
+                // Si le message est vide ou technique (JSON d'erreur par défaut), on met un message générique
+                if (string.IsNullOrWhiteSpace(serverMessage) || serverMessage.StartsWith("{"))
                 {
-                    var response = await result.Content.ReadFromJsonAsync<LoginResponse>();
-
-                    if (response != null)
-                    {
-                        await _localStorage.SetItemAsync("authToken", response.Token);
-                        ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(response.Token);
-                        return response;
-                    }
+                    throw new Exception("Échec de la connexion (Erreur serveur).");
                 }
-            }
-            catch
-            {
-                return null;
+
+                // Sinon on renvoie le message précis (ex: "Connexion réussie, mais vous n'avez aucun droit...")
+                throw new Exception(serverMessage);
             }
 
-            return null;
+            // Si succès, on traite le token comme d'habitude
+            var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+            await _localStorage.SetItemAsync("authToken", result!.Token);
+            ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(result.Token);
+
+            return result;
         }
 
         public async Task Logout()

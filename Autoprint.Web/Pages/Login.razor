@@ -3,10 +3,12 @@
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
+@using Blazored.LocalStorage
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject ILocalStorageService LocalStorage
 
 <div class="container">
     <div class="row justify-content-center">
@@ -14,7 +16,7 @@
 
             <div class="card shadow-lg border-0 rounded-4 overflow-hidden mt-5">
                 <div class="bg-dark text-white text-center py-4">
-                    <i class="bi bi-hdd-network-fill" style="font-size: 3rem;"></i>
+                    <i class="bi bi-printer-fill" style="font-size: 3rem;"></i>
                     <h3 class="fw-bold mt-2">Autoprint Serveur</h3>
                 </div>
 
@@ -22,8 +24,8 @@
 
                     @if (!string.IsNullOrEmpty(ErrorMessage))
                     {
-                        <div class="alert alert-danger d-flex align-items-center" role="alert">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div class="alert @(ErrorMessage.Contains("droit") ? "alert-warning" : "alert-danger") d-flex align-items-center" role="alert">
+                            <i class="bi @(ErrorMessage.Contains("droit") ? "bi-lock-fill" : "bi-exclamation-triangle-fill") me-2"></i>
                             <div>@ErrorMessage</div>
                         </div>
                     }
@@ -43,7 +45,12 @@
                                 <label for="password">Mot de passe</label>
                             </div>
 
-                            <div class="d-flex justify-content-end mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="loginRequest.RememberMe" id="rememberMe" class="form-check-input" />
+                                    <label class="form-check-label small" for="rememberMe">Retenir mon identifiant</label>
+                                </div>
+
                                 <button type="button" class="btn btn-link text-decoration-none small" @onclick="() => forgotPasswordMode = true">
                                     Mot de passe oublié ?
                                 </button>
@@ -64,7 +71,7 @@
                     {
                         <div class="text-center mb-4">
                             <h5 class="text-primary">Récupération de compte</h5>
-                            <p class="text-muted small">Entrez votre identifiant ou votre email. Si le compte existe, vous recevrez un mot de passe temporaire par email.</p>
+                            <p class="text-muted small">Entrez votre identifiant ou votre email.<br />Si le compte existe, vous recevrez un mot de passe temporaire.</p>
                         </div>
 
                         <div class="form-floating mb-3">
@@ -100,43 +107,52 @@
     private LoginRequest loginRequest = new LoginRequest();
     private string ErrorMessage = string.Empty;
     private bool isBusy = false;
-
-    // Gestion Forgot Password
     private bool forgotPasswordMode = false;
     private string forgotEmailOrUser = "";
-
-    // Gestion Expiration
     private bool showExpiredModal = false;
+
+    // CHARGEMENT DU LOGIN SAUVEGARDÉ
+    protected override async Task OnInitializedAsync()
+    {
+        var savedUser = await LocalStorage.GetItemAsync<string>("saved_username");
+        if (!string.IsNullOrEmpty(savedUser))
+        {
+            loginRequest.Username = savedUser;
+            loginRequest.RememberMe = true;
+        }
+    }
 
     private async Task HandleLogin()
     {
         isBusy = true;
-        ErrorMessage = string.Empty;
+        ErrorMessage = "";
+
         try
         {
             var result = await AuthService.Login(loginRequest);
 
-            if (result != null && !string.IsNullOrEmpty(result.Token))
+            // LOGIQUE DE SAUVEGARDE DU LOGIN
+            if (loginRequest.RememberMe)
             {
-                if (result.PasswordExpired)
-                {
-                    // STOP : On ne redirige pas, on ouvre la modal de force
-                    showExpiredModal = true;
-                }
-                else
-                {
-                    // OK : On redirige vers l'accueil
-                    NavigationManager.NavigateTo("/");
-                }
+                await LocalStorage.SetItemAsync("saved_username", loginRequest.Username);
             }
             else
             {
-                ErrorMessage = "Identifiants incorrects.";
+                await LocalStorage.RemoveItemAsync("saved_username");
+            }
+
+            if (result.PasswordExpired)
+            {
+                showExpiredModal = true;
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/");
             }
         }
         catch (Exception ex)
         {
-            ErrorMessage = "Erreur : " + ex.Message;
+            ErrorMessage = ex.Message;
         }
         finally
         {
@@ -147,35 +163,24 @@
     private async Task HandleForgotPassword()
     {
         if (string.IsNullOrWhiteSpace(forgotEmailOrUser)) return;
-
         isBusy = true;
         try
         {
             var request = new ForgotPasswordRequest { EmailOrUsername = forgotEmailOrUser };
             var response = await Http.PostAsJsonAsync("api/auth/forgot-password", request);
-
-            // Message générique de sécurité
             await JS.InvokeVoidAsync("alert", "Si les informations sont correctes, un email a été envoyé.");
             forgotPasswordMode = false;
         }
-        catch
-        {
-            ErrorMessage = "Impossible de contacter le serveur.";
-        }
-        finally
-        {
-            isBusy = false;
-        }
+        catch { ErrorMessage = "Impossible de contacter le serveur."; }
+        finally { isBusy = false; }
     }
-
-    // -- Logique de la Modal Expirée --
 
     private void CancelExpired()
     {
-        // Si l'utilisateur refuse de changer son mot de passe expiré, on le déconnecte
         showExpiredModal = false;
-        AuthService.Logout();
-        loginRequest = new LoginRequest(); // Reset du formulaire
+        ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+        loginRequest = new LoginRequest();
+        ErrorMessage = "Le changement de mot de passe est obligatoire.";
     }
 
     private async Task ChangeExpiredPassword(ChangePasswordDto dto)
@@ -195,9 +200,6 @@
                 await JS.InvokeVoidAsync("alert", "Erreur : " + error);
             }
         }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message);
-        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message); }
     }
 }

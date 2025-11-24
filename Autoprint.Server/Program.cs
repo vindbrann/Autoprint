@@ -4,7 +4,6 @@ using Autoprint.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-// AUCUN using Microsoft.OpenApi ici !
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,16 +17,19 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 );
 
 // 2. Services
-
 if (OperatingSystem.IsWindows())
-    builder.Services.AddScoped<Autoprint.Server.Services.IPrintSpoolerService, Autoprint.Server.Services.WindowsPrintSpoolerService>();
+    builder.Services.AddScoped<IPrintSpoolerService, WindowsPrintSpoolerService>();
 else
-    builder.Services.AddScoped<Autoprint.Server.Services.IPrintSpoolerService, Autoprint.Server.Services.StubPrintSpoolerService>();
+    builder.Services.AddScoped<IPrintSpoolerService, StubPrintSpoolerService>();
 
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
-builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
-builder.Services.AddScoped<Autoprint.Server.Services.IEmailService, Autoprint.Server.Services.EmailService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
+
+// --- AJOUT : Worker de nettoyage des logs (Cron) ---
+builder.Services.AddHostedService<LogCleanupWorker>();
 
 // 3. Auth JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
@@ -58,10 +60,9 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddScoped<Autoprint.Server.Services.ISyncSpoolerService, Autoprint.Server.Services.SyncSpoolerService>();
 
-// 4. OpenAPI Standard (Sans configuration complexe)
-builder.Services.AddOpenApi(); // Version minimale qui marche à tous les coups
+// 4. OpenAPI Standard
+builder.Services.AddOpenApi();
 
 builder.Services.AddCors(options =>
 {
@@ -115,6 +116,9 @@ builder.Services.AddAuthorization(options =>
 
     // Système
     options.AddPolicy("SETTINGS_MANAGE", policy => policy.RequireClaim("Permission", "SETTINGS_MANAGE"));
+
+    // --- AJOUT : Audit (Logs) ---
+    options.AddPolicy("AUDIT_READ", policy => policy.RequireClaim("Permission", "AUDIT_READ"));
 });
 
 var app = builder.Build();
@@ -123,11 +127,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseWebAssemblyDebugging();
-
-    // Génération du JSON
     app.MapOpenApi();
-
-    // Interface Swagger UI
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Autoprint API");
@@ -135,11 +135,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// Hébergement Blazor
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
-
 app.UseCors("AllowBlazorOrigin");
 
 app.UseAuthentication();
