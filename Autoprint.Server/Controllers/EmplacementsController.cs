@@ -19,7 +19,38 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Emplacement>>> GetEmplacements() => await _context.Emplacements.ToListAsync();
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<Emplacement>>> GetEmplacements()
+        {
+            // 1. Admin connecté
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return await _context.Emplacements.ToListAsync();
+            }
+
+            // 2. Agent avec Clé API
+            if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
+            {
+                // A. On cherche la clé en BDD
+                var setting = await _context.ServerSettings
+                    .FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
+
+                // B. STRICT : Si la clé n'existe pas en base, c'est une erreur critique serveur
+                if (setting == null)
+                {
+                    // On log l'erreur pour l'admin et on rejette
+                    return StatusCode(500, new { message = "Erreur configuration serveur : AgentApiKey manquante." });
+                }
+
+                // C. Comparaison (Plus de valeur par défaut ici !)
+                if (receivedSecret == setting.Value)
+                {
+                    return await _context.Emplacements.ToListAsync();
+                }
+            }
+
+            return Unauthorized(new { message = "Accès refusé. Authentification ou Clé API requise." });
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Emplacement>> GetEmplacement(int id)

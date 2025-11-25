@@ -20,8 +20,34 @@ namespace Autoprint.Server.Controllers
 
         // GET: api/Imprimantes
         [HttpGet]
-        [Authorize(Policy = "PRINTER_READ")]
+        [AllowAnonymous] // Modification : On ouvre pour vérifier manuellement la Clé API
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes()
+        {
+            // 1. Accès Admin (Utilisateur connecté)
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return await GetImprimantesListWithIncludes();
+            }
+
+            // 2. Accès Agent (Machine avec Clé API)
+            if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
+            {
+                // Vérification en BDD
+                var setting = await _context.ServerSettings
+                    .FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
+
+                if (setting != null && receivedSecret == setting.Value)
+                {
+                    return await GetImprimantesListWithIncludes();
+                }
+            }
+
+            // 3. Rejet
+            return Unauthorized(new { message = "Accès refusé. Authentification ou Clé API requise." });
+        }
+
+        // Méthode privée pour éviter de dupliquer la grosse requête SQL avec les Includes
+        private async Task<List<Imprimante>> GetImprimantesListWithIncludes()
         {
             return await _context.Imprimantes
                 .Include(i => i.Emplacement)

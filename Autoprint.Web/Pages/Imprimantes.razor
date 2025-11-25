@@ -117,8 +117,9 @@ else
                 <th>Modèle</th>
                 <th>IP</th>
                 <th>Lieu</th>
+                <th>Emplacement</th>
                 <th>Partage</th>
-                <th style="width: 80px;">Détail</th>
+                <th style="width: 80px;">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -161,6 +162,9 @@ else
                             if (imp.Emplacement.Nom == "NON DÉFINI") { <span class="badge bg-danger">@imp.Emplacement.Nom</span> }
                             else { <span class="badge bg-info text-dark">@imp.Emplacement.Nom</span> }
                         }
+                    </td>
+                    <td>
+                        <small class="text-muted">@imp.Localisation</small>
                     </td>
                     <td>
                         @if (imp.EstPartagee) { <span class="badge bg-success">Oui (@imp.NomPartage)</span> }

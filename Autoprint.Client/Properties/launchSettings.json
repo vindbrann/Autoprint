@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Autoprint.Client": {
+      "commandName": "Project",
+      "commandLineArgs": "--api-key \"458dd710-94d9-45af-a2d4-fd4182b06572\""
+    }
+  }
+}

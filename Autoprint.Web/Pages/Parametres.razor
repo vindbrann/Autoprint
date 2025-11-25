@@ -324,8 +324,58 @@
                 @if (activeTab == "securite")
                 {
                     <h5 class="text-primary mb-3">Sécurité</h5>
-                    <label>Expiration MDP Locaux (Jours)</label>
-                    <input type="number" class="form-control w-25" @bind="model.PasswordExpirationDays" />
+
+                    <div class="card border-warning mb-4">
+                        <div class="card-header bg-warning bg-opacity-10 text-dark fw-bold">
+                            <i class="bi bi-key-fill me-2"></i>Clé d'API Agent (Machine-to-Machine)
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Cette clé permet aux agents Autoprint de s'identifier sans utilisateur.
+                                <strong>En cas de réinstallation du serveur (Disaster Recovery)</strong>, renseignez ici la clé utilisée par vos postes clients existants.
+                            </p>
+
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="unlockKey" @bind="isAgentKeyEditable">
+                                <label class="form-check-label fw-bold @(isAgentKeyEditable ? "text-danger" : "text-secondary")" for="unlockKey">
+                                    @(isAgentKeyEditable ? "Modification autorisée (DANGER)" : "Verrouillé (Lecture seule)")
+                                </label>
+                            </div>
+
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                                <input type="text"
+                                       class="form-control font-monospace"
+                                       @bind="model.AgentApiKey"
+                                       disabled="@(!isAgentKeyEditable)"
+                                       placeholder="A1B2-C3D4..." />
+
+                                <button class="btn btn-outline-secondary" type="button"
+                                        @onclick="@(async () => await JS.InvokeVoidAsync("navigator.clipboard.writeText", model.AgentApiKey))"
+                                        title="Copier la clé">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+
+                            @if (isAgentKeyEditable)
+                            {
+                                <div class="alert alert-danger mt-2 py-1 px-2 small fade show">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <strong>Attention :</strong> Modifier cette clé coupera la connexion de tous vos agents existants.
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Politique de Mots de Passe</label>
+                        <div class="input-group w-50">
+                            <span class="input-group-text">Expiration MDP Locaux</span>
+                            <input type="number" class="form-control" @bind="model.PasswordExpirationDays" />
+                            <span class="input-group-text">jours</span>
+                        </div>
+                    </div>
                 }
             </div>
 
@@ -343,6 +393,7 @@
     private bool sauvegardeEnCours = false;
     private bool testEnCours = false;
     private bool testAdFilterEnCours = false;
+    private bool isAgentKeyEditable = false;
 
     private string testEmailTo = "";
     private string testAdQuery = "";
@@ -356,6 +407,7 @@
 
     private class SettingsModel
     {
+        public string AgentApiKey { get; set; } = "";
         public int LogRetentionDays { get; set; } = 180;
         public string SmtpHost { get; set; } = "";
         public int SmtpPort { get; set; } = 25;
@@ -381,6 +433,7 @@
         try
         {
             var s = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            model.AgentApiKey = GV(s, "AgentApiKey");
             model.LogRetentionDays = int.Parse(GV(s, "LogRetentionDays", "180"));
             model.SmtpHost = GV(s, "SmtpHost");
             model.SmtpPort = int.Parse(GV(s, "SmtpPort", "25"));
