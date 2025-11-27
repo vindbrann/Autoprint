@@ -2,6 +2,8 @@
 using Autoprint.Shared.DTOs;
 using Autoprint.Shared.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR; // Ajout pour SignalR
+using Autoprint.Server.Hubs;        // Ajout pour ton Hub
 
 namespace Autoprint.Server.Services
 {
@@ -15,11 +17,17 @@ namespace Autoprint.Server.Services
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<SyncSpoolerService> _logger;
+        private readonly IHubContext<EventsHub> _hubContext; // Champ pour le Hub
 
-        public SyncSpoolerService(IServiceScopeFactory scopeFactory, ILogger<SyncSpoolerService> logger)
+        // Injection du HubContext dans le constructeur
+        public SyncSpoolerService(
+            IServiceScopeFactory scopeFactory,
+            ILogger<SyncSpoolerService> logger,
+            IHubContext<EventsHub> hubContext)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         public async Task<List<SyncPreviewDto>> GetPendingChangesAsync()
@@ -37,7 +45,7 @@ namespace Autoprint.Server.Services
                     NomImprimante = i.NomAffiche,
                     Status = i.Status,
                     DateModification = i.DateModification,
-                    ModifiePar = "Admin", // À connecter à User ID plus tard
+                    ModifiePar = "Admin",
                     Action = i.Status == PrinterStatus.PendingCreation ? "Création" :
                              i.Status == PrinterStatus.PendingDelete ? "Suppression" : "Mise à jour",
                     Details = i.Status == PrinterStatus.PendingCreation ? $"IP: {i.AdresseIp}" :
@@ -157,6 +165,17 @@ namespace Autoprint.Server.Services
             }
 
             await context.SaveChangesAsync();
+
+            // --- SIGNALR : NOTIFICATION ---
+            // On envoie le signal uniquement si on a traité des imprimantes
+            if (tasks.Any())
+            {
+                // Le message "RefreshPrinters" partira à tous les clients connectés.
+                await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+                _logger.LogInformation("SignalR: Notification 'RefreshPrinters' envoyée aux clients.");
+            }
+            // ------------------------------
+
             return result;
         }
     }

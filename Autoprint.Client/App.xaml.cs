@@ -30,6 +30,9 @@ namespace Autoprint.Client
         private ApiService? _apiService;
         private DataService? _dataService;
 
+        // [SIGNALR] : Ajout du nouveau service Temps Réel
+        private RealTimeService? _realTimeService;
+
         // UI & ViewModels
         private MainWindow? _mainWindow;
         private MainWindowViewModel? _mainViewModel;
@@ -43,9 +46,10 @@ namespace Autoprint.Client
         private Emplacement? _lieuActuel = null;
         private string _ipActuelle = "Inconnue";
 
-        // État de Connexion (Bloc B)
+        // État de Connexion
         private bool _estHorsLigne = false;
-        private System.Timers.Timer? _retryTimer;
+
+        // [SIGNALR] : Suppression de l'ancien _retryTimer (remplacé par RealTimeService)
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -77,30 +81,41 @@ namespace Autoprint.Client
             _manageWindow = new ManagePrintersWindow();
             _manageWindow.DataContext = _manageViewModel;
 
-            // 3. Init Services & Configuration (Bloc A - Validé)
-            // On passe les arguments et le service de préférences pour gérer la persistance JSON
+            // 3. Init Services & Configuration
             _configService.Initialize(e.Args, _prefService);
-
-            // L'API Service est initialisé avec la clé consolidée
             _apiService = new ApiService(_configService.ApiKey);
 
             _pathService.Initialize(e.Args);
             _dataService = new DataService(_pathService);
             await _dataService.InitializeAsync();
 
-            // 4. Init Timer de reconnexion (Bloc B - Watchdog)
-            _retryTimer = new System.Timers.Timer(30000); // 30 secondes
-            _retryTimer.AutoReset = true;
-            _retryTimer.Elapsed += async (s, args) =>
-            {
-                // On revient sur le thread UI pour relancer la tentative
-                await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync());
-            };
+            // 4. [SIGNALR] : Initialisation du Temps Réel
+            string serverUrl = $"https://{_configService.PrintServerName}:7159";
 
-            // 5. Écouteur Réseau
+            _realTimeService = new RealTimeService(serverUrl);
+
+            // On branche les callbacks (Ce que le service doit faire quand il a des infos)
+            _realTimeService.Initialize(
+                onRefreshRequested: async () =>
+                {
+                    // Le serveur a dit "Refresh" ou on vient de se reconnecter
+                    await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync(estDemarrage: false));
+                },
+                onStatusChanged: (isOnline) =>
+                {
+                    // L'état de connexion a changé (piloté par le Ping/Pong SignalR)
+                    _estHorsLigne = !isOnline;
+                    MettreAJourInterface(_estHorsLigne);
+                }
+            );
+
+            // On lance la connexion (démarre le Watchdog interne si échec)
+            await _realTimeService.StartAsync();
+
+            // 5. Écouteur Réseau (Câble débranché/rebranché)
             NetworkChange.NetworkAddressChanged += async (s, args) => await OnReseauChangeAsync();
 
-            // 6. Premier Lancement
+            // 6. Premier chargement de données
             await RafraichirDonneesAsync(estDemarrage: true);
         }
 
@@ -109,19 +124,14 @@ namespace Autoprint.Client
         // ============================================================
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
         {
-            // A. Détection IP
             string? myIp = _networkService.GetLocalIpAddress();
             _ipActuelle = myIp ?? "Non connecté";
 
             List<Emplacement> lieux = new List<Emplacement>();
 
-            // On part du principe qu'on va y arriver
-            bool echecConnexion = false;
+            // [SIGNALR] : On ne force pas _estHorsLigne à false ici. 
+            // C'est le RealTimeService qui est le maître de l'état de connexion.
 
-            // On reset l'état local avant de tenter (sauf si on tombe dans le catch)
-            _estHorsLigne = false;
-
-            // B. Tentative de Connexion
             try
             {
                 if (_apiService != null)
@@ -133,32 +143,18 @@ namespace Autoprint.Client
                     lieux = taskLieux.Result;
                     _toutesLesImprimantes = taskImprimantes.Result;
 
-                    // Si l'API renvoie 0 lieu alors qu'on attend des données, on considère ça comme une erreur
-                    if (lieux.Count == 0) throw new Exception("API vide ou injoignable");
+                    if (lieux.Count == 0) throw new Exception("API vide");
 
-                    // SUCCÈS : Mise à jour du cache local
                     if (_dataService != null)
                     {
                         await _dataService.UpdateCacheAsync(lieux, _toutesLesImprimantes);
                     }
-
-                    // On arrête le timer de retry car tout va bien
-                    _retryTimer?.Stop();
                 }
             }
             catch
             {
-                System.Diagnostics.Debug.WriteLine("Passage en mode HORS LIGNE");
-                echecConnexion = true;
-                _estHorsLigne = true;
+                System.Diagnostics.Debug.WriteLine("Échec récupération données API (Cache utilisé)");
 
-                // ÉCHEC : On active le Watchdog pour réessayer plus tard
-                if (_retryTimer != null && !_retryTimer.Enabled)
-                {
-                    _retryTimer.Start();
-                }
-
-                // Fallback sur le Cache SQLite
                 if (_dataService != null)
                 {
                     lieux = await _dataService.GetEmplacementsAsync();
@@ -170,7 +166,8 @@ namespace Autoprint.Client
             string titreNotif = "Autoprint";
             string messageNotif = "Mise à jour...";
             BalloonIcon iconeNotif = BalloonIcon.None;
-            bool shouldNotify = _prefService.Current.EnableNotifications;
+
+            if (_estHorsLigne) iconeNotif = BalloonIcon.Warning;
 
             if (lieux.Count > 0 && !string.IsNullOrEmpty(myIp))
             {
@@ -180,20 +177,18 @@ namespace Autoprint.Client
                 {
                     _lieuActuel = lieuTrouve;
 
-                    // Sauvegarde du dernier lieu connu
                     if (_prefService.Current.LastDetectedLocationCode != lieuTrouve.Code)
                     {
                         _prefService.Current.LastDetectedLocationCode = lieuTrouve.Code;
                         _prefService.Save();
                     }
 
-                    // Mise à jour de l'UI avec l'état de connexion
                     MettreAJourInterface(_estHorsLigne);
 
                     int nbImprimantesZone = _toutesLesImprimantes.Count(i => i.EmplacementId == lieuTrouve.Id);
                     titreNotif = $"📍 Lieu : {lieuTrouve.Nom}";
 
-                    // Switch automatique de l'imprimante par défaut
+                    // Logique Auto-Switch
                     string messageSwitch = "";
                     if (_prefService.Current.AutoSwitchDefaultPrinter)
                     {
@@ -216,7 +211,6 @@ namespace Autoprint.Client
                     if (_estHorsLigne)
                     {
                         messageNotif += "\n(Mode Hors-Ligne ⚠️)";
-                        iconeNotif = BalloonIcon.Warning;
                     }
                 }
                 else
@@ -230,23 +224,19 @@ namespace Autoprint.Client
             }
             else
             {
-                // Cas Critique : Pas de réseau ET pas de cache
                 MettreAJourInterface(_estHorsLigne);
                 titreNotif = "Erreur";
                 messageNotif = "Impossible de récupérer la configuration.";
                 iconeNotif = BalloonIcon.Error;
-                shouldNotify = true;
             }
 
-            // Affichage de la bulle (éviter le spam en cas de boucle retry)
-            // On notifie seulement au démarrage ou si ce n'est pas un retry automatique silencieux
-            if (_notifyIcon != null && shouldNotify && estDemarrage)
+            if (_notifyIcon != null && _prefService.Current.EnableNotifications && estDemarrage)
             {
                 _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
             }
         }
 
-        private void MettreAJourInterface(bool isOffline = false)
+        private void MettreAJourInterface(bool isOffline)
         {
             if (_mainViewModel == null) return;
 
@@ -362,8 +352,6 @@ namespace Autoprint.Client
         protected override void OnExit(ExitEventArgs e)
         {
             _notifyIcon?.Dispose();
-            _retryTimer?.Stop();
-            _retryTimer?.Dispose();
             base.OnExit(e);
         }
     }

@@ -4,6 +4,7 @@ using Autoprint.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Autoprint.Server.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,7 @@ builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
+builder.Services.AddSignalR();
 
 // --- AJOUT : Worker de nettoyage des logs (Cron) ---
 builder.Services.AddHostedService<LogCleanupWorker>();
@@ -68,9 +70,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorOrigin", policy =>
     {
-        policy.WithOrigins("https://localhost:7169", "http://localhost:5139")
+        policy.WithOrigins("https://localhost:7159", "http://localhost:5139")
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -144,6 +147,7 @@ app.UseAuthorization();
 
 app.MapRazorPages();
 app.MapControllers();
+app.MapHub<EventsHub>("/hubs/events");
 app.MapFallbackToFile("index.html");
 
 using (var scope = app.Services.CreateScope())
