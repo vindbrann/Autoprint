@@ -543,7 +543,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(5092),
+                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(6545),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -561,6 +561,10 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CheminPartage")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Code")
                         .HasMaxLength(50)
@@ -635,7 +639,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(4477),
+                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(5924),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -682,7 +686,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 24, 14, 5, 18, 218, DateTimeKind.Utc).AddTicks(5806),
+                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(7165),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

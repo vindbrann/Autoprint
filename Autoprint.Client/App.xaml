@@ -17,12 +17,27 @@
             <ContextMenu x:Key="TrayMenu" 
                          Background="{DynamicResource MaterialDesignPaper}"
                          TextElement.Foreground="{DynamicResource MaterialDesignBody}">
+
                 <MenuItem Header="Mes Imprimantes" Click="MenuOpen_Click">
                     <MenuItem.Icon>
                         <materialDesign:PackIcon Kind="Printer" />
                     </MenuItem.Icon>
                 </MenuItem>
+
+                <MenuItem Header="Options" Click="MenuOptions_Click">
+                    <MenuItem.Icon>
+                        <materialDesign:PackIcon Kind="Cog" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <MenuItem Header="Nettoyer les installations" Click="MenuManage_Click">
+                    <MenuItem.Icon>
+                        <materialDesign:PackIcon Kind="PrinterOff" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
                 <Separator />
+
                 <MenuItem Header="Quitter" Click="MenuExit_Click">
                     <MenuItem.Icon>
                         <materialDesign:PackIcon Kind="ExitToApp" />
@@ -32,7 +47,7 @@
 
             <tb:TaskbarIcon x:Key="MainNotifyIcon"
                             ToolTipText="Autoprint Agent"
-                            IconSource="/autoprint.ico"
+                            IconSource="pack://application:,,,/Autoprint.ico"
                             ContextMenu="{StaticResource TrayMenu}"
                             TrayMouseDoubleClick="OnTrayDoubleClick"
                             TrayBalloonTipClicked="OnTrayBalloonTipClicked"/>

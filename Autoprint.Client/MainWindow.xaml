@@ -9,7 +9,6 @@
         Title="Autoprint" Height="600" Width="550"
         WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="{DynamicResource {x:Static SystemFonts.MessageFontWeightKey}}"
         TextElement.FontSize="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}"
@@ -78,35 +77,73 @@
                                     </Border>
 
                                     <StackPanel Grid.Column="1" Margin="15,12">
-                                        <TextBlock Text="{Binding NomAffiche}" FontWeight="Bold" FontSize="16" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding Data.NomAffiche}" FontWeight="Bold" FontSize="16" Margin="0,0,0,4"/>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6" Opacity="0.8">
                                             <materialDesign:PackIcon Kind="MapMarkerRadius" Width="14" Height="14" VerticalAlignment="Center" Margin="0,1,6,0"/>
-                                            <TextBlock Text="{Binding Localisation}" FontSize="13" FontWeight="Medium"/>
+                                            <TextBlock Text="{Binding Data.Localisation}" FontSize="13" FontWeight="Medium"/>
                                         </StackPanel>
 
                                         <TextBlock Opacity="0.5" FontSize="11" FontStyle="Italic">
-                                            <Run Text="{Binding Modele.Marque.Nom, Mode=OneWay}" FontWeight="SemiBold"/>
+                                            <Run Text="{Binding Data.Modele.Marque.Nom, Mode=OneWay}" FontWeight="SemiBold"/>
                                             <Run Text=" "/>
-                                            <Run Text="{Binding Modele.Nom, Mode=OneWay}"/>
+                                            <Run Text="{Binding Data.Modele.Nom, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>
-
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
-                                        <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}" ToolTip="Définir par défaut" Margin="0,0,10,0" Width="32" Height="32">
-                                            <materialDesign:PackIcon Kind="StarOutline" Opacity="0.3" />
-                                            <materialDesign:ToggleButtonAssist.OnContent>
-                                                <materialDesign:PackIcon Kind="Star" Foreground="Gold"/>
-                                            </materialDesign:ToggleButtonAssist.OnContent>
-                                        </ToggleButton>
 
-                                        <Button Style="{StaticResource MaterialDesignOutlinedButton}" 
-                                                Content="INSTALLER" 
-                                                Height="32" 
-                                                FontSize="11" 
-                                                Padding="15,0"
-                                                BorderBrush="{DynamicResource MaterialDesignBody}"
-                                                Foreground="{DynamicResource MaterialDesignBody}"/>
+                                        <StackPanel.Resources>
+                                            <Style x:Key="BtnInstallStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+
+                                            <Style x:Key="PanelActionsStyle" TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Resources>
+
+                                        <Button Style="{StaticResource BtnInstallStyle}" 
+            Command="{Binding InstallCommand}"
+            Content="INSTALLER" 
+            Height="32" 
+            FontSize="11" 
+            Padding="15,0"
+            BorderBrush="{DynamicResource MaterialDesignBody}"
+            Foreground="{DynamicResource MaterialDesignBody}"/>
+
+                                        <StackPanel Orientation="Horizontal" Style="{StaticResource PanelActionsStyle}">
+
+                                            <ToggleButton 
+            Style="{StaticResource MaterialDesignActionToggleButton}" 
+            IsChecked="{Binding IsFavorite, Mode=TwoWay}"
+            ToolTip="Définir comme imprimante par défaut" 
+            Margin="0,0,5,0" 
+            Width="32" Height="32">
+                                                <materialDesign:PackIcon Kind="StarOutline" Opacity="0.3" />
+                                                <materialDesign:ToggleButtonAssist.OnContent>
+                                                    <materialDesign:PackIcon Kind="Star" Foreground="Gold"/>
+                                                </materialDesign:ToggleButtonAssist.OnContent>
+                                            </ToggleButton>
+
+                                            <Button Style="{StaticResource MaterialDesignIconButton}" 
+                Command="{Binding UninstallCommand}"
+                ToolTip="Retirer cette imprimante"
+                Width="32" Height="32"
+                Foreground="{DynamicResource MaterialDesignErrorBrush}">
+                                                <materialDesign:PackIcon Kind="DeleteOutline" />
+                                            </Button>
+                                        </StackPanel>
+
                                     </StackPanel>
                                 </Grid>
                             </materialDesign:Card>
@@ -119,10 +156,15 @@
                 <Grid>
                     <StackPanel Orientation="Horizontal" Opacity="0.4" VerticalAlignment="Center">
                         <materialDesign:PackIcon Kind="InformationOutline" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ApplicationVersion}" FontSize="11"/>
+                        <TextBlock Text="{Binding AppVersion}" FontSize="11"/>
                     </StackPanel>
 
-                    <Button Style="{StaticResource MaterialDesignFlatButton}" HorizontalAlignment="Right" Height="30" Padding="10,0" Foreground="{DynamicResource MaterialDesignBody}">
+                    <Button Style="{StaticResource MaterialDesignFlatButton}" 
+        HorizontalAlignment="Right" 
+        Height="30" 
+        Padding="10,0" 
+        Foreground="{DynamicResource MaterialDesignBody}"
+        Click="BtnActualiser_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             <TextBlock Text="ACTUALISER" FontSize="11" VerticalAlignment="Center"/>

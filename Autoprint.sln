@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Shared", "Autopri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Client", "Autoprint.Client\Autoprint.Client.csproj", "{CEFAB3FB-3F32-4F00-830A-51D4B03D9F9A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Service", "Autoprint.Service\Autoprint.Service.csproj", "{C9A11D92-279F-4C3C-8736-5E7B8F7D219D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{CEFAB3FB-3F32-4F00-830A-51D4B03D9F9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CEFAB3FB-3F32-4F00-830A-51D4B03D9F9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CEFAB3FB-3F32-4F00-830A-51D4B03D9F9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9A11D92-279F-4C3C-8736-5E7B8F7D219D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9A11D92-279F-4C3C-8736-5E7B8F7D219D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9A11D92-279F-4C3C-8736-5E7B8F7D219D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9A11D92-279F-4C3C-8736-5E7B8F7D219D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

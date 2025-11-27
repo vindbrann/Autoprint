@@ -32,6 +32,19 @@ namespace Autoprint.Client
         {
             this.Hide();
         }
+        private async void BtnActualiser_Click(object sender, RoutedEventArgs e)
+        {
+            // On récupère l'instance courante de l'application
+            if (Application.Current is App myApp)
+            {
+                // On change le curseur pour montrer que ça charge
+                Mouse.OverrideCursor = Cursors.Wait;
+
+                await myApp.RafraichirDonneesAsync();
+
+                Mouse.OverrideCursor = null; // Retour à la normale
+            }
+        }
 
         // 6. RÉCUPÉRATION DE LA VERSION
         public string ApplicationVersion
