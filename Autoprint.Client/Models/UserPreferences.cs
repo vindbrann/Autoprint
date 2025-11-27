@@ -12,6 +12,9 @@ namespace Autoprint.Client.Models
         // CONFIGURATION SYSTÈME (Sauvegardée ici)
         public string? PrintServerName { get; set; }
 
+        // Clé d'API pour l'authentification Agent ---
+        public string? AgentApiKey { get; set; }
+
         // Historique & Intelligence (Location Awareness)
         public string? LastDetectedLocationCode { get; set; }
 

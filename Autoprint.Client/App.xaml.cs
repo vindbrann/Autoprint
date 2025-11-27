@@ -10,9 +10,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Net.NetworkInformation;
 
 namespace Autoprint.Client
 {
@@ -30,7 +30,7 @@ namespace Autoprint.Client
         private ApiService? _apiService;
         private DataService? _dataService;
 
-        // UI & État
+        // UI & ViewModels
         private MainWindow? _mainWindow;
         private MainWindowViewModel? _mainViewModel;
         private OptionsWindow? _optionsWindow;
@@ -38,10 +38,14 @@ namespace Autoprint.Client
         private ManagePrintersWindow? _manageWindow;
         private ManagePrintersViewModel? _manageViewModel;
 
-        // Données en mémoire
+        // État de l'application
         private List<Imprimante> _toutesLesImprimantes = new List<Imprimante>();
         private Emplacement? _lieuActuel = null;
         private string _ipActuelle = "Inconnue";
+
+        // État de Connexion (Bloc B)
+        private bool _estHorsLigne = false;
+        private System.Timers.Timer? _retryTimer;
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -50,14 +54,12 @@ namespace Autoprint.Client
             {
                 if (args.Category == UserPreferenceCategory.General) UpdateTheme();
             };
-            UpdateTheme(); // Appliquer le thème au démarrage
+            UpdateTheme();
 
             base.OnStartup(e);
 
             // 2. Init UI
-            // IMPORTANT : On charge l'objet depuis le XAML
             _notifyIcon = (TaskbarIcon)FindResource("MainNotifyIcon");
-
             if (_notifyIcon != null)
             {
                 _notifyIcon.IconSource = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Autoprint.ico"));
@@ -75,33 +77,35 @@ namespace Autoprint.Client
             _manageWindow = new ManagePrintersWindow();
             _manageWindow.DataContext = _manageViewModel;
 
-            // 3. Init Services
-            _configService.Initialize(e.Args);
+            // 3. Init Services & Configuration (Bloc A - Validé)
+            // On passe les arguments et le service de préférences pour gérer la persistance JSON
+            _configService.Initialize(e.Args, _prefService);
+
+            // L'API Service est initialisé avec la clé consolidée
             _apiService = new ApiService(_configService.ApiKey);
+
             _pathService.Initialize(e.Args);
             _dataService = new DataService(_pathService);
             await _dataService.InitializeAsync();
 
-            string? argServer = GetArgValue(e.Args, "--print-server");
-
-            if (!string.IsNullOrEmpty(argServer))
+            // 4. Init Timer de reconnexion (Bloc B - Watchdog)
+            _retryTimer = new System.Timers.Timer(30000); // 30 secondes
+            _retryTimer.AutoReset = true;
+            _retryTimer.Elapsed += async (s, args) =>
             {
-                // Si oui, on l'écrase dans la config utilisateur et on sauvegarde
-                _prefService.Current.PrintServerName = argServer;
-                _prefService.Save();
-            }
+                // On revient sur le thread UI pour relancer la tentative
+                await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync());
+            };
 
-            // --- AJOUT : ÉCOUTEUR RÉSEAU ---
-            // Dès que l'IP change, Windows prévient l'application
+            // 5. Écouteur Réseau
             NetworkChange.NetworkAddressChanged += async (s, args) => await OnReseauChangeAsync();
-            // -------------------------------
 
-            // 4. Lancer la récupération
+            // 6. Premier Lancement
             await RafraichirDonneesAsync(estDemarrage: true);
         }
 
         // ============================================================
-        // CŒUR DE L'APPLICATION
+        // CŒUR DE L'APPLICATION (Logique Métier & Réseau)
         // ============================================================
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
         {
@@ -109,10 +113,15 @@ namespace Autoprint.Client
             string? myIp = _networkService.GetLocalIpAddress();
             _ipActuelle = myIp ?? "Non connecté";
 
-            // B. Récupération Données
             List<Emplacement> lieux = new List<Emplacement>();
-            bool modeHorsLigne = false;
 
+            // On part du principe qu'on va y arriver
+            bool echecConnexion = false;
+
+            // On reset l'état local avant de tenter (sauf si on tombe dans le catch)
+            _estHorsLigne = false;
+
+            // B. Tentative de Connexion
             try
             {
                 if (_apiService != null)
@@ -124,24 +133,40 @@ namespace Autoprint.Client
                     lieux = taskLieux.Result;
                     _toutesLesImprimantes = taskImprimantes.Result;
 
-                    if (_dataService != null && lieux.Count > 0)
+                    // Si l'API renvoie 0 lieu alors qu'on attend des données, on considère ça comme une erreur
+                    if (lieux.Count == 0) throw new Exception("API vide ou injoignable");
+
+                    // SUCCÈS : Mise à jour du cache local
+                    if (_dataService != null)
                     {
-                        // On passe tout d'un coup à la méthode atomique
                         await _dataService.UpdateCacheAsync(lieux, _toutesLesImprimantes);
                     }
+
+                    // On arrête le timer de retry car tout va bien
+                    _retryTimer?.Stop();
                 }
             }
             catch
             {
+                System.Diagnostics.Debug.WriteLine("Passage en mode HORS LIGNE");
+                echecConnexion = true;
+                _estHorsLigne = true;
+
+                // ÉCHEC : On active le Watchdog pour réessayer plus tard
+                if (_retryTimer != null && !_retryTimer.Enabled)
+                {
+                    _retryTimer.Start();
+                }
+
+                // Fallback sur le Cache SQLite
                 if (_dataService != null)
                 {
                     lieux = await _dataService.GetEmplacementsAsync();
                     _toutesLesImprimantes = await _dataService.GetImprimantesAsync();
-                    modeHorsLigne = true;
                 }
             }
 
-            // C. Logique "Métier"
+            // C. Logique de Lieu et Notifications
             string titreNotif = "Autoprint";
             string messageNotif = "Mise à jour...";
             BalloonIcon iconeNotif = BalloonIcon.None;
@@ -155,17 +180,20 @@ namespace Autoprint.Client
                 {
                     _lieuActuel = lieuTrouve;
 
+                    // Sauvegarde du dernier lieu connu
                     if (_prefService.Current.LastDetectedLocationCode != lieuTrouve.Code)
                     {
                         _prefService.Current.LastDetectedLocationCode = lieuTrouve.Code;
                         _prefService.Save();
                     }
 
-                    MettreAJourInterface();
+                    // Mise à jour de l'UI avec l'état de connexion
+                    MettreAJourInterface(_estHorsLigne);
 
                     int nbImprimantesZone = _toutesLesImprimantes.Count(i => i.EmplacementId == lieuTrouve.Id);
                     titreNotif = $"📍 Lieu : {lieuTrouve.Nom}";
 
+                    // Switch automatique de l'imprimante par défaut
                     string messageSwitch = "";
                     if (_prefService.Current.AutoSwitchDefaultPrinter)
                     {
@@ -185,12 +213,16 @@ namespace Autoprint.Client
                     else
                         messageNotif = "Aucune imprimante pour cette zone.";
 
-                    if (modeHorsLigne) messageNotif += "\n(Mode Hors-Ligne ⚠️)";
+                    if (_estHorsLigne)
+                    {
+                        messageNotif += "\n(Mode Hors-Ligne ⚠️)";
+                        iconeNotif = BalloonIcon.Warning;
+                    }
                 }
                 else
                 {
                     _lieuActuel = null;
-                    MettreAJourInterface();
+                    MettreAJourInterface(_estHorsLigne);
                     titreNotif = "⛔ Lieu Inconnu";
                     messageNotif = $"IP : {myIp}\nAucune zone correspondante.";
                     iconeNotif = BalloonIcon.Warning;
@@ -198,19 +230,23 @@ namespace Autoprint.Client
             }
             else
             {
+                // Cas Critique : Pas de réseau ET pas de cache
+                MettreAJourInterface(_estHorsLigne);
                 titreNotif = "Erreur";
                 messageNotif = "Impossible de récupérer la configuration.";
                 iconeNotif = BalloonIcon.Error;
                 shouldNotify = true;
             }
 
-            if (_notifyIcon != null && shouldNotify)
+            // Affichage de la bulle (éviter le spam en cas de boucle retry)
+            // On notifie seulement au démarrage ou si ce n'est pas un retry automatique silencieux
+            if (_notifyIcon != null && shouldNotify && estDemarrage)
             {
                 _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
             }
         }
 
-        private void MettreAJourInterface()
+        private void MettreAJourInterface(bool isOffline = false)
         {
             if (_mainViewModel == null) return;
 
@@ -226,7 +262,7 @@ namespace Autoprint.Client
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                _mainViewModel.ChargerDonnees(nomLieu, codeLieu, imprimantesDuLieu, _ipActuelle);
+                _mainViewModel.ChargerDonnees(nomLieu, codeLieu, imprimantesDuLieu, _ipActuelle, isOffline);
             });
         }
 
@@ -256,17 +292,17 @@ namespace Autoprint.Client
             catch { return false; }
         }
 
-        // --- GESTION DES MENUS CORRIGÉE (Sécurité) ---
+        // ============================================================
+        // GESTION DES FENÊTRES ET MENUS
+        // ============================================================
 
         private void MenuOptions_Click(object sender, RoutedEventArgs e)
         {
-            // SÉCURITÉ : Si la fenêtre a été fermée (Alt+F4) ou n'existe pas, on la recrée
             if (_optionsWindow == null || !_optionsWindow.IsLoaded)
             {
                 _optionsWindow = new OptionsWindow();
                 _optionsWindow.DataContext = _optionsViewModel;
             }
-
             _optionsWindow.Show();
             _optionsWindow.Activate();
         }
@@ -281,19 +317,12 @@ namespace Autoprint.Client
             {
                 _manageWindow = new ManagePrintersWindow();
                 _manageWindow.DataContext = _manageViewModel;
-
-                // --- AJOUT CRITIQUE : SYNCHRONISATION ---
-                // Quand la fenêtre de gestion se ferme, on rafraîchit la principale
                 _manageWindow.Closed += (s, args) =>
                 {
-                    // On met à jour le ViewModel principal
                     _mainViewModel?.RafraichirEtatInstallation();
-
-                    // On libère la référence pour qu'elle soit recréée proprement la prochaine fois
                     _manageWindow = null;
                 };
             }
-
             _manageWindow.Show();
             _manageWindow.Activate();
         }
@@ -301,12 +330,14 @@ namespace Autoprint.Client
         private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherFenetre();
         private void OnTrayDoubleClick(object sender, RoutedEventArgs e) => AfficherFenetre();
         private void MenuOpen_Click(object sender, RoutedEventArgs e) => AfficherFenetre();
-        private void MenuExit_Click(object sender, RoutedEventArgs e) { _notifyIcon?.Dispose(); Shutdown(); }
+        private void MenuExit_Click(object sender, RoutedEventArgs e) { Shutdown(); }
 
         private void AfficherFenetre()
         {
             if (_mainWindow == null) return;
-            MettreAJourInterface();
+
+            // On rafraîchit l'interface avec le DERNIER état connu (Online/Offline)
+            MettreAJourInterface(_estHorsLigne);
 
             if (_mainViewModel != null)
             {
@@ -321,32 +352,18 @@ namespace Autoprint.Client
 
         private async Task OnReseauChangeAsync()
         {
-            // 1. Temporisation (Debounce)
-            // On attend que Windows finisse sa négociation DHCP (obtenir l'IP)
-            await Task.Delay(3000);
-
-            // 2. On retourne sur le Thread Principal (UI)
-            // Les événements réseau arrivent sur un thread secondaire, il faut revenir au principal
-            // sinon l'application va crasher en essayant de toucher à l'interface.
+            await Task.Delay(3000); // Debounce
             await Dispatcher.InvokeAsync(async () =>
             {
-                // On lance le rafraîchissement silencieux (pas de paramètre ou false)
                 await RafraichirDonneesAsync();
             });
-        }
-
-        private string? GetArgValue(string[] args, string name)
-        {
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i] == name && i + 1 < args.Length) return args[i + 1];
-            }
-            return null;
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
             _notifyIcon?.Dispose();
+            _retryTimer?.Stop();
+            _retryTimer?.Dispose();
             base.OnExit(e);
         }
     }

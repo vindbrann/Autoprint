@@ -37,9 +37,33 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Opacity="0.5">
-                        <materialDesign:PackIcon Kind="PrinterSettings" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="AUTOPRINT CLIENT" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+
+                        <Image Source="pack://application:,,,/Autoprint.ico" 
+                               Width="24" Height="24" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,12,0" 
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                        <TextBlock Text="AUTOPRINT CLIENT" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Opacity="0.5"/>
+
+                        <TextBlock Text=" - MODE HORS LIGNE" 
+                                   FontSize="10" 
+                                   FontWeight="Bold" 
+                                   VerticalAlignment="Center" 
+                                   Foreground="{DynamicResource MaterialDesignValidationErrorBrush}" 
+                                   Margin="5,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOffline}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,10,0,0">

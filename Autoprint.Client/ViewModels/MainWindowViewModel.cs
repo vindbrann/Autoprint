@@ -1,6 +1,6 @@
 ﻿using Autoprint.Client.Models;
 using Autoprint.Client.Services;
-using Autoprint.Shared;
+using Autoprint.Shared; // Pour Emplacement et Imprimante
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,8 +18,24 @@ namespace Autoprint.Client.ViewModels
         private readonly UserPreferencesService? _prefService;
         private readonly IpcService? _ipcService;
 
+        private string _appVersion = "v1.0";
+        public string AppVersion
+        {
+            get => _appVersion;
+            set { if (_appVersion != value) { _appVersion = value; OnPropertyChanged(); } }
+        }
+
         private string _codeLieuActuel = string.Empty;
         private bool _isUpdatingFavorites = false;
+
+        // --- AJOUT : État de Connexion ---
+        private bool _isOffline;
+        public bool IsOffline
+        {
+            get => _isOffline;
+            set { if (_isOffline != value) { _isOffline = value; OnPropertyChanged(); } }
+        }
+        // ---------------------------------
 
         private string _titreLieu = "Chargement...";
         public string TitreLieu
@@ -38,11 +54,22 @@ namespace Autoprint.Client.ViewModels
             _ipcService = ipcService;
         }
 
-        public void ChargerDonnees(string nomLieu, string codeLieu, List<Imprimante> toutesLesImprimantes, string ipLocale)
+        // --- MODIFICATION : Ajout du paramètre 'isOffline' ---
+        public void ChargerDonnees(string nomLieu, string codeLieu, List<Imprimante> toutesLesImprimantes, string ipLocale, bool isOffline)
         {
-            TitreLieu = $"📍 Lieu : {nomLieu}";
-            _codeLieuActuel = codeLieu;
+            IsOffline = isOffline; // On met à jour l'état
 
+            // On adapte le titre si on est hors ligne
+            TitreLieu = nomLieu;
+
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            if (v != null)
+            {
+                // Format v1.0.2 (Majeure.Mineure.Build)
+                AppVersion = $"v{v.Major}.{v.Minor}.{v.Build}";
+            }
+
+            _codeLieuActuel = codeLieu;
             Imprimantes.Clear();
 
             string? favoriActuel = null;
@@ -51,7 +78,6 @@ namespace Autoprint.Client.ViewModels
                 _prefService.Current.PreferredPrinters.TryGetValue(codeLieu, out favoriActuel);
             }
 
-            // On récupère le dictionnaire : Clé=NomSimple, Valeur=VraiCheminUNC
             var installedMap = GetInstalledPrintersMap();
 
             foreach (var imp in toutesLesImprimantes)
@@ -59,7 +85,6 @@ namespace Autoprint.Client.ViewModels
                 var item = new ImprimanteUiItem(imp, OnFavoriChanged, OnInstallStatusChanged);
                 string nomApp = imp.NomAffiche.ToLower();
 
-                // Vérification intelligente
                 if (IsPrinterInstalled(nomApp, installedMap))
                 {
                     item.IsInstalled = true;
@@ -90,9 +115,8 @@ namespace Autoprint.Client.ViewModels
             }
         }
 
-        // --- LOGIQUE DE RECHERCHE ---
+        // --- LOGIQUE SYSTÈME ---
 
-        // Retourne un Dictionnaire { "nom_imprimante" : "\\serveur\nom_imprimante" }
         private Dictionary<string, string> GetInstalledPrintersMap()
         {
             var map = new Dictionary<string, string>();
@@ -104,9 +128,7 @@ namespace Autoprint.Client.ViewModels
                     foreach (var q in queues)
                     {
                         string name = q.Name.ToLower();
-                        // On stocke le chemin complet s'il existe, sinon le nom simple
                         string path = !string.IsNullOrEmpty(q.FullName) ? q.FullName : q.Name;
-
                         if (!map.ContainsKey(name)) map.Add(name, path);
                     }
                 }
@@ -117,10 +139,7 @@ namespace Autoprint.Client.ViewModels
 
         private bool IsPrinterInstalled(string nomApp, Dictionary<string, string> map)
         {
-            // 1. Correspondance exacte
             if (map.ContainsKey(nomApp)) return true;
-
-            // 2. Correspondance partielle (si le nom Windows finit par le nom App)
             return map.Keys.Any(k => k.EndsWith($"\\{nomApp}") || k.Contains(nomApp));
         }
 
@@ -147,34 +166,32 @@ namespace Autoprint.Client.ViewModels
 
         private async void OnInstallStatusChanged(ImprimanteUiItem item, bool install)
         {
+            // Bloquer l'installation si on est Hors Ligne (optionnel, mais recommandé)
+            if (IsOffline && install)
+            {
+                MessageBox.Show("Impossible d'installer une imprimante en mode hors ligne.\nVeuillez vous connecter au réseau.", "Mode Hors Ligne", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (_ipcService == null || _prefService == null) return;
 
             string printerName = item.Data.NomAffiche;
             string? serverName = _prefService.Current.PrintServerName;
-
-            // Chemin par défaut (construit) pour l'installation
             string targetPath = $@"\\{serverName}\{printerName}";
 
-            // POUR LA DÉSINSTALLATION : ON CHERCHE LE VRAI CHEMIN
             if (!install)
             {
                 var installedMap = GetInstalledPrintersMap();
                 string nomCherche = printerName.ToLower();
-
-                // On cherche le vrai chemin UNC connu de Windows
                 var match = installedMap.FirstOrDefault(kvp =>
                     kvp.Key == nomCherche ||
                     kvp.Key.EndsWith($"\\{nomCherche}") ||
                     kvp.Key.Contains(nomCherche));
 
-                if (!string.IsNullOrEmpty(match.Value))
-                {
-                    targetPath = match.Value; // On utilise le vrai chemin trouvé !
-                }
+                if (!string.IsNullOrEmpty(match.Value)) targetPath = match.Value;
             }
             else
             {
-                // Pour l'installation, on vérifie quand même la config
                 if (string.IsNullOrWhiteSpace(serverName))
                 {
                     MessageBox.Show("Serveur non configuré (voir Options).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -182,12 +199,9 @@ namespace Autoprint.Client.ViewModels
                 }
             }
 
-            bool success = false;
-
-            if (install)
-                success = await _ipcService.InstallPrinterAsync(printerName, targetPath);
-            else
-                success = await _ipcService.UninstallPrinterAsync(printerName, targetPath);
+            bool success = install
+                ? await _ipcService.InstallPrinterAsync(printerName, targetPath)
+                : await _ipcService.UninstallPrinterAsync(printerName, targetPath);
 
             if (success)
             {
