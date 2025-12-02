@@ -3,6 +3,7 @@ using Autoprint.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Autoprint.Server.Services;
 
 namespace Autoprint.Server.Controllers
 {
@@ -12,10 +13,12 @@ namespace Autoprint.Server.Controllers
     public class MarquesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly AuditService _auditService;
 
-        public MarquesController(ApplicationDbContext context)
+        public MarquesController(ApplicationDbContext context, AuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         [HttpGet]
@@ -35,11 +38,21 @@ namespace Autoprint.Server.Controllers
             if (id != marque.Id) return BadRequest();
             _context.Entry(marque).State = EntityState.Modified;
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "BRAND_UPDATE", Details = $"Modification marque : {marque.Nom}", Utilisateur = User.Identity?.Name ?? "System", Niveau = "INFO", DateAction = DateTime.UtcNow });
+            try
+            {
+                await _auditService.LogUpdateAsync(
+                    id,
+                    marque,
+                    "BRAND_UPDATE",
+                    User.Identity?.Name);
 
-            try { await _context.SaveChangesAsync(); }
-            catch (DbUpdateConcurrencyException) { if (!MarqueExists(id)) return NotFound(); else throw; }
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!MarqueExists(id)) return NotFound();
+                else throw;
+            }
             return NoContent();
         }
 
@@ -49,8 +62,11 @@ namespace Autoprint.Server.Controllers
         {
             _context.Marques.Add(marque);
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "BRAND_CREATE", Details = $"Création marque : {marque.Nom}", Utilisateur = User.Identity?.Name ?? "System", Niveau = "INFO", DateAction = DateTime.UtcNow });
+            _auditService.LogAction(
+                "BRAND_CREATE",
+                $"Création marque : {marque.Nom}",
+                User.Identity?.Name,
+                resourceName: marque.Nom);
 
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetMarque", new { id = marque.Id }, marque);
@@ -63,8 +79,12 @@ namespace Autoprint.Server.Controllers
             var marque = await _context.Marques.FindAsync(id);
             if (marque == null) return NotFound();
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "BRAND_DELETE", Details = $"Suppression marque : {marque.Nom}", Utilisateur = User.Identity?.Name ?? "System", Niveau = "WARNING", DateAction = DateTime.UtcNow });
+            _auditService.LogAction(
+                "BRAND_DELETE",
+                $"Suppression marque : {marque.Nom}",
+                User.Identity?.Name,
+                "WARNING",
+                resourceName: marque.Nom);
 
             _context.Marques.Remove(marque);
             await _context.SaveChangesAsync();

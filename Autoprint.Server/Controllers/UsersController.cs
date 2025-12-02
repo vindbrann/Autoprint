@@ -3,11 +3,12 @@ using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
-using Autoprint.Shared; // Pour AuditLog
+using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Autoprint.Server.Services;
 
 namespace Autoprint.Server.Controllers
 {
@@ -16,10 +17,12 @@ namespace Autoprint.Server.Controllers
     public class UsersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly AuditService _auditService;
 
-        public UsersController(ApplicationDbContext context)
+        public UsersController(ApplicationDbContext context, AuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         // GET: api/users
@@ -67,9 +70,7 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<User>> CreateUser(CreateUserDto request)
         {
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
-            {
                 return BadRequest("Ce nom d'utilisateur existe déjà.");
-            }
 
             var newUser = new User
             {
@@ -82,22 +83,16 @@ namespace Autoprint.Server.Controllers
             };
 
             if (!string.IsNullOrEmpty(request.Password))
-            {
                 newUser.PasswordHash = SecurityHelper.ComputeSha256Hash(request.Password);
-            }
 
             _context.Users.Add(newUser);
 
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
-            {
-                Action = "USER_CREATE",
-                Details = $"Création utilisateur : {newUser.Username} ({newUser.DisplayName})",
-                Utilisateur = User.Identity?.Name ?? "Inconnu",
-                Niveau = "WARNING", // Créer un user est une action sensible
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
+            _auditService.LogAction(
+                "USER_CREATE",
+                $"Création utilisateur : {newUser.Username} ({newUser.DisplayName})",
+                User.Identity?.Name,
+                "WARNING",
+                resourceName: newUser.Username);
 
             await _context.SaveChangesAsync();
 
@@ -115,42 +110,105 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "USER_WRITE")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto request)
         {
-            var user = await _context.Users.FindAsync(id);
+            // CORRECTION CRITIQUE : Utiliser Include pour charger les rôles existants
+            // Sinon le snapshot "Avant" croit qu'il n'y a pas de rôles.
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
             if (user == null) return NotFound();
 
+            // 1. Snapshot "Avant"
+            var snapshotBefore = new
+            {
+                user.Username,
+                user.DisplayName,
+                user.Email,
+                user.IsActive,
+                user.ForceChangePassword,
+                // Maintenant Roles sera correctement rempli (ex: ["Admin"])
+                Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+            };
+
+            // 2. Détection changements
+            bool isPasswordReset = !string.IsNullOrWhiteSpace(request.NewPassword);
+            bool isForceChangeToggled = user.ForceChangePassword != request.ForceChangePassword;
+            bool isStatusChanged = user.IsActive != request.IsActive;
+
+            // 3. Mise à jour
             user.DisplayName = request.DisplayName;
             user.Email = request.Email;
-
-            // Log changement statut
-            if (user.IsActive != request.IsActive)
-            {
-                _context.AuditLogs.Add(new AuditLog
-                {
-                    Action = "USER_UPDATE",
-                    Details = $"Statut utilisateur {user.Username} modifié : {(request.IsActive ? "Activé" : "Désactivé")}",
-                    Utilisateur = User.Identity?.Name ?? "Inconnu",
-                    Niveau = "WARNING",
-                    DateAction = DateTime.UtcNow
-                });
-            }
-
             user.IsActive = request.IsActive;
             user.ForceChangePassword = request.ForceChangePassword;
 
-            if (!string.IsNullOrWhiteSpace(request.NewPassword))
+            if (isPasswordReset)
             {
-                // Note: on ne logue PAS qu'on a changé le mot de passe ici pour éviter le spam log si c'est l'admin
-                // Mais on pourrait le faire si on voulait être strict.
                 user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
                 user.LastPasswordChangeDate = DateTime.UtcNow;
             }
 
-            if (request.RoleId > 0)
+            // Gestion des Rôles
+            // On ne touche à la table UserRoles que si le rôle demandé est différent
+            int currentRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
+
+            if (request.RoleId > 0 && request.RoleId != currentRoleId)
             {
                 var existingRoles = _context.UserRoles.Where(ur => ur.UserId == id);
                 _context.UserRoles.RemoveRange(existingRoles);
                 _context.UserRoles.Add(new UserRole { UserId = id, RoleId = request.RoleId });
             }
+
+            // 4. Snapshot "Après"
+            // On récupère le nom du rôle pour l'affichage (soit le nouveau, soit l'ancien)
+            string roleNameAfter;
+            if (request.RoleId > 0 && request.RoleId != currentRoleId)
+            {
+                // Si changement, on cherche le nom du nouveau rôle
+                roleNameAfter = await _context.Roles
+                   .Where(r => r.Id == request.RoleId)
+                   .Select(r => r.Name)
+                   .FirstOrDefaultAsync() ?? "Inconnu";
+            }
+            else
+            {
+                // Si pas de changement, on garde l'ancien nom
+                roleNameAfter = snapshotBefore.Roles.FirstOrDefault() ?? "Aucun";
+            }
+
+            var snapshotAfter = new
+            {
+                user.Username,
+                user.DisplayName,
+                user.Email,
+                user.IsActive,
+                user.ForceChangePassword,
+                Roles = new List<string> { roleNameAfter }
+            };
+
+            // 5. Log
+            string actionCode = "USER_UPDATE";
+            List<string> detailsParts = new();
+
+            if (isPasswordReset)
+            {
+                actionCode = "USER_PASSWORD_RESET";
+                detailsParts.Add("Réinitialisation du mot de passe (Admin)");
+            }
+            if (isForceChangeToggled) detailsParts.Add($"Obligation changement MDP : {(request.ForceChangePassword ? "OUI" : "NON")}");
+            if (isStatusChanged) detailsParts.Add($"Statut : {(request.IsActive ? "Actif" : "Inactif")}");
+
+            if (detailsParts.Count == 0) detailsParts.Add("Mise à jour informations");
+
+            _auditService.LogCustomAudit(
+                actionCode,
+                string.Join(" + ", detailsParts),
+                User.Identity?.Name,
+                user.Username,
+                snapshotBefore,
+                snapshotAfter,
+                "WARNING"
+            );
 
             await _context.SaveChangesAsync();
             return NoContent();
@@ -166,24 +224,17 @@ namespace Autoprint.Server.Controllers
 
             if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
 
+            _auditService.LogAction(
+                "USER_DELETE",
+                $"Suppression utilisateur : {user.Username}",
+                User.Identity?.Name,
+                "ERROR",
+                resourceName: user.Username);
+
             _context.Users.Remove(user);
-
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
-            {
-                Action = "USER_DELETE",
-                Details = $"Suppression utilisateur : {user.Username}",
-                Utilisateur = User.Identity?.Name ?? "Inconnu",
-                Niveau = "ERROR", // Suppression user = critique
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
-
             await _context.SaveChangesAsync();
             return NoContent();
         }
-
-        // --- PARTIE PROFIL ---
 
         [HttpGet("profile")]
         [Authorize]
@@ -209,11 +260,6 @@ namespace Autoprint.Server.Controllers
                 var expirationDate = user.LastPasswordChangeDate.Value.AddDays(maxDays);
                 daysRemaining = (int)(expirationDate - DateTime.UtcNow).TotalDays;
                 if (daysRemaining < 0) isExpired = true;
-            }
-            else
-            {
-                daysRemaining = 0;
-                isExpired = true;
             }
 
             return new UserProfileDto
@@ -243,16 +289,12 @@ namespace Autoprint.Server.Controllers
             user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
             user.LastPasswordChangeDate = DateTime.UtcNow;
 
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
-            {
-                Action = "USER_PWD_CHANGE",
-                Details = "Changement de mot de passe utilisateur",
-                Utilisateur = user.Username, // C'est l'utilisateur lui-même
-                Niveau = "INFO",
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
+            _auditService.LogAction(
+                "USER_PWD_CHANGE",
+                "Changement de mot de passe utilisateur",
+                user.Username,
+                "INFO",
+                resourceName: user.Username);
 
             await _context.SaveChangesAsync();
             return NoContent();

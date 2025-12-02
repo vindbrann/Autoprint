@@ -1,12 +1,12 @@
 ﻿using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
-using Autoprint.Shared.DTOs; // Assure-toi que tes DTOs sont bien là
+using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.DirectoryServices; // Pour le test AD avancé
-using System.DirectoryServices.AccountManagement; // Pour le test AD simple
+using System.DirectoryServices;
+using System.DirectoryServices.AccountManagement;
 
 namespace Autoprint.Server.Controllers
 {
@@ -17,11 +17,13 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly AuditService _auditService;
 
-        public SettingsController(ApplicationDbContext context, IEmailService emailService)
+        public SettingsController(ApplicationDbContext context, IEmailService emailService, AuditService auditService)
         {
             _context = context;
             _emailService = emailService;
+            _auditService = auditService;
         }
 
         [HttpGet]
@@ -34,70 +36,77 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)
         {
-            // 1. On charge l'état ACTUEL pour comparer (Avant modif)
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
-            var changes = new List<string>();
 
-            // Petite fonction locale pour comparer proprement
-            void Check(string key, string newValue, string label, bool isSecret = false)
+            // On utilise un HashSet pour stocker les catégories modifiées sans doublons
+            // Ex: Si je change Host et Port, je n'aurai qu'une seule fois "SMTP"
+            var modifiedCategories = new HashSet<string>();
+
+            // Dictionnaires pour le tableau comparatif JSON
+            var jsonBefore = new Dictionary<string, string>();
+            var jsonAfter = new Dictionary<string, string>();
+
+            // Fonction locale mise à jour avec paramètre 'category'
+            void Check(string key, string newValue, string label, string category, bool isSecret = false)
             {
                 string oldValue = currentSettings.ContainsKey(key) ? currentSettings[key] : "";
-                if (newValue == null) newValue = ""; // On évite les nulls
+                if (newValue == null) newValue = "";
 
                 if (oldValue != newValue)
                 {
-                    if (isSecret)
-                        changes.Add($"{label} modifié (valeur masquée)");
-                    else
-                        changes.Add($"{label}: '{oldValue}' -> '{newValue}'");
+                    // 1. On note la catégorie modifiée pour le résumé
+                    modifiedCategories.Add(category);
+
+                    // 2. On remplit le détail précis pour le tableau
+                    jsonBefore[label] = isSecret ? "********" : oldValue;
+                    jsonAfter[label] = isSecret ? "********" : newValue;
                 }
             }
 
-            // 2. Comparaison de TOUS les champs pour les logs
-            Check("LogRetentionDays", dto.LogRetentionDays.ToString(), "Rétention Logs");
+            // --- COMPARISONS AVEC CATÉGORIES ---
 
-            Check("SmtpHost", dto.SmtpHost, "SMTP Host");
-            Check("SmtpPort", dto.SmtpPort.ToString(), "SMTP Port");
-            Check("SmtpUser", dto.SmtpUser, "SMTP User");
-            if (!string.IsNullOrEmpty(dto.SmtpPass)) Check("SmtpPass", "changed", "SMTP Password", true);
-            Check("SmtpEnableSsl", dto.SmtpEnableSsl.ToString(), "SMTP SSL");
-            Check("SmtpFromAddress", dto.SmtpFromAddress, "SMTP From");
-
-            Check("NamingTemplate", dto.NamingTemplate, "Template Nom");
-            Check("NamingEnabled", dto.NamingEnabled.ToString(), "Nommage Auto");
-            Check("NamingSameShare", dto.NamingSameShare.ToString(), "Nom Partage");
-            Check("PasswordExpirationDays", dto.PasswordExpirationDays.ToString(), "Expiration MDP");
-
-            Check("AdDomain", dto.AdDomain, "AD Domaine");
-            Check("AdBaseDn", dto.AdBaseDn, "AD BaseDN");
-            Check("AdLdapFilter", dto.AdLdapFilter, "AD Filtre");
-            Check("AdUseServiceAccount", dto.AdUseServiceAccount.ToString(), "AD Service Account");
-            Check("AdServiceUser", dto.AdServiceUser, "AD User");
-            if (!string.IsNullOrEmpty(dto.AdServicePassword)) Check("AdServicePassword", "changed", "AD Password", true);
-            Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes");
-
-
-            // 3. Sauvegarde réelle en Base de Données
-
-            // Rétention
-            if (dto.LogRetentionDays > 0) await UpdateSetting("LogRetentionDays", dto.LogRetentionDays.ToString());
+            // Général
+            Check("LogRetentionDays", dto.LogRetentionDays.ToString(), "Rétention Logs", "Général");
 
             // SMTP
+            Check("SmtpHost", dto.SmtpHost, "SMTP Host", "SMTP");
+            Check("SmtpPort", dto.SmtpPort.ToString(), "SMTP Port", "SMTP");
+            Check("SmtpUser", dto.SmtpUser, "SMTP User", "SMTP");
+            if (!string.IsNullOrEmpty(dto.SmtpPass)) Check("SmtpPass", "CHANGED", "SMTP Password", "SMTP", true);
+            Check("SmtpEnableSsl", dto.SmtpEnableSsl.ToString(), "SMTP SSL", "SMTP");
+            Check("SmtpFromAddress", dto.SmtpFromAddress, "SMTP From", "SMTP");
+
+            // Nommage & Sécurité
+            Check("NamingTemplate", dto.NamingTemplate, "Template Nom", "Nommage");
+            Check("NamingEnabled", dto.NamingEnabled.ToString(), "Nommage Auto", "Nommage");
+            Check("NamingSameShare", dto.NamingSameShare.ToString(), "Nom Partage", "Nommage");
+            Check("PasswordExpirationDays", dto.PasswordExpirationDays.ToString(), "Expiration MDP", "Sécurité");
+
+            // Active Directory
+            Check("AdDomain", dto.AdDomain, "AD Domaine", "Active Directory");
+            Check("AdBaseDn", dto.AdBaseDn, "AD BaseDN", "Active Directory");
+            Check("AdLdapFilter", dto.AdLdapFilter, "AD Filtre", "Active Directory");
+            Check("AdUseServiceAccount", dto.AdUseServiceAccount.ToString(), "AD Service Account", "Active Directory");
+            Check("AdServiceUser", dto.AdServiceUser, "AD User", "Active Directory");
+            if (!string.IsNullOrEmpty(dto.AdServicePassword)) Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
+            Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes", "Active Directory");
+
+
+            // --- SAUVEGARDE EN BDD (Inchangé) ---
+            if (dto.LogRetentionDays > 0) await UpdateSetting("LogRetentionDays", dto.LogRetentionDays.ToString());
+
             await UpdateSetting("SmtpHost", dto.SmtpHost);
             await UpdateSetting("SmtpPort", dto.SmtpPort.ToString());
             await UpdateSetting("SmtpUser", dto.SmtpUser);
-            // On ne met à jour le mot de passe que s'il est fourni (pas vide)
             if (!string.IsNullOrEmpty(dto.SmtpPass)) await UpdateSetting("SmtpPass", dto.SmtpPass);
             await UpdateSetting("SmtpEnableSsl", dto.SmtpEnableSsl.ToString());
             await UpdateSetting("SmtpFromAddress", dto.SmtpFromAddress);
 
-            // Nommage & Sécurité
             await UpdateSetting("NamingTemplate", dto.NamingTemplate);
             await UpdateSetting("NamingEnabled", dto.NamingEnabled.ToString());
             await UpdateSetting("NamingSameShare", dto.NamingSameShare.ToString());
             if (dto.PasswordExpirationDays >= 0) await UpdateSetting("PasswordExpirationDays", dto.PasswordExpirationDays.ToString());
 
-            // Active Directory
             await UpdateSetting("AdDomain", dto.AdDomain);
             await UpdateSetting("AdBaseDn", dto.AdBaseDn);
             await UpdateSetting("AdLdapFilter", dto.AdLdapFilter);
@@ -107,24 +116,29 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("AdAdminEmails", dto.AdAdminEmails);
 
 
-            // 4. Enregistrement du Log d'Audit (si changements détectés)
-            if (changes.Any())
+            // --- ENREGISTREMENT AUDIT ---
+            if (modifiedCategories.Any())
             {
-                _context.AuditLogs.Add(new AuditLog
-                {
-                    Action = "CONFIG_UPDATE",
-                    Details = string.Join(" | ", changes), // On concatène les modifs
-                    Utilisateur = User.Identity?.Name ?? "Unknown",
-                    Niveau = "WARNING",
-                    DateAction = DateTime.UtcNow
-                });
+                // Construction du message résumé
+                // Exemple : "Mise à jour configuration : SMTP + Active Directory"
+                string summary = $"Mise à jour configuration : {string.Join(" + ", modifiedCategories)}";
+
+                _auditService.LogCustomAudit(
+                    "CONFIG_UPDATE",
+                    summary, // Message court et clair
+                    User.Identity?.Name,
+                    "Configuration Serveur",
+                    jsonBefore,
+                    jsonAfter,
+                    "WARNING"
+                );
+
                 await _context.SaveChangesAsync();
             }
 
             return Ok(new { Message = "Configuration sauvegardée avec succès." });
         }
 
-        // --- HELPER POUR METTRE A JOUR UNE CLE ---
         private async Task UpdateSetting(string key, string value)
         {
             var setting = await _context.ServerSettings.FindAsync(key);
@@ -134,8 +148,7 @@ namespace Autoprint.Server.Controllers
                 _context.ServerSettings.Add(new ServerSetting { Key = key, Value = value ?? "", Description = "Auto-generated" });
         }
 
-        // --- ENDPOINTS DE TEST ---
-
+        // --- ENDPOINTS DE TEST (Inchangés) ---
         [HttpPost("TestEmail")]
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> TestEmail([FromBody] TestEmailDto dto)
@@ -152,13 +165,10 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public IActionResult TestAd([FromBody] TestAdDto dto)
         {
-            if (!OperatingSystem.IsWindows())
-                return BadRequest("Le serveur doit tourner sous Windows.");
-
+            if (!OperatingSystem.IsWindows()) return BadRequest("Le serveur doit tourner sous Windows.");
             try
             {
                 ContextType contextType = ContextType.Domain;
-                // Gestion du mot de passe vide (récupération en BDD)
                 string finalPass = dto.ServicePassword;
                 if (dto.UseServiceAccount && string.IsNullOrEmpty(finalPass))
                 {
@@ -181,7 +191,6 @@ namespace Autoprint.Server.Controllers
         public IActionResult TestAdFilter([FromBody] TestAdFilterDto dto)
         {
             if (!OperatingSystem.IsWindows()) return Ok(new { Success = false, Message = "Windows requis." });
-
             try
             {
                 string finalPass = dto.ServicePassword;
@@ -198,7 +207,6 @@ namespace Autoprint.Server.Controllers
                     : new DirectoryEntry(ldapPath);
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
-
                 string configFilter = string.IsNullOrWhiteSpace(dto.Filter) ? "(objectClass=user)" : dto.Filter;
 
                 if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
@@ -209,48 +217,29 @@ namespace Autoprint.Server.Controllers
                 searcher.SizeLimit = 1;
                 var result = searcher.FindOne();
 
-                if (result == null)
-                {
-                    if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
-                        return Ok(new { Success = false, Message = $"❌ L'utilisateur '{dto.TestUserQuery}' est INTROUVABLE avec ce filtre." });
-                    else
-                        return Ok(new { Success = false, Message = "⚠️ Syntaxe valide, mais aucun objet trouvé." });
-                }
+                if (result == null) return Ok(new { Success = false, Message = "Aucun objet trouvé." });
 
                 string name = result.Properties["name"].Count > 0 ? result.Properties["name"][0].ToString()! : "Inconnu";
                 return Ok(new { Success = true, Message = $"✅ SUCCÈS : Objet '{name}' trouvé !" });
             }
-            catch (Exception ex)
-            {
-                return Ok(new { Success = false, Message = $"💥 Erreur LDAP : {ex.Message}" });
-            }
+            catch (Exception ex) { return Ok(new { Success = false, Message = $"💥 Erreur LDAP : {ex.Message}" }); }
         }
     }
 
-    // --- DTOs (Objets de transport) ---
-
+    // --- DTOs (Inchangés) ---
     public class SettingsUpdateDto
     {
-        // NOUVEAU : Rétention
         public int LogRetentionDays { get; set; } = 180;
-
-        // SMTP
         public string SmtpHost { get; set; } = "";
         public int SmtpPort { get; set; } = 25;
         public string SmtpUser { get; set; } = "";
         public string SmtpPass { get; set; } = "";
         public bool SmtpEnableSsl { get; set; } = false;
         public string SmtpFromAddress { get; set; } = "";
-
-        // Naming
         public string NamingTemplate { get; set; } = "";
         public bool NamingEnabled { get; set; } = false;
         public bool NamingSameShare { get; set; } = false;
-
-        // Security
         public int PasswordExpirationDays { get; set; }
-
-        // AD
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";
         public string AdLdapFilter { get; set; } = "";
@@ -260,33 +249,7 @@ namespace Autoprint.Server.Controllers
         public string AdAdminEmails { get; set; } = "";
     }
 
-    public class TestEmailDto
-    {
-        public string Host { get; set; } = "";
-        public int Port { get; set; }
-        public string User { get; set; } = "";
-        public string Password { get; set; } = "";
-        public bool Ssl { get; set; }
-        public string From { get; set; } = "";
-        public string To { get; set; } = "";
-    }
-
-    public class TestAdDto
-    {
-        public string Domain { get; set; } = "";
-        public bool UseServiceAccount { get; set; }
-        public string ServiceUser { get; set; } = "";
-        public string ServicePassword { get; set; } = "";
-    }
-
-    public class TestAdFilterDto
-    {
-        public string Domain { get; set; } = "";
-        public string BaseDn { get; set; } = "";
-        public string Filter { get; set; } = "";
-        public string TestUserQuery { get; set; } = "";
-        public bool UseServiceAccount { get; set; }
-        public string ServiceUser { get; set; } = "";
-        public string ServicePassword { get; set; } = "";
-    }
+    public class TestEmailDto { public string Host { get; set; } = ""; public int Port { get; set; } public string User { get; set; } = ""; public string Password { get; set; } = ""; public bool Ssl { get; set; } public string From { get; set; } = ""; public string To { get; set; } = ""; }
+    public class TestAdDto { public string Domain { get; set; } = ""; public bool UseServiceAccount { get; set; } public string ServiceUser { get; set; } = ""; public string ServicePassword { get; set; } = ""; }
+    public class TestAdFilterDto { public string Domain { get; set; } = ""; public string BaseDn { get; set; } = ""; public string Filter { get; set; } = ""; public string TestUserQuery { get; set; } = ""; public bool UseServiceAccount { get; set; } public string ServiceUser { get; set; } = ""; public string ServicePassword { get; set; } = ""; }
 }

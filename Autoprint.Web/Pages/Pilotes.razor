@@ -36,17 +36,38 @@ else
             <thead class="table-dark">
                 <tr>
                     <th>Nom du Pilote</th>
-                    <th>Version</th>
+                    <th>Type</th>
                     <th class="text-end">Dernière Maj</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var p in pilotes)
                 {
-                    <tr>
-                        <td class="fw-bold">@p.Nom</td>
-                        <td><span class="badge bg-secondary font-monospace">@p.Version</span></td>
-                        <td class="text-end text-muted small">@p.DateModification.ToShortDateString()</td>
+                    <tr class="@(!p.EstInstalle ? "table-danger" : "")">
+                        <td>
+                            <span class="fw-bold">@p.Nom</span>
+                            @if (!p.EstInstalle)
+                            {
+                                <br />
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> INTROUVABLE SUR LE SERVEUR
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary font-monospace">@p.Version</span>
+                        </td>
+                        <td class="text-end">
+                            @if (p.EstInstalle)
+                            {
+                                <span class="badge bg-success rounded-pill">Actif</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger rounded-pill">Manquant</span>
+                            }
+                            <div class="text-muted small mt-1">@p.DateModification.ToShortDateString()</div>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -58,7 +79,9 @@ else
 }
 
 @* MODALE DE SCAN *@
-<ScanDriversModal Show="afficherScanModal" OnCancel="() => afficherScanModal = false" />
+<ScanDriversModal Show="afficherScanModal"
+                  OnCancel="() => afficherScanModal = false"
+                  OnScanComplete="ChargerListe" />
 
 @code {
     private List<Pilote>? pilotes;

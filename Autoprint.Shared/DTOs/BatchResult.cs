@@ -12,6 +12,11 @@
         // --- PROPRIÉTÉS POUR LA SYNCHRO ---
         public bool Success { get; set; } = true;
         public List<string> Messages { get; set; } = new List<string>();
+
+        // >>> AJOUTS POUR LA SYNCHRO PILOTES<<<
+        public int Added { get; set; }
+        public int Updated { get; set; }
+        public int Deleted { get; set; }
     }
 
     // On déplace aussi cette classe qui était souvent dans le même fichier

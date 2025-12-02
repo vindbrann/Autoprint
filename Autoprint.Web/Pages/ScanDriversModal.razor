@@ -1,103 +1,58 @@
 ﻿@using Autoprint.Shared
 @using Autoprint.Shared.DTOs
-@using System.Text.Json
+@using Autoprint.Web.Services
 @inject HttpClient Http
-@inject IJSRuntime JS
+@inject AlertService AlertService
 
 @if (Show)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-xl">
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-hdd-network me-2"></i> Scan des Pilotes (Serveur Local)</h5>
+                    <h5 class="modal-title"><i class="bi bi-hdd-network me-2"></i>Scanner le Serveur</h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="alert alert-info py-2">
-                        <small><i class="bi bi-info-circle"></i> Ce scan interroge le magasin de pilotes Windows du serveur. Cochez ceux que vous voulez ajouter à votre bibliothèque Autoprint.</small>
-                    </div>
-
-                    <div class="text-end mb-3">
-                        <button class="btn btn-primary" @onclick="LancerScan" disabled="@scanEnCours">
-                            @if (scanEnCours)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            else
-                            {
-
-                                <i class="bi bi-search me-2"></i>
-                            }
-                            Lancer le scan
-                        </button>
-                    </div>
-
-                    @if (resultats != null && resultats.Any())
+                    @if (isSyncing)
                     {
-                        <div class="table-responsive border rounded" style="max-height: 500px; overflow-y: auto;">
-                            <table class="table table-hover mb-0 table-sm align-middle">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th class="ps-3" style="width:80px">État</th>
-                                        <th>Nom du Pilote (Windows)</th>
-                                        <th>Version</th>
-                                        <th class="text-end pe-3" style="width:100px">Importer</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var d in resultats)
-                                    {
-                                        <tr class="@(d.SyncStatus == "New" ? "table-info bg-opacity-10" : "")">
-                                            <td class="ps-3 text-center">
-                                                @if (d.SyncStatus == "Synced")
-                                                {
-                                                    <span class="badge bg-success">Synchronisé</span>
-                                                }
-                                                else if (d.SyncStatus == "New")
-                                                {
-                                                    <span class="badge bg-primary">Nouveau</span>
-                                                }
-                                                else if (d.SyncStatus == "Missing")
-                                                {
-                                                    <span class="badge bg-danger">Disparu</span>
-                                                }
-                                            </td>
-                                            <td><strong>@d.Name</strong></td>
-                                            <td><small class="text-muted">@d.DriverVersion</small></td>
-                                            <td class="text-center pe-3">
-                                                @if (d.SyncStatus == "New")
-                                                {
-                                                    <input type="checkbox" class="form-check-input" @bind="d.SelectedForImport" style="cursor:pointer; transform: scale(1.2);" />
-                                                }
-                                                else if (d.SyncStatus == "Synced")
-                                                {
-                                                    <i class="bi bi-check-lg text-success"></i>
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status"></div>
+                            <p>Analyse des pilotes WMI en cours...</p>
                         </div>
                     }
-                    else if (!scanEnCours && resultats != null)
+                    else if (!string.IsNullOrEmpty(errorMessage))
                     {
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                            Aucun pilote trouvé ou erreur lors du scan.
+                        <div class="alert alert-danger">
+                            <strong>Erreur :</strong> @errorMessage
                         </div>
+                    }
+                    else if (result != null)
+                    {
+                        <div class="alert alert-success">
+                            <h6 class="alert-heading">Synchronisation terminée !</h6>
+                            <ul class="mb-0 mt-2">
+                                <li>➕ <strong>@result.Added</strong> ajoutés</li>
+                                <li>🔄 <strong>@result.Updated</strong> mis à jour</li>
+                                <li>❌ <strong>@result.Deleted</strong> nettoyés</li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <p>Lancer la synchronisation avec le Spouleur Windows ?</p>
                     }
                 </div>
 
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Fermer</button>
-                    @if (resultats != null && resultats.Any(d => d.SelectedForImport))
+                <div class="modal-footer">
+                    @if (!isSyncing)
                     {
-                        <button type="button" class="btn btn-success" @onclick="ImporterSelection">
-                            <i class="bi bi-cloud-download me-2"></i> Importer la sélection (@resultats.Count(d => d.SelectedForImport))
-                        </button>
+                        <button class="btn btn-secondary" @onclick="OnCancel">Fermer</button>
+                        @if (result == null)
+                        {
+                            <button class="btn btn-primary" @onclick="LancerSynchro">Lancer le Scan</button>
+                        }
                     }
                 </div>
             </div>
@@ -108,64 +63,48 @@
 @code {
     [Parameter] public bool Show { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnImportDone { get; set; } // Pour rafraîchir si besoin
+    [Parameter] public EventCallback OnScanComplete { get; set; }
 
-    private bool scanEnCours = false;
-    private List<ImportDriverViewModel>? resultats;
-
-    // ViewModel local pour la case à cocher
-    public class ImportDriverViewModel : DiscoveredDriverDto { public bool SelectedForImport { get; set; } }
+    private bool isSyncing = false;
+    private BatchResult? result;
+    private string? errorMessage;
 
     protected override void OnParametersSet()
     {
-        // Reset quand on ouvre la modale
-        if (Show && resultats == null)
+        if (!Show)
         {
-            resultats = null;
+            result = null;
+            errorMessage = null;
         }
     }
 
-    private async Task LancerScan()
+    private async Task LancerSynchro()
     {
-        scanEnCours = true;
-        try
-        {
-            var res = await Http.GetFromJsonAsync<List<ImportDriverViewModel>>("api/Import/Scan/Drivers");
-            resultats = res;
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", "Erreur Scan Drivers: " + ex.Message);
-        }
-        finally
-        {
-            scanEnCours = false;
-        }
-    }
-
-    private async Task ImporterSelection()
-    {
-        if (resultats == null) return;
-        var toImport = resultats.Where(d => d.SelectedForImport).Select(d => d.Name).ToList();
+        isSyncing = true;
+        errorMessage = null;
 
         try
         {
-            var res = await Http.PostAsJsonAsync("api/Import/Import/Drivers", toImport);
-            if (res.IsSuccessStatusCode)
+            var response = await Http.PostAsync("api/Pilotes/sync", null);
+
+            if (response.IsSuccessStatusCode)
             {
-                await JS.InvokeVoidAsync("alert", "Import réussi !");
-                // On relance le scan pour mettre à jour l'affichage (passer en Vert)
-                await LancerScan();
-                await OnImportDone.InvokeAsync();
+                result = await response.Content.ReadFromJsonAsync<BatchResult>();
+                await OnScanComplete.InvokeAsync();
+                await AlertService.RefreshState();
             }
             else
             {
-                await JS.InvokeVoidAsync("alert", "Erreur Import: " + await res.Content.ReadAsStringAsync());
+                errorMessage = $"Erreur serveur : {response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erreur technique: " + ex.Message);
+            errorMessage = "Erreur technique : " + ex.Message;
+        }
+        finally
+        {
+            isSyncing = false;
         }
     }
 }

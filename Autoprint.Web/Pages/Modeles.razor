@@ -3,6 +3,7 @@
 @using Autoprint.Web.Services
 @inject HttpClient Http
 @inject CustomAuthStateProvider AuthProvider
+@inject AlertService AlertService
 
 <PageTitle>Gestion des Modèles</PageTitle>
 
@@ -40,8 +41,27 @@ else
         <tbody>
             @foreach (var m in modeles)
             {
-                <tr>
-                    <td>@m.Nom</td>
+                // On détecte si le pilote est manquant
+                bool alertePilote = m.PiloteId.HasValue && m.Pilote != null && !m.Pilote.EstInstalle;
+
+                <tr class="@(alertePilote ? "table-danger" : "")">
+                    <td>
+                        <strong>@m.Nom</strong>
+
+                        @if (alertePilote)
+                        {
+                            <div class="text-danger small mt-1">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                Pilote manquant : <strong>@m.Pilote?.Nom</strong>
+                            </div>
+                        }
+                        else if (m.Pilote != null)
+                        {
+                            <div class="text-muted small">
+                                <i class="bi bi-hdd-network"></i> Pilote : @m.Pilote.Nom
+                            </div>
+                        }
+                    </td>
                     <td>
                         @if (m.Marque != null)
                         {
@@ -60,8 +80,8 @@ else
                                 </button>
                             </Authorized>
                             <NotAuthorized>
-                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                    <i class="bi bi-pencil"></i> Modifier
+                                <button class="btn btn-sm btn-secondary" disabled>
+                                    <i class="bi bi-lock"></i>
                                 </button>
                             </NotAuthorized>
                         </AuthorizeView>
@@ -144,6 +164,7 @@ else
 
         afficherModal = false;
         await ChargerListe();
+        await AlertService.RefreshState();
     }
 
     private async Task Supprimer()
@@ -153,6 +174,7 @@ else
             await Http.DeleteAsync($"api/Modeles/{modeleEnCours.Id}");
             afficherModal = false;
             await ChargerListe();
+            await AlertService.RefreshState();
         }
     }
 }

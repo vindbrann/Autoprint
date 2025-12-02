@@ -1,6 +1,9 @@
 ﻿@using Autoprint.Web.Services
+@implements IDisposable
 @inject IAuthService AuthService
 @inject NavigationManager NavManager
+@inject AlertService AlertService
+
 
 <div class="top-row ps-3 navbar navbar-dark border-bottom border-secondary bg-black bg-opacity-25">
     <div class="container-fluid">
@@ -60,16 +63,34 @@
 
                         <AuthorizeView Policy="MODEL_READ">
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="modeles">
-                                    <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
+                                <NavLink class="nav-link d-flex justify-content-between align-items-center" href="modeles">
+                                    <span>
+                                        <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
+                                    </span>
+                                    @if (AlertService.State.ModelAlert)
+                                    {
+                                        <span class="bg-danger border border-light rounded-circle ms-2"
+                                              style="width: 10px; height: 10px; display: inline-block;"
+                                              title="Action requise">
+                                        </span>
+                                    }
                                 </NavLink>
                             </div>
                         </AuthorizeView>
 
                         <AuthorizeView Policy="DRIVER_READ">
                             <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="pilotes">
-                                    <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
+                                <NavLink class="nav-link d-flex justify-content-between align-items-center" href="pilotes">
+                                    <span>
+                                        <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
+                                    </span>
+                                    @if (AlertService.State.DriverAlert)
+                                    {
+                                        <span class="bg-danger border border-light rounded-circle ms-2"
+                                              style="width: 10px; height: 10px; display: inline-block;"
+                                              title="Action requise">
+                                        </span>
+                                    }
                                 </NavLink>
                             </div>
                         </AuthorizeView>
@@ -126,25 +147,21 @@
         <Authorized>
             <div class="p-3 bg-black bg-opacity-50 border-top border-secondary mt-auto">
                 <div class="d-flex align-items-center justify-content-between px-1">
-
-                    <div class="d-flex align-items-center overflow-hidden">
-
-                        <NavLink href="profile" class="text-decoration-none" title="Modifier mon profil">
+                    <NavLink href="profile" class="text-decoration-none" title="Modifier mon profil">
+                        <div class="d-flex align-items-center overflow-hidden">
                             <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
                                  style="width: 36px; height: 36px; min-width: 36px; cursor: pointer;">
                                 <span class="fs-5">@GetInitials(GetNomAffichage(context.User))</span>
                             </div>
-                        </NavLink>
-
-                        <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
-                            <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;"
-                                  title="@GetNomAffichage(context.User)">
-                                @GetNomAffichage(context.User)
-                            </span>
-                            <span class="text-white-50 small" style="font-size: 0.7rem;">Connecté</span>
+                            <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
+                                <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;"
+                                      title="@GetNomAffichage(context.User)">
+                                    @GetNomAffichage(context.User)
+                                </span>
+                                <span class="text-white-50 small" style="font-size: 0.7rem;">Connecté</span>
+                            </div>
                         </div>
-                    </div>
-
+                    </NavLink>
                     <button class="btn btn-link text-danger p-0 ms-2" @onclick="BeginLogout" title="Déconnecter">
                         <i class="bi bi-power fs-5"></i>
                     </button>
@@ -156,6 +173,18 @@
 </div>
 
 @code {
+    protected override void OnInitialized()
+    {
+        AlertService.OnChange += StateHasChanged;
+
+        _ = AlertService.RefreshState();
+    }
+
+    public void Dispose()
+    {
+        AlertService.OnChange -= StateHasChanged;
+    }
+
     private async Task BeginLogout()
     {
         await AuthService.Logout();
@@ -174,22 +203,22 @@
         return name.Substring(0, 1).ToUpper();
     }
 
-        private bool CanShowSystemSection(System.Security.Claims.ClaimsPrincipal user)
+    private bool CanShowSystemSection(System.Security.Claims.ClaimsPrincipal user)
     {
-            return user.HasClaim(c => c.Type == "Permission" &&
-                                 (c.Value == "SETTINGS_MANAGE" ||
-                                  c.Value == "USER_READ" ||
-                                  c.Value == "AUDIT_READ" ||
-                                  c.Value == "ROLE_READ"));
+        return user.HasClaim(c => c.Type == "Permission" &&
+                             (c.Value == "SETTINGS_MANAGE" ||
+                              c.Value == "USER_READ" ||
+                              c.Value == "AUDIT_READ" ||
+                              c.Value == "ROLE_READ"));
     }
 
     private bool CanShowGestionSection(System.Security.Claims.ClaimsPrincipal user)
     {
         return user.HasClaim(c => c.Type == "Permission" &&
-                                 (c.Value == "PRINTER_READ" ||
-                                  c.Value == "LOCATION_READ" ||
-                                  c.Value == "BRAND_READ" ||
-                                  c.Value == "MODEL_READ" ||
-                                  c.Value == "DRIVER_READ"));
+                             (c.Value == "PRINTER_READ" ||
+                              c.Value == "LOCATION_READ" ||
+                              c.Value == "BRAND_READ" ||
+                              c.Value == "MODEL_READ" ||
+                              c.Value == "DRIVER_READ"));
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Management;
 using System.Runtime.Versioning;
+using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 
 namespace Autoprint.Server.Services
@@ -7,9 +8,6 @@ namespace Autoprint.Server.Services
     [SupportedOSPlatform("windows")]
     public class WindowsPrintSpoolerService : IPrintSpoolerService
     {
-        // ============================================================
-        // 1. GESTION (ACTIONS SYSTÈME)
-        // ============================================================
 
         public Task CreerPortTcp(string ipAddress)
         {
@@ -87,14 +85,12 @@ namespace Autoprint.Server.Services
                 {
                     bool changed = false;
 
-                    // Mapping : Le "Commentaire" Windows reçoit ta "Localisation" (Détails)
                     if (comment != null && printer["Comment"]?.ToString() != comment)
                     {
                         printer["Comment"] = comment;
                         changed = true;
                     }
 
-                    // Mapping : La "Location" Windows reçoit ton "Emplacement" (Bâtiment)
                     if (location != null && printer["Location"]?.ToString() != location)
                     {
                         printer["Location"] = location;
@@ -111,15 +107,11 @@ namespace Autoprint.Server.Services
             return Task.CompletedTask;
         }
 
-        // --- NOUVELLES MÉTHODES INTELLIGENTES ---
-
         public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
         {
             try
             {
-                // On cherche l'imprimante qui utilise le port "IP_xxx"
                 string portName = $"IP_{ipAddress}";
-                // Note: WQL est sensible aux 'quotes'
                 var query = new SelectQuery("Win32_Printer", $"PortName = '{portName}'");
                 using var searcher = new ManagementObjectSearcher(query);
 
@@ -141,7 +133,6 @@ namespace Autoprint.Server.Services
 
                 foreach (ManagementObject printer in searcher.Get())
                 {
-                    // La méthode RenamePrinter() est disponible sur Win32_Printer
                     var paramsCim = printer.GetMethodParameters("RenamePrinter");
                     paramsCim["NewPrinterName"] = nouveauNom;
                     printer.InvokeMethod("RenamePrinter", paramsCim, null);
@@ -164,11 +155,6 @@ namespace Autoprint.Server.Services
             }
             catch { return false; }
         }
-
-
-        // ============================================================
-        // 2. SCAN IMPRIMANTES (AVEC RÉSOLUTION D'IP)
-        // ============================================================
 
         public Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password)
         {
@@ -194,7 +180,6 @@ namespace Autoprint.Server.Services
                 scope = new ManagementScope(path, options);
                 scope.Connect();
 
-                // Pré-chargement des Ports
                 var portMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
@@ -204,7 +189,6 @@ namespace Autoprint.Server.Services
                     {
                         string pName = GetWmiValue(port, "Name");
                         string pIp = GetWmiValue(port, "HostAddress");
-
                         if (!string.IsNullOrEmpty(pName) && !string.IsNullOrEmpty(pIp) && !portMap.ContainsKey(pName))
                         {
                             portMap.Add(pName, pIp);
@@ -251,14 +235,9 @@ namespace Autoprint.Server.Services
 
             return Task.FromResult(results);
         }
-
-        // ============================================================
-        // 3. SCAN PILOTES
-        // ============================================================
-
-        public Task<List<DiscoveredDriverDto>> ScanLocalDriversAsync()
+        public Task<List<Pilote>> GetInstalledDriversAsync()
         {
-            var results = new List<DiscoveredDriverDto>();
+            var results = new List<Pilote>();
 
             try
             {
@@ -271,24 +250,39 @@ namespace Autoprint.Server.Services
                 var scope = new ManagementScope(@"\\.\root\cimv2", options);
                 scope.Connect();
 
-                var query = new ObjectQuery("SELECT * FROM Win32_PrinterDriver");
+                var query = new ObjectQuery("SELECT Name, Version FROM Win32_PrinterDriver");
                 using var searcher = new ManagementObjectSearcher(scope, query);
 
                 foreach (ManagementObject driver in searcher.Get())
                 {
                     string rawName = GetWmiValue(driver, "Name");
-                    string cleanName = rawName.Split(',')[0];
+                    if (string.IsNullOrWhiteSpace(rawName)) continue;
 
-                    string version = GetWmiValue(driver, "DriverVersion");
-                    if (string.IsNullOrEmpty(version))
+                    string cleanName = rawName.Split(',')[0].Trim();
+                    if (cleanName.Contains("Microsoft enhanced Point and Print", StringComparison.OrdinalIgnoreCase) ||
+                        cleanName.Contains("Microsoft Print To PDF", StringComparison.OrdinalIgnoreCase) ||
+                        cleanName.Contains("Microsoft XPS", StringComparison.OrdinalIgnoreCase) ||
+                        cleanName.Contains("Send to Microsoft OneNote", StringComparison.OrdinalIgnoreCase) ||
+                        cleanName.Contains("Microsoft Shared Fax Driver", StringComparison.OrdinalIgnoreCase))
                     {
-                        version = GetWmiValue(driver, "Version");
+                        continue;
                     }
+                    string rawEnv = GetWmiValue(driver, "Version");
 
-                    results.Add(new DiscoveredDriverDto
+                    string displayType = rawEnv switch
                     {
-                        Name = cleanName,
-                        DriverVersion = version
+                        "3" => "Type 3 (Legacy)",
+                        "4" => "Type 4 (V4)",
+                        "Windows x64" => "Windows 64-bit",
+                        "Windows NT x86" => "Windows 32-bit",
+                        _ => rawEnv
+                    };
+
+                    results.Add(new Pilote
+                    {
+                        Nom = cleanName,
+                        Version = displayType,
+                        EstInstalle = true
                     });
                 }
             }
@@ -306,10 +300,7 @@ namespace Autoprint.Server.Services
             {
                 return obj[propertyName]?.ToString() ?? "";
             }
-            catch
-            {
-                return "";
-            }
+            catch { return ""; }
         }
     }
 }

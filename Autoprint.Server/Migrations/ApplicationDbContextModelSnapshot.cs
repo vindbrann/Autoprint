@@ -490,10 +490,23 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("NewValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Niveau")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("OldValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResourceName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Utilisateur")
                         .IsRequired()
@@ -543,7 +556,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(6545),
+                            DateModification = new DateTime(2025, 12, 1, 12, 27, 23, 73, DateTimeKind.Utc).AddTicks(7876),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -561,10 +574,6 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("CheminPartage")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Code")
                         .HasMaxLength(50)
@@ -639,7 +648,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(5924),
+                            DateModification = new DateTime(2025, 12, 1, 12, 27, 23, 73, DateTimeKind.Utc).AddTicks(7366),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -686,7 +695,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 26, 17, 54, 33, 881, DateTimeKind.Utc).AddTicks(7165),
+                            DateModification = new DateTime(2025, 12, 1, 12, 27, 23, 73, DateTimeKind.Utc).AddTicks(8441),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

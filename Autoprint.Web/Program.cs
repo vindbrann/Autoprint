@@ -19,6 +19,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<Autoprint.Web.Services.ISyncService, Autoprint.Web.Services.SyncService>();
+builder.Services.AddScoped<AlertService>();
 
 builder.Services.AddAuthorizationCore(options =>
 {

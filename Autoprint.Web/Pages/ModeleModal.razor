@@ -17,16 +17,16 @@
                         <DataAnnotationsValidator />
                         <ValidationSummary />
 
-                        @* --- NOM DU MODÈLE --- *@
                         <div class="mb-3">
                             <label class="form-label">Nom du Modèle</label>
                             <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: LaserJet Pro 400" />
                         </div>
 
-                        @* --- BLOC MARQUE SÉCURISÉ --- *@
                         <div class="mb-3">
-                            <label class="form-label">Marque</label>
-                            <InputSelect class="form-select" @bind-Value="Model.MarqueId" disabled="@(!CanReadMarques)">
+                            <label class="form-label">Marque <span class="text-danger">*</span></label>
+                            <select class="form-select @(showMarqueError ? "is-invalid" : "")"
+                                    @bind="Model.MarqueId"
+                                    disabled="@(!CanReadMarques)">
                                 <option value="0">-- Choisir une marque --</option>
                                 @if (listeMarques != null)
                                 {
@@ -35,44 +35,59 @@
                                         <option value="@marque.Id">@marque.Nom</option>
                                     }
                                 }
-                            </InputSelect>
+                            </select>
+
                             @if (!CanReadMarques)
                             {
                                 <div class="form-text text-danger">
-                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les marques.
+                                    <i class="bi bi-lock-fill"></i> Vous n'avez pas l'autorisation de voir les marques.
                                 </div>
+                            }
+                            @if (showMarqueError)
+                            {
+                                <div class="invalid-feedback">La marque est obligatoire.</div>
                             }
                         </div>
 
-                        @* --- BLOC PILOTE SÉCURISÉ --- *@
                         <div class="mb-3">
-                            <label class="form-label">Pilote par défaut</label>
+                            <label class="form-label">Pilote par défaut <span class="text-danger">*</span></label>
+                            <small class="text-muted d-block mb-1">Indispensable pour l'installation automatique.</small>
 
-                            <small class="text-muted d-block mb-1">Le pilote choisi ici sera automatiquement appliqué à toutes les imprimantes de ce modèle.</small>
-
-                            <InputSelect class="form-select" @bind-Value="Model.PiloteId" disabled="@(!CanReadPilotes)">
-                                <option value="">-- Aucun pilote --</option>
+                            <select class="form-select @(showPiloteError ? "is-invalid" : "")"
+                                    @bind="Model.PiloteId"
+                                    disabled="@(!CanReadPilotes)">
+                                <option value="">-- Choisir un pilote --</option>
                                 @if (listePilotes != null)
                                 {
-                                    @foreach (var pilote in listePilotes)
+                                    @* FILTRE : On n'affiche que les pilotes valides OU celui déjà sélectionné *@
+                                    @foreach (var pilote in listePilotes.Where(p => p.EstInstalle || p.Id == Model.PiloteId))
                                     {
-                                        <option value="@pilote.Id">@pilote.Nom</option>
+                                        <option value="@pilote.Id">
+                                            @pilote.Nom
+                                            @if (!pilote.EstInstalle)
+                                            {
+                                                <text> (⚠️ INTROUVABLE)</text>
+                                            }
+                                        </option>
                                     }
                                 }
-                            </InputSelect>
+                            </select>
 
                             @if (!CanReadPilotes)
                             {
                                 <div class="form-text text-danger">
-                                    <i class="oi oi-lock-locked"></i> Vous n'avez pas l'autorisation de voir les pilotes.
+                                    <i class="bi bi-lock-fill"></i> Vous n'avez pas l'autorisation de voir les pilotes.
                                 </div>
+                            }
+                            @if (showPiloteError)
+                            {
+                                <div class="invalid-feedback">Vous devez associer un pilote à ce modèle.</div>
                             }
                         </div>
 
                         <div class="modal-footer">
                             @if (Model.Id != 0)
                             {
-                                @* CORRECTION ICI : Ajout de Context="authContext" *@
                                 <AuthorizeView Policy="MODEL_DELETE">
                                     <Authorized Context="authContext">
                                         <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
@@ -92,7 +107,6 @@
 @code {
     [Parameter] public bool Show { get; set; }
     [Parameter] public Modele Model { get; set; } = new();
-
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
@@ -103,9 +117,12 @@
     private bool CanReadMarques { get; set; }
     private bool CanReadPilotes { get; set; }
 
+    // Flags d'erreur
+    private bool showMarqueError = false;
+    private bool showPiloteError = false;
+
     protected override async Task OnInitializedAsync()
     {
-        // Mise à jour avec les clés anglaises du Program.cs
         CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
         CanReadPilotes = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
 
@@ -114,26 +131,45 @@
             var tasks = new List<Task>();
 
             if (CanReadMarques)
-            {
                 tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
-            }
 
             if (CanReadPilotes)
-            {
                 tasks.Add(Task.Run(async () => listePilotes = await Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes")));
-            }
 
             if (tasks.Any()) await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erreur lors du chargement des données : {ex.Message}");
+            Console.WriteLine($"Erreur chargement données : {ex.Message}");
         }
     }
 
     private async Task HandleValidSubmit()
     {
-        if (Model.MarqueId == 0) return;
+        bool hasError = false;
+
+        if (Model.MarqueId == 0)
+        {
+            showMarqueError = true;
+            hasError = true;
+        }
+        else
+        {
+            showMarqueError = false;
+        }
+
+        if (Model.PiloteId == null || Model.PiloteId == 0)
+        {
+            showPiloteError = true;
+            hasError = true;
+        }
+        else
+        {
+            showPiloteError = false;
+        }
+
+        if (hasError) return;
+
         await OnSave.InvokeAsync();
     }
 }

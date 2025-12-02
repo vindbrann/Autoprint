@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Autoprint.Shared
 {
@@ -19,7 +20,6 @@ namespace Autoprint.Shared
         public string? Code { get; set; }
         public int MarqueId { get; set; }
         public Marque? Marque { get; set; }
-
         public int? PiloteId { get; set; }
         public Pilote? Pilote { get; set; }
     }

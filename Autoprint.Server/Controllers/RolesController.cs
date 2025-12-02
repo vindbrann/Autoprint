@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Autoprint.Server.Data;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared.DTOs;
-using Autoprint.Shared; // Pour AuditLog
-using Autoprint.Server.Services;
+using Autoprint.Shared;
+using Autoprint.Server.Services; // Injection
 
 namespace Autoprint.Server.Controllers
 {
@@ -16,14 +16,16 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IAuthService _authService;
+        private readonly AuditService _auditService; // Injection
 
-        public RolesController(ApplicationDbContext context, IAuthService authService)
+        public RolesController(ApplicationDbContext context, IAuthService authService, AuditService auditService)
         {
             _context = context;
             _authService = authService;
+            _auditService = auditService;
         }
 
-        // --- GESTION DES PERMISSIONS ---
+        // ... (GetPermissions, GetRoles, GetRoleForEdit inchangés) ...
         [HttpGet("permissions")]
         public async Task<ActionResult<List<PermissionDto>>> GetAllPermissions()
         {
@@ -32,7 +34,6 @@ namespace Autoprint.Server.Controllers
                 .ToListAsync();
         }
 
-        // --- GESTION DES RÔLES ---
         [HttpGet]
         public async Task<ActionResult<List<RoleViewDto>>> GetRoles()
         {
@@ -69,8 +70,7 @@ namespace Autoprint.Server.Controllers
             var newRole = new Role { Name = request.Name, Description = request.Description };
             _context.Roles.Add(newRole);
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "ROLE_CREATE", Details = $"Création rôle : {newRole.Name}", Utilisateur = User.Identity?.Name ?? "Inconnu", Niveau = "WARNING", DateAction = DateTime.UtcNow });
+            _auditService.LogAction("ROLE_CREATE", $"Création rôle : {newRole.Name}", User.Identity?.Name, "WARNING", newRole.Name);
 
             await _context.SaveChangesAsync();
 
@@ -87,23 +87,62 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "ROLE_WRITE")]
         public async Task<IActionResult> UpdateRole(int id, RoleEditDto request)
         {
-            var role = await _context.Roles.Include(r => r.RolePermissions).FirstOrDefaultAsync(r => r.Id == id);
-            if (role == null) return NotFound();
+            // 1. Charger le rôle et ses permissions actuelles (avec les Codes !)
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission) // Important pour avoir le Code (ex: BRAND_READ)
+                .FirstOrDefaultAsync(r => r.Id == id);
 
+            if (role == null) return NotFound();
             if (role.Name == "SuperAdmin" && request.Name != "SuperAdmin") return BadRequest("Impossible de renommer SuperAdmin.");
 
+            // 2. Snapshot "Avant" : On ne garde que les codes de permissions
+            var snapshotBefore = new
+            {
+                Role = role.Name,
+                Description = role.Description,
+                Permissions = role.RolePermissions.Select(rp => rp.Permission.Code).OrderBy(c => c).ToList()
+            };
+
+            // 3. Mise à jour
             role.Name = request.Name;
             role.Description = request.Description;
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "ROLE_UPDATE", Details = $"Modification rôle : {role.Name}", Utilisateur = User.Identity?.Name ?? "Inconnu", Niveau = "INFO", DateAction = DateTime.UtcNow });
-
             _context.RolePermissions.RemoveRange(role.RolePermissions);
-            if (request.PermissionIds != null)
+
+            // On prépare la liste des NOUVEAUX codes pour le snapshot "Après"
+            // Puisqu'on a que les IDs dans la request, on doit aller chercher les Codes correspondants en base
+            List<string> newPermissionCodes = new();
+            if (request.PermissionIds != null && request.PermissionIds.Any())
             {
+                // Récupération des codes pour l'affichage audit
+                newPermissionCodes = await _context.Permissions
+                    .Where(p => request.PermissionIds.Contains(p.Id))
+                    .Select(p => p.Code)
+                    .OrderBy(c => c)
+                    .ToListAsync();
+
                 foreach (var permId in request.PermissionIds)
                     _context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permId });
             }
+
+            // 4. Snapshot "Après"
+            var snapshotAfter = new
+            {
+                Role = role.Name,
+                Description = role.Description,
+                Permissions = newPermissionCodes
+            };
+
+            // 5. Audit Sur Mesure (Propre et Lisible)
+            _auditService.LogCustomAudit(
+                "ROLE_UPDATE",
+                $"Modification rôle : {role.Name}",
+                User.Identity?.Name,
+                role.Name,
+                snapshotBefore,
+                snapshotAfter
+            );
 
             await _context.SaveChangesAsync();
             return NoContent();
@@ -117,15 +156,14 @@ namespace Autoprint.Server.Controllers
             if (role == null) return NotFound();
             if (role.Name == "SuperAdmin") return BadRequest("Impossible de supprimer SuperAdmin.");
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "ROLE_DELETE", Details = $"Suppression rôle : {role.Name}", Utilisateur = User.Identity?.Name ?? "Inconnu", Niveau = "WARNING", DateAction = DateTime.UtcNow });
+            _auditService.LogAction("ROLE_DELETE", $"Suppression rôle : {role.Name}", User.Identity?.Name, "WARNING", role.Name);
 
             _context.Roles.Remove(role);
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // --- GESTION MAPPING AD ---
+        // ... (Mapping AD : Utiliser LogAction) ...
         [HttpGet("ad/search")]
         [Authorize(Policy = "ROLE_WRITE")]
         public async Task<ActionResult<List<AdSearchResultDto>>> SearchAd([FromQuery] string q, [FromQuery] Shared.Enums.AdMappingType type)
@@ -152,8 +190,7 @@ namespace Autoprint.Server.Controllers
             var mapping = new AdRoleMapping { AdIdentifier = dto.AdIdentifier, MappingType = dto.MappingType, RoleId = dto.RoleId };
             _context.AdRoleMappings.Add(mapping);
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "ROLE_MAP_ADD", Details = $"Ajout lien AD : {dto.AdIdentifier} -> Rôle ID {dto.RoleId}", Utilisateur = User.Identity?.Name ?? "Inconnu", Niveau = "WARNING", DateAction = DateTime.UtcNow });
+            _auditService.LogAction("ROLE_MAP_ADD", $"Ajout lien AD : {dto.AdIdentifier}", User.Identity?.Name, "WARNING", dto.AdIdentifier);
 
             await _context.SaveChangesAsync();
             return Ok(mapping.Id);
@@ -166,8 +203,7 @@ namespace Autoprint.Server.Controllers
             var mapping = await _context.AdRoleMappings.FindAsync(id);
             if (mapping == null) return NotFound();
 
-            // LOG AUDIT
-            _context.AuditLogs.Add(new AuditLog { Action = "ROLE_MAP_DEL", Details = $"Suppression lien AD : {mapping.AdIdentifier}", Utilisateur = User.Identity?.Name ?? "Inconnu", Niveau = "INFO", DateAction = DateTime.UtcNow });
+            _auditService.LogAction("ROLE_MAP_DEL", $"Suppression lien AD : {mapping.AdIdentifier}", User.Identity?.Name, "INFO", mapping.AdIdentifier);
 
             _context.AdRoleMappings.Remove(mapping);
             await _context.SaveChangesAsync();

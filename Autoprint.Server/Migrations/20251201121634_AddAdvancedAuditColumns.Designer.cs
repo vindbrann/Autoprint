@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autoprint.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251122084128_AddPrinterSyncPermission")]
-    partial class AddPrinterSyncPermission
+    [Migration("20251201121634_AddAdvancedAuditColumns")]
+    partial class AddAdvancedAuditColumns
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,16 +33,25 @@ namespace Autoprint.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AdGroupName")
+                    b.Property<string>("AdIdentifier")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("MappingType")
+                        .HasColumnType("int");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AdIdentifier");
+
                     b.HasIndex("RoleId");
+
+                    b.HasIndex("AdIdentifier", "RoleId")
+                        .IsUnique();
 
                     b.ToTable("AdRoleMappings");
                 });
@@ -95,50 +104,38 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 5,
+                            Code = "PRINTER_SYNC",
+                            Description = "Synchroniser vers Windows (Spouleur)"
+                        },
+                        new
+                        {
+                            Id = 6,
                             Code = "LOCATION_READ",
                             Description = "Voir les lieux"
                         },
                         new
                         {
-                            Id = 6,
+                            Id = 7,
                             Code = "LOCATION_WRITE",
                             Description = "Ajouter/Modifier des lieux"
                         },
                         new
                         {
-                            Id = 7,
+                            Id = 8,
                             Code = "LOCATION_DELETE",
                             Description = "Supprimer des lieux"
                         },
                         new
                         {
-                            Id = 8,
-                            Code = "DRIVER_READ",
-                            Description = "Voir les pilotes et modèles"
-                        },
-                        new
-                        {
                             Id = 9,
-                            Code = "DRIVER_WRITE",
-                            Description = "Uploader/Modifier métadonnées pilotes"
+                            Code = "DRIVER_READ",
+                            Description = "Voir les pilotes"
                         },
                         new
                         {
                             Id = 10,
-                            Code = "DRIVER_DELETE",
-                            Description = "Supprimer pilotes de la BDD"
-                        },
-                        new
-                        {
-                            Id = 15,
-                            Code = "DRIVER_INSTALL",
-                            Description = "Installer dans Windows (PnPUtil)"
-                        },
-                        new
-                        {
-                            Id = 16,
-                            Code = "DRIVER_UNINSTALL",
-                            Description = "Désinstaller de Windows"
+                            Code = "DRIVER_SCAN",
+                            Description = "Scanner/Mettre à jour les pilotes"
                         },
                         new
                         {
@@ -160,69 +157,69 @@ namespace Autoprint.Server.Migrations
                         },
                         new
                         {
-                            Id = 17,
+                            Id = 14,
+                            Code = "SETTINGS_MANAGE",
+                            Description = "Gérer la configuration serveur"
+                        },
+                        new
+                        {
+                            Id = 15,
                             Code = "ROLE_READ",
                             Description = "Voir les rôles et permissions"
                         },
                         new
                         {
-                            Id = 18,
+                            Id = 16,
                             Code = "ROLE_WRITE",
                             Description = "Créer/Modifier des rôles"
                         },
                         new
                         {
-                            Id = 19,
+                            Id = 17,
                             Code = "ROLE_DELETE",
                             Description = "Supprimer des rôles"
                         },
                         new
                         {
-                            Id = 20,
+                            Id = 18,
                             Code = "BRAND_READ",
                             Description = "Voir les marques"
                         },
                         new
                         {
-                            Id = 21,
+                            Id = 19,
                             Code = "BRAND_WRITE",
                             Description = "Ajouter/Modifier des marques"
                         },
                         new
                         {
-                            Id = 22,
+                            Id = 20,
                             Code = "BRAND_DELETE",
                             Description = "Supprimer des marques"
                         },
                         new
                         {
-                            Id = 23,
+                            Id = 21,
                             Code = "MODEL_READ",
                             Description = "Voir les modèles"
                         },
                         new
                         {
-                            Id = 24,
+                            Id = 22,
                             Code = "MODEL_WRITE",
                             Description = "Ajouter/Modifier des modèles"
                         },
                         new
                         {
-                            Id = 25,
+                            Id = 23,
                             Code = "MODEL_DELETE",
                             Description = "Supprimer des modèles"
                         },
                         new
                         {
-                            Id = 26,
-                            Code = "PRINTER_SYNC",
-                            Description = "Synchroniser vers Windows (Spouleur)"
-                        },
-                        new
-                        {
-                            Id = 14,
-                            Code = "SETTINGS_MANAGE",
-                            Description = "Gérer la configuration serveur (SMTP, Chemins...)"
+                            Id = 24,
+                            Code = "AUDIT_READ",
+                            Description = "Voir les logs d'audit"
                         });
                 });
 
@@ -389,16 +386,6 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 24
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 25
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 26
                         });
                 });
 
@@ -506,10 +493,23 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("NewValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Niveau")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("OldValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResourceName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Utilisateur")
                         .IsRequired()
@@ -559,7 +559,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(4490),
+                            DateModification = new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(5226),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -651,7 +651,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(3114),
+                            DateModification = new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(4636),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -698,7 +698,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 11, 22, 8, 41, 27, 386, DateTimeKind.Utc).AddTicks(6098),
+                            DateModification = new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(5867),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -852,6 +852,41 @@ namespace Autoprint.Server.Migrations
                             Description = "Expiration MDP (jours)",
                             Type = "INT",
                             Value = "90"
+                        },
+                        new
+                        {
+                            Key = "AdDomain",
+                            Description = "Domaine Active Directory",
+                            Type = "STRING",
+                            Value = "mondomaine.lan"
+                        },
+                        new
+                        {
+                            Key = "AdUseServiceAccount",
+                            Description = "Utiliser un compte spécifique ?",
+                            Type = "BOOL",
+                            Value = "false"
+                        },
+                        new
+                        {
+                            Key = "AdServiceUser",
+                            Description = "Compte lecture AD",
+                            Type = "STRING",
+                            Value = ""
+                        },
+                        new
+                        {
+                            Key = "AdServicePassword",
+                            Description = "Mot de passe AD",
+                            Type = "PASSWORD",
+                            Value = ""
+                        },
+                        new
+                        {
+                            Key = "AdAdminEmails",
+                            Description = "Mails alerte panne AD (séparés par ;)",
+                            Type = "STRING",
+                            Value = ""
                         });
                 });
 

@@ -1,10 +1,11 @@
 using System.Text;
 using Autoprint.Server.Data;
+using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
+using Autoprint.Web.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Autoprint.Server.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,17 +19,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 );
 
 // 2. Services
-if (OperatingSystem.IsWindows())
-    builder.Services.AddScoped<IPrintSpoolerService, WindowsPrintSpoolerService>();
-else
-    builder.Services.AddScoped<IPrintSpoolerService, StubPrintSpoolerService>();
-
+builder.Services.AddScoped<IPrintSpoolerService, WindowsPrintSpoolerService>();
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<AuditService>();
+
 
 // --- AJOUT : Worker de nettoyage des logs (Cron) ---
 builder.Services.AddHostedService<LogCleanupWorker>();
@@ -59,7 +58,12 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
 

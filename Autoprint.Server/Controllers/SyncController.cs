@@ -1,6 +1,6 @@
 ﻿using Autoprint.Server.Data;
 using Autoprint.Server.Services;
-using Autoprint.Shared; // Pour AuditLog
+using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

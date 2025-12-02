@@ -1,6 +1,8 @@
 ﻿@page "/audit"
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
+@using System.Text.Json
+@using System.Linq
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -31,67 +33,131 @@
     <div class="card shadow-sm">
         @if (logs == null)
         {
-            <div class="text-center p-5">
-                <div class="spinner-border text-primary"></div>
+            <div class="card-body">
+                <p>Chargement du journal...</p>
             </div>
         }
         else if (logs.Items.Count == 0)
         {
-            <div class="text-center p-5 text-muted">
-                <i class="bi bi-inbox fs-1"></i>
-                <p>Aucun événement trouvé.</p>
+            <div class="card-body">
+                <p>Aucun log trouvé.</p>
             </div>
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 table-striped">
-                    <thead class="table-light">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Date</th>
+                        <th style="width: 10%;">Niveau</th>
+                        <th style="width: 15%;">Utilisateur</th>
+                        <th style="width: 60%;">Action / Détails</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in logs.Items)
+                    {
                         <tr>
-                            <th style="width: 160px;">Date</th>
-                            <th style="width: 100px;">Niveau</th>
-                            <th style="width: 150px;">Utilisateur</th>
-                            <th style="width: 150px;">Action</th>
-                            <th>Détails</th>
+                            <td>@log.DateAction.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>@RenderBadge(log.Niveau)</td>
+                            <td>@log.Utilisateur</td>
+                            
+                            <td title="@log.Details"> 
+                                <button class="btn btn-link p-0 me-2 align-baseline" 
+                                        @onclick="() => LoadDetailsAndShowModal(log.Id)"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#auditDetailsModal"
+                                        title="Voir les changements Avant/Après">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                                @log.ActionLisible 
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var log in logs.Items)
-                        {
-                            <tr>
-                                <td class="small text-muted">@log.DateAction.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>@RenderBadge(log.Niveau)</td>
-                                <td class="fw-bold text-primary small">@log.Utilisateur</td>
-                                <td class="small">@log.Action</td>
-                                <td class="text-muted small">@log.Details</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                    }
+                </tbody>
+            </table>
 
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3">
-                <span class="small text-muted">
-                    Page @logs.PageIndex sur @logs.TotalPages (Total : @logs.TotalCount)
-                </span>
+            <div class="card-footer d-flex justify-content-between align-items-center py-2">
+                <small class="text-muted">Page @logs.PageIndex sur @logs.TotalPages (@logs.TotalCount logs)</small>
                 <div>
-                    <button class="btn btn-sm btn-outline-secondary me-1" disabled="@(!logs.HasPreviousPage)" @onclick="PrevPage">
-                        &laquo; Précédent
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" disabled="@(!logs.HasNextPage)" @onclick="NextPage">
-                        Suivant &raquo;
-                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="PrevPage" disabled="@(!logs.HasPreviousPage)">Précédent</button>
+                    <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="NextPage" disabled="@(!logs.HasNextPage)">Suivant</button>
                 </div>
             </div>
         }
     </div>
 </div>
 
+<div class="modal fade" id="auditDetailsModal" tabindex="-1" aria-labelledby="auditDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            @if (selectedLog != null)
+            {
+                <div class="modal-header">
+                    <h5 class="modal-title" id="auditDetailsModalLabel">Détails du Log ID @selectedLog.Id</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Date:</strong> @selectedLog.DateAction.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</p>
+                    <p><strong>Utilisateur:</strong> @selectedLog.Utilisateur</p>
+                    <p><strong>Action:</strong> @selectedLog.Action (@selectedLog.ResourceName)</p>
+                    <p><strong>Niveau:</strong> @RenderBadge(selectedLog.Niveau)</p>
+                    <p><strong>Détails:</strong> @selectedLog.Details</p>
+
+                    @if (comparisonResult.Any())
+                    {
+                        <h4>Changements Comparatifs</h4>
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Propriété</th>
+                                    <th style="width: 37%;">AVANT</th>
+                                    <th style="width: 37%;">APRÈS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var comp in comparisonResult.Where(c => c.IsChanged || c.PropertyName == "Nom"))
+                                {
+                                    <tr class="@(comp.IsChanged ? "table-warning" : "")">
+                                        <td><strong>@comp.PropertyName</strong></td>
+                                        <td>@comp.OldValue</td>
+                                        <td>@comp.NewValue</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                    }
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
 @code {
-    private PaginatedList<AuditLog>? logs;
-    private string searchQuery = "";
+    private PaginatedList<AuditLogDto>? logs;
     private int currentPage = 1;
-    private int pageSize = 20;
+    private string searchQuery = string.Empty;
+    private AuditLog? selectedLog;
+    private List<AuditComparison> comparisonResult = new(); // Résultat de la comparaison pour l'affichage
+
+    // NOUVELLE CLASSE LOCALE pour contenir le résultat du Diff
+    public class AuditComparison
+    {
+        public string PropertyName { get; set; } = string.Empty;
+        public string OldValue { get; set; } = string.Empty;
+        public string NewValue { get; set; } = string.Empty;
+        // La propriété pour surligner les différences
+        public bool IsChanged => OldValue != NewValue; 
+    }
+    // FIN NOUVELLE CLASSE LOCALE
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,18 +168,11 @@
     {
         try
         {
-            // Construction de l'URL avec paramètres
-            var url = $"api/Audit?page={currentPage}&pageSize={pageSize}";
-            if (!string.IsNullOrWhiteSpace(searchQuery))
-            {
-                url += $"&search={Uri.EscapeDataString(searchQuery)}";
-            }
-
-            logs = await Http.GetFromJsonAsync<PaginatedList<AuditLog>>(url);
+            logs = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={currentPage}&pageSize=20&search={searchQuery}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erreur chargement logs : " + ex.Message);
+            Console.WriteLine($"Erreur lors du chargement des logs: {ex.Message}");
         }
     }
 
@@ -121,7 +180,7 @@
     {
         if (e.Key == "Enter")
         {
-            currentPage = 1; // Retour page 1 si nouvelle recherche
+            currentPage = 1;
             await LoadLogs();
         }
     }
@@ -164,17 +223,115 @@
         }
     }
 
-    // Helper pour les couleurs de badges
+    // Ouvre la modale en chargeant les données de l'API AVANT l'affichage
+    private async Task LoadDetailsAndShowModal(int logId)
+    {
+        comparisonResult.Clear(); // Nettoyer l'ancien résultat
+        
+        // 1. Charge les données de détails du log via l'API (qui retourne l'entité complète AuditLog)
+        selectedLog = await Http.GetFromJsonAsync<AuditLog>($"/api/Audit/{logId}");
+        
+        if (selectedLog == null || string.IsNullOrEmpty(selectedLog.OldValues) && string.IsNullOrEmpty(selectedLog.NewValues))
+        {
+            StateHasChanged();
+            return; // Rien à comparer
+        }
+
+        // 2. Désérialisation et Comparaison
+        try
+        {
+            using var oldDoc = JsonDocument.Parse(selectedLog.OldValues ?? "{}");
+            using var newDoc = JsonDocument.Parse(selectedLog.NewValues ?? "{}");
+
+            var oldProps = oldDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+            var newProps = newDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+
+            var allKeys = oldProps.Keys.Union(newProps.Keys).OrderBy(k => k);
+
+            foreach (var key in allKeys)
+            {
+                oldProps.TryGetValue(key, out var oldValue);
+                newProps.TryGetValue(key, out var newValue);
+
+                // Ignore les champs de métadonnées (Id, DateModification, estSupprime, et les IDs de FK)
+                if (key.Equals("id", StringComparison.OrdinalIgnoreCase) || 
+                    key.Equals("dateModification", StringComparison.OrdinalIgnoreCase) ||
+                    key.Equals("estSupprime", StringComparison.OrdinalIgnoreCase) ||
+                    key.Equals("status", StringComparison.OrdinalIgnoreCase) ||
+                    key.EndsWith("Id", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string simplifiedOldValue = SimplifyComplexObject(oldValue);
+                string simplifiedNewValue = SimplifyComplexObject(newValue);
+                
+                // N'affiche que le nom de la propriété, et si ce n'est pas un changement mineur
+                if (simplifiedOldValue != simplifiedNewValue || key.Equals("nom", StringComparison.OrdinalIgnoreCase))
+                {
+                    comparisonResult.Add(new AuditComparison
+                    {
+                        PropertyName = FormatPropertyName(key),
+                        OldValue = simplifiedOldValue,
+                        NewValue = simplifiedNewValue
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            comparisonResult.Add(new AuditComparison { PropertyName = "ERREUR DE SÉRIALISATION", NewValue = ex.Message });
+        }
+
+        StateHasChanged(); 
+    }
+
+    // Helper pour formater les noms (ex: "pilote" devient "Pilote")
+    private string FormatPropertyName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        if (name.Equals("nom", StringComparison.OrdinalIgnoreCase)) return "NOM";
+        
+        // Règle simple : Majuscule sur la première lettre
+        return char.ToUpper(name[0]) + name.Substring(1);
+    }
+
+    // Helper pour simplifier l'affichage des objets complexes (Marque, Pilote)
+    private string SimplifyComplexObject(string jsonValue)
+    {
+        if (string.IsNullOrEmpty(jsonValue) || jsonValue.Equals("null", StringComparison.OrdinalIgnoreCase))
+            return "N/A";
+        
+        // Si c'est un objet JSON, tente de retourner le champ 'nom' pour la lisibilité
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonValue);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                if (doc.RootElement.TryGetProperty("nom", out var nomElement))
+                {
+                    return nomElement.GetString() ?? "Nom Inconnu";
+                }
+            }
+        }
+        catch { /* Laisser la valeur brute si ce n'est pas un JSON */ }
+
+        return jsonValue;
+    }
+
     private RenderFragment RenderBadge(string niveau) => __builder =>
     {
         string colorClass = niveau switch
         {
             "ERROR" => "bg-danger",
             "WARNING" => "bg-warning text-dark",
-            "INFO" => "bg-info text-dark",
+            "INFO" => "bg-primary",
             _ => "bg-secondary"
         };
 
-        <span class="badge @colorClass">@niveau</span>
+        __builder.OpenElement(0, "span");
+        __builder.AddAttribute(1, "class", $"badge {colorClass}");
+        __builder.AddContent(2, niveau);
+        __builder.CloseElement();
     };
 }

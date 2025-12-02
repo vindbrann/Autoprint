@@ -60,10 +60,6 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> ImportPrinters([FromBody] List<ImportPrinterSelectionDto> selection)
         {
             int count = 0;
-
-            // On essaie de deviner d'où vient l'import (c'est souvent Localhost par défaut)
-            string source = "Serveur Local";
-
             var defaultLieuId = 1;
             var defaultModeleId = 1;
 
@@ -91,7 +87,6 @@ namespace Autoprint.Server.Controllers
                 count++;
             }
 
-            // --- LOG AUDIT IMPORT IMPRIMANTES ---
             if (count > 0)
             {
                 _context.AuditLogs.Add(new AuditLog
@@ -103,7 +98,6 @@ namespace Autoprint.Server.Controllers
                     DateAction = DateTime.UtcNow
                 });
             }
-            // ------------------------------------
 
             await _context.SaveChangesAsync();
             return Ok(new { Message = $"{count} imprimantes importées avec succès." });
@@ -111,13 +105,22 @@ namespace Autoprint.Server.Controllers
 
 
         // ==================================================================================
-        // 2. GESTION DES PILOTES
+        // 2. GESTION DES PILOTES (CORRIGÉ POUR LA NOUVELLE ARCHITECTURE)
         // ==================================================================================
 
         [HttpGet("Scan/Drivers")]
         public async Task<ActionResult<List<DiscoveredDriverDto>>> ScanDrivers()
         {
-            var windowsDrivers = await _spoolerService.ScanLocalDriversAsync();
+            // 1. On appelle la NOUVELLE méthode du service (qui retourne des 'Pilote')
+            var pilotesInstalles = await _spoolerService.GetInstalledDriversAsync();
+
+            // 2. On convertit pour garder la compatibilité avec ta vue Import actuelle
+            var windowsDrivers = pilotesInstalles.Select(p => new DiscoveredDriverDto
+            {
+                Name = p.Nom,
+                DriverVersion = p.Version
+            }).ToList();
+
             var dbDrivers = await _context.Pilotes.ToListAsync();
             var resultList = new List<DiscoveredDriverDto>();
 
@@ -128,6 +131,7 @@ namespace Autoprint.Server.Controllers
                 if (match != null)
                 {
                     wd.SyncStatus = "Synced";
+                    // Petit fix silencieux : si on le trouve lors d'un import, on le réactive
                     if (!match.EstInstalle) match.EstInstalle = true;
                 }
                 else
@@ -137,6 +141,7 @@ namespace Autoprint.Server.Controllers
                 resultList.Add(wd);
             }
 
+            // Gestion des orphelins (Présents en BDD mais pas sur Windows)
             var orphelins = dbDrivers.Where(db => !windowsDrivers.Any(w => w.Name.Equals(db.Nom, StringComparison.OrdinalIgnoreCase)));
             foreach (var orphelin in orphelins)
             {
@@ -151,39 +156,38 @@ namespace Autoprint.Server.Controllers
         [HttpPost("Import/Drivers")]
         public async Task<IActionResult> ImportDrivers([FromBody] List<string> driverNamesToImport)
         {
-            var windowsDrivers = await _spoolerService.ScanLocalDriversAsync();
+            // 1. Nouvelle méthode
+            var pilotesInstalles = await _spoolerService.GetInstalledDriversAsync();
             int count = 0;
 
             foreach (var name in driverNamesToImport)
             {
                 if (await _context.Pilotes.AnyAsync(p => p.Nom == name)) continue;
 
-                var winDriver = windowsDrivers.FirstOrDefault(w => w.Name == name);
+                var winDriver = pilotesInstalles.FirstOrDefault(w => w.Nom == name);
                 if (winDriver != null)
                 {
                     _context.Pilotes.Add(new Pilote
                     {
-                        Nom = winDriver.Name,
-                        Version = winDriver.DriverVersion,
+                        Nom = winDriver.Nom,
+                        Version = winDriver.Version,
                         EstInstalle = true
                     });
                     count++;
                 }
             }
 
-            // --- LOG AUDIT IMPORT PILOTES ---
             if (count > 0)
             {
                 _context.AuditLogs.Add(new AuditLog
                 {
                     Action = "IMPORT_DRIVERS",
-                    Details = $"Importation de {count} pilotes détectés localement.",
+                    Details = $"Importation manuelle de {count} pilotes.",
                     Utilisateur = User.Identity?.Name ?? "Admin",
                     Niveau = "INFO",
                     DateAction = DateTime.UtcNow
                 });
             }
-            // --------------------------------
 
             await _context.SaveChangesAsync();
             return Ok(new { Message = $"{count} pilotes ajoutés à la bibliothèque." });

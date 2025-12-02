@@ -4,6 +4,7 @@ using Autoprint.Shared.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Autoprint.Server.Services;
 
 namespace Autoprint.Server.Controllers
 {
@@ -12,51 +13,40 @@ namespace Autoprint.Server.Controllers
     public class ImprimantesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly AuditService _auditService;
 
-        public ImprimantesController(ApplicationDbContext context)
+        public ImprimantesController(ApplicationDbContext context, AuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
-        // GET: api/Imprimantes
         [HttpGet]
-        [AllowAnonymous] // Modification : On ouvre pour vérifier manuellement la Clé API
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes()
         {
-            // 1. Accès Admin (Utilisateur connecté)
             if (User.Identity != null && User.Identity.IsAuthenticated)
-            {
                 return await GetImprimantesListWithIncludes();
-            }
 
-            // 2. Accès Agent (Machine avec Clé API)
             if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
             {
-                // Vérification en BDD
-                var setting = await _context.ServerSettings
-                    .FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
-
+                var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
                 if (setting != null && receivedSecret == setting.Value)
-                {
                     return await GetImprimantesListWithIncludes();
-                }
             }
-
-            // 3. Rejet
-            return Unauthorized(new { message = "Accès refusé. Authentification ou Clé API requise." });
+            return Unauthorized(new { message = "Accès refusé." });
         }
 
-        // Méthode privée pour éviter de dupliquer la grosse requête SQL avec les Includes
         private async Task<List<Imprimante>> GetImprimantesListWithIncludes()
         {
             return await _context.Imprimantes
+                .AsNoTracking()
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)
                 .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .ToListAsync();
         }
 
-        // GET: api/Imprimantes/5
         [HttpGet("{id}")]
         [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<Imprimante>> GetImprimante(int id)
@@ -71,64 +61,114 @@ namespace Autoprint.Server.Controllers
             return imprimante;
         }
 
-        // POST: api/Imprimantes
         [HttpPost]
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
+            if (imprimante.ModeleId == 0) return BadRequest("Modèle obligatoire.");
+            if (imprimante.EmplacementId == 0) return BadRequest("Emplacement obligatoire.");
+
+            if (!await _context.Modeles.AnyAsync(m => m.Id == imprimante.ModeleId)) return BadRequest("Modèle introuvable.");
+            if (!await _context.Emplacements.AnyAsync(e => e.Id == imprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
+
             imprimante.Status = PrinterStatus.PendingCreation;
-            imprimante.NomPartage = imprimante.NomAffiche;
+            if (string.IsNullOrWhiteSpace(imprimante.NomPartage))
+                imprimante.NomPartage = imprimante.NomAffiche;
+
+            // Sécurité SQL : coupe les liens
+            imprimante.Modele = null!;
+            imprimante.Emplacement = null!;
 
             _context.Imprimantes.Add(imprimante);
 
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
-            {
-                Action = "PRINTER_CREATE",
-                Details = $"Ajout de l'imprimante '{imprimante.NomAffiche}' (IP: {imprimante.AdresseIp})",
-                Utilisateur = User.Identity?.Name ?? "Inconnu",
-                Niveau = "INFO",
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
+            _auditService.LogAction("PRINTER_CREATE", $"Ajout : {imprimante.NomAffiche}", User.Identity?.Name, resourceName: imprimante.NomAffiche);
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, imprimante);
+            var newPrinter = await _context.Imprimantes
+                .Include(i => i.Emplacement)
+                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .FirstOrDefaultAsync(i => i.Id == imprimante.Id);
+
+            return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, newPrinter);
         }
 
-        // PUT: api/Imprimantes/5
         [HttpPut("{id}")]
         [Authorize(Policy = "PRINTER_WRITE")]
-        public async Task<IActionResult> PutImprimante(int id, Imprimante imprimante)
+        public async Task<IActionResult> PutImprimante(int id, Imprimante inputImprimante)
         {
-            if (id != imprimante.Id) return BadRequest();
+            if (id != inputImprimante.Id) return BadRequest("ID incohérent.");
 
-            var original = await _context.Imprimantes.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
-            if (original == null) return NotFound();
+            // 1. Charger l'existant
+            var dbImprimante = await _context.Imprimantes.FindAsync(id);
+            if (dbImprimante == null) return NotFound();
 
-            if (original.Status == PrinterStatus.Synchronized)
-                imprimante.Status = PrinterStatus.PendingUpdate;
-            else if (original.Status == PrinterStatus.PendingCreation)
-                imprimante.Status = PrinterStatus.PendingCreation;
-            else if (original.Status == PrinterStatus.SyncError)
-                imprimante.Status = PrinterStatus.PendingUpdate;
+            // 2. Validation
+            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("Modèle introuvable.");
+            if (!await _context.Emplacements.AnyAsync(e => e.Id == inputImprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
 
-            _context.Entry(imprimante).State = EntityState.Modified;
+            // 3. Mise à jour des statuts
+            if (dbImprimante.Status == PrinterStatus.Synchronized || dbImprimante.Status == PrinterStatus.SyncError)
+                dbImprimante.Status = PrinterStatus.PendingUpdate;
 
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
+            // 4. MAPPING : Copie des valeurs vers l'objet BDD
+            dbImprimante.NomAffiche = inputImprimante.NomAffiche;
+            dbImprimante.NomPartage = inputImprimante.NomPartage;
+            dbImprimante.AdresseIp = inputImprimante.AdresseIp;
+            dbImprimante.Commentaire = inputImprimante.Commentaire;
+            dbImprimante.Localisation = inputImprimante.Localisation;
+            dbImprimante.EstPartagee = inputImprimante.EstPartagee;
+
+            // AJOUT DU CODE qui manquait (Source de l'erreur N/A)
+            // Si la propriété s'appelle "Code", décommentez la ligne ci-dessous :
+            dbImprimante.Code = inputImprimante.Code;
+
+            dbImprimante.ModeleId = inputImprimante.ModeleId;
+            dbImprimante.EmplacementId = inputImprimante.EmplacementId;
+
+            // 5. PRÉPARATION AUDIT (Snapshot "Après")
+            // On charge les objets liés pour avoir les Noms (Marque, Pilote)
+            var snapModele = await _context.Modeles.AsNoTracking()
+                .Include(m => m.Marque).Include(m => m.Pilote)
+                .FirstOrDefaultAsync(m => m.Id == inputImprimante.ModeleId);
+
+            var snapEmplacement = await _context.Emplacements.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == inputImprimante.EmplacementId);
+
+            // CRÉATION DU SNAPSHOT AVEC LES VALEURS DE dbImprimante (Pas inputImprimante)
+            // Cela garantit que ce qui est audité est exactement ce qui est en base.
+            var auditSnapshot = new Imprimante
             {
-                Action = "PRINTER_UPDATE",
-                Details = $"Modification de '{imprimante.NomAffiche}' (Statut: {imprimante.Status})",
-                Utilisateur = User.Identity?.Name ?? "Inconnu",
-                Niveau = "INFO",
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
+                Id = id,
+                // On copie depuis l'objet mis à jour (dbImprimante)
+                NomAffiche = dbImprimante.NomAffiche,
+                NomPartage = dbImprimante.NomPartage,
+                AdresseIp = dbImprimante.AdresseIp,
+                Commentaire = dbImprimante.Commentaire,
+                Localisation = dbImprimante.Localisation,
+                EstPartagee = dbImprimante.EstPartagee,
+                Code = dbImprimante.Code, // <--- AJOUTÉ
+                Status = dbImprimante.Status,
+
+                ModeleId = dbImprimante.ModeleId,
+                EmplacementId = dbImprimante.EmplacementId,
+
+                // Injection des objets fictifs pour la lisibilité JSON
+                Modele = snapModele!,
+                Emplacement = snapEmplacement!
+            };
 
             try
             {
+                // 6. Enregistrement
+                await _auditService.LogUpdateAsync(
+                    id,
+                    auditSnapshot,
+                    "PRINTER_UPDATE",
+                    User.Identity?.Name,
+                    "INFO",
+                    "Modele.Marque", "Modele.Pilote", "Emplacement"); // "Avant" includes
+
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
@@ -140,7 +180,6 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Imprimantes/5
         [HttpDelete("{id}")]
         [Authorize(Policy = "PRINTER_DELETE")]
         public async Task<IActionResult> DeleteImprimante(int id)
@@ -148,39 +187,21 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes.FindAsync(id);
             if (imprimante == null) return NotFound();
 
-            string logDetails;
-
             if (imprimante.Status == PrinterStatus.PendingCreation || imprimante.Status == PrinterStatus.ImportedNeedsFix)
             {
                 _context.Imprimantes.Remove(imprimante);
-                logDetails = $"Suppression immédiate (BDD) de '{imprimante.NomAffiche}'";
+                _auditService.LogAction("PRINTER_DELETE", $"Suppression BDD: {imprimante.NomAffiche}", User.Identity?.Name, "WARNING", imprimante.NomAffiche);
             }
             else
             {
                 imprimante.Status = PrinterStatus.PendingDelete;
-                _context.Entry(imprimante).State = EntityState.Modified;
-                logDetails = $"Marquage pour suppression (Spouleur) de '{imprimante.NomAffiche}'";
+                _auditService.LogAction("PRINTER_UPDATE", $"Marquage suppression: {imprimante.NomAffiche}", User.Identity?.Name, "INFO", imprimante.NomAffiche);
             }
 
-            // --- LOG AUDIT ---
-            _context.AuditLogs.Add(new AuditLog
-            {
-                Action = "PRINTER_DELETE",
-                Details = logDetails,
-                Utilisateur = User.Identity?.Name ?? "Inconnu",
-                Niveau = "WARNING", // Suppression = Warning
-                DateAction = DateTime.UtcNow
-            });
-            // -----------------
-
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        private bool ImprimanteExists(int id)
-        {
-            return _context.Imprimantes.Any(e => e.Id == id);
-        }
+        private bool ImprimanteExists(int id) => _context.Imprimantes.Any(e => e.Id == id);
     }
 }

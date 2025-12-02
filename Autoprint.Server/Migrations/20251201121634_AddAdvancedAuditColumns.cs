@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Autoprint.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class ReplaceDriverWriteWithScan : Migration
+    public partial class AddAdvancedAuditColumns : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,28 +16,21 @@ namespace Autoprint.Server.Migrations
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(297));
+                value: new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(5226));
 
             migrationBuilder.UpdateData(
                 table: "Marques",
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 11, 24, 12, 657, DateTimeKind.Utc).AddTicks(9777));
+                value: new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(4636));
 
             migrationBuilder.UpdateData(
                 table: "Modeles",
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 11, 24, 12, 658, DateTimeKind.Utc).AddTicks(894));
-
-            migrationBuilder.UpdateData(
-                table: "Permissions",
-                keyColumn: "Id",
-                keyValue: 10,
-                column: "Code",
-                value: "DRIVER_SCAN");
+                value: new DateTime(2025, 12, 1, 12, 16, 34, 173, DateTimeKind.Utc).AddTicks(5867));
         }
 
         /// <inheritdoc />
@@ -48,28 +41,21 @@ namespace Autoprint.Server.Migrations
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 10, 48, 57, 444, DateTimeKind.Utc).AddTicks(9803));
+                value: new DateTime(2025, 12, 1, 12, 15, 10, 486, DateTimeKind.Utc).AddTicks(6835));
 
             migrationBuilder.UpdateData(
                 table: "Marques",
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 10, 48, 57, 444, DateTimeKind.Utc).AddTicks(8799));
+                value: new DateTime(2025, 12, 1, 12, 15, 10, 486, DateTimeKind.Utc).AddTicks(5265));
 
             migrationBuilder.UpdateData(
                 table: "Modeles",
                 keyColumn: "Id",
                 keyValue: 1,
                 column: "DateModification",
-                value: new DateTime(2025, 11, 22, 10, 48, 57, 445, DateTimeKind.Utc).AddTicks(936));
-
-            migrationBuilder.UpdateData(
-                table: "Permissions",
-                keyColumn: "Id",
-                keyValue: 10,
-                column: "Code",
-                value: "DRIVER_WRITE");
+                value: new DateTime(2025, 12, 1, 12, 15, 10, 486, DateTimeKind.Utc).AddTicks(8401));
         }
     }
 }
