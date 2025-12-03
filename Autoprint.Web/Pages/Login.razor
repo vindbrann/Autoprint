@@ -19,9 +19,7 @@
     <RadzenCard Style="width: 100%; max-width: 450px; padding: 2rem; border-radius: var(--rz-border-radius);" Variant="Variant.Outlined">
 
         <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-4">
-            <div style="width: 64px; height: 64px; background-color: var(--rz-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <RadzenIcon Icon="print" Style="font-size: 32px; color: var(--rz-on-primary);" />
-            </div>
+            <RadzenImage Path="images/Autoprint.png" Style="max-height: 80px; width: auto; margin-bottom: 0.5rem;" AlternateText="Logo Autoprint" />
             <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" Style="margin: 0;">Autoprint Serveur</RadzenText>
         </RadzenStack>
 
@@ -54,7 +52,7 @@
                         <RadzenCheckBox @bind-Value="@loginRequest.RememberMe" Name="Remember" TriState="false" />
                         <RadzenLabel Text="Retenir mon identifiant" Component="Remember" Style="margin-left: 0.5rem; font-size: 0.9rem;" />
 
-                        <div style="flex: 1;"></div> <RadzenButton Text="Mot de passe oublié ?" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => forgotPasswordMode = true)" />
+                        <div style="flex: 1;"></div> <RadzenButton Text="Mot de passe oublié" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => forgotPasswordMode = true)" />
                     </RadzenStack>
 
                     <RadzenButton ButtonType="ButtonType.Submit" Text="SE CONNECTER" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" IsBusy="@isBusy" Class="rz-mt-2" />

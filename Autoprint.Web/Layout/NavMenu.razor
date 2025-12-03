@@ -1,8 +1,11 @@
 ﻿@using Autoprint.Web.Services
+@using Blazored.LocalStorage
 @implements IDisposable
 @inject IAuthService AuthService
 @inject NavigationManager NavManager
 @inject AlertService AlertService
+@inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
 
 @* Structure Globale Verticale *@
 <RadzenStack Orientation="Orientation.Vertical" Style="height: 100%; width: 100%;" Gap="0">
@@ -10,7 +13,8 @@
     @* 1. LOGO *@
     <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color);">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-            <RadzenIcon Icon="print" Style="font-size: 2rem; color: var(--rz-primary);" />
+            @* Logo intégré (Correction Phase 2.7) *@
+            <RadzenImage Path="images/Autoprint.png" Style="height: 32px; width: auto; object-fit: contain;" AlternateText="Logo" />
             <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; font-weight: bold;">Autoprint</RadzenText>
         </RadzenStack>
     </div>
@@ -46,7 +50,6 @@
                             <RadzenPanelMenuItem Text="Marques" Path="marques" Icon="sell" />
                         </AuthorizeView>
 
-                        @* Pour les Modèles et Pilotes, on utilise un Template pour ajouter le Badge d'alerte *@
                         <AuthorizeView Policy="MODEL_READ">
                             <RadzenPanelMenuItem Path="modeles">
                                 <Template>
@@ -108,16 +111,16 @@
     @* 3. FOOTER (Sticky Bottom) *@
     <AuthorizeView>
         <Authorized>
-            <div class="rz-p-3" style="border-top: 1px solid var(--rz-border-color); background-color: var(--rz-base-200);">
+            @* Pas de background-color ici, on laisse la sidebar gérer *@
+            <div class="rz-p-3" style="border-top: 1px solid var(--rz-border-color);">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
 
                     @* Zone Profil *@
-                    @* CORRECTION : On met le @onclick sur une div standard pour éviter l'erreur de lambda *@
                     <div style="flex: 1; cursor: pointer; overflow: hidden; display: flex; align-items: center; gap: 0.5rem;"
                          @onclick="@(() => NavManager.NavigateTo("profile"))"
                          title="Mon Profil">
 
-                        @* Avatar Initiales (Style Teams/Gmail) *@
+                        @* Avatar Initiales *@
                         <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background-color: var(--rz-secondary); color: var(--rz-on-secondary); display: flex; align-items: center; justify-content: center;">
                             <span style="font-weight: bold; font-size: 0.8rem; line-height: 1;">
                                 @GetInitials(GetNomAffichage(context.User))
@@ -135,7 +138,15 @@
                     </div>
 
                     @* Boutons Actions *@
-                    <RadzenAppearanceToggle />
+
+                    @* Bouton Thème Manuel (Remplace RadzenAppearanceToggle) *@
+                    <RadzenButton Icon="@currentThemeIcon"
+                                  Variant="Variant.Text"
+                                  ButtonStyle="ButtonStyle.Base"
+                                  Size="ButtonSize.Small"
+                                  Click="ToggleTheme"
+                                  Tooltip="Changer de thème" />
+
                     <RadzenButton Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="BeginLogout" Tooltip="Déconnexion" />
 
                 </RadzenStack>
@@ -146,10 +157,16 @@
 </RadzenStack>
 
 @code {
-    protected override void OnInitialized()
+    private string currentThemeIcon = "dark_mode";
+
+    protected override async Task OnInitializedAsync()
     {
         AlertService.OnChange += StateHasChanged;
         _ = AlertService.RefreshState();
+
+        // On charge l'état visuel du bouton selon le thème actuel
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+        UpdateIcon(savedTheme);
     }
 
     public void Dispose()
@@ -157,24 +174,40 @@
         AlertService.OnChange -= StateHasChanged;
     }
 
+    // --- LOGIQUE THEME ---
+    private async Task ToggleTheme()
+    {
+        var current = await LocalStorage.GetItemAsync<string>("user_theme") ?? "material";
+        var newTheme = (current == "material") ? "material-dark" : "material";
+
+        ThemeService.SetTheme(newTheme);
+        await LocalStorage.SetItemAsync("user_theme", newTheme);
+        UpdateIcon(newTheme);
+    }
+
+    private void UpdateIcon(string? theme)
+    {
+        // Si c'est sombre, on propose le soleil (mode clair)
+        if (theme == "material-dark") currentThemeIcon = "light_mode";
+        else currentThemeIcon = "dark_mode";
+    }
+
+    // --- LOGIQUE AUTH ---
     private async Task BeginLogout()
     {
         await AuthService.Logout();
         NavManager.NavigateTo("/login", true);
     }
 
-    // --- Helpers ---
     private string GetNomAffichage(System.Security.Claims.ClaimsPrincipal user)
     {
         var display = user.FindFirst("DisplayName")?.Value;
         return !string.IsNullOrEmpty(display) ? display : user.Identity?.Name ?? "User";
     }
 
-    // [CORRECTION] La méthode qui manquait :
     private string GetInitials(string? name)
     {
         if (string.IsNullOrEmpty(name)) return "?";
-        // Prend la première lettre et la met en majuscule
         return name.Substring(0, 1).ToUpper();
     }
 

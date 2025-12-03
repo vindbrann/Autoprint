@@ -5,44 +5,41 @@
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
+@using Blazored.LocalStorage
+
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
 @inject IAuthService AuthService
 @inject IJSRuntime JS
 @inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
 
-@* OBLIGATOIRE : Moteur pour les Popups, Tooltips, Menus contextuels *@
+
 <RadzenComponents />
+<RadzenTheme />
 
 <AuthorizeView>
     <Authorized>
-        @* Logique de sécurité conservée (Source: 714) *@
         @if (IsBlocked(context.User) && !processCompleted)
         {
             <SecurityWall Show="true" OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
         }
         else
         {
-            @* Layout Flexbox : Sidebar à gauche, Contenu à droite *@
             <RadzenLayout Style="height: 100vh; display: flex;">
-
-                @* Sidebar Fixe (Largeur augmentée à 280px pour le confort) *@
                 <RadzenSidebar Expanded="true" Style="width: 280px; min-width: 280px; display: flex; flex-direction: column; z-index: 1;">
                     <NavMenu />
                 </RadzenSidebar>
 
-                @* Zone de contenu *@
                 <RadzenBody Style="flex: 1; overflow: auto;">
                     <div class="rz-p-4">
                         @Body
                     </div>
                 </RadzenBody>
-
             </RadzenLayout>
         }
     </Authorized>
 
-    @* Ecran de login (Source: 717) *@
     <NotAuthorized>
         <div class="login-container d-flex align-items-center justify-content-center" style="min-height: 100vh; background-color: var(--rz-base-200);">
             <div class="w-100" style="max-width: 500px;">
@@ -54,6 +51,17 @@
 
 @code {
     private bool processCompleted = false;
+
+    // --- [NOUVEAU] CHARGEMENT DU THEME ---
+    protected override async Task OnInitializedAsync()
+    {
+        // On récupère le thème sauvegardé, sinon par défaut "material"
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+        if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
+
+        ThemeService.SetTheme(savedTheme);
+    }
+    // -------------------------------------
 
     private bool IsBlocked(ClaimsPrincipal user)
     {

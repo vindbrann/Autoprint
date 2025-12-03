@@ -6,7 +6,8 @@
 
 <RadzenStack Gap="1rem">
 
-    <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
+    @* CORRECTION : Suppression du background-color manuel *@
+    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
         <RadzenRow>
             <RadzenColumn Size="6"><strong>Date :</strong> @Log.DateAction.ToLocalTime()</RadzenColumn>
             <RadzenColumn Size="6"><strong>Utilisateur :</strong> @Log.Utilisateur</RadzenColumn>
@@ -27,6 +28,7 @@
 
                 <RadzenDataGridColumn TItem="AuditComparison" Property="NewValue" Title="Après">
                     <Template Context="c">
+                        @* Utilisation des classes CSS natives si possible, sinon style inline OK pour highlight *@
                         <span style="@(c.IsChanged ? "color: var(--rz-primary); font-weight: bold;" : "")">
                             @c.NewValue
                         </span>
@@ -63,7 +65,7 @@
 
     protected override void OnInitialized()
     {
-        // Logique de parsing JSON (Reprise de ton code existant, adaptée)
+        // Logique de parsing JSON inchangée
         try
         {
             using var oldDoc = JsonDocument.Parse(Log.OldValues ?? "{}");
@@ -73,7 +75,6 @@
             var newProps = newDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             var allKeys = oldProps.Keys.Union(newProps.Keys).OrderBy(k => k);
-
             foreach (var key in allKeys)
             {
                 oldProps.TryGetValue(key, out var oldValue);
@@ -83,7 +84,6 @@
 
                 string vOld = Simplify(oldValue);
                 string vNew = Simplify(newValue);
-
                 if (vOld != vNew || key.Equals("nom", StringComparison.OrdinalIgnoreCase))
                 {
                     comparisonResult.Add(new AuditComparison

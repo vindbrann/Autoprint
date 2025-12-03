@@ -14,7 +14,8 @@
             <RadzenRow AlignItems="AlignItems.Center">
                 <RadzenColumn Size="4">
                     <RadzenLabel Text="Nom du Rôle" Component="Name" />
-                    <RadzenTextBox Name="Name" @bind-Value="@roleEdit.Name" Style="width: 100%;" Disabled="@isSuperAdmin" />
+                    <RadzenTextBox Name="Name" @bind-Value="@roleEdit.Name" Style="width: 100%;"
+                                   Disabled="@isSuperAdmin" />
                     <RadzenRequiredValidator Component="Name" Text="Nom requis" Popup="true" />
                 </RadzenColumn>
                 <RadzenColumn Size="8">
@@ -50,8 +51,8 @@
                         }
                         else
                         {
-
-                            <span class="text-muted">-</span>
+                            @* CORRECTION : Meilleure couleur pour désactivé *@
+                            <span style="color: var(--rz-text-disabled-color);">-</span>
                         }
                     </Template>
                 </RadzenDataGridColumn>
@@ -66,8 +67,7 @@
                         }
                         else
                         {
-
-                            <span class="text-muted">-</span>
+                            <span style="color: var(--rz-text-disabled-color);">-</span>
                         }
                     </Template>
                 </RadzenDataGridColumn>
@@ -82,8 +82,7 @@
                         }
                         else
                         {
-
-                            <span class="text-muted">-</span>
+                            <span style="color: var(--rz-text-disabled-color);">-</span>
                         }
                     </Template>
                 </RadzenDataGridColumn>
@@ -156,18 +155,15 @@
             ("MODEL", "Modèles"), ("DRIVER", "Pilotes"), ("USER", "Utilisateurs"),
             ("ROLE", "Rôles"), ("SETTINGS", "Système"), ("AUDIT", "Audit"), ("ADMIN", "Administration")
         };
-
         ModuleRows = new List<ModulePermissionRow>();
 
         foreach (var g in groups)
         {
             var row = new ModulePermissionRow { Title = g.Title, Prefix = g.Prefix };
-
             // Mapping ID CRUD
             row.ReadId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_READ")?.Id ?? 0;
             row.WriteId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_WRITE")?.Id ?? 0;
             row.DeleteId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_DELETE")?.Id ?? 0;
-
             // Autres
             row.Others = AllPermissions
                 .Where(p => p.Code.StartsWith(g.Prefix + "_")
@@ -175,7 +171,6 @@
                             && !p.Code.EndsWith("_WRITE")
                             && !p.Code.EndsWith("_DELETE"))
                 .ToList();
-
             ModuleRows.Add(row);
         }
     }

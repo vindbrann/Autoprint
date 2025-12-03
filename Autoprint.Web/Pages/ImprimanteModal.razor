@@ -18,7 +18,8 @@
                 <RadzenColumn Size="8">
                     <RadzenLabel Text="Nom affiché" Component="NomAffiche" />
                     <div style="display: flex; gap: 0.5rem;">
-                        <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="flex: 1;" Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
+                        <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="flex: 1;"
+                                       Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
                         @if (namingEnabled)
                         {
                             <RadzenButton Icon="autorenew" ButtonStyle="ButtonStyle.Secondary" Click="@ForcerRefreshNom" Tooltip="Recalculer le nom" />
@@ -27,7 +28,8 @@
                 </RadzenColumn>
                 <RadzenColumn Size="4">
                     <RadzenLabel Text="Code Inventaire" Component="Code" />
-                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;" @onblur="GenerateNameIfEnabled" Placeholder="P001" />
+                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;"
+                                   @onblur="GenerateNameIfEnabled" Placeholder="P001" />
                 </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
@@ -44,13 +46,15 @@
                         <RadzenDropDown Name="Emplacement" @bind-Value="@imprimanteEdit.EmplacementId"
                                         Data="@listeEmplacements" TextProperty="Nom" ValueProperty="Id"
                                         Change="@(args => OnLieuChanged((int)args))"
-                                        Style="width: 100%;" Placeholder="Choisir un emplacement..."
+                                        Style="width: 100%;"
+                                        Placeholder="Choisir un emplacement..."
                                         AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
                             <Template Context="l">
                                 @((l as Emplacement).Nom)
                                 @if (!string.IsNullOrEmpty((l as Emplacement).CidrIpv4))
                                 {
-                                    <span style="color: gray; font-size: 0.8em; margin-left: 5px;">(@((l as Emplacement).CidrIpv4))</span>
+                                    @* CORRECTION : Remplacement de "gray" par la variable Radzen *@
+                                    <span style="color: var(--rz-text-tertiary-color); font-size: 0.8em; margin-left: 5px;">(@((l as Emplacement).CidrIpv4))</span>
                                 }
                             </Template>
                         </RadzenDropDown>
@@ -69,10 +73,11 @@
                         @if (!string.IsNullOrEmpty(prefixeReseau))
                         {
                             <div class="input-group">
-                                <span class="input-group-text" style="background-color: var(--rz-base-200); color: var(--rz-text-disabled-color); font-weight: bold; border-right: none;">
+                                @* CORRECTION : Suppression des couleurs forcées pour le préfixe *@
+                                <span class="input-group-text" style="font-weight: bold; border-right: none; background-color: var(--rz-base-200); color: var(--rz-text-color);">
                                     @prefixeReseau
                                 </span>
-                                <input type="text" class="form-control" style="border-left: none;"
+                                <input type="text" class="form-control" style="border-left: none; background-color: var(--rz-base-100); color: var(--rz-text-color);"
                                        value="@ipSuffix" @onchange="OnSuffixChanged" placeholder="Ex: 50" />
                             </div>
                             <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
@@ -104,7 +109,8 @@
                                     Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
                                     Change="@OnMarqueChange"
                                     Disabled="@(!CanReadMarques)"
-                                    Style="width: 100%;" Placeholder="-- Marque --" AllowFiltering="true" />
+                                    Style="width: 100%;"
+                                    Placeholder="-- Marque --" AllowFiltering="true" />
                 </RadzenColumn>
                 <RadzenColumn Size="6">
                     <RadzenLabel Text="Modèle" Component="Modele" />
@@ -112,14 +118,16 @@
                                     Data="@listeModelesFiltres" TextProperty="Nom" ValueProperty="Id"
                                     Disabled="@(selectedMarqueId == 0 || !CanReadModeles)"
                                     Change="@(args => GenerateNameIfEnabled())"
-                                    Style="width: 100%;" Placeholder="-- Modèle --" AllowFiltering="true" />
+                                    Style="width: 100%;"
+                                    Placeholder="-- Modèle --" AllowFiltering="true" />
                     <RadzenRequiredValidator Component="Modele" Text="Le modèle est requis" Popup="true" DefaultValue="0" />
                 </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
 
         @* --- 4. PARTAGE --- *@
-        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
+        @* CORRECTION : Suppression du background-color manuel. Variant.Flat gère le fond. *@
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                 <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" />
                 <RadzenLabel Text="Partager sur le réseau Windows ?" Component="Partage" Style="font-weight: bold;" />
@@ -407,7 +415,6 @@
     {
         var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer cette imprimante ?", "Suppression",
             new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
-
         if (confirm == true)
         {
             try

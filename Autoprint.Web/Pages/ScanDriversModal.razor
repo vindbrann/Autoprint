@@ -12,15 +12,17 @@
 
     @if (isSyncing)
     {
-        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" />
-        <RadzenText TextStyle="TextStyle.Body1">Analyse des pilotes WMI en cours...</RadzenText>
+        @* CORRECTION : Ajout de ProgressBarStyle pour la couleur *@
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" ProgressBarStyle="ProgressBarStyle.Base" />
+        <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-text-secondary-color);">Analyse des pilotes WMI en cours...</RadzenText>
     }
     else if (result != null)
     {
         <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
-        <RadzenText TextStyle="TextStyle.H6">Synchronisation terminée !</RadzenText>
+        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-text-title-color);">Synchronisation terminée !</RadzenText>
 
-        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="width: 100%; background-color: var(--rz-base-200);">
+        @* CORRECTION : Suppression du background-color manuel. Variant.Flat gère le mode sombre. *@
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="width: 100%;">
             <RadzenStack Gap="0.5rem">
                 <div>➕ <strong>@result.Added</strong> ajoutés</div>
                 <div>🔄 <strong>@result.Updated</strong> mis à jour</div>
@@ -33,7 +35,7 @@
     else
     {
         <RadzenIcon Icon="dns" Style="font-size: 4rem; color: var(--rz-primary);" />
-        <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center">
+        <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center" Style="color: var(--rz-text-title-color);">
             Lancer la synchronisation avec le Spouleur Windows ?
         </RadzenText>
         <RadzenText TextStyle="TextStyle.Body2" TextAlign="TextAlign.Center" Style="color: var(--rz-text-tertiary-color);">

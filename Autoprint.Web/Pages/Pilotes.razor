@@ -12,8 +12,8 @@
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
     <RadzenStack Gap="0">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">💾 Bibliothèque des Pilotes</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Inventaire WMI du serveur.</RadzenText>
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">💾 Bibliothèque des Pilotes</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Inventaire WMI du serveur (Lecture Seule).</RadzenText>
     </RadzenStack>
 
     <AuthorizeView Policy="DRIVER_SCAN">
@@ -37,7 +37,7 @@ else
 
             <RadzenDataGridColumn TItem="Pilote" Property="Nom" Title="Nom du Pilote" Sortable="true" Filterable="true" Width="300px">
                 <Template Context="p">
-                    <span style="font-weight: bold;">@p.Nom</span>
+                    <span style="font-weight: bold; color: var(--rz-text-color);">@p.Nom</span>
                     @if (!p.EstInstalle)
                     {
                         <div class="rz-mt-1">
@@ -49,7 +49,8 @@ else
 
             <RadzenDataGridColumn TItem="Pilote" Property="Version" Title="Version" Width="150px">
                 <Template Context="p">
-                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@p.Version" />
+                    @* Badge en mode Outlined pour lisibilité Dark Mode *@
+                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Outlined" Text="@p.Version" />
                 </Template>
             </RadzenDataGridColumn>
 
@@ -72,16 +73,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            @* ACTIONS (Édition manuelle si besoin) *@
-            <RadzenDataGridColumn TItem="Pilote" Title="Actions" Width="80px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
-                <Template Context="p">
-                    <AuthorizeView Policy="DRIVER_SCAN">
-                        <Authorized Context="auth">
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirEdition(p))" />
-                        </Authorized>
-                    </AuthorizeView>
-                </Template>
-            </RadzenDataGridColumn>
+            @* NETTOYAGE : Suppression de la colonne Actions (Edition manuelle interdite) *@
 
         </Columns>
     </RadzenDataGrid>
@@ -116,12 +108,4 @@ else
         if (result == true) await ChargerListe();
     }
 
-    private async Task OuvrirEdition(Pilote p)
-    {
-        var pClone = new Pilote { Id = p.Id, Nom = p.Nom, Version = p.Version };
-        var result = await DialogService.OpenAsync<PiloteModal>("Modifier le Pilote",
-            new Dictionary<string, object> { { "PiloteToEdit", pClone } });
-
-        if (result == true) await ChargerListe();
-    }
 }

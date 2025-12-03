@@ -85,7 +85,8 @@ else
                 @if (editMode)
                 {
                     <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenCard Variant="Variant.Flat" Class="rz-p-2" Style="background-color: var(--rz-base-200);">
+                        @* CORRECTION : Suppression du background-color manuel et passage en Outlined *@
+                        <RadzenCard Variant="Variant.Outlined" Class="rz-p-2">
                             <RadzenStack Gap="0.5rem">
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                                     <RadzenSwitch @bind-Value="@formData.IsActive" />
@@ -138,7 +139,6 @@ else
         try
         {
             availableRoles = await RoleService.GetRoles();
-
             if (editMode)
             {
                 // Mapping DTO -> Formulaire
@@ -149,7 +149,6 @@ else
                     Email = UserToEdit.Email,
                     IsActive = UserToEdit.IsActive,
                     // Récupération de l'ID du rôle actuel.
-                    // Note : UserViewDto a une liste de noms de rôles, on doit trouver l'ID correspondant.
                     RoleId = GetRoleIdFromNames(UserToEdit.Roles)
                 };
             }
@@ -172,7 +171,6 @@ else
     private int GetRoleIdFromNames(List<string> roleNames)
     {
         if (roleNames == null || !roleNames.Any()) return availableRoles.FirstOrDefault()?.Id ?? 0;
-        // On cherche le rôle qui correspond au premier nom de la liste (1 User = 1 Role principal)
         var roleName = roleNames.First();
         return availableRoles.FirstOrDefault(r => r.Name == roleName)?.Id ?? 0;
     }

@@ -13,7 +13,7 @@
 
 @* EN-TÊTE *@
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="font-weight: 700; letter-spacing: -0.5px;">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="font-weight: 700; letter-spacing: -0.5px; color: var(--rz-text-title-color);">
         Tableau de Bord
     </RadzenText>
     <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Click="@ChargerDonnees" IsBusy="@isLoading" />
@@ -43,35 +43,42 @@ else if (stats != null)
     @* --- 1. INDICATEURS CLÉS (KPI) --- *@
     <RadzenRow Class="rz-mb-4" Gap="1.5rem">
         <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-primary); background-color: var(--rz-base-100);">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-primary);">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
                     <RadzenStack Gap="0">
                         <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-primary">PARC ACTIF</RadzenText>
-                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0"><b>@stats.TotalImprimantes</b></RadzenText>
+                        @* CORRECTION : Ajout explicite de la couleur texte *@
+                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+                            <b>@stats.TotalImprimantes</b>
+                        </RadzenText>
                     </RadzenStack>
-                    <RadzenIcon Icon="print" Style="font-size: 2.5rem; opacity: 0.2;" />
+                    <RadzenIcon Icon="print" Style="font-size: 2.5rem; opacity: 0.2; color: var(--rz-text-color);" />
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-success); background-color: var(--rz-base-100);">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-success);">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
                     <RadzenStack Gap="0">
                         <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-success">PILOTES</RadzenText>
-                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0"><b>@stats.TotalPilotes</b></RadzenText>
+                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+                            <b>@stats.TotalPilotes</b>
+                        </RadzenText>
                     </RadzenStack>
-                    <RadzenIcon Icon="usb" Style="font-size: 2.5rem; opacity: 0.2;" />
+                    <RadzenIcon Icon="usb" Style="font-size: 2.5rem; opacity: 0.2; color: var(--rz-text-color);" />
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-info); background-color: var(--rz-base-100);">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-info);">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
                     <RadzenStack Gap="0">
                         <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-info">LIEUX</RadzenText>
-                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0"><b>@stats.TotalLieux</b></RadzenText>
+                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+                            <b>@stats.TotalLieux</b>
+                        </RadzenText>
                     </RadzenStack>
-                    <RadzenIcon Icon="place" Style="font-size: 2.5rem; opacity: 0.2;" />
+                    <RadzenIcon Icon="place" Style="font-size: 2.5rem; opacity: 0.2; color: var(--rz-text-color);" />
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
@@ -85,15 +92,16 @@ else if (stats != null)
 
                 @* 2. GRAPHIQUE *@
                 <RadzenCard Class="rz-p-4" Style="min-height: 400px; border-radius: 8px;">
-                    <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-4">Répartition par Modèle</RadzenText>
+                    <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-4" Style="color: var(--rz-text-title-color);">Répartition par Modèle</RadzenText>
                     @if (stats.RepartitionModeles.Any())
                     {
                         <RadzenChart Style="height: 320px;">
                             <RadzenDonutSeries Data="@stats.RepartitionModeles" CategoryProperty="Label" ValueProperty="Value"
                                                Fills="@(new[] { "#4340d2", "#e91e63", "#4caf50", "#ff9800", "#00bcd4", "#9c27b0" })">
                                 <TitleTemplate>
+                                    @* CORRECTION : Couleur explicite pour le centre du Donut *@
                                     <div class="rz-donut-content">
-                                        <div style="font-size: 2rem; font-weight: 800;">@stats.TotalImprimantes</div>
+                                        <div style="font-size: 2rem; font-weight: 800; color: var(--rz-text-title-color);">@stats.TotalImprimantes</div>
                                         <div style="color: var(--rz-text-tertiary-color); font-size: 0.7rem;">TOTAL</div>
                                     </div>
                                 </TitleTemplate>
@@ -107,13 +115,14 @@ else if (stats != null)
                     }
                 </RadzenCard>
 
-                @* 3. ÉTAT DU SERVICE (CONNECTÉ AU BACKEND) *@
+                @* 3. ÉTAT DU SERVICE *@
                 <RadzenCard Class="rz-p-4" Style="border-radius: 8px;">
-                    <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-4">État du Service</RadzenText>
+                    <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-4" Style="color: var(--rz-text-title-color);">État du Service</RadzenText>
                     <RadzenRow>
-                        @* Spouleur Windows (Dynamique) *@
+                        @* Spouleur Windows *@
                         <RadzenColumn Size="4" Class="rz-text-align-center" Style="border-right: 1px solid var(--rz-border-color);">
-                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1 text-muted">Spouleur Windows</RadzenText>
+                            @* CORRECTION : Remplacement de text-muted par rz-text-tertiary-color *@
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Spouleur Windows</RadzenText>
                             @if (stats.IsSpoolerRunning)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="EN LIGNE" Variant="Variant.Flat" class="rz-px-3 rz-py-1" />
@@ -126,16 +135,15 @@ else if (stats != null)
 
                         @* Version *@
                         <RadzenColumn Size="4" Class="rz-text-align-center" Style="border-right: 1px solid var(--rz-border-color);">
-                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1 text-muted">Version Serveur</RadzenText>
-                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 fw-bold">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Version Serveur</RadzenText>
+                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 fw-bold" Style="color: var(--rz-text-color);">
                                 @stats.ServerVersion
                             </RadzenText>
-
                         </RadzenColumn>
 
-                        @* Alertes Synchro (Dynamique) *@
+                        @* Alertes Synchro *@
                         <RadzenColumn Size="4" Class="rz-text-align-center">
-                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1 text-muted">Erreurs Synchro</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Erreurs Synchro</RadzenText>
                             @if (stats.SyncErrorCount > 0)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@($"{stats.SyncErrorCount} erreurs")" Variant="Variant.Flat"
@@ -155,7 +163,7 @@ else if (stats != null)
             </RadzenStack>
         </RadzenColumn>
 
-        @* --- COLONNE DROITE (Conditionnelle) --- *@
+        @* --- COLONNE DROITE --- *@
         @if (ShowRightColumn)
         {
             <RadzenColumn Size="12" SizeLG="4">
@@ -164,22 +172,23 @@ else if (stats != null)
                     @* 4. SANTÉ PILOTES *@
                     @if (canReadDrivers)
                     {
-                        <RadzenCard Class="rz-p-3" Style="border-radius: 8px; background-color: var(--rz-base-100);">
+                        <RadzenCard Class="rz-p-3" Style="border-radius: 8px;">
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-2">
                                 <RadzenIcon Icon="inventory_2" Style="color: var(--rz-secondary);" />
-                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Référentiel Pilotes</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="color: var(--rz-text-color);">Référentiel Pilotes</RadzenText>
                             </RadzenStack>
 
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                <span class="rz-text-caption">Taux d'utilisation</span>
-                                <span class="rz-text-caption" style="font-weight: bold;">@usagePercent%</span>
+                                <span class="rz-text-caption" style="color: var(--rz-text-color);">Taux d'utilisation</span>
+                                <span class="rz-text-caption" style="font-weight: bold; color: var(--rz-text-color);">@usagePercent%</span>
                             </div>
 
                             <RadzenProgressBar Value="@usagePercent" ShowValue="false" Style="height: 8px;" ProgressBarStyle="ProgressBarStyle.Info" />
 
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mt-2">
-                                <span class="rz-text-caption text-muted">@assignedDrivers assignés</span>
-                                <span class="rz-text-caption text-muted">@orphanedDrivers en réserve</span>
+                                @* CORRECTION : Suppression classes bootstrap text-muted *@
+                                <span class="rz-text-caption" style="color: var(--rz-text-tertiary-color);">@assignedDrivers assignés</span>
+                                <span class="rz-text-caption" style="color: var(--rz-text-tertiary-color);">@orphanedDrivers en réserve</span>
                             </RadzenStack>
                         </RadzenCard>
                     }
@@ -188,14 +197,14 @@ else if (stats != null)
                     @if (canReadAudit)
                     {
                         <RadzenCard Class="rz-p-0" Style="flex: 1; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
-                            <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color); background-color: var(--rz-base-200);">
-                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Dernières Activités</RadzenText>
+                            <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color);">
+                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">Dernières Activités</RadzenText>
                             </div>
 
                             <div style="flex: 1; overflow-y: auto; padding: 1rem;">
                                 @if (recentLogs == null || !recentLogs.Any())
                                 {
-                                    <div class="rz-text-align-center rz-p-2 text-muted small">Aucune activité récente.</div>
+                                    <div class="rz-text-align-center rz-p-2 small" style="color: var(--rz-text-tertiary-color);">Aucune activité récente.</div>
                                 }
                                 else
                                 {
@@ -210,24 +219,23 @@ else if (stats != null)
                                                     }
                                                     else if (log.Action.Contains("DELETE"))
                                                     {
-
                                                         <RadzenIcon Icon="delete" Style="color: var(--rz-danger); font-size: 1rem;" />
                                                     }
                                                     else if (log.Action.Contains("UPDATE"))
                                                     {
-
                                                         <RadzenIcon Icon="edit" Style="color: var(--rz-warning); font-size: 1rem;" />
                                                     }
                                                     else
                                                     {
-
                                                         <RadzenIcon Icon="info" Style="color: var(--rz-info); font-size: 1rem;" />
                                                     }
                                                 </div>
                                                 <div style="flex: 1; overflow: hidden;">
-                                                    <div style="font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@log.ActionLisible">
+                                                    @* CORRECTION : Texte Action en couleur principale *@
+                                                    <div style="font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rz-text-color);" title="@log.ActionLisible">
                                                         @log.ActionLisible
                                                     </div>
+                                                    @* CORRECTION : Texte Date en couleur tertiaire *@
                                                     <div style="font-size: 0.7rem; color: var(--rz-text-tertiary-color);">
                                                         @log.Utilisateur • @GetTimeAgo(log.DateAction)
                                                     </div>
@@ -288,14 +296,14 @@ else if (stats != null)
             canReadDrivers = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
             canReadModels = await AuthProvider.HasPermission("Permission", "MODEL_READ");
 
-            // 1. Stats Globales (Inclut maintenant IsSpoolerRunning et SyncErrorCount)
+            // 1. Stats Globales
             var t1 = Http.GetFromJsonAsync<DashboardStatsDto>("api/Dashboard");
 
-            // 2. Logs (Conditionnel)
+            // 2. Logs
             Task<PaginatedList<AuditLogDto>>? t2 = null;
             if (canReadAudit) t2 = Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>("api/Audit?page=1&pageSize=5");
 
-            // 3. Pilotes & Modèles (Conditionnel)
+            // 3. Pilotes & Modèles
             Task<List<Pilote>>? t3 = null;
             Task<List<Modele>>? t4 = null;
             if (canReadDrivers && canReadModels)
@@ -311,7 +319,7 @@ else if (stats != null)
             stats = t1.Result;
             recentLogs = (t2 != null && t2.Result != null) ? t2.Result.Items : new List<AuditLogDto>();
 
-            // Calcul Santé Pilotes (Client-side)
+            // Calcul Santé Pilotes
             if (t3 != null && t4 != null)
             {
                 var pilotes = t3.Result ?? new();

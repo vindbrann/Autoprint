@@ -117,27 +117,21 @@ else
                             <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" Tooltip="Synchronisé" />
                             break;
                         case PrinterStatus.ImportedNeedsFix:
-
                             <RadzenIcon Icon="build" Style="color: var(--rz-warning);" Tooltip="@GenererMessageIncomplet(imp)" />
                             break;
                         case PrinterStatus.PendingCreation:
-
                             <RadzenIcon Icon="add_circle" Style="color: var(--rz-success);" Tooltip="En attente de création" />
                             break;
                         case PrinterStatus.PendingUpdate:
-
                             <RadzenIcon Icon="edit" Style="color: var(--rz-warning);" Tooltip="En attente de mise à jour" />
                             break;
                         case PrinterStatus.PendingDelete:
-
                             <RadzenIcon Icon="delete" Style="color: var(--rz-danger);" Tooltip="En attente de suppression" />
                             break;
                         case PrinterStatus.SyncError:
-
                             <RadzenIcon Icon="error" Style="color: var(--rz-danger);" Tooltip="Erreur de synchro" />
                             break;
                         default:
-
                             <RadzenIcon Icon="help" Style="color: var(--rz-text-disabled-color);" />
                             break;
                     }
@@ -160,7 +154,8 @@ else
                 <Template Context="imp">
                     @if (!string.IsNullOrEmpty(imp.Code))
                     {
-                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@imp.Code" Style="border: 1px solid var(--rz-border-color); color: var(--rz-text-color);" />
+                        @* CORRECTION : Badge Outlined pour compatibilité Dark Mode *@
+                        <RadzenBadge Variant="Variant.Outlined" BadgeStyle="BadgeStyle.Base" Text="@imp.Code" />
                     }
                 </Template>
             </RadzenDataGridColumn>
@@ -266,13 +261,11 @@ else
         {
             // 1. Récupération des données
             var previewItems = await SyncService.GetPreview();
-
             // 2. Ouverture de la modale via DialogService
             var selectedIds = await DialogService.OpenAsync<SyncPreviewModal>("Aperçu des modifications",
                 new Dictionary<string, object> { { "Items", previewItems } },
                 new DialogOptions() { Width = "800px", Height = "600px", CloseDialogOnOverlayClick = false }
             );
-
             // 3. Si retour (Liste d'IDs), on exécute
             if (selectedIds is List<int> idsToSync && idsToSync.Any())
             {
@@ -308,7 +301,6 @@ else
              null,
              new DialogOptions() { Width = "90%", Height = "85%", CloseDialogOnOverlayClick = false }
         );
-
         // Au retour (fermeture), on recharge toujours la liste au cas où un import a eu lieu
         await ChargerListe();
     }
@@ -332,12 +324,10 @@ else
         };
 
         var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
-
         var result = await DialogService.OpenAsync<ImprimanteModal>(title,
             new Dictionary<string, object> { { "ImprimanteToEdit", impClone } },
             new DialogOptions() { Width = "900px", CloseDialogOnOverlayClick = true }
         );
-
         if (result == true)
         {
             await ChargerListe();
@@ -347,7 +337,6 @@ else
     private async Task ExporterEnCsv()
     {
         if (imprimantes == null || !imprimantes.Any()) return;
-
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Id;Nom;Code;Modele;IP;Lieu;Emplacement;Partage");
 

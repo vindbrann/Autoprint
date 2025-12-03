@@ -1,24 +1,34 @@
 ﻿@page "/Home"
 @using Microsoft.AspNetCore.Components.Authorization
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 
 <PageTitle>Accueil</PageTitle>
 
-<div class="text-center mt-5">
-    <h1 class="display-4">Bienvenue, <span class="text-primary">@username</span> !</h1>
-    <p class="lead">Votre tableau de bord d'administration est prêt.</p>
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="2rem" Style="min-height: 60vh; margin-top: 2rem;">
+    
+    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenText TextStyle="TextStyle.DisplayH4" TextAlign="TextAlign.Center" Style="color: var(--rz-text-title-color);">
+            Bienvenue, <span style="color: var(--rz-primary);">@username</span> !
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Center" Style="color: var(--rz-text-secondary-color);">
+            Votre tableau de bord d'administration est prêt.
+        </RadzenText>
+    </RadzenStack>
 
-    <hr class="my-4">
+    <RadzenDivider Style="width: 50%;" />
 
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle-fill me-2"></i>
+    <RadzenCard Variant="Variant.Flat" Class="rz-p-4" Style="max-width: 600px; border-left: 4px solid var(--rz-info);">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+            <RadzenIcon Icon="info" Style="font-size: 2rem; color: var(--rz-info);" />
+            <RadzenText TextStyle="TextStyle.Body1" Style="margin: 0;">
                 Sélectionnez une option dans le menu de gauche pour commencer.
-            </div>
-        </div>
-    </div>
-</div>
+            </RadzenText>
+        </RadzenStack>
+    </RadzenCard>
+
+</RadzenStack>
 
 @code {
     [CascadingParameter]

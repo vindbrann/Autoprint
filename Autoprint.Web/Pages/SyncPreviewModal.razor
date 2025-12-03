@@ -29,14 +29,14 @@ else
         </RadzenAlert>
 
         @* GRILLE DE PRÉVISUALISATION *@
+        @* CORRECTION : Suppression de RowRender qui cassait le contraste en dark mode *@
         <RadzenDataGrid Data="@Items" TItem="SyncPreviewDto" AllowSorting="true"
-                        Style="flex: 1; overflow: auto;" RowRender="@RowRender">
+                        Style="flex: 1; overflow: auto;">
             <Columns>
 
                 @* CHECKBOX (Tout sélectionner dans le Header) *@
                 <RadzenDataGridColumn TItem="SyncPreviewDto" Width="50px" TextAlign="TextAlign.Center" Sortable="false">
                     <HeaderTemplate>
-                        @* CORRECTION ICI : Utilisation de la lambda pour corriger l'erreur de typage *@
                         <RadzenCheckBox TValue="bool" @bind-Value="@selectAll" Change="@(args => ToggleSelectAll(args))" TriState="false" />
                     </HeaderTemplate>
                     <Template Context="item">
@@ -53,11 +53,9 @@ else
                                 <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="CRÉATION" />
                                 break;
                             case PrinterStatus.PendingDelete:
-
                                 <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="SUPPRESSION" />
                                 break;
                             default:
-
                                 <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="MODIFICATION" />
                                 break;
                         }
@@ -98,20 +96,11 @@ else
 }
 
 @code {
-    // Seul paramètre nécessaire via DialogService
     [Parameter] public List<SyncPreviewDto> Items { get; set; } = new();
 
     private bool selectAll = false;
 
-    void RowRender(RowRenderEventArgs<SyncPreviewDto> args)
-    {
-        if (args.Data.Status == PrinterStatus.PendingCreation)
-            args.Attributes.Add("style", "background-color: var(--rz-success-lighter);");
-        else if (args.Data.Status == PrinterStatus.PendingDelete)
-            args.Attributes.Add("style", "background-color: var(--rz-danger-lighter);");
-        else
-            args.Attributes.Add("style", "background-color: var(--rz-warning-lighter);");
-    }
+    // CORRECTION : Suppression de la méthode RowRender
 
     void ToggleSelectAll(bool value)
     {

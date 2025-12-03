@@ -12,7 +12,7 @@
 <PageTitle>Gestion des Utilisateurs</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
         👥 Gestion des Utilisateurs
     </RadzenText>
 
@@ -42,7 +42,7 @@ else
                     {
                         <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="AD" Class="rz-mr-1" Style="vertical-align: middle;" />
                     }
-                    <span style="font-weight: bold;">@u.Username</span>
+                    <span style="font-weight: bold; color: var(--rz-text-color);">@u.Username</span>
                 </Template>
             </RadzenDataGridColumn>
 
@@ -54,11 +54,12 @@ else
                 <Template Context="u">
                     @if (!string.IsNullOrEmpty(u.Email))
                     {
-                        <a href="mailto:@u.Email" style="color: var(--rz-link-color);">@u.Email</a>
+                        <a href="mailto:@u.Email" style="color: var(--rz-primary);">@u.Email</a>
                     }
                     else
                     {
-                        <span class="text-muted small">-</span>
+                        @* CORRECTION : Remplacement de text-muted *@
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.8em;">-</span>
                     }
                 </Template>
             </RadzenDataGridColumn>
@@ -68,7 +69,8 @@ else
                 <Template Context="u">
                     @foreach (var r in u.Roles)
                     {
-                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@r" Class="rz-mr-1" />
+                        @* Badge Outlined pour le style *@
+                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Outlined" Text="@r" Class="rz-mr-1" />
                     }
                 </Template>
             </RadzenDataGridColumn>
@@ -78,7 +80,8 @@ else
                 <Template Context="u">
                     @if (u.LastLogin == DateTime.MinValue)
                     {
-                        <span class="text-muted small">Jamais</span>
+                        @* CORRECTION : Remplacement de text-muted *@
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.8em;">Jamais</span>
                     }
                     else
                     {
@@ -159,7 +162,6 @@ else
             new Dictionary<string, object> { { "UserToEdit", user } },
             new DialogOptions() { Width = "700px", CloseDialogOnOverlayClick = true }
         );
-
         if (result == true)
         {
             await LoadData();
@@ -170,7 +172,6 @@ else
     {
         var confirm = await DialogService.Confirm($"Voulez-vous vraiment supprimer {user.Username} ?", "Confirmation",
             new ConfirmOptions { OkButtonText = "Oui, supprimer", CancelButtonText = "Annuler" });
-
         if (confirm == true)
         {
             try

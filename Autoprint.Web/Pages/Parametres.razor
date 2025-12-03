@@ -15,7 +15,7 @@
 @* --- EN-TÊTE FLOTTANT --- *@
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
     <RadzenStack Gap="0">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
             ⚙️ Configuration Système
         </RadzenText>
         <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
@@ -51,10 +51,10 @@ else
                                 <RadzenIcon Icon="auto_delete" Style="font-size: 2rem; color: var(--rz-text-tertiary-color);" />
                                 <RadzenStack Gap="0" Style="flex: 1;">
                                     <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Purge automatique</RadzenText>
-                                    <RadzenText TextStyle="TextStyle.Caption">Les logs d'audit plus anciens que la durée définie seront supprimés.</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Les logs d'audit plus anciens que la durée définie seront supprimés.</RadzenText>
                                 </RadzenStack>
                                 <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="1" Max="3650" Style="width: 120px;" />
-                                <span class="rz-text-secondary">jours</span>
+                                <span style="color: var(--rz-text-secondary-color);">jours</span>
                             </RadzenStack>
                         </RadzenFieldset>
 
@@ -188,7 +188,9 @@ else
                         <RadzenColumn Size="12" SizeLG="7">
                             <RadzenFieldset Text="Règles & Automatisation" Icon="settings_suggest">
                                 <RadzenStack Gap="1.5rem">
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-100);">
+                                    
+                                    @* CORRECTION : Suppression du background-color manuel *@
+                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
                                         <RadzenStack Gap="1rem">
                                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
                                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
@@ -211,7 +213,7 @@ else
                                     <RadzenStack Gap="0.5rem">
                                         <RadzenLabel Text="Modèle de nom (Template)" />
                                         <RadzenTextBox @bind-Value="@model.NamingTemplate" Disabled="@(!model.NamingEnabled)" Style="width: 100%; font-family: monospace; font-size: 1.1rem;" Placeholder="IMP_{LIEU}_{IP_LAST}" />
-                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1" Style="color: var(--rz-text-tertiary-color);">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
                                     </RadzenStack>
                                 </RadzenStack>
                             </RadzenFieldset>
@@ -269,10 +271,10 @@ else
 
                                     @if (!string.IsNullOrEmpty(previewResult))
                                     {
-                                        <div class="rz-p-3 rz-text-align-center rz-mt-2" 
-                                             style="background-color: var(--rz-success-lighter); color: var(--rz-success-darker); border-radius: var(--rz-border-radius); font-family: monospace; font-size: 1.2rem; font-weight: bold; border: 1px dashed var(--rz-success);">
+                                        @* CORRECTION : Remplacement des couleurs forcées par un Alert *@
+                                        <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-2 rz-text-align-center" Style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">
                                             @previewResult
-                                        </div>
+                                        </RadzenAlert>
                                     }
                                 </RadzenStack>
                             </RadzenCard>
@@ -306,7 +308,8 @@ else
 
                                     @if (model.AdUseServiceAccount)
                                     {
-                                        <RadzenCard Variant="Variant.Flat" Class="rz-p-2" Style="background-color: var(--rz-base-100);">
+                                        @* CORRECTION : Suppression background *@
+                                        <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
                                             <RadzenRow>
                                                 <RadzenColumn Size="6">
                                                     <RadzenLabel Text="Utilisateur" />
@@ -381,10 +384,10 @@ else
                         <RadzenCard Variant="Variant.Outlined" Style="border-color: var(--rz-warning);">
                             <RadzenStack Gap="1rem">
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                    <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning-darker); font-size: 2rem;" />
+                                    <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning); font-size: 2rem;" />
                                     <RadzenStack Gap="0">
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning-darker);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
-                                        <RadzenText TextStyle="TextStyle.Caption">Cette clé permet aux agents Autoprint de s'identifier. Ne la modifiez qu'en cas de sinistre.</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux agents Autoprint de s'identifier. Ne la modifiez qu'en cas de sinistre.</RadzenText>
                                     </RadzenStack>
                                 </RadzenStack>
 
@@ -408,7 +411,7 @@ else
                                 </RadzenColumn>
                                 <RadzenColumn Size="3">
                                     <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Style="width: 100px;" />
-                                    <span class="rz-ml-2">jours</span>
+                                    <span class="rz-ml-2" style="color: var(--rz-text-secondary-color);">jours</span>
                                 </RadzenColumn>
                             </RadzenRow>
                         </RadzenFieldset>
@@ -422,6 +425,9 @@ else
 }
 
 @code {
+    // ... Code C# identique au précédent (pas de changement logique) ...
+    // Je ne le répète pas pour alléger la réponse, mais tu gardes exactement le même @code { ... }
+    
     private SettingsModel model = new();
     private bool isLoading = true;
     private bool sauvegardeEnCours = false;
@@ -432,13 +438,11 @@ else
     private string testEmailTo = "";
     private string testAdQuery = "";
     private string builderGroupName = "";
-
     private BackupRootDto? uploadedBackup;
     private bool isRestoring = false;
     
     // Champs Simulateur
     private string testLieu = "Bur", testLieuCode = "B", testImpCode = "P1", testIp = "1.1.1.1", previewResult = "";
-    // NOUVEAU : Champs pour le test étendu (Tokens Marque/Modele)
     private string testMarque = "HP";
     private string testModele = "LaserJet";
 
@@ -511,7 +515,6 @@ else
     }
 
     private async Task DownloadBackup() => await JS.InvokeVoidAsync("open", "api/Backup/export", "_blank");
-
     private async Task LoadFile(InputFileChangeEventArgs e)
     {
         try
@@ -593,7 +596,6 @@ else
             ModeleNom = testModele, // Variables liées aux inputs
             MarqueNom = testMarque  // Variables liées aux inputs
         };
-        
         var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
         if (r.IsSuccessStatusCode)
         {

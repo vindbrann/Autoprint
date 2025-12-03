@@ -87,6 +87,7 @@ else
                     }
                     else
                     {
+                        @* CORRECTION : text-disabled *@
                         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-disabled-color);">Aucun pilote</RadzenText>
                     }
                 </Template>
@@ -144,14 +145,14 @@ else
         }
     }
 
-    // FONCTION MAGIQUE : Colore la ligne si le pilote est manquant
+    // CORRECTION : Utilisation d'une bordure colorée au lieu d'un fond complet
     void RowRender(RowRenderEventArgs<Modele> args)
     {
         bool alertePilote = args.Data.PiloteId.HasValue && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
         if (alertePilote)
         {
-            // Applique un style rouge très léger à toute la ligne
-            args.Attributes.Add("style", "background-color: var(--rz-danger-lighter);");
+            // Bordure gauche rouge pour signaler l'erreur sans casser le contraste
+            args.Attributes.Add("style", "border-left: 4px solid var(--rz-danger) !important;");
         }
     }
 
@@ -162,7 +163,6 @@ else
             new Dictionary<string, object> { { "ModeleToEdit", modele } },
             new DialogOptions() { Width = "600px", CloseDialogOnOverlayClick = true }
         );
-
         if (resultat == true)
         {
             await ChargerListe();
@@ -173,7 +173,6 @@ else
     private async Task ExporterEnCsv()
     {
         if (modeles == null || !modeles.Any()) return;
-
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Id;Nom du Modele;Marque;Pilote");
 
