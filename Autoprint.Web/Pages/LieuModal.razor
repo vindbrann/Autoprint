@@ -1,85 +1,116 @@
 ﻿@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-@if (Show)
-{
-    <div class="modal-backdrop fade show"></div>
+<RadzenTemplateForm TItem="Emplacement" Data="@lieuEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
 
-    <div class="modal fade show d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(Model.Id == 0 ? "📍 Nouveau Lieu" : "✏️ Modifier Lieu")
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
-                </div>
+        @* Ligne 1 : Nom (2/3) et Code (1/3) *@
+        <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
+            <RadzenColumn Size="8">
+                <RadzenLabel Text="Nom du Lieu" Component="Nom" />
+                <RadzenTextBox Name="Nom" @bind-Value="@lieuEdit.Nom" Style="width: 100%;" Placeholder="Ex: Siège Social" />
+                <RadzenRequiredValidator Component="Nom" Text="Le nom est requis" Popup="true" />
+            </RadzenColumn>
+            <RadzenColumn Size="4">
+                <RadzenLabel Text="Code" Component="Code" />
+                <RadzenTextBox Name="Code" @bind-Value="@lieuEdit.Code" Style="width: 100%;" Placeholder="Ex: SIEGE" />
+                @* Le code est optionnel mais utile pour le nommage *@
+            </RadzenColumn>
+        </RadzenRow>
 
-                <div class="modal-body">
-                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="row mb-3">
-                            <div class="col-md-8">
-                                <label class="form-label">Nom du Lieu <span class="text-danger">*</span></label>
-                                <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: Siège Social" />
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Code</label>
-                                <InputText class="form-control" @bind-Value="Model.Code" placeholder="Ex: SIEGE" />
-                                <small class="text-muted" style="font-size: 0.7rem">Pour le nommage auto</small>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Plage IP (CIDR) <span class="text-danger">*</span></label>
-                            <InputText class="form-control" @bind-Value="Model.CidrIpv4" placeholder="Ex: 192.168.10.0/24" />
-                            <small class="text-muted">Sert à la détection automatique du lieu.</small>
-                        </div>
-
-                        <button type="submit" style="display:none" id="submitLieuBtn"></button>
-                    </EditForm>
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                    @if (Model.Id != 0)
-                    {
-                        <AuthorizeView Policy="LOCATION_DELETE">
-                            <Authorized>
-                                <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
-                            </Authorized>
-                        </AuthorizeView>
-                    }
-                    else
-                    {
-                        <div></div>
-                    }
-
-                    <div>
-                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                        <label for="submitLieuBtn" class="btn btn-primary">💾 Enregistrer</label>
-                    </div>
-                </div>
-            </div>
+        @* Ligne 2 : CIDR *@
+        <div>
+            <RadzenLabel Text="Plage IP (CIDR)" Component="Cidr" />
+            <RadzenTextBox Name="Cidr" @bind-Value="@lieuEdit.CidrIpv4" Style="width: 100%;" Placeholder="Ex: 192.168.10.0/24" />
+            <RadzenRequiredValidator Component="Cidr" Text="Le CIDR est requis pour la détection" Popup="true" />
+            @* Petit regex pour valider le format CIDR si besoin, mais restons simple pour l'instant *@
         </div>
-    </div>
-}
+
+        @* BOUTONS *@
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+
+            @if (lieuEdit.Id != 0)
+            {
+                <AuthorizeView Policy="LOCATION_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public Emplacement Model { get; set; } = new();
+    [Parameter] public Emplacement LieuToEdit { get; set; } = new();
 
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnSave { get; set; }
-    [Parameter] public EventCallback OnDelete { get; set; }
+    private Emplacement lieuEdit = new();
 
-    private async Task HandleValidSubmit()
+    protected override void OnInitialized()
     {
-        await OnSave.InvokeAsync();
+        // Clonage pour édition isolée
+        lieuEdit = new Emplacement
+        {
+            Id = LieuToEdit.Id,
+            Nom = LieuToEdit.Nom,
+            Code = LieuToEdit.Code,
+            CidrIpv4 = LieuToEdit.CidrIpv4
+        };
     }
 
-    private async Task HandleDelete()
+    private async Task OnSubmit(Emplacement args)
     {
-        await OnDelete.InvokeAsync();
+        try
+        {
+            if (lieuEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Emplacements", lieuEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu créé avec succès.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Emplacements/{lieuEdit.Id}", lieuEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu mis à jour.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Impossible d'enregistrer : {ex.Message}");
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer ce lieu ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Emplacements/{lieuEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Le lieu a été supprimé.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Erreur de suppression : {ex.Message}");
+            }
+        }
     }
 }

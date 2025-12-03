@@ -2,336 +2,232 @@
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using System.Text.Json
-@using System.Linq
+@using System.Text
+@using Radzen
+@using Radzen.Blazor
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>🕵️ Journal d'Audit</h3>
-        <button class="btn btn-outline-danger btn-sm" @onclick="PurgerLogs" title="Supprimer les logs de plus de 30 jours">
-            <i class="bi bi-trash3"></i> Nettoyage
-        </button>
-    </div>
+<PageTitle>Journal d'Audit</PageTitle>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-body py-2">
-            <div class="input-group">
-                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control border-start-0"
-                       placeholder="Rechercher par utilisateur, action ou détail..."
-                       @bind="searchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
-                @if (!string.IsNullOrEmpty(searchQuery))
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🕵️ Journal d'Audit
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
+        <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+    </RadzenStack>
+</RadzenStack>
+
+@* BARRE DE RECHERCHE DYNAMIQUE *@
+<RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 rz-p-2">
+    <RadzenTextBox Placeholder="Rechercher (Utilisateur, Action, Détails)..."
+                   @oninput="@(args => OnSearchChange(args.Value?.ToString()))"
+                   Style="width: 100%;" />
+</RadzenCard>
+
+@* GRILLE *@
+<RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
+                TItem="AuditLogDto"
+                AllowPaging="true" PageSize="20"
+                AllowSorting="true" AllowFiltering="false"
+                Density="Density.Compact"
+                Style="height: 600px;">
+    <Columns>
+
+        @* 1. DATE (Compact) *@
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="DateAction" Title="Date" Sortable="true" Width="160px">
+            <Template Context="log">
+                <span class="text-muted small">@log.DateAction.ToLocalTime().ToString("dd/MM/yy HH:mm")</span>
+            </Template>
+        </RadzenDataGridColumn>
+
+        @* 2. NIVEAU (Badge uniquement) *@
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Niveau" Title="Niveau" Width="90px" TextAlign="TextAlign.Center">
+            <Template Context="log">
+                @switch (log.Niveau)
                 {
-                    <button class="btn btn-outline-secondary" @onclick="ClearSearch">X</button>
+                    case "ERROR":
+                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ERR" />
+                        break;
+                    case "WARNING":
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="WARN" />
+                        break;
+                    case "INFO":
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="INFO" />
+                        break;
+                    default:
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@log.Niveau" />
+                        break;
                 }
-            </div>
-        </div>
-    </div>
+            </Template>
+        </RadzenDataGridColumn>
 
-    <div class="card shadow-sm">
-        @if (logs == null)
-        {
-            <div class="card-body">
-                <p>Chargement du journal...</p>
-            </div>
-        }
-        else if (logs.Items.Count == 0)
-        {
-            <div class="card-body">
-                <p>Aucun log trouvé.</p>
-            </div>
-        }
-        else
-        {
-            <table class="table table-hover table-sm">
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Date</th>
-                        <th style="width: 10%;">Niveau</th>
-                        <th style="width: 15%;">Utilisateur</th>
-                        <th style="width: 60%;">Action / Détails</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var log in logs.Items)
-                    {
-                        <tr>
-                            <td>@log.DateAction.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
-                            <td>@RenderBadge(log.Niveau)</td>
-                            <td>@log.Utilisateur</td>
-                            
-                            <td title="@log.Details"> 
-                                <button class="btn btn-link p-0 me-2 align-baseline" 
-                                        @onclick="() => LoadDetailsAndShowModal(log.Id)"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#auditDetailsModal"
-                                        title="Voir les changements Avant/Après">
-                                    <i class="bi bi-eye-fill"></i>
-                                </button>
-                                @log.ActionLisible 
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        @* 3. UTILISATEUR (Taille raisonnable) *@
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Utilisateur" Title="Utilisateur" Width="140px">
+            <Template Context="log">
+                <span style="font-weight: 500; font-size: 0.9em;">@log.Utilisateur</span>
+            </Template>
+        </RadzenDataGridColumn>
 
-            <div class="card-footer d-flex justify-content-between align-items-center py-2">
-                <small class="text-muted">Page @logs.PageIndex sur @logs.TotalPages (@logs.TotalCount logs)</small>
-                <div>
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="PrevPage" disabled="@(!logs.HasPreviousPage)">Précédent</button>
-                    <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="NextPage" disabled="@(!logs.HasNextPage)">Suivant</button>
+        @* 4. ACTION / DÉTAILS (Prend tout le reste de la place) *@
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Action" Title="Détails de l'opération" MinWidth="300px">
+            <Template Context="log">
+                <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; white-space: nowrap;">
+
+                    @* Bouton Détail (Œil) *@
+                    <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall"
+                                  Click="@(() => ShowDetails(log.Id))" Tooltip="Voir les détails" Style="flex-shrink: 0;" />
+
+                    <div style="overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-weight: bold; color: var(--rz-text-title-color);">@log.ActionLisible</span>
+                        <span style="color: var(--rz-text-tertiary-color); margin-left: 8px;">@log.Details</span>
+                    </div>
                 </div>
-            </div>
-        }
-    </div>
-</div>
+            </Template>
+        </RadzenDataGridColumn>
 
-<div class="modal fade" id="auditDetailsModal" tabindex="-1" aria-labelledby="auditDetailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            @if (selectedLog != null)
-            {
-                <div class="modal-header">
-                    <h5 class="modal-title" id="auditDetailsModalLabel">Détails du Log ID @selectedLog.Id</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p><strong>Date:</strong> @selectedLog.DateAction.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</p>
-                    <p><strong>Utilisateur:</strong> @selectedLog.Utilisateur</p>
-                    <p><strong>Action:</strong> @selectedLog.Action (@selectedLog.ResourceName)</p>
-                    <p><strong>Niveau:</strong> @RenderBadge(selectedLog.Niveau)</p>
-                    <p><strong>Détails:</strong> @selectedLog.Details</p>
-
-                    @if (comparisonResult.Any())
-                    {
-                        <h4>Changements Comparatifs</h4>
-                        <table class="table table-bordered table-sm">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 25%;">Propriété</th>
-                                    <th style="width: 37%;">AVANT</th>
-                                    <th style="width: 37%;">APRÈS</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var comp in comparisonResult.Where(c => c.IsChanged || c.PropertyName == "Nom"))
-                                {
-                                    <tr class="@(comp.IsChanged ? "table-warning" : "")">
-                                        <td><strong>@comp.PropertyName</strong></td>
-                                        <td>@comp.OldValue</td>
-                                        <td>@comp.NewValue</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    else
-                    {
-                    }
-
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                </div>
-            }
-        </div>
-    </div>
-</div>
+    </Columns>
+</RadzenDataGrid>
 
 @code {
-    private PaginatedList<AuditLogDto>? logs;
-    private int currentPage = 1;
-    private string searchQuery = string.Empty;
-    private AuditLog? selectedLog;
-    private List<AuditComparison> comparisonResult = new(); // Résultat de la comparaison pour l'affichage
+    private RadzenDataGrid<AuditLogDto>? grid;
+    private IEnumerable<AuditLogDto>? logs;
+    private int totalCount;
+    private bool isLoading;
 
-    // NOUVELLE CLASSE LOCALE pour contenir le résultat du Diff
-    public class AuditComparison
+    // Recherche
+    private string currentSearch = "";
+    private System.Timers.Timer? debounceTimer;
+
+    protected override void OnInitialized()
     {
-        public string PropertyName { get; set; } = string.Empty;
-        public string OldValue { get; set; } = string.Empty;
-        public string NewValue { get; set; } = string.Empty;
-        // La propriété pour surligner les différences
-        public bool IsChanged => OldValue != NewValue; 
-    }
-    // FIN NOUVELLE CLASSE LOCALE
-
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadLogs();
+        // Initialisation du Timer pour la recherche dynamique
+        debounceTimer = new System.Timers.Timer(500); // 500ms de délai
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (sender, e) =>
+        {
+            // Quand le timer "sonne", on recharge la grille sur le thread UI
+            await InvokeAsync(() => grid?.Reload());
+        };
     }
 
-    private async Task LoadLogs()
+    // Déclenché à chaque frappe clavier
+    private void OnSearchChange(string? value)
     {
+        currentSearch = value ?? "";
+        // On reset le timer à chaque frappe pour attendre que l'utilisateur finisse d'écrire
+        debounceTimer?.Stop();
+        debounceTimer?.Start();
+    }
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        isLoading = true;
         try
         {
-            logs = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={currentPage}&pageSize=20&search={searchQuery}");
+            var page = (args.Skip / args.Top) + 1;
+            var pageSize = args.Top ?? 20;
+            // On utilise notre variable locale 'currentSearch'
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={page}&pageSize={pageSize}&search={currentSearch}");
+            if (result != null)
+            {
+                logs = result.Items;
+                totalCount = result.TotalCount;
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erreur lors du chargement des logs: {ex.Message}");
+            Console.WriteLine("Erreur Audit Load: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private async Task HandleSearch(KeyboardEventArgs e)
+    private async Task ShowDetails(int logId)
     {
-        if (e.Key == "Enter")
+        var fullLog = await Http.GetFromJsonAsync<AuditLog>($"/api/Audit/{logId}");
+        if (fullLog != null)
         {
-            currentPage = 1;
-            await LoadLogs();
-        }
-    }
-
-    private async Task ClearSearch()
-    {
-        searchQuery = "";
-        currentPage = 1;
-        await LoadLogs();
-    }
-
-    private async Task NextPage()
-    {
-        if (logs != null && logs.HasNextPage)
-        {
-            currentPage++;
-            await LoadLogs();
-        }
-    }
-
-    private async Task PrevPage()
-    {
-        if (logs != null && logs.HasPreviousPage)
-        {
-            currentPage--;
-            await LoadLogs();
+            await DialogService.OpenAsync<AuditDetailModal>($"Détails Log #{logId}",
+                new Dictionary<string, object> { { "Log", fullLog } },
+                new DialogOptions() { Width = "800px" }
+            );
         }
     }
 
     private async Task PurgerLogs()
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Voulez-vous vraiment supprimer définitivement les logs vieux de plus de 30 jours ?")) return;
+        var confirm = await DialogService.Confirm("Supprimer définitivement les logs vieux de plus de 30 jours ?", "Nettoyage",
+            new ConfirmOptions { OkButtonText = "Oui, nettoyer", CancelButtonText = "Non" });
 
-        var res = await Http.DeleteAsync("api/Audit/cleanup");
-        if (res.IsSuccessStatusCode)
+        if (confirm == true)
         {
-            await JS.InvokeVoidAsync("alert", "Nettoyage effectué.");
-            currentPage = 1;
-            await LoadLogs();
+            var res = await Http.DeleteAsync("api/Audit/cleanup");
+            if (res.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Nettoyage", "Logs anciens supprimés.");
+                grid?.Reload();
+            }
         }
     }
 
-    // Ouvre la modale en chargeant les données de l'API AVANT l'affichage
-    private async Task LoadDetailsAndShowModal(int logId)
+    // --- EXPORT CSV (Récupère TOUT selon la recherche en cours) ---
+    private async Task ExporterEnCsv()
     {
-        comparisonResult.Clear(); // Nettoyer l'ancien résultat
-        
-        // 1. Charge les données de détails du log via l'API (qui retourne l'entité complète AuditLog)
-        selectedLog = await Http.GetFromJsonAsync<AuditLog>($"/api/Audit/{logId}");
-        
-        if (selectedLog == null || string.IsNullOrEmpty(selectedLog.OldValues) && string.IsNullOrEmpty(selectedLog.NewValues))
-        {
-            StateHasChanged();
-            return; // Rien à comparer
-        }
+        if (totalCount == 0) return;
 
-        // 2. Désérialisation et Comparaison
         try
         {
-            using var oldDoc = JsonDocument.Parse(selectedLog.OldValues ?? "{}");
-            using var newDoc = JsonDocument.Parse(selectedLog.NewValues ?? "{}");
+            NotificationService.Notify(NotificationSeverity.Info, "Export", "Génération du fichier en cours...");
 
-            var oldProps = oldDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
-            var newProps = newDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+            // 1. Récupération de TOUTES les données correspondant à la recherche (PageSize très grand)
+            // Note : En prod avec des millions de lignes, on ferait l'export côté serveur. Ici c'est ok.
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page=1&pageSize=100000&search={currentSearch}");
 
-            var allKeys = oldProps.Keys.Union(newProps.Keys).OrderBy(k => k);
+            if (result?.Items == null || !result.Items.Any()) return;
 
-            foreach (var key in allKeys)
+            // 2. Construction CSV
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Date;Niveau;Utilisateur;Action;Details");
+
+            foreach (var l in result.Items)
             {
-                oldProps.TryGetValue(key, out var oldValue);
-                newProps.TryGetValue(key, out var newValue);
+                var detailsClean = l.Details?.Replace(";", ",").Replace("\n", " ") ?? "";
+                var actionClean = l.ActionLisible?.Replace(";", ",") ?? "";
 
-                // Ignore les champs de métadonnées (Id, DateModification, estSupprime, et les IDs de FK)
-                if (key.Equals("id", StringComparison.OrdinalIgnoreCase) || 
-                    key.Equals("dateModification", StringComparison.OrdinalIgnoreCase) ||
-                    key.Equals("estSupprime", StringComparison.OrdinalIgnoreCase) ||
-                    key.Equals("status", StringComparison.OrdinalIgnoreCase) ||
-                    key.EndsWith("Id", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                string simplifiedOldValue = SimplifyComplexObject(oldValue);
-                string simplifiedNewValue = SimplifyComplexObject(newValue);
-                
-                // N'affiche que le nom de la propriété, et si ce n'est pas un changement mineur
-                if (simplifiedOldValue != simplifiedNewValue || key.Equals("nom", StringComparison.OrdinalIgnoreCase))
-                {
-                    comparisonResult.Add(new AuditComparison
-                    {
-                        PropertyName = FormatPropertyName(key),
-                        OldValue = simplifiedOldValue,
-                        NewValue = simplifiedNewValue
-                    });
-                }
+                csvBuilder.AppendLine($"{l.DateAction};{l.Niveau};{l.Utilisateur};{actionClean};{detailsClean}");
             }
+
+            // 3. Téléchargement
+            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+            using var stream = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(stream);
+
+            var nomFichier = $"Audit_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+            await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+            NotificationService.Notify(NotificationSeverity.Success, "Export", "Téléchargement terminé.");
         }
         catch (Exception ex)
         {
-            comparisonResult.Add(new AuditComparison { PropertyName = "ERREUR DE SÉRIALISATION", NewValue = ex.Message });
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Export", ex.Message);
         }
-
-        StateHasChanged(); 
     }
 
-    // Helper pour formater les noms (ex: "pilote" devient "Pilote")
-    private string FormatPropertyName(string name)
+    // Dispose du timer pour éviter les fuites mémoire
+    public void Dispose()
     {
-        if (string.IsNullOrEmpty(name)) return name;
-        if (name.Equals("nom", StringComparison.OrdinalIgnoreCase)) return "NOM";
-        
-        // Règle simple : Majuscule sur la première lettre
-        return char.ToUpper(name[0]) + name.Substring(1);
+        debounceTimer?.Dispose();
     }
-
-    // Helper pour simplifier l'affichage des objets complexes (Marque, Pilote)
-    private string SimplifyComplexObject(string jsonValue)
-    {
-        if (string.IsNullOrEmpty(jsonValue) || jsonValue.Equals("null", StringComparison.OrdinalIgnoreCase))
-            return "N/A";
-        
-        // Si c'est un objet JSON, tente de retourner le champ 'nom' pour la lisibilité
-        try
-        {
-            using var doc = JsonDocument.Parse(jsonValue);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                if (doc.RootElement.TryGetProperty("nom", out var nomElement))
-                {
-                    return nomElement.GetString() ?? "Nom Inconnu";
-                }
-            }
-        }
-        catch { /* Laisser la valeur brute si ce n'est pas un JSON */ }
-
-        return jsonValue;
-    }
-
-    private RenderFragment RenderBadge(string niveau) => __builder =>
-    {
-        string colorClass = niveau switch
-        {
-            "ERROR" => "bg-danger",
-            "WARNING" => "bg-warning text-dark",
-            "INFO" => "bg-primary",
-            _ => "bg-secondary"
-        };
-
-        __builder.OpenElement(0, "span");
-        __builder.AddAttribute(1, "class", $"badge {colorClass}");
-        __builder.AddContent(2, niveau);
-        __builder.CloseElement();
-    };
 }

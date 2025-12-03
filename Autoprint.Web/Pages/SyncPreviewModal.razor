@@ -1,134 +1,129 @@
 ﻿@using Autoprint.Shared.DTOs
 @using Autoprint.Shared.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
 
-@if (Show)
+@if (Items == null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Synchronisation - Aperçu des modifications</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
-                </div>
-
-                <div class="modal-body">
-                    @if (Items == null)
-                    {
-                        <div class="text-center p-5">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <p class="mt-2">Analyse des changements en cours...</p>
-                        </div>
-                    }
-                    else if (Items.Count == 0)
-                    {
-                        <div class="alert alert-success text-center">
-                            <i class="bi bi-check-circle-fill fs-3"></i><br />
-                            Aucune modification en attente. Tout est synchronisé !
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Sélectionnez les opérations à appliquer sur le serveur d'impression Windows.
-                        </div>
-
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="text-center" style="width: 40px;">
-                                        <input type="checkbox" class="form-check-input" @onchange="ToggleSelectAll" checked="@AreAllSelected" />
-                                    </th>
-                                    <th>Action</th>
-                                    <th>Imprimante</th>
-                                    <th>Détails</th>
-                                    <th>Modifié par</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in Items)
-                                {
-                                    // Calcul du style de la ligne (Bordure colorée)
-                                    string rowClass = item.Status switch
-                                    {
-                                        PrinterStatus.PendingCreation => "border-start border-5 border-success bg-success bg-opacity-10",
-                                        PrinterStatus.PendingDelete => "border-start border-5 border-danger bg-danger bg-opacity-10",
-                                        PrinterStatus.PendingUpdate => "border-start border-5 border-warning",
-                                        _ => ""
-                                    };
-
-                                    <tr class="@rowClass">
-                                        <td class="text-center">
-                                            <input type="checkbox" class="form-check-input" @bind="item.IsSelected" />
-                                        </td>
-                                        <td>
-                                            @if (item.Status == PrinterStatus.PendingCreation)
-                                            {
-                                                <span class="badge bg-success">CRÉATION</span>
-                                            }
-                                            else if (item.Status == PrinterStatus.PendingDelete)
-                                            {
-
-                                                <span class="badge bg-danger">SUPPRESSION</span>
-                                            }
-                                            else
-                                            {
-
-                                                <span class="badge bg-warning text-dark">MODIFICATION</span>
-                                            }
-                                        </td>
-                                        <td class="fw-bold">@item.NomImprimante</td>
-                                        <td class="small text-muted">@item.Details</td>
-                                        <td><i class="bi bi-person-fill"></i> @item.ModifiePar</td>
-                                        <td class="small">@item.DateModification.ToLocalTime().ToString("g")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-
-                <div class="modal-footer">
-                    <div class="me-auto">
-                        <span class="fw-bold">@Items?.Count(i => i.IsSelected)</span> élément(s) sélectionné(s)
-                    </div>
-                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-
-                    @if (Items != null && Items.Count > 0)
-                    {
-                        <button type="button" class="btn btn-primary" @onclick="ConfirmerSynchro" disabled="@(!Items.Any(i => i.IsSelected))">
-                            <i class="bi bi-play-fill"></i> Lancer la Synchronisation
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
+    <div class="rz-p-4 rz-text-align-center">
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        <RadzenText TextStyle="TextStyle.Body1" Class="rz-mt-2">Analyse des changements en cours...</RadzenText>
     </div>
+}
+else if (Items.Count == 0)
+{
+    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-4">
+        <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
+        <RadzenText TextStyle="TextStyle.H6">Aucune modification en attente.</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2">Le serveur Windows est à jour.</RadzenText>
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close(null))" ButtonStyle="ButtonStyle.Light" Class="rz-mt-2" />
+    </RadzenStack>
+}
+else
+{
+    <RadzenStack Gap="1rem" Style="height: 100%;">
+
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter">
+            Sélectionnez les opérations à appliquer sur le serveur d'impression Windows.
+        </RadzenAlert>
+
+        @* GRILLE DE PRÉVISUALISATION *@
+        <RadzenDataGrid Data="@Items" TItem="SyncPreviewDto" AllowSorting="true"
+                        Style="flex: 1; overflow: auto;" RowRender="@RowRender">
+            <Columns>
+
+                @* CHECKBOX (Tout sélectionner dans le Header) *@
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Width="50px" TextAlign="TextAlign.Center" Sortable="false">
+                    <HeaderTemplate>
+                        @* CORRECTION ICI : Utilisation de la lambda pour corriger l'erreur de typage *@
+                        <RadzenCheckBox TValue="bool" @bind-Value="@selectAll" Change="@(args => ToggleSelectAll(args))" TriState="false" />
+                    </HeaderTemplate>
+                    <Template Context="item">
+                        <RadzenCheckBox @bind-Value="item.IsSelected" TriState="false" />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* ACTION *@
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="Status" Title="Action" Width="120px">
+                    <Template Context="item">
+                        @switch (item.Status)
+                        {
+                            case PrinterStatus.PendingCreation:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="CRÉATION" />
+                                break;
+                            case PrinterStatus.PendingDelete:
+
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="SUPPRESSION" />
+                                break;
+                            default:
+
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="MODIFICATION" />
+                                break;
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="NomImprimante" Title="Imprimante" Sortable="true">
+                    <Template Context="item">
+                        <strong>@item.NomImprimante</strong>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="Details" Title="Détails" />
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="ModifiePar" Title="Par" Width="150px">
+                    <Template Context="item">
+                        <RadzenIcon Icon="person" Style="font-size: 0.8rem;" /> @item.ModifiePar
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+        @* PIED DE PAGE *@
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+            <RadzenText TextStyle="TextStyle.Body2">
+                <strong>@Items.Count(i => i.IsSelected)</strong> élément(s) sélectionné(s)
+            </RadzenText>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+                <RadzenButton Text="Lancer la Synchronisation" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                              Click="Confirmer" Disabled="@(!Items.Any(i => i.IsSelected))" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
 }
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public List<SyncPreviewDto>? Items { get; set; }
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback<List<int>> OnConfirm { get; set; } // Renvoie les IDs choisis
+    // Seul paramètre nécessaire via DialogService
+    [Parameter] public List<SyncPreviewDto> Items { get; set; } = new();
 
-    private bool AreAllSelected => Items != null && Items.All(i => i.IsSelected);
+    private bool selectAll = false;
 
-    private void ToggleSelectAll(ChangeEventArgs e)
+    void RowRender(RowRenderEventArgs<SyncPreviewDto> args)
     {
-        bool val = (bool)(e.Value ?? false);
-        if (Items != null)
-        {
-            foreach (var item in Items) item.IsSelected = val;
-        }
+        if (args.Data.Status == PrinterStatus.PendingCreation)
+            args.Attributes.Add("style", "background-color: var(--rz-success-lighter);");
+        else if (args.Data.Status == PrinterStatus.PendingDelete)
+            args.Attributes.Add("style", "background-color: var(--rz-danger-lighter);");
+        else
+            args.Attributes.Add("style", "background-color: var(--rz-warning-lighter);");
     }
 
-    private async Task ConfirmerSynchro()
+    void ToggleSelectAll(bool value)
     {
-        var selectedIds = Items?.Where(i => i.IsSelected).Select(i => i.Id).ToList();
-        if (selectedIds != null && selectedIds.Any())
-        {
-            await OnConfirm.InvokeAsync(selectedIds);
-        }
+        selectAll = value;
+        // On met à jour la sélection de tous les items
+        Items.ForEach(i => i.IsSelected = selectAll);
+    }
+
+    void Confirmer()
+    {
+        // On renvoie la liste des IDs sélectionnés au parent via la fermeture du dialogue
+        var ids = Items.Where(i => i.IsSelected).Select(i => i.Id).ToList();
+        DialogService.Close(ids);
     }
 }

@@ -1,0 +1,207 @@
+﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject IRoleService RoleService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="RoleEditDto" Data="@roleEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" Style="height: 100%;">
+
+        @* HEADER *@
+        <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
+            <RadzenRow AlignItems="AlignItems.Center">
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Nom du Rôle" Component="Name" />
+                    <RadzenTextBox Name="Name" @bind-Value="@roleEdit.Name" Style="width: 100%;" Disabled="@isSuperAdmin" />
+                    <RadzenRequiredValidator Component="Name" Text="Nom requis" Popup="true" />
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenLabel Text="Description" Component="Desc" />
+                    <RadzenTextBox Name="Desc" @bind-Value="@roleEdit.Description" Style="width: 100%;" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+        @* MATRICE DE DROITS (GRILLE) *@
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
+            Cochez les cases pour accorder les permissions.
+        </RadzenAlert>
+
+        <RadzenDataGrid Data="@ModuleRows" TItem="ModulePermissionRow" AllowSorting="false" Density="Density.Compact"
+                        Style="height: 400px; border: 1px solid var(--rz-border-color);">
+            <Columns>
+
+                @* MODULE *@
+                <RadzenDataGridColumn TItem="ModulePermissionRow" Property="Title" Title="Module" Width="150px">
+                    <Template Context="m">
+                        <span style="font-weight: bold; color: var(--rz-primary);">@m.Title</span>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* LECTURE *@
+                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Lecture" Width="80px" TextAlign="TextAlign.Center">
+                    <Template Context="m">
+                        @if (m.ReadId > 0)
+                        {
+                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.ReadId)"
+                                            Change="@(args => TogglePermission(m.ReadId, args))" TriState="false" />
+                        }
+                        else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* ÉCRITURE *@
+                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Écriture" Width="80px" TextAlign="TextAlign.Center">
+                    <Template Context="m">
+                        @if (m.WriteId > 0)
+                        {
+                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.WriteId)"
+                                            Change="@(args => TogglePermission(m.WriteId, args))" TriState="false" />
+                        }
+                        else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* SUPPRESSION *@
+                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Suppr." Width="80px" TextAlign="TextAlign.Center">
+                    <Template Context="m">
+                        @if (m.DeleteId > 0)
+                        {
+                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.DeleteId)"
+                                            Change="@(args => TogglePermission(m.DeleteId, args))" TriState="false" />
+                        }
+                        else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* AVANCÉ *@
+                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Options Avancées">
+                    <Template Context="m">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            @foreach (var perm in m.Others)
+                            {
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(perm.Id)"
+                                                    Change="@(args => TogglePermission(perm.Id, args))" TriState="false" />
+                                    <span style="font-size: 0.85em;">@perm.Description.Replace(m.Title, "").Trim()</span>
+                                </div>
+                            }
+                        </div>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+        @* FOOTER *@
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-2">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public int RoleId { get; set; }
+    [Parameter] public List<PermissionDto> AllPermissions { get; set; } = new();
+
+    private RoleEditDto roleEdit = new();
+    private bool isSuperAdmin = false;
+    private List<ModulePermissionRow> ModuleRows = new();
+
+    // ViewModel pour la grille
+    public class ModulePermissionRow
+    {
+        public string Title { get; set; } = "";
+        public string Prefix { get; set; } = "";
+        public int ReadId { get; set; }
+        public int WriteId { get; set; }
+        public int DeleteId { get; set; }
+        public List<PermissionDto> Others { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Chargement du rôle
+        if (RoleId != 0)
+        {
+            roleEdit = await RoleService.GetRoleForEdit(RoleId);
+            isSuperAdmin = (roleEdit.Name == "SuperAdmin");
+        }
+
+        // 2. Construction de la Matrice (Rows)
+        BuildMatrix();
+    }
+
+    private void BuildMatrix()
+    {
+        var groups = new List<(string Prefix, string Title)>
+        {
+            ("PRINTER", "Imprimantes"), ("LOCATION", "Lieux"), ("BRAND", "Marques"),
+            ("MODEL", "Modèles"), ("DRIVER", "Pilotes"), ("USER", "Utilisateurs"),
+            ("ROLE", "Rôles"), ("SETTINGS", "Système"), ("AUDIT", "Audit"), ("ADMIN", "Administration")
+        };
+
+        ModuleRows = new List<ModulePermissionRow>();
+
+        foreach (var g in groups)
+        {
+            var row = new ModulePermissionRow { Title = g.Title, Prefix = g.Prefix };
+
+            // Mapping ID CRUD
+            row.ReadId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_READ")?.Id ?? 0;
+            row.WriteId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_WRITE")?.Id ?? 0;
+            row.DeleteId = AllPermissions.FirstOrDefault(p => p.Code == $"{g.Prefix}_DELETE")?.Id ?? 0;
+
+            // Autres
+            row.Others = AllPermissions
+                .Where(p => p.Code.StartsWith(g.Prefix + "_")
+                            && !p.Code.EndsWith("_READ")
+                            && !p.Code.EndsWith("_WRITE")
+                            && !p.Code.EndsWith("_DELETE"))
+                .ToList();
+
+            ModuleRows.Add(row);
+        }
+    }
+
+    private void TogglePermission(int permId, bool value)
+    {
+        if (value)
+        {
+            if (!roleEdit.PermissionIds.Contains(permId)) roleEdit.PermissionIds.Add(permId);
+        }
+        else
+        {
+            roleEdit.PermissionIds.Remove(permId);
+        }
+    }
+
+    private async Task OnSubmit(RoleEditDto args)
+    {
+        try
+        {
+            if (RoleId == 0) await RoleService.CreateRole(roleEdit);
+            else await RoleService.UpdateRole(RoleId, roleEdit);
+
+            NotificationService.Notify(NotificationSeverity.Success, "Succès", "Rôle enregistré.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+    }
+}

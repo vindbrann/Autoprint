@@ -1,72 +1,100 @@
 ﻿@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-@if (Show)
-{
-    <div class="modal-backdrop fade show"></div>
+@* CORRECTION 1 : On ajoute TItem="Marque" pour aider le compilateur *@
+<RadzenTemplateForm TItem="Marque" Data="@marqueEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
 
-    <div class="modal fade show d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        @(Model.Id == 0 ? "➕ Nouvelle Marque" : "✏️ Modifier Marque")
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
-                </div>
-
-                <div class="modal-body">
-                    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="mb-3">
-                            <label class="form-label">Nom de la Marque</label>
-                            <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: HP, Canon..." />
-                        </div>
-
-                        <button type="submit" style="display:none" id="submitMarqueBtn"></button>
-                    </EditForm>
-                </div>
-
-                <div class="modal-footer justify-content-between">
-                    @if (Model.Id != 0)
-                    {
-                        <AuthorizeView Policy="BRAND_DELETE">
-                            <Authorized>
-                                <button type="button" class="btn btn-danger" @onclick="HandleDelete">Supprimer</button>
-                            </Authorized>
-                        </AuthorizeView>
-                    }
-                    else
-                    {
-                        <div></div>
-                    }
-
-                    <div>
-                        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                        <label for="submitMarqueBtn" class="btn btn-primary">💾 Enregistrer</label>
-                    </div>
-                </div>
-            </div>
+        <div>
+            <RadzenLabel Text="Nom de la marque" Component="Nom" Style="margin-bottom: 0.5rem;" />
+            <RadzenTextBox Name="Nom" @bind-Value="@marqueEdit.Nom" Style="width: 100%;" />
+            <RadzenRequiredValidator Component="Nom" Text="Le nom est obligatoire" Popup="true" />
         </div>
-    </div>
-}
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+
+            @if (marqueEdit.Id != 0)
+            {
+                <AuthorizeView Policy="BRAND_DELETE">
+                    @* CORRECTION 2 : On renomme le Context pour éviter le conflit avec le formulaire *@
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public Marque Model { get; set; } = new();
+    [Parameter] public Marque MarqueToEdit { get; set; } = new();
 
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnSave { get; set; }
-    [Parameter] public EventCallback OnDelete { get; set; }
+    private Marque marqueEdit = new();
 
-    private async Task HandleValidSubmit()
+    protected override void OnInitialized()
     {
-        await OnSave.InvokeAsync();
+        marqueEdit = new Marque
+        {
+            Id = MarqueToEdit.Id,
+            Nom = MarqueToEdit.Nom
+        };
     }
 
-    private async Task HandleDelete()
+    // CORRECTION 3 : La méthode doit accepter l'argument (Marque args) pour correspondre à l'événement Submit
+    private async Task OnSubmit(Marque args)
     {
-        await OnDelete.InvokeAsync();
+        try
+        {
+            if (marqueEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Marques", marqueEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque créée avec succès.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Marques/{marqueEdit.Id}", marqueEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque mise à jour.");
+            }
+
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Impossible d'enregistrer : {ex.Message}");
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer cette marque ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Marques/{marqueEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "La marque a été supprimée.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Erreur de suppression : {ex.Message}");
+            }
+        }
     }
 }

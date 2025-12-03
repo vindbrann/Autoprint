@@ -13,5 +13,8 @@
         public int TotalLieux { get; set; }
 
         public List<ChartDataDto> RepartitionModeles { get; set; } = new();
+        public bool IsSpoolerRunning { get; set; }
+        public int SyncErrorCount { get; set; }
+        public string ServerVersion { get; set; } = "1.0.0";
     }
 }

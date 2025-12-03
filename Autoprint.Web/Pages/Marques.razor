@@ -1,74 +1,66 @@
 ﻿@page "/marques"
 @using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
 @inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
 
 <PageTitle>Gestion des Marques</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>🏷️ Gestion des Marques</h3>
-    <AuthorizeView Policy="BRAND_WRITE">
-        <Authorized>
-            <button class="btn btn-success" @onclick="OuvrirAjout">
-                <i class="bi bi-plus-circle"></i> Nouvelle Marque
-            </button>
-		</Authorized>
-	</AuthorizeView>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🏷️ Gestion des Marques
+    </RadzenText>
 
-</div>
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        @* BOUTON EXPORT *@
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(marques == null || !marques.Any())" />
 
-@if (messageErreur != null)
+        <AuthorizeView Policy="BRAND_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouvelle Marque" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Marque()))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (isLoading)
 {
-    <div class="alert alert-danger">@messageErreur</div>
-}
-else if (marques == null)
-{
-    <div class="spinner-border text-primary" role="status"></div>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
 }
 else
 {
-    <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Nom</th>
-                <th style="width: 150px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var m in marques)
-            {
-                <tr>
-                    <td>@m.Nom</td>
-                    <td>
-                        <AuthorizeView Policy="BRAND_WRITE">
-                            <Authorized>
-                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(m)">
-                                    <i class="bi bi-pencil"></i> Modifier
-                                </button>
-                            </Authorized>
-                            <NotAuthorized>
-                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                    <i class="bi bi-pencil"></i> Modifier
-                                </button>
-                            </NotAuthorized>
-                        </AuthorizeView>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    <RadzenDataGrid Data="@marques" TItem="Marque"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.Advanced"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="300px">
+        <Columns>
+            <RadzenDataGridColumn TItem="Marque" Property="Nom" Title="Nom de la Marque" Sortable="true" Filterable="true" />
 
-<MarqueModal Show="afficherModal"
-             Model="marqueEnCours"
-             OnCancel="FermerModal"
-             OnSave="Sauvegarder"
-             OnDelete="Supprimer" />
+            <RadzenDataGridColumn TItem="Marque" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    <AuthorizeView Policy="BRAND_WRITE">
+                        <Authorized>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(m))" />
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
 
 @code {
     private List<Marque>? marques;
-    private Marque marqueEnCours = new();
-    private bool afficherModal = false;
-    private string? messageErreur;
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -77,53 +69,62 @@ else
 
     private async Task ChargerListe()
     {
+        isLoading = true;
         try
         {
             marques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques");
         }
         catch (Exception ex)
         {
-            messageErreur = "Erreur : " + ex.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Chargement", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private void OuvrirAjout()
+    private async Task OuvrirModal(Marque marque)
     {
-        marqueEnCours = new Marque();
-        afficherModal = true;
-    }
+        var resultat = await DialogService.OpenAsync<MarqueModal>(
+            marque.Id == 0 ? "Ajouter une Marque" : "Modifier la Marque",
+            new Dictionary<string, object> { { "MarqueToEdit", marque } },
+            new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
+        );
 
-    private void OuvrirEdition(Marque m)
-    {
-        // Copie pour édition isolée
-        marqueEnCours = new Marque
+        if (resultat == true)
         {
-            Id = m.Id,
-            Nom = m.Nom
-        };
-        afficherModal = true;
-    }
-
-    private void FermerModal() => afficherModal = false;
-
-    private async Task Sauvegarder()
-    {
-        if (marqueEnCours.Id == 0)
-            await Http.PostAsJsonAsync("api/Marques", marqueEnCours);
-        else
-            await Http.PutAsJsonAsync($"api/Marques/{marqueEnCours.Id}", marqueEnCours);
-
-        afficherModal = false;
-        await ChargerListe();
-    }
-
-    private async Task Supprimer()
-    {
-        if (marqueEnCours.Id > 0)
-        {
-            await Http.DeleteAsync($"api/Marques/{marqueEnCours.Id}");
-            afficherModal = false;
             await ChargerListe();
         }
+    }
+
+    // --- LOGIQUE D'EXPORT CSV ---
+    private async Task ExporterEnCsv()
+    {
+        if (marques == null || !marques.Any()) return;
+
+        // 1. On construit le contenu CSV
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom de la Marque");
+
+        foreach (var m in marques)
+        {
+            var nomEsthetique = m.Nom?.Replace(";", ",");
+            csvBuilder.AppendLine($"{m.Id};{nomEsthetique}");
+        }
+
+        // 2. On prépare le fichier en mémoire
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+
+        using var stream = new MemoryStream(bytes);
+
+        // CORRECTION ICI : On utilise le "new" au lieu de "CreateFromStream"
+        using var streamRef = new DotNetStreamReference(stream);
+
+        // 3. On appelle le script JS
+        var nomFichier = $"Marques_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+        NotificationService.Notify(NotificationSeverity.Info, "Export réussi", "Le fichier a été téléchargé.");
     }
 }

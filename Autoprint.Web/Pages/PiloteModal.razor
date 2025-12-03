@@ -1,62 +1,81 @@
 ﻿@using Autoprint.Shared
 @using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
 @inject HttpClient Http
-@inject CustomAuthStateProvider AuthProvider
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-@if (Show)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@(Model.Id == 0 ? "Ajouter un Pilote" : "Modifier le Pilote")</h5>
-                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
-                </div>
-                <div class="modal-body">
-                    <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
+<RadzenTemplateForm TItem="Pilote" Data="@piloteEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
 
-                        <div class="mb-3">
-                            <label class="form-label">Nom du Pilote (Windows)</label>
-                            <InputText class="form-control" @bind-Value="Model.Nom" placeholder="Ex: HP Universal Printing PCL 6" />
-                            <small class="text-muted">Copiez ici le nom exact tel qu'il apparaît dans le Gestionnaire d'impression Windows.</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Version</label>
-                            <InputText class="form-control" @bind-Value="Model.Version" placeholder="Ex: 7.1.0" />
-                        </div>
-
-                        <div class="modal-footer">
-                            @if (Model.Id != 0)
-                            {
-                                <AuthorizeView Policy="DRIVER_DELETE">
-                                    <Authorized Context="authContext">
-                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">Supprimer</button>
-                                    </Authorized>
-                                </AuthorizeView>
-                            }
-                            <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                            <button type="submit" class="btn btn-primary">Enregistrer</button>
-                        </div>
-                    </EditForm>
-                </div>
-            </div>
+        <div>
+            <RadzenLabel Text="Nom du Pilote (Windows)" Component="Nom" />
+            <RadzenTextBox Name="Nom" @bind-Value="@piloteEdit.Nom" Style="width: 100%;" />
+            <RadzenRequiredValidator Component="Nom" Text="Nom requis" Popup="true" />
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                Copiez ici le nom exact tel qu'il apparaît dans le Gestionnaire d'impression Windows.
+            </RadzenText>
         </div>
-    </div>
-}
+
+        <div>
+            <RadzenLabel Text="Version" Component="Version" />
+            <RadzenTextBox Name="Version" @bind-Value="@piloteEdit.Version" Style="width: 100%;" Placeholder="Ex: 7.1.0" />
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+            @if (piloteEdit.Id != 0)
+            {
+                <AuthorizeView Policy="DRIVER_DELETE">
+                    <Authorized Context="auth">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenTemplateForm>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public Pilote Model { get; set; } = new();
+    [Parameter] public Pilote PiloteToEdit { get; set; } = new();
+    private Pilote piloteEdit = new();
 
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnSave { get; set; }
-    [Parameter] public EventCallback OnDelete { get; set; }
-
-    private async Task HandleValidSubmit()
+    protected override void OnInitialized()
     {
-        await OnSave.InvokeAsync();
+        piloteEdit = new Pilote { Id = PiloteToEdit.Id, Nom = PiloteToEdit.Nom, Version = PiloteToEdit.Version };
+    }
+
+    private async Task OnSubmit(Pilote args)
+    {
+        try
+        {
+            if (piloteEdit.Id == 0) await Http.PostAsJsonAsync("api/Pilotes", piloteEdit);
+            else await Http.PutAsJsonAsync($"api/Pilotes/{piloteEdit.Id}", piloteEdit);
+
+            NotificationService.Notify(NotificationSeverity.Success, "Succès", "Pilote enregistré.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Supprimer ce pilote ?", "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            try { await Http.DeleteAsync($"api/Pilotes/{piloteEdit.Id}"); DialogService.Close(true); }
+            catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        }
     }
 }

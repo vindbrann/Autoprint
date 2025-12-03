@@ -1,88 +1,88 @@
 ﻿@page "/lieux"
 @using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
 @inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
 
 <PageTitle>Gestion des Lieux</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>📍 Gestion des Lieux</h3>
-    <AuthorizeView Policy="LOCATION_WRITE">
-    <Authorized>
-    <button class="btn btn-success" @onclick="OuvrirAjout">
-        <i class="bi bi-plus-circle"></i> Nouveau Lieu
-    </button>
-        </Authorized>
-    </AuthorizeView>
-</div>
+@* EN-TÊTE *@
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        📍 Gestion des Lieux
+    </RadzenText>
 
-@if (messageErreur != null)
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(lieux == null || !lieux.Any())" />
+
+        <AuthorizeView Policy="LOCATION_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouveau Lieu" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Emplacement()))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@* CHARGEMENT / GRILLE *@
+@if (isLoading)
 {
-    <div class="alert alert-danger">@messageErreur</div>
-}
-else if (lieux == null)
-{
-    <div class="spinner-border text-primary" role="status"></div>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
 }
 else
 {
-    <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Nom</th>
-                <th>Code</th>
-                <th>Réseau (CIDR)</th>
-                <th style="width: 150px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var lieu in lieux)
-            {
-                <tr>
-                    <td>@lieu.Nom</td>
-                    <td>
-                        @if (!string.IsNullOrEmpty(lieu.Code))
-                        {
-                            <span class="badge bg-secondary">@lieu.Code</span>
-                        }
-                        else
-                        {
-                            <span class="text-muted small">-</span>
-                        }
-                    </td>
-                    <td>
-                        <span class="badge bg-info text-dark">@lieu.CidrIpv4</span>
-                    </td>
-                    <td>
-                        <AuthorizeView Policy="LOCATION_WRITE">
-                            <Authorized>
-                                <button class="btn btn-sm btn-primary" @onclick="() => OuvrirEdition(lieu)">
-                                    <i class="bi bi-pencil"></i> Modifier
-                                </button>
-                            </Authorized>
-                            <NotAuthorized>
-                                <button class="btn btn-sm btn-secondary" disabled title="Droit de modification requis">
-                                    <i class="bi bi-pencil"></i> Modifier
-                                </button>
-                            </NotAuthorized>
-                        </AuthorizeView>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    <RadzenDataGrid Data="@lieux" TItem="Emplacement"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.Advanced"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="300px">
+        <Columns>
 
-<LieuModal Show="afficherModal"
-           Model="lieuEnCours"
-           OnCancel="FermerModal"
-           OnSave="Sauvegarder"
-           OnDelete="Supprimer" />
+            <RadzenDataGridColumn TItem="Emplacement" Property="Nom" Title="Nom" Sortable="true" Filterable="true" />
+
+            <RadzenDataGridColumn TItem="Emplacement" Property="Code" Title="Code" Sortable="true" Filterable="true" Width="120px">
+                <Template Context="l">
+                    @if (!string.IsNullOrEmpty(l.Code))
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@l.Code" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">-</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Emplacement" Property="CidrIpv4" Title="Réseau (CIDR)" Sortable="true" Filterable="true" Width="180px">
+                <Template Context="l">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@l.CidrIpv4" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Emplacement" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="l">
+                    <AuthorizeView Policy="LOCATION_WRITE">
+                        <Authorized>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(l))" />
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+}
 
 @code {
     private List<Emplacement>? lieux;
-    private Emplacement lieuEnCours = new();
-    private bool afficherModal = false;
-    private string? messageErreur;
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -91,54 +91,57 @@ else
 
     private async Task ChargerListe()
     {
+        isLoading = true;
         try
         {
             lieux = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
         }
         catch (Exception ex)
         {
-            messageErreur = "Erreur : " + ex.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Chargement", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private void OuvrirAjout()
+    private async Task OuvrirModal(Emplacement lieu)
     {
-        lieuEnCours = new Emplacement();
-        afficherModal = true;
-    }
+        var resultat = await DialogService.OpenAsync<LieuModal>(
+            lieu.Id == 0 ? "Nouveau Lieu" : "Modifier le Lieu",
+            new Dictionary<string, object> { { "LieuToEdit", lieu } },
+            new DialogOptions() { Width = "550px", CloseDialogOnOverlayClick = true }
+        );
 
-    private void OuvrirEdition(Emplacement l)
-    {
-        lieuEnCours = new Emplacement
+        if (resultat == true)
         {
-            Id = l.Id,
-            Nom = l.Nom,
-            Code = l.Code,
-            CidrIpv4 = l.CidrIpv4 
-        };
-        afficherModal = true;
-    }
-
-    private void FermerModal() => afficherModal = false;
-
-    private async Task Sauvegarder()
-    {
-        if (lieuEnCours.Id == 0)
-            await Http.PostAsJsonAsync("api/Emplacements", lieuEnCours);
-        else
-            await Http.PutAsJsonAsync($"api/Emplacements/{lieuEnCours.Id}", lieuEnCours);
-
-        afficherModal = false;
-        await ChargerListe();
-    }
-
-    private async Task Supprimer()
-    {
-        if (lieuEnCours.Id > 0)
-        {
-            await Http.DeleteAsync($"api/Emplacements/{lieuEnCours.Id}");
-            afficherModal = false;
             await ChargerListe();
         }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (lieux == null || !lieux.Any()) return;
+
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom;Code;CIDR");
+
+        foreach (var l in lieux)
+        {
+            var nomClean = l.Nom?.Replace(";", ",") ?? "";
+            var codeClean = l.Code?.Replace(";", ",") ?? "";
+            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{l.CidrIpv4}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Lieux_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "Fichier CSV téléchargé.");
     }
 }

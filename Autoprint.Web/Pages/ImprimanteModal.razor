@@ -1,187 +1,168 @@
 ﻿@using Autoprint.Shared
-@using System.Text.Json
 @using Autoprint.Web.Services
+@using System.Text.Json
+@using Radzen
+@using Radzen.Blazor
 @inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 @inject CustomAuthStateProvider AuthProvider
+@using Autoprint.Shared.Enums
 
-@if (Show)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">@(Model.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante")</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
-                </div>
-                <div class="modal-body">
-                    <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
+<RadzenTemplateForm TItem="Imprimante" Data="@imprimanteEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
 
-                        @* --- NOM ET CODE --- *@
-                        <div class="row mb-3">
-                            <div class="col-md-8">
-                                <label class="form-label fw-bold">Nom affiché</label>
-                                <div class="input-group">
-                                    <InputText class="form-control" @bind-Value="Model.NomAffiche" disabled="@namingEnabled" placeholder="Ex: IMP_ACCUEIL" />
-                                    @if (namingEnabled)
-                                    {
-                                        <button class="btn btn-outline-secondary" type="button" @onclick="ForcerRefreshNom" title="Recalculer le nom">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Code Inventaire</label>
-                                <InputText class="form-control" @bind-Value="Model.Code" @onblur="GenerateNameIfEnabled" placeholder="Ex: P001" />
-                            </div>
-                        </div>
-
-                        @* --- BLOC RÉSEAU INTELLIGENT --- *@
-                        <div class="card p-3 mb-3 border-info bg-light bg-opacity-10">
-                            <h6 class="text-info border-bottom pb-2 mb-3"><i class="bi bi-geo-alt"></i> Localisation & Réseau</h6>
-
-                            @* 1. Choix du Lieu *@
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">1. Emplacement (Réseau)</label>
-                                <InputSelect class="form-select"
-                                             Value="@Model.EmplacementId"
-                                             ValueChanged="@((int id) => OnLieuChanged(id))"
-                                             ValueExpression="@(() => Model.EmplacementId)"
-                                             disabled="@(!CanReadEmplacements)">
-                                    <option value="0">-- Choisir un emplacement --</option>
-                                    @if (listeEmplacements != null)
-                                    {
-                                        @foreach (var lieu in listeEmplacements)
-                                        {
-                                            <option value="@lieu.Id">@lieu.Nom @(string.IsNullOrEmpty(lieu.CidrIpv4) ? "" : $"({lieu.CidrIpv4})")</option>
-                                        }
-                                    }
-                                </InputSelect>
-                            </div>
-
-                            <div class="row">
-                                @* 2. IP (Suffixe adaptatif ou IP complète) *@
-                                <div class="col-md-7">
-                                    <label class="form-label fw-bold">2. Adresse IP</label>
-                                    <div class="input-group">
-                                        @if (!string.IsNullOrEmpty(prefixeReseau))
-                                        {
-                                            @* Le préfixe gris *@
-                                            <span class="input-group-text bg-white text-dark fw-bold border-end-0" title="Sous-réseau imposé par le lieu">
-                                                @prefixeReseau
-                                            </span>
-
-                                            @* L'Input avec taille dynamique selon le masque *@
-                                            <input type="text"
-                                                   class="form-control border-start-0 ps-1"
-                                                   value="@ipSuffix"
-                                                   @onchange="OnSuffixChanged"
-                                                   style="max-width: @inputMaxWidth;"
-                                                   placeholder="Ex: 50" />
-                                        }
-                                        else
-                                        {
-                                            @* Cas sans préfixe (Full IP) *@
-                                            <InputText class="form-control"
-                                                       @bind-Value="Model.AdresseIp"
-                                                       placeholder="192.168.x.x" />
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(prefixeReseau))
-                                    {
-                                        <div class="form-text text-muted small">
-                                            <i class="bi bi-info-circle"></i> Masque détecté. Saisissez uniquement la fin de l'IP.
-                                        </div>
-                                    }
-                                </div>
-
-                                <div class="col-md-5">
-                                    <label class="form-label fw-bold">3. Détail (Bureau...)</label>
-                                    <InputText class="form-control" @bind-Value="Model.Localisation" placeholder="Ex: Bureau 204" />
-                                </div>
-                            </div>
-                        </div>
-
-                        @* --- CONFIGURATION MATÉRIELLE --- *@
-                        <div class="card p-3 mb-3 border-secondary bg-light bg-opacity-10">
-                            <h6 class="text-secondary border-bottom pb-2 mb-3">Configuration Matérielle</h6>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Marque</label>
-                                    <select class="form-select" @onchange="OnMarqueChange" value="@selectedMarqueId" disabled="@(!CanReadMarques)">
-                                        <option value="0">-- Marque --</option>
-                                        @if (listeMarques != null)
-                                        {
-                                            @foreach (var marque in listeMarques)
-                                            {
-                                                <option value="@marque.Id">@marque.Nom</option>
-                                            }
-                                        }
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Modèle</label>
-                                    <InputSelect class="form-select"
-                                                 Value="@Model.ModeleId"
-                                                 ValueChanged="@((int id) => OnModeleChange(id))"
-                                                 ValueExpression="@(() => Model.ModeleId)"
-                                                 disabled="@(selectedMarqueId == 0 || !CanReadModeles)">
-                                        <option value="0">-- Modèle --</option>
-                                        @if (listeModelesFiltres != null)
-                                        {
-                                            @foreach (var modele in listeModelesFiltres)
-                                            {
-                                                <option value="@modele.Id">@modele.Nom</option>
-                                            }
-                                        }
-                                    </InputSelect>
-                                </div>
-                            </div>
-                        </div>
-
-                        @* --- PARTAGE --- *@
-                        <div class="form-check form-switch mb-3">
-                            <InputCheckbox class="form-check-input" @bind-Value="Model.EstPartagee" id="chkPartage" />
-                            <label class="form-check-label fw-bold" for="chkPartage">Partager sur le réseau Windows ?</label>
-                        </div>
-
-                        @if (Model.EstPartagee)
+        @* --- 1. IDENTIFICATION --- *@
+        <RadzenFieldset Text="Identification">
+            <RadzenRow AlignItems="AlignItems.End">
+                <RadzenColumn Size="8">
+                    <RadzenLabel Text="Nom affiché" Component="NomAffiche" />
+                    <div style="display: flex; gap: 0.5rem;">
+                        <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="flex: 1;" Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
+                        @if (namingEnabled)
                         {
-                            <div class="mb-3 ps-4 border-start border-3 border-success">
-                                <label class="form-label">Nom du partage</label>
-                                <InputText class="form-control" @bind-Value="Model.NomPartage" disabled="@(namingEnabled && namingSameShare)" />
-                            </div>
+                            <RadzenButton Icon="autorenew" ButtonStyle="ButtonStyle.Secondary" Click="@ForcerRefreshNom" Tooltip="Recalculer le nom" />
                         }
+                    </div>
+                </RadzenColumn>
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Code Inventaire" Component="Code" />
+                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;" @onblur="GenerateNameIfEnabled" Placeholder="P001" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
 
-                        <div class="modal-footer bg-light">
-                            @if (Model.Id != 0)
-                            {
-                                <AuthorizeView Policy="PRINTER_DELETE">
-                                    <Authorized Context="authContext">
-                                        <button type="button" class="btn btn-danger me-auto" @onclick="OnDelete">
-                                            <i class="bi bi-trash"></i> Supprimer
-                                        </button>
-                                    </Authorized>
-                                </AuthorizeView>
-                            }
-                            <button type="button" class="btn btn-secondary" @onclick="OnCancel">Annuler</button>
-                            <button type="submit" class="btn btn-primary px-4">Enregistrer</button>
-                        </div>
-                    </EditForm>
+        @* --- 2. RÉSEAU & LIEU --- *@
+        <RadzenFieldset Text="Localisation & Réseau">
+            <RadzenStack Gap="1rem">
+
+                @* Choix du Lieu *@
+                <div>
+                    <RadzenLabel Text="Emplacement" Component="Emplacement" />
+                    @if (CanReadEmplacements)
+                    {
+                        <RadzenDropDown Name="Emplacement" @bind-Value="@imprimanteEdit.EmplacementId"
+                                        Data="@listeEmplacements" TextProperty="Nom" ValueProperty="Id"
+                                        Change="@(args => OnLieuChanged((int)args))"
+                                        Style="width: 100%;" Placeholder="Choisir un emplacement..."
+                                        AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                            <Template Context="l">
+                                @((l as Emplacement).Nom)
+                                @if (!string.IsNullOrEmpty((l as Emplacement).CidrIpv4))
+                                {
+                                    <span style="color: gray; font-size: 0.8em; margin-left: 5px;">(@((l as Emplacement).CidrIpv4))</span>
+                                }
+                            </Template>
+                        </RadzenDropDown>
+                        <RadzenRequiredValidator Component="Emplacement" Text="L'emplacement est requis" Popup="true" DefaultValue="0" />
+                    }
+                    else
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" Variant="Variant.Flat">Accès refusé aux lieux</RadzenAlert>
+                    }
                 </div>
-            </div>
-        </div>
-    </div>
-}
+
+                <RadzenRow>
+                    @* IP Intelligente *@
+                    <RadzenColumn Size="7">
+                        <RadzenLabel Text="Adresse IP" Component="Ip" />
+                        @if (!string.IsNullOrEmpty(prefixeReseau))
+                        {
+                            <div class="input-group">
+                                <span class="input-group-text" style="background-color: var(--rz-base-200); color: var(--rz-text-disabled-color); font-weight: bold; border-right: none;">
+                                    @prefixeReseau
+                                </span>
+                                <input type="text" class="form-control" style="border-left: none;"
+                                       value="@ipSuffix" @onchange="OnSuffixChanged" placeholder="Ex: 50" />
+                            </div>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                Masque imposé par le lieu. Saisissez la fin de l'IP.
+                            </RadzenText>
+                        }
+                        else
+                        {
+                            <RadzenTextBox Name="Ip" @bind-Value="@imprimanteEdit.AdresseIp" Style="width: 100%;" Placeholder="192.168.x.x" />
+                        }
+                    </RadzenColumn>
+
+                    @* Détail *@
+                    <RadzenColumn Size="5">
+                        <RadzenLabel Text="Détail (Bureau)" Component="Loc" />
+                        <RadzenTextBox Name="Loc" @bind-Value="@imprimanteEdit.Localisation" Style="width: 100%;" Placeholder="Bureau 204" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+            </RadzenStack>
+        </RadzenFieldset>
+
+        @* --- 3. MATÉRIEL (Cascade) --- *@
+        <RadzenFieldset Text="Matériel">
+            <RadzenRow>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Marque" Component="Marque" />
+                    <RadzenDropDown Name="Marque" @bind-Value="@selectedMarqueId"
+                                    Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
+                                    Change="@OnMarqueChange"
+                                    Disabled="@(!CanReadMarques)"
+                                    Style="width: 100%;" Placeholder="-- Marque --" AllowFiltering="true" />
+                </RadzenColumn>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Modèle" Component="Modele" />
+                    <RadzenDropDown Name="Modele" @bind-Value="@imprimanteEdit.ModeleId"
+                                    Data="@listeModelesFiltres" TextProperty="Nom" ValueProperty="Id"
+                                    Disabled="@(selectedMarqueId == 0 || !CanReadModeles)"
+                                    Change="@(args => GenerateNameIfEnabled())"
+                                    Style="width: 100%;" Placeholder="-- Modèle --" AllowFiltering="true" />
+                    <RadzenRequiredValidator Component="Modele" Text="Le modèle est requis" Popup="true" DefaultValue="0" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+
+        @* --- 4. PARTAGE --- *@
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" />
+                <RadzenLabel Text="Partager sur le réseau Windows ?" Component="Partage" Style="font-weight: bold;" />
+            </RadzenStack>
+
+            @if (imprimanteEdit.EstPartagee)
+            {
+                <div class="rz-mt-2 rz-pl-4" style="border-left: 3px solid var(--rz-success);">
+                    <RadzenLabel Text="Nom du partage" Component="NomPartage" />
+                    <RadzenTextBox Name="NomPartage" @bind-Value="@imprimanteEdit.NomPartage" Style="width: 100%;"
+                                   Disabled="@(namingEnabled && namingSameShare)" />
+                </div>
+            }
+        </RadzenCard>
+
+        @* BOUTONS *@
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+            @if (imprimanteEdit.Id != 0)
+            {
+                <AuthorizeView Policy="PRINTER_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenTemplateForm>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public Imprimante Model { get; set; } = new();
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnSave { get; set; }
-    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public Imprimante ImprimanteToEdit { get; set; } = new();
+
+    private Imprimante imprimanteEdit = new();
 
     // Listes
     private List<Emplacement>? listeEmplacements;
@@ -190,27 +171,42 @@
     private List<Modele>? listeModelesFiltres;
     private int selectedMarqueId = 0;
 
-    // Droits
+    // Droits & Config
     private bool CanReadEmplacements { get; set; }
     private bool CanReadMarques { get; set; }
     private bool CanReadModeles { get; set; }
-
-    // Settings Naming
     private bool namingEnabled = false;
     private bool namingSameShare = false;
     private string namingTemplate = "";
 
-    // GESTION IP INTELLIGENTE
+    // IP Logic
     private string prefixeReseau = "";
     private string ipSuffix = "";
-    private string inputMaxWidth = "100%"; // Pour gérer la taille visuelle
 
     protected override async Task OnInitializedAsync()
     {
+        // 1. Clonage
+        imprimanteEdit = new Imprimante
+        {
+            Id = ImprimanteToEdit.Id,
+            NomAffiche = ImprimanteToEdit.NomAffiche,
+            Code = ImprimanteToEdit.Code,
+            AdresseIp = ImprimanteToEdit.AdresseIp,
+            Localisation = ImprimanteToEdit.Localisation,
+            EstPartagee = ImprimanteToEdit.EstPartagee,
+            NomPartage = ImprimanteToEdit.NomPartage,
+            Commentaire = ImprimanteToEdit.Commentaire,
+            ModeleId = ImprimanteToEdit.ModeleId,
+            EmplacementId = ImprimanteToEdit.EmplacementId,
+            Status = ImprimanteToEdit.Status
+        };
+
+        // 2. Droits
         CanReadEmplacements = await AuthProvider.HasPermission("Permission", "LOCATION_READ");
         CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
         CanReadModeles = await AuthProvider.HasPermission("Permission", "MODEL_READ");
 
+        // 3. Chargement Données
         try
         {
             var tasks = new List<Task>();
@@ -218,45 +214,64 @@
             if (CanReadMarques) tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
             if (CanReadModeles) tasks.Add(Task.Run(async () => listeTousModeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles")));
             tasks.Add(LoadSettingsAsync());
+
             if (tasks.Any()) await Task.WhenAll(tasks);
+
+            // 4. Initialisation Cascade & IP
+            InitCascadeEtIp();
         }
         catch { }
     }
 
-    protected override void OnParametersSet()
+    private void InitCascadeEtIp()
     {
-        if (Show)
+        // Modèles
+        if (listeTousModeles != null && imprimanteEdit.ModeleId != 0)
         {
-            // Initialisation des listes Modèles
-            if (listeTousModeles != null && Model.Id != 0)
+            var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId);
+            if (currentModele != null)
             {
-                var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == Model.ModeleId);
-                if (currentModele != null) { selectedMarqueId = currentModele.MarqueId; FilterModeles(); }
+                selectedMarqueId = currentModele.MarqueId;
+                FilterModeles();
             }
-            else if (Model.Id == 0)
-            {
-                selectedMarqueId = 0;
-                listeModelesFiltres = new List<Modele>();
-            }
+        }
+        else
+        {
+            selectedMarqueId = 0;
+            listeModelesFiltres = new List<Modele>();
+        }
 
-            // Initialisation IP : On calcule le préfixe selon le lieu actuel
-            CalculerPrefixe(Model.EmplacementId);
-
-            // On extrait le suffixe si l'IP correspond déjà au préfixe
-            if (!string.IsNullOrEmpty(prefixeReseau) && !string.IsNullOrEmpty(Model.AdresseIp) && Model.AdresseIp.StartsWith(prefixeReseau))
-            {
-                ipSuffix = Model.AdresseIp.Replace(prefixeReseau, "");
-            }
-            else
-            {
-                ipSuffix = Model.AdresseIp ?? "";
-            }
+        // IP Prefix
+        CalculerPrefixe(imprimanteEdit.EmplacementId);
+        if (!string.IsNullOrEmpty(prefixeReseau) && !string.IsNullOrEmpty(imprimanteEdit.AdresseIp) && imprimanteEdit.AdresseIp.StartsWith(prefixeReseau))
+        {
+            ipSuffix = imprimanteEdit.AdresseIp.Replace(prefixeReseau, "");
+        }
+        else
+        {
+            ipSuffix = imprimanteEdit.AdresseIp ?? "";
         }
     }
 
+    // --- LOGIQUE CASCADE ---
+    private void OnMarqueChange(object value)
+    {
+        selectedMarqueId = (int)value;
+        FilterModeles();
+        imprimanteEdit.ModeleId = 0; // Reset modèle si on change de marque
+        GenerateNameIfEnabled();
+    }
+
+    private void FilterModeles()
+    {
+        if (listeTousModeles != null)
+            listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList();
+    }
+
+    // --- LOGIQUE IP ---
     private void OnLieuChanged(int id)
     {
-        Model.EmplacementId = id;
+        imprimanteEdit.EmplacementId = id;
         CalculerPrefixe(id);
         GenerateNameIfEnabled();
     }
@@ -264,62 +279,37 @@
     private void CalculerPrefixe(int emplacementId)
     {
         prefixeReseau = "";
-        inputMaxWidth = "100%"; // Reset
-
         var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == emplacementId);
-
         if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
         {
             try
             {
                 var parts = lieu.CidrIpv4.Split('/');
                 var ipParts = parts[0].Split('.');
-
                 if (parts.Length > 1 && int.TryParse(parts[1], out int cidr))
                 {
-                    // CAS CLASSIQUE /24 (Standard)
-                    if (cidr >= 24)
-                    {
-                        prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
-                        inputMaxWidth = "80px"; // Juste assez pour "254"
-                    }
-                    // CAS /16 (Moyen)
-                    else if (cidr >= 16)
-                    {
-                        prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.";
-                        inputMaxWidth = "150px"; // Assez pour "10.254"
-                    }
-                    // CAS /8 (Large)
-                    else if (cidr >= 8)
-                    {
-                        prefixeReseau = $"{ipParts[0]}.";
-                        inputMaxWidth = "220px"; // Assez pour "10.20.30"
-                    }
+                    if (cidr >= 24) prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
+                    else if (cidr >= 16) prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.";
+                    else if (cidr >= 8) prefixeReseau = $"{ipParts[0]}.";
                 }
             }
             catch { prefixeReseau = ""; }
         }
     }
 
-    // Appelé quand l'utilisateur tape dans la case "50"
     private void OnSuffixChanged(ChangeEventArgs e)
     {
         ipSuffix = e.Value?.ToString() ?? "";
-
-        // On reconstruit l'IP complète immédiatement
         if (!string.IsNullOrEmpty(prefixeReseau))
         {
-            if (ipSuffix.StartsWith(prefixeReseau))
-            {
-                ipSuffix = ipSuffix.Replace(prefixeReseau, "");
-            }
-            Model.AdresseIp = prefixeReseau + ipSuffix;
+            // Nettoyage si l'user copie-colle l'IP complète par erreur
+            if (ipSuffix.StartsWith(prefixeReseau)) ipSuffix = ipSuffix.Replace(prefixeReseau, "");
+            imprimanteEdit.AdresseIp = prefixeReseau + ipSuffix;
         }
         else
         {
-            Model.AdresseIp = ipSuffix;
+            imprimanteEdit.AdresseIp = ipSuffix;
         }
-
         GenerateNameIfEnabled();
     }
 
@@ -340,33 +330,24 @@
     }
     private string GetVal(List<ServerSetting> list, string key, string def) => list.FirstOrDefault(s => s.Key == key)?.Value ?? def;
 
-    private void OnMarqueChange(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out int id))
-        {
-            selectedMarqueId = id; FilterModeles(); Model.ModeleId = 0; GenerateNameIfEnabled();
-        }
-    }
-    private void FilterModeles() { if (listeTousModeles != null) listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList(); }
-    private void OnModeleChange(int id) { Model.ModeleId = id; GenerateNameIfEnabled(); }
     private async Task ForcerRefreshNom() => await GenerateNameIfEnabled();
 
     private async Task GenerateNameIfEnabled()
     {
         if (!namingEnabled) return;
-        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == Model.EmplacementId);
-        var modele = listeTousModeles?.FirstOrDefault(m => m.Id == Model.ModeleId);
+        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == imprimanteEdit.EmplacementId);
+        var modele = listeTousModeles?.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId);
         var marque = listeMarques?.FirstOrDefault(m => m.Id == selectedMarqueId);
 
         var dto = new
         {
             Template = namingTemplate,
-            Ip = Model.AdresseIp ?? "",
+            Ip = imprimanteEdit.AdresseIp ?? "",
             LieuNom = lieu?.Nom ?? "",
             LieuCode = lieu?.Code ?? "",
             ModeleNom = modele?.Nom ?? "",
             MarqueNom = marque?.Nom ?? "",
-            ImpCode = Model.Code ?? ""
+            ImpCode = imprimanteEdit.Code ?? ""
         };
 
         try
@@ -378,17 +359,67 @@
                 if (doc.RootElement.TryGetProperty("generatedName", out var prop))
                 {
                     string val = prop.GetString() ?? "";
-                    Model.NomAffiche = val;
-                    if (namingSameShare) Model.NomPartage = val;
+                    imprimanteEdit.NomAffiche = val;
+                    if (namingSameShare) imprimanteEdit.NomPartage = val;
                 }
             }
         }
         catch { }
     }
 
-    private async Task HandleValidSubmit()
+    // --- CRUD ---
+    private async Task OnSubmit(Imprimante args)
     {
-        if (Model.EmplacementId == 0 || Model.ModeleId == 0) return;
-        await OnSave.InvokeAsync();
+        // Validation manuelle légère
+        if (imprimanteEdit.EmplacementId == 0 || imprimanteEdit.ModeleId == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Incomplet", "Lieu et Modèle sont requis.");
+            return;
+        }
+
+        try
+        {
+            // Auto-transition de statut
+            if (imprimanteEdit.Status == PrinterStatus.ImportedNeedsFix)
+            {
+                imprimanteEdit.Status = PrinterStatus.PendingUpdate;
+            }
+
+            if (imprimanteEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante créée.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante mise à jour.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer cette imprimante ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "L'imprimante a été supprimée.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
     }
 }

@@ -4,104 +4,84 @@
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Blazored.LocalStorage
+@using Radzen
+@using Radzen.Blazor
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject ILocalStorageService LocalStorage
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-12 col-md-7 col-lg-5">
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--rz-base-200);">
 
-            <div class="card shadow-lg border-0 rounded-4 overflow-hidden mt-5">
-                <div class="bg-dark text-white text-center py-4">
-                    <i class="bi bi-printer-fill" style="font-size: 3rem;"></i>
-                    <h3 class="fw-bold mt-2">Autoprint Serveur</h3>
-                </div>
+    <RadzenCard Style="width: 100%; max-width: 450px; padding: 2rem; border-radius: var(--rz-border-radius);" Variant="Variant.Outlined">
 
-                <div class="card-body p-5 bg-white">
-
-                    @if (!string.IsNullOrEmpty(ErrorMessage))
-                    {
-                        <div class="alert @(ErrorMessage.Contains("droit") ? "alert-warning" : "alert-danger") d-flex align-items-center" role="alert">
-                            <i class="bi @(ErrorMessage.Contains("droit") ? "bi-lock-fill" : "bi-exclamation-triangle-fill") me-2"></i>
-                            <div>@ErrorMessage</div>
-                        </div>
-                    }
-
-                    @if (!forgotPasswordMode)
-                    {
-                        <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
-                            <DataAnnotationsValidator />
-
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="loginRequest.Username" id="username" class="form-control" placeholder="Nom d'utilisateur" />
-                                <label for="username">Identifiant</label>
-                            </div>
-
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="loginRequest.Password" type="password" id="password" class="form-control" placeholder="Mot de passe" />
-                                <label for="password">Mot de passe</label>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <div class="form-check">
-                                    <InputCheckbox @bind-Value="loginRequest.RememberMe" id="rememberMe" class="form-check-input" />
-                                    <label class="form-check-label small" for="rememberMe">Retenir mon identifiant</label>
-                                </div>
-
-                                <button type="button" class="btn btn-link text-decoration-none small" @onclick="() => forgotPasswordMode = true">
-                                    Mot de passe oublié ?
-                                </button>
-                            </div>
-
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm" disabled="@isBusy">
-                                    @if (isBusy)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2"></span>
-                                    }
-                                    SE CONNECTER
-                                </button>
-                            </div>
-                        </EditForm>
-                    }
-                    else
-                    {
-                        <div class="text-center mb-4">
-                            <h5 class="text-primary">Récupération de compte</h5>
-                            <p class="text-muted small">Entrez votre identifiant ou votre email.<br />Si le compte existe, vous recevrez un mot de passe temporaire.</p>
-                        </div>
-
-                        <div class="form-floating mb-3">
-                            <input @bind="forgotEmailOrUser" class="form-control" placeholder="Email ou Identifiant" />
-                            <label>Email ou Identifiant</label>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary" @onclick="HandleForgotPassword" disabled="@isBusy">
-                                @if (isBusy)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                Envoyer la demande
-                            </button>
-                            <button class="btn btn-outline-secondary" @onclick="() => forgotPasswordMode = false">
-                                Retour à la connexion
-                            </button>
-                        </div>
-                    }
-                </div>
+        <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-4">
+            <div style="width: 64px; height: 64px; background-color: var(--rz-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <RadzenIcon Icon="print" Style="font-size: 32px; color: var(--rz-on-primary);" />
             </div>
-        </div>
-    </div>
-</div>
+            <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" Style="margin: 0;">Autoprint Serveur</RadzenText>
+        </RadzenStack>
 
-<PasswordModal Show="showExpiredModal"
-               IsForced="true"
-               OnCancel="CancelExpired"
-               OnConfirm="ChangeExpiredPassword" />
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <RadzenAlert AlertStyle="@(ErrorMessage.Contains("droit") ? AlertStyle.Warning : AlertStyle.Danger)"
+                         Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Class="rz-mb-4">
+                @ErrorMessage
+            </RadzenAlert>
+        }
+
+        @if (!forgotPasswordMode)
+        {
+            <RadzenTemplateForm Data="@loginRequest" Submit="@HandleLogin" TItem="LoginRequest">
+                <RadzenStack Gap="1rem">
+
+                    <div>
+                        <RadzenLabel Text="Identifiant" Component="Username" Style="margin-bottom: 0.25rem;" />
+                        <RadzenTextBox Name="Username" @bind-Value="@loginRequest.Username" Style="width: 100%;" Placeholder="Entrez votre identifiant" />
+                        <RadzenRequiredValidator Component="Username" Text="Identifiant requis" Popup="true" />
+                    </div>
+
+                    <div>
+                        <RadzenLabel Text="Mot de passe" Component="Password" Style="margin-bottom: 0.25rem;" />
+                        <RadzenPassword Name="Password" @bind-Value="@loginRequest.Password" Style="width: 100%;" Placeholder="Entrez votre mot de passe" />
+                        <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="true" />
+                    </div>
+
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                        <RadzenCheckBox @bind-Value="@loginRequest.RememberMe" Name="Remember" TriState="false" />
+                        <RadzenLabel Text="Retenir mon identifiant" Component="Remember" Style="margin-left: 0.5rem; font-size: 0.9rem;" />
+
+                        <div style="flex: 1;"></div> <RadzenButton Text="Mot de passe oublié ?" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => forgotPasswordMode = true)" />
+                    </RadzenStack>
+
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="SE CONNECTER" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" IsBusy="@isBusy" Class="rz-mt-2" />
+
+                </RadzenStack>
+            </RadzenTemplateForm>
+        }
+        else
+        {
+            @* MODE RECUPERATION *@
+            <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-4">
+                <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center">Récupération de compte</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" TextAlign="TextAlign.Center" Style="color: var(--rz-text-tertiary-color);">
+                    Entrez votre identifiant ou email. Si le compte existe, vous recevrez un lien temporaire.
+                </RadzenText>
+            </RadzenStack>
+
+            <RadzenTextBox @bind-Value="forgotEmailOrUser" Placeholder="Email ou Identifiant" Style="width: 100%; margin-bottom: 1rem;" />
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenButton Text="Envoyer la demande" ButtonStyle="ButtonStyle.Primary" Click="@HandleForgotPassword" IsBusy="@isBusy" />
+                <RadzenButton Text="Retour à la connexion" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Click="@(() => forgotPasswordMode = false)" />
+            </RadzenStack>
+        }
+
+    </RadzenCard>
+</div>
 
 @code {
     private LoginRequest loginRequest = new LoginRequest();
@@ -109,9 +89,7 @@
     private bool isBusy = false;
     private bool forgotPasswordMode = false;
     private string forgotEmailOrUser = "";
-    private bool showExpiredModal = false;
 
-    // CHARGEMENT DU LOGIN SAUVEGARDÉ
     protected override async Task OnInitializedAsync()
     {
         var savedUser = await LocalStorage.GetItemAsync<string>("saved_username");
@@ -131,19 +109,13 @@
         {
             var result = await AuthService.Login(loginRequest);
 
-            // LOGIQUE DE SAUVEGARDE DU LOGIN
-            if (loginRequest.RememberMe)
-            {
-                await LocalStorage.SetItemAsync("saved_username", loginRequest.Username);
-            }
-            else
-            {
-                await LocalStorage.RemoveItemAsync("saved_username");
-            }
+            if (loginRequest.RememberMe) await LocalStorage.SetItemAsync("saved_username", loginRequest.Username);
+            else await LocalStorage.RemoveItemAsync("saved_username");
 
             if (result.PasswordExpired)
             {
-                showExpiredModal = true;
+                // Si expiré, on ouvre la modale de changement forcée (via DialogService maintenant !)
+                await OpenExpiredPasswordDialog();
             }
             else
             {
@@ -154,10 +126,7 @@
         {
             ErrorMessage = ex.Message;
         }
-        finally
-        {
-            isBusy = false;
-        }
+        finally { isBusy = false; }
     }
 
     private async Task HandleForgotPassword()
@@ -167,20 +136,33 @@
         try
         {
             var request = new ForgotPasswordRequest { EmailOrUsername = forgotEmailOrUser };
-            var response = await Http.PostAsJsonAsync("api/auth/forgot-password", request);
-            await JS.InvokeVoidAsync("alert", "Si les informations sont correctes, un email a été envoyé.");
+            await Http.PostAsJsonAsync("api/auth/forgot-password", request);
+            // On affiche une notif et on revient au login
+            NotificationService.Notify(NotificationSeverity.Success, "Demande envoyée", "Vérifiez vos emails.");
             forgotPasswordMode = false;
         }
         catch { ErrorMessage = "Impossible de contacter le serveur."; }
         finally { isBusy = false; }
     }
 
-    private void CancelExpired()
+    private async Task OpenExpiredPasswordDialog()
     {
-        showExpiredModal = false;
-        ((Autoprint.Web.Services.AuthService)AuthService).Logout();
-        loginRequest = new LoginRequest();
-        ErrorMessage = "Le changement de mot de passe est obligatoire.";
+        // On ouvre la modale PasswordModal en mode "Forcé"
+        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+            new Dictionary<string, object> { { "IsForced", true } },
+            new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = false, ShowClose = false }
+        );
+
+        if (result is ChangePasswordDto dto)
+        {
+            await ChangeExpiredPassword(dto);
+        }
+        else
+        {
+            // Si l'utilisateur annule (ferme), on le déconnecte
+            ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+            loginRequest = new LoginRequest(); // Reset
+        }
     }
 
     private async Task ChangeExpiredPassword(ChangePasswordDto dto)
@@ -190,16 +172,16 @@
             var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
             if (res.IsSuccessStatusCode)
             {
-                await JS.InvokeVoidAsync("alert", "Mot de passe mis à jour avec succès !");
-                showExpiredModal = false;
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Mot de passe mis à jour !");
                 NavigationManager.NavigateTo("/");
             }
             else
             {
-                var error = await res.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("alert", "Erreur : " + error);
+                ErrorMessage = "Erreur : " + await res.Content.ReadAsStringAsync();
+                // On déconnecte par sécurité si ça échoue à cette étape critique
+                ((Autoprint.Web.Services.AuthService)AuthService).Logout();
             }
         }
-        catch (Exception ex) { await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message); }
+        catch (Exception ex) { ErrorMessage = "Erreur technique : " + ex.Message; }
     }
 }

@@ -2,297 +2,100 @@
 @using Autoprint.Shared.DTOs
 @using Autoprint.Shared.Enums
 @using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
 @inject IRoleService RoleService
 @inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 @inject IJSRuntime JS
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ROLE_READ")]
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>🛡️ Gestion des Rôles et Permissions</h2>
+<PageTitle>Gestion des Rôles</PageTitle>
 
-        @if (!showRoleForm && !showAdModal)
-        {
-            <AuthorizeView Policy="ROLE_WRITE">
-                <Authorized>
-                    <button class="btn btn-primary" @onclick="ShowAddForm">
-                        <i class="bi bi-plus-lg"></i> Nouveau Rôle
-                    </button>
-                </Authorized>
-            </AuthorizeView>
-        }
-    </div>
+@* EN-TÊTE *@
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🛡️ Rôles & Permissions
+    </RadzenText>
 
-    @if (showRoleForm)
-    {
-        <div class="card p-4 mb-4 shadow border-primary">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0 text-primary">@(editMode ? "Modifier le rôle" : "Créer un nouveau rôle")</h4>
-                <button class="btn-close" @onclick="CancelForm"></button>
-            </div>
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(roles == null || !roles.Any())" />
 
-            <EditForm Model="@currentModel" OnValidSubmit="SaveRole">
-                <DataAnnotationsValidator />
+        <AuthorizeView Policy="ROLE_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouveau Rôle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OpenRoleModal(0))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Nom du Rôle</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Name" disabled="@isSuperAdminEdit" />
-                        <ValidationMessage For="@(() => currentModel.Name)" />
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label fw-bold">Description</label>
-                        <InputText class="form-control" @bind-Value="currentModel.Description" />
-                    </div>
-                </div>
+@if (roles == null)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    @* GRILLE DES RÔLES *@
+    <RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px">
+        <Columns>
 
-                <div class="table-responsive" style="max-height: 500px; overflow-y:auto;">
-                    <table class="table table-hover table-bordered align-middle table-sm">
-                        <thead class="table-light text-center sticky-top">
-                            <tr>
-                                <th class="text-start">Module</th>
-                                <th>Lecture</th>
-                                <th>Écriture</th>
-                                <th>Suppression</th>
-                                <th class="text-start">Autres</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var group in PermissionGroups)
-                            {
-                                <tr>
-                                    <td class="fw-bold bg-light">@group.Title</td>
-                                    <td class="text-center">@RenderCheckbox(group.Prefix, "READ")</td>
-                                    <td class="text-center">@RenderCheckbox(group.Prefix, "WRITE")</td>
-                                    <td class="text-center">@RenderCheckbox(group.Prefix, "DELETE")</td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            @foreach (var perm in GetOtherPermissions(group.Prefix))
-                                            {
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" checked="@currentModel.PermissionIds.Contains(perm.Id)"
-                                                           @onchange="(e) => TogglePermission(perm.Id, e.Value)" id="perm_@perm.Id">
-                                                    <label class="form-check-label small" for="perm_@perm.Id">
-                                                        @perm.Description.Replace(group.Title, "").Trim()
-                                                    </label>
-                                                </div>
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="mt-3 text-end border-top pt-3">
-                    <button type="button" class="btn btn-secondary me-2" @onclick="CancelForm">Annuler</button>
-                    <button type="submit" class="btn btn-success px-4">Enregistrer</button>
-                </div>
-            </EditForm>
-        </div>
-    }
-
-    @if (showAdModal)
-    {
-        <div class="card p-4 mb-4 shadow border-info">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0 text-info">
-                    <i class="bi bi-windows me-2"></i>Mappage AD : <strong>@editingRoleName</strong>
-                </h4>
-                <button class="btn-close" @onclick="CloseAdModal"></button>
-            </div>
-
-            <div class="row">
-                <div class="col-md-5 border-end">
-                    <h6 class="text-muted mb-3">Ajouter un lien</h6>
-
-                    <div class="input-group mb-2">
-                        <select class="form-select" style="max-width: 120px;" @bind="adSearchType">
-                            <option value="@AdMappingType.Group">Groupe</option>
-                            <option value="@AdMappingType.User">User</option>
-                        </select>
-                        <input type="text" class="form-control" placeholder="Rechercher dans l'AD..."
-                               @bind="adSearchQuery" @bind:event="oninput" @onkeyup="HandleSearchParams" />
-                        <button class="btn btn-primary" @onclick="SearchAd" disabled="@isSearchingAd">
-                            @if (isSearchingAd)
-                            {
-                                <span class="spinner-border spinner-border-sm"></span>
-                            }
-                            else
-                            {
-
-                                <i class="bi bi-search"></i>
-                            }
-                        </button>
-                    </div>
-
-                    @if (searchResults.Any())
+            @* NOM (Tri corrigé avec SortProperty) *@
+            <RadzenDataGridColumn TItem="RoleViewDto" Property="Name" SortProperty="Name" Title="Rôle" Width="200px">
+                <Template Context="role">
+                    <span style="font-weight: bold; font-size: 1.1em; color: var(--rz-primary);">@role.Name</span>
+                    @if (role.Name == "SuperAdmin")
                     {
-                        <div class="list-group shadow-sm" style="max-height: 300px; overflow-y: auto;">
-                            @foreach (var res in searchResults)
-                            {
-                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                                        @onclick="() => AddAdMapping(res)">
-                                    <div>
-                                        <strong>@res.Name</strong>
-                                        <div class="small text-muted">@res.SamAccountName</div>
-                                    </div>
-                                    <i class="bi bi-plus-circle-fill text-success fs-5"></i>
-                                </button>
-                            }
-                        </div>
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Système" Class="rz-ml-2" />
                     }
-                    else if (hasSearched)
-                    {
-                        <div class="text-center text-muted mt-3">Aucun résultat trouvé.</div>
-                    }
-                </div>
+                </Template>
+            </RadzenDataGridColumn>
 
-                <div class="col-md-7">
-                    <h6 class="text-muted mb-3">Liens existants</h6>
-                    @if (currentMappings == null)
-                    {
-                        <div class="spinner-border text-primary" role="status"></div>
-                    }
-                    else if (!currentMappings.Any())
-                    {
-                        <div class="alert alert-light text-center border">Aucun mappage actif.</div>
-                    }
-                    else
-                    {
-                        <table class="table table-striped align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Identifiant</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var map in currentMappings)
-                                {
-                                    <tr>
-                                        <td>
-                                            @if (map.MappingType == AdMappingType.Group)
-                                            {
-                                                <span class="badge bg-primary">Groupe</span>
-                                            }
-                                            else
-                                            {
+            @* DESCRIPTION *@
+            <RadzenDataGridColumn TItem="RoleViewDto" Property="Description" Title="Description" />
 
-                                                <span class="badge bg-info text-dark">User</span>
-                                            }
-                                        </td>
-                                        <td class="font-monospace">@map.AdIdentifier</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAdMapping(map)">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-            </div>
+            @* STATS (Nombre de droits - Non triable pour simplifier) *@
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Droits" Width="100px" TextAlign="TextAlign.Center" Sortable="false">
+                <Template Context="role">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@(role.PermissionCodes.Count + " perms")" />
+                </Template>
+            </RadzenDataGridColumn>
 
-            <div class="mt-3 text-end">
-                <button class="btn btn-secondary" @onclick="CloseAdModal">Fermer</button>
-            </div>
-        </div>
-    }
+            @* ACTIONS *@
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="220px" Sortable="false" TextAlign="TextAlign.Right">
+                <Template Context="role">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
 
-    <div class="row">
-        @if (roles == null)
-        {
-            <p class="text-center text-muted">Chargement des rôles...</p>
-        }
-        else
-        {
-            @foreach (var role in roles)
-            {
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm hover-shadow transition">
-                        <div class="card-body d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title fw-bold text-primary mb-0">@role.Name</h5>
-                                @if (role.Name == "SuperAdmin")
-                                {
-                                    <span class="badge bg-warning text-dark">Système</span>
-                                }
-                            </div>
-                            <p class="card-text text-muted small flex-grow-1">@role.Description</p>
+                        @* BOUTON AD CORRIGÉ : Plus de stack manuel, utilisation des props natives *@
+                        <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                      Click="@(() => OpenAdModal(role.Id, role.Name))"
+                                      Tooltip="Gérer la liaison Active Directory" />
 
-                            <div class="d-grid mb-2">
-                                <button class="btn btn-outline-info btn-sm" @onclick="() => OpenAdModal(role)">
-                                    <i class="bi bi-windows me-2"></i>Gérer Accès AD
-                                </button>
-                            </div>
+                        @if (role.Name != "SuperAdmin")
+                        {
+                            <AuthorizeView Policy="ROLE_WRITE">
+                                <Authorized Context="auth">
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
+                                </Authorized>
+                            </AuthorizeView>
+                            <AuthorizeView Policy="ROLE_DELETE">
+                                <Authorized Context="auth">
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
+                                </Authorized>
+                            </AuthorizeView>
+                        }
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
 
-                            <div class="pt-2 border-top d-flex justify-content-between">
-                                <small class="text-muted">@role.PermissionCodes.Count permissions</small>
-
-                                @if (role.Name != "SuperAdmin")
-                                {
-                                    <div>
-                                        <AuthorizeView Policy="ROLE_WRITE">
-                                            <Authorized>
-                                                <button class="btn btn-link btn-sm p-0 me-2" @onclick="() => EditRole(role.Id)" title="Modifier Permissions">
-                                                    <i class="bi bi-pencil-square"></i>
-                                                </button>
-                                            </Authorized>
-                                        </AuthorizeView>
-                                        <AuthorizeView Policy="ROLE_DELETE">
-                                            <Authorized>
-                                                <button class="btn btn-link btn-sm p-0 text-danger" @onclick="() => DeleteRole(role)" title="Supprimer Rôle">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </Authorized>
-                                        </AuthorizeView>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
-    </div>
-</div>
+        </Columns>
+    </RadzenDataGrid>
+}
 
 @code {
-    // --- VARIABLES GLOBALES ---
     private List<RoleViewDto>? roles;
     private List<PermissionDto> allPermissions = new();
-
-    // --- VARIABLES MODALE ROLE (Permissions) ---
-    private bool showRoleForm = false;
-    private bool editMode = false;
-    private bool isSuperAdminEdit = false;
-    private RoleEditDto currentModel = new();
-    private int editingRoleId = 0;
-
-    // --- VARIABLES MODALE AD (Mappage) ---
-    private bool showAdModal = false;
-    private string editingRoleName = "";
-    private List<AdRoleMappingDto>? currentMappings;
-
-    // Recherche AD
-    private string adSearchQuery = "";
-    private AdMappingType adSearchType = AdMappingType.Group;
-    private List<AdSearchResultDto> searchResults = new();
-    private bool isSearchingAd = false;
-    private bool hasSearched = false;
-
-    // Groupes de permissions pour l'affichage
-    private List<(string Prefix, string Title)> PermissionGroups = new()
-    {
-        ("ADMIN", "Administration"), ("PRINTER", "Imprimantes"), ("LOCATION", "Lieux"),
-        ("BRAND", "Marques"), ("MODEL", "Modèles"), ("DRIVER", "Pilotes"),
-        ("USER", "Utilisateurs"), ("ROLE", "Rôles"), ("SETTINGS", "Système")
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -308,151 +111,60 @@
         roles = rTask.Result;
     }
 
-    // --- LOGIQUE MODALE AD & RECHERCHE ---
-
-    private async Task OpenAdModal(RoleViewDto role)
+    private async Task OpenRoleModal(int roleId)
     {
-        editingRoleId = role.Id;
-        editingRoleName = role.Name;
-        showAdModal = true;
-        showRoleForm = false; // Ferme l'autre modale si ouverte
+        var title = roleId == 0 ? "➕ Créer un Rôle" : "✏️ Modifier le Rôle";
 
-        // Reset recherche
-        adSearchQuery = "";
-        searchResults.Clear();
-        hasSearched = false;
+        var result = await DialogService.OpenAsync<RolePermissionModal>(title,
+            new Dictionary<string, object>
+            {
+                { "RoleId", roleId },
+                { "AllPermissions", allPermissions }
+            },
+            new DialogOptions() { Width = "900px", Height = "800px", Resizable = true, Draggable = true }
+        );
 
-        await LoadAdMappings();
+        if (result == true) await LoadData();
     }
 
-    private void CloseAdModal() => showAdModal = false;
-
-    private async Task LoadAdMappings()
+    private async Task OpenAdModal(int roleId, string roleName)
     {
-        currentMappings = await Http.GetFromJsonAsync<List<AdRoleMappingDto>>($"api/Roles/{editingRoleId}/admappings");
-    }
-
-    private async Task HandleSearchParams(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await SearchAd();
-    }
-
-    private async Task SearchAd()
-    {
-        if (string.IsNullOrWhiteSpace(adSearchQuery)) return;
-        isSearchingAd = true;
-        hasSearched = true;
-        searchResults.Clear();
-
-        try
-        {
-            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={adSearchQuery}&type={adSearchType}");
-            if (res != null) searchResults = res;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Erreur recherche : " + ex.Message);
-            await JS.InvokeVoidAsync("alert", "Erreur lors de la recherche AD (vérifiez que le serveur est bien sous Windows et connecté au domaine).");
-        }
-        finally
-        {
-            isSearchingAd = false;
-        }
-    }
-
-    private async Task AddAdMapping(AdSearchResultDto result)
-    {
-        var dto = new CreateAdMappingDto
-        {
-            RoleId = editingRoleId,
-            AdIdentifier = (result.Type == AdMappingType.Group) ? result.Name : result.SamAccountName, // Groupe = Nom, User = Login
-            MappingType = result.Type
-        };
-
-        var response = await Http.PostAsJsonAsync("api/Roles/admappings", dto);
-        if (response.IsSuccessStatusCode)
-        {
-            await LoadAdMappings();
-            // Optionnel : Retirer le résultat de la liste pour éviter double clic
-            searchResults.Remove(result);
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", "Erreur : " + await response.Content.ReadAsStringAsync());
-        }
-    }
-
-    private async Task DeleteAdMapping(AdRoleMappingDto map)
-    {
-        if (!await JS.InvokeAsync<bool>("confirm", "Supprimer ce lien ?")) return;
-        await Http.DeleteAsync($"api/Roles/admappings/{map.Id}");
-        await LoadAdMappings();
-    }
-
-    // --- LOGIQUE MODALE ROLE (Permissions) - Inchangée ---
-
-    private void ShowAddForm()
-    {
-        currentModel = new RoleEditDto();
-        editMode = false;
-        isSuperAdminEdit = false;
-        showRoleForm = true;
-        showAdModal = false;
-    }
-
-    private async Task EditRole(int id)
-    {
-        currentModel = await RoleService.GetRoleForEdit(id);
-        editingRoleId = id;
-        editMode = true;
-        isSuperAdminEdit = (currentModel.Name == "SuperAdmin");
-        showRoleForm = true;
-        showAdModal = false;
-    }
-
-    private void CancelForm() => showRoleForm = false;
-
-    private async Task SaveRole()
-    {
-        if (editMode) await RoleService.UpdateRole(editingRoleId, currentModel);
-        else await RoleService.CreateRole(currentModel);
-        showRoleForm = false;
-        await LoadData();
+        await DialogService.OpenAsync<AdMappingModal>($"Mappage AD : {roleName}",
+            new Dictionary<string, object> { { "RoleId", roleId } },
+            new DialogOptions() { Width = "800px", Height = "600px" }
+        );
     }
 
     private async Task DeleteRole(RoleViewDto role)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", $"Supprimer le rôle {role.Name} ?")) return;
-        await RoleService.DeleteRole(role.Id);
-        await LoadData();
+        var confirm = await DialogService.Confirm($"Supprimer le rôle {role.Name} ?", "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            await RoleService.DeleteRole(role.Id);
+            await LoadData();
+            NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
+        }
     }
 
-    // Helpers UI
-    private RenderFragment RenderCheckbox(string prefix, string suffix) => __builder =>
+    private async Task ExporterEnCsv()
     {
-        var expectedCode = $"{prefix}_{suffix}";
-        var perm = allPermissions.FirstOrDefault(p => p.Code == expectedCode);
-        if (perm != null)
-        {
-            <div class="form-check d-flex justify-content-center">
-                <input class="form-check-input" type="checkbox" style="transform: scale(1.3);"
-                       checked="@currentModel.PermissionIds.Contains(perm.Id)"
-                       @onchange="@((ChangeEventArgs e) => TogglePermission(perm.Id, e.Value))" />
-            </div>
-        }
-        else
-        {
+        if (roles == null || !roles.Any()) return;
 
-            <span class="text-muted opacity-25">-</span>
-        }
-    };
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Rôle;Description;NombrePermissions");
 
-    private void TogglePermission(int permId, object? checkedValue)
-    {
-        if ((bool)(checkedValue ?? false)) { if (!currentModel.PermissionIds.Contains(permId)) currentModel.PermissionIds.Add(permId); }
-        else { currentModel.PermissionIds.Remove(permId); }
+        foreach (var r in roles)
+        {
+            var desc = r.Description?.Replace(";", ",") ?? "";
+            csvBuilder.AppendLine($"{r.Id};{r.Name};{desc};{r.PermissionCodes.Count}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Roles_Export_{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "CSV généré.");
     }
-
-    private List<PermissionDto> GetOtherPermissions(string prefix) =>
-        allPermissions.Where(p => p.Code.StartsWith(prefix + "_") && !p.Code.EndsWith("_READ") && !p.Code.EndsWith("_WRITE") && !p.Code.EndsWith("_DELETE")).ToList();
 }

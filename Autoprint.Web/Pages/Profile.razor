@@ -1,126 +1,129 @@
 ﻿@page "/profile"
 @using Autoprint.Shared.DTOs
 @using System.Net
+@using Radzen
+@using Radzen.Blazor
 @attribute [Authorize]
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 
-<div class="container mt-4">
-    <h2>👤 Mon Profil</h2>
+<PageTitle>Mon Profil</PageTitle>
 
-    @if (isLoading)
-    {
-        <div class="d-flex align-items-center">
-            <div class="spinner-border text-primary me-2" role="status"></div>
-            <span>Chargement du profil...</span>
-        </div>
-    }
-    else
-    {
-        @if (userProfile.IsAdUser)
-        {
-            <div class="alert alert-info border-info shadow-sm mb-4">
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-windows fs-3 me-3"></i>
-                    <div>
-                        <h5 class="alert-heading h6 mb-1 fw-bold">Compte Active Directory</h5>
-                        <p class="mb-0 small">
-                            Vos informations (Nom, Email, Mot de passe) sont gérées automatiquement par votre organisation.<br />
-                            Vous ne pouvez pas les modifier depuis cette interface.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        }
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-4">
+    👤 Mon Profil
+</RadzenText>
 
-        <div class="card p-4 shadow-sm bg-light mb-4">
-            <h5 class="text-primary mb-3">Mes informations</h5>
-            <EditForm Model="@profileModel" OnValidSubmit="HandleInfoSubmit">
-                <DataAnnotationsValidator />
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Identifiant</label>
-                        <input type="text" class="form-control" value="@userProfile.Username" disabled />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Rôle</label>
-                        <input type="text" class="form-control" value="@userProfile.Role" disabled />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Nom Affiché</label>
-                        <InputText class="form-control" @bind-Value="profileModel.DisplayName" disabled="@userProfile.IsAdUser" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Email</label>
-                        <InputText class="form-control" @bind-Value="profileModel.Email" disabled="@userProfile.IsAdUser" />
-                    </div>
-                </div>
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenRow Gap="2rem">
+        
+        @* COLONNE GAUCHE : IDENTITÉ *@
+        <RadzenColumn Size="12" SizeMD="7">
+            <RadzenCard>
+                <RadzenStack Gap="1.5rem">
+                    <RadzenText TextStyle="TextStyle.H6" Class="rz-color-primary rz-mb-0">Mes informations</RadzenText>
 
-                @if (!userProfile.IsAdUser)
-                {
-                    <div class="text-end mt-3">
-                        <button type="submit" class="btn btn-success">💾 Enregistrer les infos</button>
-                    </div>
-                }
-            </EditForm>
-        </div>
+                    @if (userProfile.IsAdUser)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="domain" />
+                                <div>
+                                    <strong>Compte Active Directory</strong><br/>
+                                    Vos informations sont gérées par votre organisation.
+                                </div>
+                            </RadzenStack>
+                        </RadzenAlert>
+                    }
 
+                    <RadzenTemplateForm Data="@profileModel" Submit="@HandleInfoSubmit" TItem="UpdateProfileDto">
+                        <RadzenStack Gap="1rem">
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Identifiant" />
+                                    <RadzenTextBox Value="@userProfile.Username" Disabled="true" Style="width: 100%;" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Rôle" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@userProfile.Role" Class="rz-mt-2" />
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Nom Affiché" Component="DisplayName" />
+                                    <RadzenTextBox Name="DisplayName" @bind-Value="@profileModel.DisplayName" Disabled="@userProfile.IsAdUser" Style="width: 100%;" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Email" Component="Email" />
+                                    <RadzenTextBox Name="Email" @bind-Value="@profileModel.Email" Disabled="@userProfile.IsAdUser" Style="width: 100%;" />
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            @if (!userProfile.IsAdUser)
+                            {
+                                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer les infos" Icon="save" ButtonStyle="ButtonStyle.Success" Class="rz-mt-2" />
+                            }
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        @* COLONNE DROITE : SÉCURITÉ *@
         @if (!userProfile.IsAdUser)
         {
-            <div class="card p-4 shadow-sm border-warning border-opacity-25">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="text-dark mb-1"><i class="bi bi-shield-lock"></i> Sécurité du compte</h5>
-                        <p class="text-muted mb-0">Gérez votre mot de passe et sa validité.</p>
-                    </div>
-                    <button class="btn btn-outline-dark" @onclick="() => showPasswordModal = true">
-                        <i class="bi bi-key"></i> Modifier mon mot de passe
-                    </button>
-                </div>
+            <RadzenColumn Size="12" SizeMD="5">
+                <RadzenCard Style="border-top: 4px solid var(--rz-warning);">
+                    <RadzenStack Gap="1.5rem">
+                        
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sécurité du compte</RadzenText>
+                            <RadzenIcon Icon="security" Style="color: var(--rz-warning); font-size: 2rem;" />
+                        </RadzenStack>
 
-                <hr class="my-3" />
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Validité du mot de passe</RadzenText>
+                            
+                            @if (userProfile.PasswordExpired)
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-danger); font-weight: bold;">EXPIRÉ !</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption">Vous devez le changer immédiatement.</RadzenText>
+                            }
+                            else
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1">
+                                    Encore <strong style="font-size: 1.2em;">@userProfile.DaysUntilExpiration</strong> jours
+                                </RadzenText>
 
-                <div class="d-flex align-items-center">
-                    <div class="me-3 display-6">
-                        @if (userProfile.DaysUntilExpiration > 30)
-                        {
-                            <i class="bi bi-check-circle-fill text-success"></i>
-                        }
-                        else if (userProfile.DaysUntilExpiration > 7)
-                        {
-                            <i class="bi bi-exclamation-circle-fill text-warning"></i>
-                        }
-                        else
-                        {
-                            <i class="bi bi-x-circle-fill text-danger"></i>
-                        }
-                    </div>
-                    <div>
-                        <strong>Validité du mot de passe :</strong><br />
-                        @if (userProfile.PasswordExpired)
-                        {
-                            <span class="text-danger fw-bold">Expiré ! Vous devez le changer immédiatement.</span>
-                        }
-                        else
-                        {
-                            <span>Il vous reste <span class="fw-bold">@userProfile.DaysUntilExpiration jours</span> avant expiration.</span>
-                        }
-                    </div>
-                </div>
-            </div>
+                                @* CORRECTION : Calcul inline et utilisation de ProgressBarStyle *@
+                                <RadzenProgressBar Value="@(Math.Clamp((double)userProfile.DaysUntilExpiration, 0, 90) / 90 * 100)"
+                                                   ProgressBarStyle="@(userProfile.DaysUntilExpiration > 30 ? ProgressBarStyle.Success : (userProfile.DaysUntilExpiration > 7 ? ProgressBarStyle.Warning : ProgressBarStyle.Danger))"
+                                                   ShowValue="false"
+                                                   Style="height: 8px;" />
+                            }
+                        </RadzenStack>
+
+                        <RadzenButton Text="Modifier mon mot de passe" Icon="password" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@OpenPasswordModal" />
+
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
         }
-    }
-</div>
 
-<PasswordModal Show="showPasswordModal"
-               OnCancel="() => showPasswordModal = false"
-               OnConfirm="ChangePassword" />
+    </RadzenRow>
+}
 
 @code {
     private UserProfileDto userProfile = new();
     private UpdateProfileDto profileModel = new();
     private bool isLoading = true;
-    private bool showPasswordModal = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -133,15 +136,13 @@
         {
             userProfile = await Http.GetFromJsonAsync<UserProfileDto>("api/users/profile") ?? new();
             profileModel = new UpdateProfileDto { DisplayName = userProfile.DisplayName, Email = userProfile.Email };
-            isLoading = false;
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            Console.WriteLine("Profil : 401 Unauthorized ignoré.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Erreur chargement profil: {ex.Message}");
+        }
+        finally
+        {
             isLoading = false;
         }
     }
@@ -151,11 +152,25 @@
         try
         {
             var res = await Http.PutAsJsonAsync("api/users/profile", profileModel);
-            if (res.IsSuccessStatusCode) await JS.InvokeVoidAsync("alert", "Infos mises à jour !");
+            if (res.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Infos mises à jour !");
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erreur sauvegarde: {ex.Message}");
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task OpenPasswordModal()
+    {
+        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+            new Dictionary<string, object> { { "IsForced", false } },
+            new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
+        );
+
+        if (result is ChangePasswordDto dto)
+        {
+            await ChangePassword(dto);
         }
     }
 
@@ -166,19 +181,17 @@
             var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
             if (res.IsSuccessStatusCode)
             {
-                showPasswordModal = false;
-                await JS.InvokeVoidAsync("alert", "Mot de passe modifié avec succès !");
-                await LoadProfile();
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Mot de passe modifié !");
+                await LoadProfile(); // Recharge pour mettre à jour la date d'expiration
             }
             else
             {
-                var msg = await res.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("alert", "Erreur : " + msg);
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
             }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Erreur technique : " + ex.Message);
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
         }
     }
 }

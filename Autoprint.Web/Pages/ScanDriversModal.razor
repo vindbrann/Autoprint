@@ -1,106 +1,78 @@
 ﻿@using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
 @inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 @inject AlertService AlertService
 
-@if (Show)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-hdd-network me-2"></i>Scanner le Serveur</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
-                </div>
+<RadzenStack Gap="1rem" AlignItems="AlignItems.Center" Class="rz-p-4">
 
-                <div class="modal-body">
-                    @if (isSyncing)
-                    {
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary mb-3" role="status"></div>
-                            <p>Analyse des pilotes WMI en cours...</p>
-                        </div>
-                    }
-                    else if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger">
-                            <strong>Erreur :</strong> @errorMessage
-                        </div>
-                    }
-                    else if (result != null)
-                    {
-                        <div class="alert alert-success">
-                            <h6 class="alert-heading">Synchronisation terminée !</h6>
-                            <ul class="mb-0 mt-2">
-                                <li>➕ <strong>@result.Added</strong> ajoutés</li>
-                                <li>🔄 <strong>@result.Updated</strong> mis à jour</li>
-                                <li>❌ <strong>@result.Deleted</strong> nettoyés</li>
-                            </ul>
-                        </div>
-                    }
-                    else
-                    {
-                        <p>Lancer la synchronisation avec le Spouleur Windows ?</p>
-                    }
-                </div>
+    @if (isSyncing)
+    {
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" />
+        <RadzenText TextStyle="TextStyle.Body1">Analyse des pilotes WMI en cours...</RadzenText>
+    }
+    else if (result != null)
+    {
+        <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
+        <RadzenText TextStyle="TextStyle.H6">Synchronisation terminée !</RadzenText>
 
-                <div class="modal-footer">
-                    @if (!isSyncing)
-                    {
-                        <button class="btn btn-secondary" @onclick="OnCancel">Fermer</button>
-                        @if (result == null)
-                        {
-                            <button class="btn btn-primary" @onclick="LancerSynchro">Lancer le Scan</button>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-}
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="width: 100%; background-color: var(--rz-base-200);">
+            <RadzenStack Gap="0.5rem">
+                <div>➕ <strong>@result.Added</strong> ajoutés</div>
+                <div>🔄 <strong>@result.Updated</strong> mis à jour</div>
+                <div>❌ <strong>@result.Deleted</strong> nettoyés</div>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close(true))" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" />
+    }
+    else
+    {
+        <RadzenIcon Icon="dns" Style="font-size: 4rem; color: var(--rz-primary);" />
+        <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center">
+            Lancer la synchronisation avec le Spouleur Windows ?
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TextAlign="TextAlign.Center" Style="color: var(--rz-text-tertiary-color);">
+            Cette opération va scanner les pilotes installés localement et mettre à jour la base de données.
+        </RadzenText>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Class="rz-mt-4">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton Text="Lancer le Scan" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" Click="@LancerSynchro" />
+        </RadzenStack>
+    }
+
+</RadzenStack>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public EventCallback OnScanComplete { get; set; }
-
     private bool isSyncing = false;
     private BatchResult? result;
-    private string? errorMessage;
-
-    protected override void OnParametersSet()
-    {
-        if (!Show)
-        {
-            result = null;
-            errorMessage = null;
-        }
-    }
 
     private async Task LancerSynchro()
     {
         isSyncing = true;
-        errorMessage = null;
-
         try
         {
             var response = await Http.PostAsync("api/Pilotes/sync", null);
-
             if (response.IsSuccessStatusCode)
             {
                 result = await response.Content.ReadFromJsonAsync<BatchResult>();
-                await OnScanComplete.InvokeAsync();
-                await AlertService.RefreshState();
+                await AlertService.RefreshState(); // Met à jour le badge rouge du menu
             }
             else
             {
-                errorMessage = $"Erreur serveur : {response.StatusCode}";
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur Serveur", response.ReasonPhrase);
+                DialogService.Close(false);
             }
         }
         catch (Exception ex)
         {
-            errorMessage = "Erreur technique : " + ex.Message;
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Technique", ex.Message);
+            DialogService.Close(false);
         }
         finally
         {

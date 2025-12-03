@@ -1,0 +1,150 @@
+﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.Enums
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1rem" Style="height: 100%;">
+
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
+        Liez des groupes ou utilisateurs Active Directory à ce rôle pour leur donner les permissions automatiquement.
+    </RadzenAlert>
+
+    @* --- ZONE DE RECHERCHE --- *@
+    <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="0.5rem">
+
+            <RadzenStack Gap="0">
+                <RadzenLabel Text="Type" Component="Type" Style="font-size: 0.8rem;" />
+                <RadzenDropDown @bind-Value="searchType" Data="@(Enum.GetValues<AdMappingType>())" Name="Type" Style="width: 100px;" />
+            </RadzenStack>
+
+            <RadzenStack Gap="0" Style="flex: 1;">
+                <RadzenLabel Text="Recherche (AD)" Component="Search" Style="font-size: 0.8rem;" />
+                <RadzenTextBox @bind-Value="searchQuery" Name="Search" Placeholder="Nom du groupe ou login..."
+                               @onkeyup="@(args => { if (args.Key == "Enter") SearchAd(); })" Style="width: 100%;" />
+            </RadzenStack>
+
+            <RadzenButton Icon="search" Text="Chercher" Click="SearchAd" IsBusy="@isSearching" ButtonStyle="ButtonStyle.Primary" />
+        </RadzenStack>
+
+        @* RÉSULTATS DE RECHERCHE *@
+        @if (searchResults.Any())
+        {
+            <RadzenDataList Data="@searchResults" TItem="AdSearchResultDto" Class="rz-mt-2" Style="max-height: 200px; overflow: auto; border: 1px solid var(--rz-border-color);">
+                <Template Context="res">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem;">
+                        <div>
+                            <div style="font-weight: bold;">@res.Name</div>
+                            <div style="font-size: 0.8rem; color: var(--rz-text-tertiary-color);">@res.SamAccountName</div>
+                        </div>
+                        <RadzenButton Icon="add" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@(() => AddMapping(res))" />
+                    </div>
+                </Template>
+            </RadzenDataList>
+        }
+        else if (hasSearched && !isSearching)
+        {
+            <div class="rz-p-2 rz-text-align-center" style="color: var(--rz-text-disabled-color);">Aucun résultat trouvé.</div>
+        }
+    </RadzenCard>
+
+    @* --- LISTE DES MAPPINGS ACTUELS --- *@
+    <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mt-2">Liens Actifs</RadzenText>
+
+    <RadzenDataGrid Data="@mappings" TItem="AdRoleMappingDto" AllowSorting="true" Density="Density.Compact" Style="flex: 1;">
+        <Columns>
+            <RadzenDataGridColumn TItem="AdRoleMappingDto" Property="MappingType" Title="Type" Width="100px">
+                <Template Context="m">
+                    <RadzenBadge BadgeStyle="@(m.MappingType == AdMappingType.Group ? BadgeStyle.Primary : BadgeStyle.Info)"
+                                 Text="@m.MappingType.ToString()" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="AdRoleMappingDto" Property="AdIdentifier" Title="Identifiant AD" />
+
+            <RadzenDataGridColumn TItem="AdRoleMappingDto" Width="60px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall" Click="@(() => DeleteMapping(m))" />
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close(null))" ButtonStyle="ButtonStyle.Light" />
+    </RadzenStack>
+
+</RadzenStack>
+
+@code {
+    [Parameter] public int RoleId { get; set; }
+
+    private List<AdRoleMappingDto>? mappings;
+
+    // Recherche
+    private string searchQuery = "";
+    private AdMappingType searchType = AdMappingType.Group;
+    private bool isSearching = false;
+    private bool hasSearched = false;
+    private List<AdSearchResultDto> searchResults = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMappings();
+    }
+
+    private async Task LoadMappings()
+    {
+        try { mappings = await Http.GetFromJsonAsync<List<AdRoleMappingDto>>($"api/Roles/{RoleId}/admappings"); }
+        catch { NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de charger les liens."); }
+    }
+
+    private async Task SearchAd()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery)) return;
+        isSearching = true; hasSearched = true; searchResults.Clear();
+        try
+        {
+            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={searchQuery}&type={searchType}");
+            if (res != null) searchResults = res;
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur AD", "Vérifiez la connexion au domaine.");
+        }
+        finally { isSearching = false; }
+    }
+
+    private async Task AddMapping(AdSearchResultDto res)
+    {
+        var dto = new CreateAdMappingDto
+        {
+            RoleId = RoleId,
+            AdIdentifier = (res.Type == AdMappingType.Group) ? res.Name : res.SamAccountName,
+            MappingType = res.Type
+        };
+
+        var response = await Http.PostAsJsonAsync("api/Roles/admappings", dto);
+        if (response.IsSuccessStatusCode)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, "Lien ajouté");
+            searchResults.Remove(res); // Retire de la liste pour éviter doublon visuel
+            await LoadMappings();
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
+        }
+    }
+
+    private async Task DeleteMapping(AdRoleMappingDto map)
+    {
+        var response = await Http.DeleteAsync($"api/Roles/admappings/{map.Id}");
+        if (response.IsSuccessStatusCode) await LoadMappings();
+    }
+}

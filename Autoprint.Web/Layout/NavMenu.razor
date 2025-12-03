@@ -4,179 +4,151 @@
 @inject NavigationManager NavManager
 @inject AlertService AlertService
 
+@* Structure Globale Verticale *@
+<RadzenStack Orientation="Orientation.Vertical" Style="height: 100%; width: 100%;" Gap="0">
 
-<div class="top-row ps-3 navbar navbar-dark border-bottom border-secondary bg-black bg-opacity-25">
-    <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center" href="">
-            <i class="bi bi-printer-fill me-3 fs-4"></i>
-            <span class="fw-bold">Autoprint</span>
-        </a>
+    @* 1. LOGO *@
+    <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color);">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenIcon Icon="print" Style="font-size: 2rem; color: var(--rz-primary);" />
+            <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; font-weight: bold;">Autoprint</RadzenText>
+        </RadzenStack>
     </div>
-</div>
 
-<div class="d-flex flex-column" style="height: calc(100vh - 3.5rem);">
+    @* 2. ZONE MENU (Scrollable) *@
+    <div style="flex: 1; overflow-y: auto; overflow-x: hidden;" class="rz-py-2">
 
-    <div class="flex-grow-1 overflow-auto custom-scrollbar">
-        <nav class="flex-column pt-3">
+        <AuthorizeView>
+            <Authorized Context="menuAuth">
 
-            <AuthorizeView>
-                <Authorized Context="menuAuth">
+                @* DASHBOARD (Isolé) *@
+                <RadzenPanelMenu>
+                    <RadzenPanelMenuItem Text="Tableau de bord" Path="" Icon="dashboard" />
+                </RadzenPanelMenu>
 
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                            <span class="bi bi-speedometer2" aria-hidden="true"></span> Tableau de bord
-                        </NavLink>
-                    </div>
+                @* SECTION GESTION *@
+                @if (CanShowGestionSection(menuAuth.User))
+                {
+                    <RadzenText TextStyle="TextStyle.Overline" Style="padding: 1rem 1rem 0.5rem 1rem; color: var(--rz-text-tertiary-color); font-weight: bold;">
+                        Gestion
+                    </RadzenText>
 
-                    @if (CanShowGestionSection(menuAuth.User))
-                    {
-                        <div class="nav-item px-3 mt-3 mb-1">
-                            <span class="text-uppercase text-white-50 fw-bold small ps-3 d-flex align-items-center"
-                                  style="font-size: 0.65rem; letter-spacing: 1px;">
-                                <i class="bi bi-briefcase-fill me-2 fs-6"></i> Gestion
-                            </span>
-                        </div>
-
+                    <RadzenPanelMenu>
                         <AuthorizeView Policy="PRINTER_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="imprimantes">
-                                    <span class="bi bi-printer" aria-hidden="true"></span> Imprimantes
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Imprimantes" Path="imprimantes" Icon="print" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="LOCATION_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="lieux">
-                                    <span class="bi bi-geo-alt" aria-hidden="true"></span> Lieux
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Lieux" Path="lieux" Icon="place" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="BRAND_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="marques">
-                                    <span class="bi bi-tags" aria-hidden="true"></span> Marques
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Marques" Path="marques" Icon="sell" />
                         </AuthorizeView>
 
+                        @* Pour les Modèles et Pilotes, on utilise un Template pour ajouter le Badge d'alerte *@
                         <AuthorizeView Policy="MODEL_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link d-flex justify-content-between align-items-center" href="modeles">
-                                    <span>
-                                        <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Modèles
-                                    </span>
+                            <RadzenPanelMenuItem Path="modeles">
+                                <Template>
+                                    <RadzenIcon Icon="description" Style="margin-right: 4px;" />
+                                    <span style="flex: 1;">Modèles</span>
                                     @if (AlertService.State.ModelAlert)
                                     {
-                                        <span class="bg-danger border border-light rounded-circle ms-2"
-                                              style="width: 10px; height: 10px; display: inline-block;"
-                                              title="Action requise">
-                                        </span>
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Variant="Variant.Filled" Text="!" IsPill="true" Style="margin-left: 8px;" />
                                     }
-                                </NavLink>
-                            </div>
+                                </Template>
+                            </RadzenPanelMenuItem>
                         </AuthorizeView>
 
                         <AuthorizeView Policy="DRIVER_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link d-flex justify-content-between align-items-center" href="pilotes">
-                                    <span>
-                                        <span class="bi bi-usb-drive" aria-hidden="true"></span> Pilotes
-                                    </span>
+                            <RadzenPanelMenuItem Path="pilotes">
+                                <Template>
+                                    <RadzenIcon Icon="usb" Style="margin-right: 4px;" />
+                                    <span style="flex: 1;">Pilotes</span>
                                     @if (AlertService.State.DriverAlert)
                                     {
-                                        <span class="bg-danger border border-light rounded-circle ms-2"
-                                              style="width: 10px; height: 10px; display: inline-block;"
-                                              title="Action requise">
-                                        </span>
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Variant="Variant.Filled" Text="!" IsPill="true" Style="margin-left: 8px;" />
                                     }
-                                </NavLink>
-                            </div>
+                                </Template>
+                            </RadzenPanelMenuItem>
                         </AuthorizeView>
-                    }
+                    </RadzenPanelMenu>
+                }
 
-                    @if (CanShowSystemSection(menuAuth.User))
-                    {
-                        <div class="nav-item px-3 mt-4 mb-1">
-                            <span class="text-uppercase text-white-50 fw-bold small ps-3 d-flex align-items-center"
-                                  style="font-size: 0.65rem; letter-spacing: 1px;">
-                                <i class="bi bi-cpu-fill me-2 fs-6"></i> Système
-                            </span>
-                        </div>
+                @* SECTION SYSTÈME *@
+                @if (CanShowSystemSection(menuAuth.User))
+                {
+                    <RadzenText TextStyle="TextStyle.Overline" Style="padding: 1rem 1rem 0.5rem 1rem; color: var(--rz-text-tertiary-color); font-weight: bold;">
+                        Système
+                    </RadzenText>
 
+                    <RadzenPanelMenu>
                         <AuthorizeView Policy="SETTINGS_MANAGE">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="parametres">
-                                    <span class="bi bi-gear" aria-hidden="true"></span> Paramètres
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Paramètres" Path="parametres" Icon="settings" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="USER_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="users">
-                                    <span class="bi bi-people-fill" aria-hidden="true"></span> Utilisateurs
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Utilisateurs" Path="users" Icon="people" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="AUDIT_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="audit">
-                                    <span class="bi bi-activity" aria-hidden="true"></span> Journal d'Audit
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Journal d'Audit" Path="audit" Icon="history" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="ROLE_READ">
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="roles">
-                                    <span class="bi bi-shield-lock-fill" aria-hidden="true"></span> Rôles & Droits
-                                </NavLink>
-                            </div>
+                            <RadzenPanelMenuItem Text="Rôles & Droits" Path="roles" Icon="admin_panel_settings" />
                         </AuthorizeView>
-                    }
+                    </RadzenPanelMenu>
+                }
 
-                </Authorized>
-            </AuthorizeView>
-        </nav>
+            </Authorized>
+        </AuthorizeView>
     </div>
 
+    @* 3. FOOTER (Sticky Bottom) *@
     <AuthorizeView>
         <Authorized>
-            <div class="p-3 bg-black bg-opacity-50 border-top border-secondary mt-auto">
-                <div class="d-flex align-items-center justify-content-between px-1">
-                    <NavLink href="profile" class="text-decoration-none" title="Modifier mon profil">
-                        <div class="d-flex align-items-center overflow-hidden">
-                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white me-2"
-                                 style="width: 36px; height: 36px; min-width: 36px; cursor: pointer;">
-                                <span class="fs-5">@GetInitials(GetNomAffichage(context.User))</span>
-                            </div>
-                            <div class="d-flex flex-column overflow-hidden" style="line-height: 1.2;">
-                                <span class="fw-bold text-white text-truncate" style="font-size: 0.9rem;"
-                                      title="@GetNomAffichage(context.User)">
-                                    @GetNomAffichage(context.User)
-                                </span>
-                                <span class="text-white-50 small" style="font-size: 0.7rem;">Connecté</span>
-                            </div>
+            <div class="rz-p-3" style="border-top: 1px solid var(--rz-border-color); background-color: var(--rz-base-200);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                    @* Zone Profil *@
+                    @* CORRECTION : On met le @onclick sur une div standard pour éviter l'erreur de lambda *@
+                    <div style="flex: 1; cursor: pointer; overflow: hidden; display: flex; align-items: center; gap: 0.5rem;"
+                         @onclick="@(() => NavManager.NavigateTo("profile"))"
+                         title="Mon Profil">
+
+                        @* Avatar Initiales (Style Teams/Gmail) *@
+                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background-color: var(--rz-secondary); color: var(--rz-on-secondary); display: flex; align-items: center; justify-content: center;">
+                            <span style="font-weight: bold; font-size: 0.8rem; line-height: 1;">
+                                @GetInitials(GetNomAffichage(context.User))
+                            </span>
                         </div>
-                    </NavLink>
-                    <button class="btn btn-link text-danger p-0 ms-2" @onclick="BeginLogout" title="Déconnecter">
-                        <i class="bi bi-power fs-5"></i>
-                    </button>
-                </div>
+
+                        <div style="overflow: hidden; display: flex; flex-direction: column;">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.Div" Style="margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @GetNomAffichage(context.User)
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.Div" Style="margin: 0; color: var(--rz-text-tertiary-color);">
+                                Connecté
+                            </RadzenText>
+                        </div>
+                    </div>
+
+                    @* Boutons Actions *@
+                    <RadzenAppearanceToggle />
+                    <RadzenButton Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="BeginLogout" Tooltip="Déconnexion" />
+
+                </RadzenStack>
             </div>
         </Authorized>
     </AuthorizeView>
 
-</div>
+</RadzenStack>
 
 @code {
     protected override void OnInitialized()
     {
         AlertService.OnChange += StateHasChanged;
-
         _ = AlertService.RefreshState();
     }
 
@@ -188,18 +160,21 @@
     private async Task BeginLogout()
     {
         await AuthService.Logout();
-        NavManager.NavigateTo("/login");
+        NavManager.NavigateTo("/login", true);
     }
 
+    // --- Helpers ---
     private string GetNomAffichage(System.Security.Claims.ClaimsPrincipal user)
     {
         var display = user.FindFirst("DisplayName")?.Value;
-        return !string.IsNullOrEmpty(display) ? display : user.Identity?.Name ?? "?";
+        return !string.IsNullOrEmpty(display) ? display : user.Identity?.Name ?? "User";
     }
 
+    // [CORRECTION] La méthode qui manquait :
     private string GetInitials(string? name)
     {
         if (string.IsNullOrEmpty(name)) return "?";
+        // Prend la première lettre et la met en majuscule
         return name.Substring(0, 1).ToUpper();
     }
 

@@ -3,39 +3,49 @@
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Pages
 @using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
 @inject IAuthService AuthService
 @inject IJSRuntime JS
+@inject ThemeService ThemeService
+
+@* OBLIGATOIRE : Moteur pour les Popups, Tooltips, Menus contextuels *@
+<RadzenComponents />
 
 <AuthorizeView>
     <Authorized>
+        @* Logique de sécurité conservée (Source: 714) *@
         @if (IsBlocked(context.User) && !processCompleted)
         {
-            <SecurityWall Show="true"
-                          OnSuccess="HandleSuccess"
-                          OnLogout="HandleLogout" />
+            <SecurityWall Show="true" OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
         }
         else
         {
-            <div class="page">
-                <div class="sidebar">
-                    <NavMenu />
-                </div>
+            @* Layout Flexbox : Sidebar à gauche, Contenu à droite *@
+            <RadzenLayout Style="height: 100vh; display: flex;">
 
-                <main>
-                    <div class="top-row px-4"></div>
-                    <article class="content px-4">
+                @* Sidebar Fixe (Largeur augmentée à 280px pour le confort) *@
+                <RadzenSidebar Expanded="true" Style="width: 280px; min-width: 280px; display: flex; flex-direction: column; z-index: 1;">
+                    <NavMenu />
+                </RadzenSidebar>
+
+                @* Zone de contenu *@
+                <RadzenBody Style="flex: 1; overflow: auto;">
+                    <div class="rz-p-4">
                         @Body
-                    </article>
-                </main>
-            </div>
+                    </div>
+                </RadzenBody>
+
+            </RadzenLayout>
         }
     </Authorized>
 
+    @* Ecran de login (Source: 717) *@
     <NotAuthorized>
-        <div class="login-container bg-light min-vh-100 d-flex align-items-center justify-content-center">
-            <div class="w-100">
+        <div class="login-container d-flex align-items-center justify-content-center" style="min-height: 100vh; background-color: var(--rz-base-200);">
+            <div class="w-100" style="max-width: 500px;">
                 @Body
             </div>
         </div>
@@ -43,8 +53,6 @@
 </AuthorizeView>
 
 @code {
-    // Cette variable est la clé : elle permet de cacher le mur localement
-    // sans attendre que le token soit mis à jour.
     private bool processCompleted = false;
 
     private bool IsBlocked(ClaimsPrincipal user)
@@ -54,19 +62,10 @@
 
     private async Task HandleSuccess()
     {
-        // 1. IMMÉDIATEMENT : On cache le mur visuellement
         processCompleted = true;
         StateHasChanged();
-
-        // Le mur disparaît ici, l'utilisateur voit l'interface (ou du blanc)
-
-        // 2. Petit délai pour laisser le temps au DOM de supprimer la modale
         await Task.Delay(100);
-
-        // 3. On affiche le message (maintenant qu'il n'y a plus de modale par dessus)
         await JS.InvokeVoidAsync("alert", "✅ Mot de passe mis à jour ! Vous allez être redirigé.");
-
-        // 4. On déconnecte proprement
         await HandleLogout();
     }
 
