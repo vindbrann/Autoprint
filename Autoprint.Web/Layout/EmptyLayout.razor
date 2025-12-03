@@ -1,7 +1,33 @@
 ﻿@inherits LayoutComponentBase
+@using Radzen
+@using Radzen.Blazor
+@using Blazored.LocalStorage
 
-<div class="main">
+@inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
+
+@* INDISPENSABLE : Les composants de base Radzen pour que les styles et popups fonctionnent *@
+<RadzenComponents />
+<RadzenTheme />
+
+<div class="main" style="background-color: var(--rz-base-background-color); min-height: 100vh;">
     <div class="content px-4">
         @Body
     </div>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // On récupère le thème sauvegardé pour l'appliquer aussi sur la page de Login
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+
+        // Sécurité : Si vide, on force "material" pour éviter l'erreur 404 css/-base.css
+        if (string.IsNullOrEmpty(savedTheme))
+        {
+            savedTheme = "material";
+        }
+
+        ThemeService.SetTheme(savedTheme);
+    }
+}

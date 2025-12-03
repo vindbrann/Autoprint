@@ -110,8 +110,6 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "USER_WRITE")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto request)
         {
-            // CORRECTION CRITIQUE : Utiliser Include pour charger les rôles existants
-            // Sinon le snapshot "Avant" croit qu'il n'y a pas de rôles.
             var user = await _context.Users
                 .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
@@ -127,7 +125,6 @@ namespace Autoprint.Server.Controllers
                 user.Email,
                 user.IsActive,
                 user.ForceChangePassword,
-                // Maintenant Roles sera correctement rempli (ex: ["Admin"])
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             };
 
@@ -149,7 +146,6 @@ namespace Autoprint.Server.Controllers
             }
 
             // Gestion des Rôles
-            // On ne touche à la table UserRoles que si le rôle demandé est différent
             int currentRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
 
             if (request.RoleId > 0 && request.RoleId != currentRoleId)
@@ -160,11 +156,9 @@ namespace Autoprint.Server.Controllers
             }
 
             // 4. Snapshot "Après"
-            // On récupère le nom du rôle pour l'affichage (soit le nouveau, soit l'ancien)
             string roleNameAfter;
             if (request.RoleId > 0 && request.RoleId != currentRoleId)
             {
-                // Si changement, on cherche le nom du nouveau rôle
                 roleNameAfter = await _context.Roles
                    .Where(r => r.Id == request.RoleId)
                    .Select(r => r.Name)
@@ -172,7 +166,6 @@ namespace Autoprint.Server.Controllers
             }
             else
             {
-                // Si pas de changement, on garde l'ancien nom
                 roleNameAfter = snapshotBefore.Roles.FirstOrDefault() ?? "Aucun";
             }
 
@@ -286,8 +279,12 @@ namespace Autoprint.Server.Controllers
             if (user.PasswordHash != oldHash)
                 return BadRequest("Le mot de passe actuel est incorrect.");
 
+            // MAJ Hash & Date
             user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
             user.LastPasswordChangeDate = DateTime.UtcNow;
+
+            // CORRECTION : On retire le flag de force !
+            user.ForceChangePassword = false;
 
             _auditService.LogAction(
                 "USER_PWD_CHANGE",

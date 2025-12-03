@@ -13,16 +13,20 @@
 @inject IJSRuntime JS
 @inject ThemeService ThemeService
 @inject ILocalStorageService LocalStorage
-
+@inject NotificationService NotificationService
 
 <RadzenComponents />
 <RadzenTheme />
 
 <AuthorizeView>
     <Authorized>
-        @if (IsBlocked(context.User) && !processCompleted)
+        @* CORRECTION FLASH : 
+           On utilise IsBlocked sans condition 'processCompleted'.
+           Si c'est bloqué, le mur reste jusqu'à la redirection forcée.
+        *@
+        @if (IsBlocked(context.User))
         {
-            <SecurityWall Show="true" OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
+            <SecurityWall OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
         }
         else
         {
@@ -41,7 +45,8 @@
     </Authorized>
 
     <NotAuthorized>
-        <div class="login-container d-flex align-items-center justify-content-center" style="min-height: 100vh; background-color: var(--rz-base-200);">
+        <div class="login-container d-flex align-items-center justify-content-center"
+             style="min-height: 100vh; background-color: var(--rz-base-background-color);">
             <div class="w-100" style="max-width: 500px;">
                 @Body
             </div>
@@ -50,18 +55,14 @@
 </AuthorizeView>
 
 @code {
-    private bool processCompleted = false;
+    // Variable processCompleted supprimée car elle causait le flash dashboard
 
-    // --- [NOUVEAU] CHARGEMENT DU THEME ---
     protected override async Task OnInitializedAsync()
     {
-        // On récupère le thème sauvegardé, sinon par défaut "material"
         var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
         if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
-
         ThemeService.SetTheme(savedTheme);
     }
-    // -------------------------------------
 
     private bool IsBlocked(ClaimsPrincipal user)
     {
@@ -70,10 +71,19 @@
 
     private async Task HandleSuccess()
     {
-        processCompleted = true;
-        StateHasChanged();
-        await Task.Delay(100);
-        await JS.InvokeVoidAsync("alert", "✅ Mot de passe mis à jour ! Vous allez être redirigé.");
+        // 1. Notification propre
+        NotificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = "Succès",
+            Detail = "Mot de passe mis à jour. Redirection...",
+            Duration = 3000
+        });
+
+        // 2. On attend un peu pour que l'utilisateur voie le message
+        await Task.Delay(2000);
+
+        // 3. On déconnecte et on redirige SANS cacher le mur (pas de flash)
         await HandleLogout();
     }
 

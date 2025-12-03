@@ -1,34 +1,33 @@
 ﻿@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @inject HttpClient Http
+@inject NotificationService NotificationService
 
-@if (Show)
-{
-    @* CORRECTION : Remplacement de bg-white par les variables Radzen *@
-    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
-         style="z-index: 2000; background-color: var(--rz-base-background-color); color: var(--rz-text-color);">
+@* Le Container utilise la couleur de fond du thème (Clair ou Sombre) *@
+<div class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+     style="z-index: 2000; background-color: var(--rz-base-background-color); color: var(--rz-text-color);">
 
-        <div class="text-center mb-4">
-            <RadzenIcon Icon="lock_clock" Style="font-size: 5rem; color: var(--rz-danger);" />
-            <h1 class="mt-3 display-5" style="color: var(--rz-text-title-color);">Action Requise</h1>
+    <div class="text-center mb-4" style="max-width: 600px; padding: 20px;">
+        <RadzenIcon Icon="lock_clock" Style="font-size: 5rem; color: var(--rz-danger);" />
 
-            @* CORRECTION : Remplacement de text-muted *@
-            <p class="lead" style="color: var(--rz-text-secondary-color);">
-                Votre mot de passe a expiré ou a été réinitialisé.<br />
-                L'accès est verrouillé tant que cette action n'est pas réalisée.
-            </p>
-        </div>
+        <h1 class="mt-3 display-5" style="color: var(--rz-text-title-color);">Action Requise</h1>
 
-        <PasswordModal Show="true"
-                       IsForced="true"
+        <p class="lead" style="color: var(--rz-text-secondary-color);">
+            Votre mot de passe a expiré ou a été réinitialisé.<br />
+            L'accès est verrouillé tant que cette action n'est pas réalisée.
+        </p>
+    </div>
+
+    @* On encapsule le formulaire dans une Card pour qu'il ressorte bien en Dark Mode *@
+    <RadzenCard Style="width: 100%; max-width: 500px;" Variant="Variant.Outlined">
+        <PasswordModal IsForced="true"
                        OnConfirm="HandleChange"
                        OnCancel="TriggerLogout" />
-    </div>
-}
+    </RadzenCard>
+</div>
 
 @code {
-    [Parameter] public bool Show { get; set; }
-    // On sépare les événements pour que le parent sache quoi faire
+    // Show a été retiré car c'est le MainLayout qui décide d'afficher ou non ce composant
     [Parameter] public EventCallback OnSuccess { get; set; }
     [Parameter] public EventCallback OnLogout { get; set; }
 
@@ -39,20 +38,16 @@
             var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
             if (res.IsSuccessStatusCode)
             {
-                // ON NE FAIT PLUS L'ALERTE ICI.
-                // On prévient juste le parent que c'est bon.
                 await OnSuccess.InvokeAsync();
             }
             else
             {
-                // Les erreurs restent ici car on doit pouvoir recommencer
-                // Petite astuce : On cast en object pour éviter les conflits de namespace JS
-                await ((IJSInProcessRuntime)JS).InvokeVoidAsync("alert", "❌ Erreur : " + await res.Content.ReadAsStringAsync());
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
             }
         }
         catch (Exception ex)
         {
-            await ((IJSInProcessRuntime)JS).InvokeVoidAsync("alert", "Erreur technique : " + ex.Message);
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur technique", ex.Message);
         }
     }
 
@@ -60,6 +55,4 @@
     {
         await OnLogout.InvokeAsync();
     }
-
-    [Inject] IJSRuntime JS { get; set; } // Injection property
 }
