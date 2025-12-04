@@ -9,14 +9,29 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Base de Données
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// 1. Base de Données (Support Hybride SQLite / SQL Server)
+var dbProvider = builder.Configuration["Database:Provider"] ?? "SqlServer";
+var connectionStrings = builder.Configuration.GetSection("Database:ConnectionStrings");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString, sqlOptions =>
+{
+    if (dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
     {
-        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-    })
-);
+        // MODE LIGHT (SQLite)
+        var connectionString = connectionStrings["Sqlite"] ?? "Data Source=Autoprint.db";
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        // MODE ENTREPRISE (SQL Server)
+        var connectionString = connectionStrings["SqlServer"];
+        options.UseSqlServer(connectionString, sqlOptions =>
+        {
+            // On garde le SplitQuery pour SQL Server comme dans ton code original
+            sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        });
+    }
+});
 
 // 2. Services
 builder.Services.AddScoped<IPrintSpoolerService, WindowsPrintSpoolerService>();
@@ -160,12 +175,28 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+        var config = services.GetRequiredService<IConfiguration>();
+        var currentProvider = config["Database:Provider"];
+
+        // Logique de création de base selon le moteur
+        if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            // SQLite : Création simple si le fichier n'existe pas
+            context.Database.EnsureCreated();
+        }
+        else
+        {
+            // SQL Server : Migration robuste
+            context.Database.Migrate();
+        }
+
+        // Initialisation des données (Admin par défaut, etc.)
         DbInitializer.Initialize(context);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Erreur lors de l'initialisation de la Base de Données (Clé API).");
+        logger.LogError(ex, "Erreur critique lors de l'initialisation de la Base de Données.");
     }
 }
 

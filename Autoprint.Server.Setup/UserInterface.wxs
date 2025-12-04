@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+	<Fragment>
+		<UI>
+
+			<Dialog Id="DatabaseDialog" Width="370" Height="270" Title="Configuration Base de Données">
+				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Connexion BDD" />
+				<Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choisissez le type de base de données." />
+
+				<Control Id="DbRadioGroup" Type="RadioButtonGroup" X="20" Y="50" Width="330" Height="40" Property="DB_TYPE">
+					<RadioButtonGroup Property="DB_TYPE">
+						<RadioButton Value="SQLITE" X="0" Y="0" Width="300" Height="17" Text="Utiliser SQLite (Fichier local simple)" />
+						<RadioButton Value="MSSQL" X="0" Y="20" Width="300" Height="17" Text="Utiliser SQL Server (Recommandé pour la Prod)" />
+					</RadioButtonGroup>
+				</Control>
+
+				<Control Id="LblServer" Type="Text" X="40" Y="100" Width="50" Height="17" Text="Serveur :" />
+				<Control Id="TxtServer" Type="Edit" X="100" Y="97" Width="200" Height="17" Property="SQL_SERVER" />
+
+				<Control Id="LblUser" Type="Text" X="40" Y="125" Width="50" Height="17" Text="Utilisateur :" />
+				<Control Id="TxtUser" Type="Edit" X="100" Y="122" Width="200" Height="17" Property="SQL_USER" />
+
+				<Control Id="LblPass" Type="Text" X="40" Y="150" Width="50" Height="17" Text="Mot de passe :" />
+				<Control Id="TxtPass" Type="Edit" X="100" Y="147" Width="200" Height="17" Property="SQL_PASSWORD" Password="yes" />
+
+				<Control Id="InfoTest" Type="Text" X="20" Y="220" Width="330" Height="15"
+						 Text="Si SQL Server est choisi, un test sera effectué. Sinon ces champs sont ignorés."
+						 Transparent="yes" />
+
+				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="Précédent" />
+				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Text="Suivant" />
+				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Annuler">
+					<Publish Event="SpawnDialog" Value="CancelDlg" />
+				</Control>
+			</Dialog>
+
+			<Dialog Id="WebConfigDialog" Width="370" Height="270" Title="Configuration Web IIS">
+				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Configuration Web" />
+				<Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Paramètres du site IIS." />
+
+				<Control Id="LblPort" Type="Text" X="20" Y="60" Width="160" Height="17" Text="Port du Site Web (HTTP) :" />
+
+				<Control Id="TxtPort" Type="Edit" X="185" Y="57" Width="50" Height="18" Property="WEB_PORT" Sunken="yes" />
+
+				<Control Id="InfoSSL" Type="Text" X="20" Y="90" Width="330" Height="60"
+						 Text="Le site sera installé sans chiffrement SSL pour garantir la compatibilité.&#13;&#10;&#13;&#10;IMPORTANT : Après l'installation, vous devrez configurer manuellement le binding HTTPS avec votre certificat d'entreprise via la console IIS."
+						 Transparent="yes" />
+
+				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="Précédent" />
+				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Text="Installer" />
+				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Annuler">
+					<Publish Event="SpawnDialog" Value="CancelDlg" />
+				</Control>
+			</Dialog>
+
+		</UI>
+	</Fragment>
+</Wix>

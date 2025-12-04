@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="fr-FR" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+
+	<String Id="msierrIISCannotConnect" Value="Impossible de se connecter au serveur Internet Information Services (IIS)." />
+	<String Id="msierrIISFailedReadWebSite" Value="Échec de la lecture de la table IIsWebSite." />
+	<String Id="msierrIISFailedReadWebDirs" Value="Échec de la lecture de la table IIsWebDir." />
+	<String Id="msierrIISFailedReadVDirs" Value="Échec de la lecture de la table IIsWebVirtualDir." />
+	<String Id="msierrIISFailedReadFilters" Value="Échec de la lecture de la table IIsFilter." />
+	<String Id="msierrIISFailedReadMimeMap" Value="Échec de la lecture de la table IIsMimeMap." />
+	<String Id="msierrIISFailedReadAppPool" Value="Échec de la lecture de la table IIsAppPool." />
+	<String Id="msierrIISFailedReadProp" Value="Échec de la lecture de la table IIsProperty." />
+	<String Id="msierrIISFailedReadWebSvcExt" Value="Échec de la lecture de la table IIsWebServiceExtension." />
+	<String Id="msierrIISFailedReadWebError" Value="Échec de la lecture de la table IIsWebError." />
+	<String Id="msierrIISFailedReadHttpHeader" Value="Échec de la lecture de la table IIsHttpHeader." />
+
+	<String Id="msierrIISFailedSchedTransaction" Value="Échec de la planification de la transaction Métabase." />
+	<String Id="msierrIISFailedSchedInstallWebs" Value="Échec de la planification de l'installation des sites Web." />
+	<String Id="msierrIISFailedSchedInstallWebDirs" Value="Échec de la planification de l'installation des répertoires Web." />
+	<String Id="msierrIISFailedSchedInstallVDirs" Value="Échec de la planification de l'installation des répertoires virtuels." />
+	<String Id="msierrIISFailedSchedInstallFilters" Value="Échec de la planification de l'installation des filtres ISAPI." />
+	<String Id="msierrIISFailedSchedInstallAppPool" Value="Échec de la planification de l'installation des pools d'application." />
+	<String Id="msierrIISFailedSchedInstallProp" Value="Échec de la planification de l'installation des propriétés." />
+	<String Id="msierrIISFailedSchedInstallWebSvcExt" Value="Échec de la planification de l'installation des extensions de service Web." />
+
+	<String Id="msierrIISFailedSchedUninstallWebs" Value="Échec de la planification de la désinstallation des sites Web." />
+	<String Id="msierrIISFailedSchedUninstallWebDirs" Value="Échec de la planification de la désinstallation des répertoires Web." />
+	<String Id="msierrIISFailedSchedUninstallVDirs" Value="Échec de la planification de la désinstallation des répertoires virtuels." />
+	<String Id="msierrIISFailedSchedUninstallFilters" Value="Échec de la planification de la désinstallation des filtres ISAPI." />
+	<String Id="msierrIISFailedSchedUninstallAppPool" Value="Échec de la planification de la désinstallation des pools d'application." />
+	<String Id="msierrIISFailedSchedUninstallProp" Value="Échec de la planification de la désinstallation des propriétés." />
+	<String Id="msierrIISFailedSchedUninstallWebSvcExt" Value="Échec de la planification de la désinstallation des extensions de service Web." />
+
+	<String Id="msierrIISFailedStartTransaction" Value="Échec du démarrage de la transaction." />
+	<String Id="msierrIISFailedOpenKey" Value="Échec de l'ouverture de la clé." />
+	<String Id="msierrIISFailedCreateKey" Value="Échec de la création de la clé." />
+	<String Id="msierrIISFailedWriteData" Value="Échec de l'écriture des données." />
+	<String Id="msierrIISFailedCreateApp" Value="Échec de la création de l'application." />
+	<String Id="msierrIISFailedDeleteKey" Value="Échec de la suppression de la clé." />
+	<String Id="msierrIISFailedDeleteValue" Value="Échec de la suppression de la valeur." />
+	<String Id="msierrIISFailedCommitInUse" Value="Échec de la validation des modifications dans la base IIS. La base est utilisée par un autre processus." />
+
+	<String Id="ConfigureIIs" Value="Configuration de IIS" />
+	<String Id="ConfigureIIsExec" Value="Configuration de IIS en cours..." />
+	<String Id="StartMetabaseTransaction" Value="Démarrage de la transaction Métabase IIS" />
+	<String Id="RollbackMetabaseTransaction" Value="Annulation de la transaction Métabase IIS" />
+	<String Id="CommitMetabaseTransaction" Value="Validation de la transaction Métabase IIS" />
+	<String Id="WriteMetabaseChanges" Value="Installation des sites Web" />
+	<String Id="ConfigureIIs7Exec" Value="Configuration de IIS en cours..." />
+	<String Id="StartIIS7ConfigTransaction" Value="Démarrage de la transaction IIS" />
+	<String Id="RollbackIIS7ConfigTransaction" Value="Annulation de la transaction IIS" />
+	<String Id="CommitIIS7ConfigTransaction" Value="Validation de la transaction IIS" />
+	<String Id="WriteIIS7ConfigChanges" Value="Installation des sites Web" />
+
+</WixLocalization>

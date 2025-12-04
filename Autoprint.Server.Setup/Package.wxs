@@ -1,0 +1,58 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis">
+	<Package Name="Autoprint Server" Manufacturer="Autoprint Inc." Version="1.0.0.0" UpgradeCode="{A29285C6-4A74-41A8-A500-F7BBD65F7734}" Scope="perMachine" Compressed="yes">
+
+		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." />
+		<MediaTemplate EmbedCab="yes" />
+
+		<Property Id="IIS_MAJOR_VERSION">
+			<RegistrySearch Id="CheckIISVersion" Root="HKLM" Key="SOFTWARE\Microsoft\InetStp" Name="MajorVersion" Type="raw" />
+		</Property>
+		<Launch Condition="Installed OR IIS_MAJOR_VERSION" Message="Erreur : Le rôle Web Server (IIS) n'est pas installé." />
+
+		<Property Id="SQL_SERVER" Value="localhost\SQLEXPRESS" />
+		<Property Id="SQL_USER" Value="sa" />
+		<Property Id="SQL_PASSWORD" Value="defaut" Hidden="yes" />
+		<Property Id="SQL_USE_INTEGRATED" Value="1" />
+
+		<Property Id="WEB_PORT" Value="80" />
+		<Property Id="DB_TYPE" Value="SQLITE" />
+
+		<WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+		<WixVariable Id="WixUIExitDialogOptionalText" Value="IMPORTANT : Le serveur est installé sur le port [WEB_PORT] (HTTP).&#13;&#10;Pour sécuriser l'accès, veuillez configurer un certificat SSL (HTTPS) via la console IIS." />
+
+		<Binary Id="CustomActionBinary" SourceFile="$(var.Autoprint.Setup.Actions.TargetDir)Autoprint.Setup.Actions.CA.dll" />
+		<CustomAction Id="TestDbConnection" BinaryRef="CustomActionBinary" DllEntry="TestSqlConnection" Execute="immediate" Return="check" />
+
+		<ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+		<UI>
+			<Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="DatabaseDialog" Order="5" />
+			<Publish Dialog="DatabaseDialog" Control="Back" Event="NewDialog" Value="InstallDirDlg" />
+
+			<Publish Dialog="DatabaseDialog" Control="Next" Event="NewDialog" Value="WebConfigDialog" Order="1"
+					 Condition="DB_TYPE = &quot;SQLITE&quot;" />
+
+			<Publish Dialog="DatabaseDialog" Control="Next" Event="DoAction" Value="TestDbConnection" Order="2"
+					 Condition="DB_TYPE = &quot;MSSQL&quot;" />
+
+			<Publish Dialog="DatabaseDialog" Control="Next" Event="NewDialog" Value="WebConfigDialog" Order="3"
+					 Condition="DB_TYPE = &quot;MSSQL&quot; AND DB_VALID = &quot;1&quot;" />
+
+			<Publish Dialog="WebConfigDialog" Control="Back" Event="NewDialog" Value="DatabaseDialog" />
+			<Publish Dialog="WebConfigDialog" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+			<Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WebConfigDialog" Order="1" />
+		</UI>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="INSTALLFOLDER" Name="Autoprint Server" />
+		</StandardDirectory>
+
+		<Feature Id="MainFeature" Title="Autoprint Server" Level="1">
+			<ComponentGroupRef Id="AppFiles" />
+			<ComponentGroupRef Id="ConfigFiles" />
+			<ComponentGroupRef Id="IisConfiguration" />
+		</Feature>
+
+	</Package>
+</Wix>

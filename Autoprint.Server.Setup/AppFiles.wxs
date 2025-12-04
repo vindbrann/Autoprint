@@ -1,0 +1,39 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" 
+     xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Fragment>
+
+		<ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+			<Files Include="$(var.SolutionDir)Autoprint.Server\bin\Release\net10.0\publish\**">
+				<Exclude Files="$(var.SolutionDir)Autoprint.Server\bin\Release\net10.0\publish\appsettings.json" />
+			</Files>
+		</ComponentGroup>
+
+		<ComponentGroup Id="ConfigFiles" Directory="INSTALLFOLDER">
+			<Component Id="AppSettingsComp" Guid="{59DF8E04-34C9-4EE7-AFE6-31395DD0D386}" KeyPath="yes">
+				<File Id="AppSettingsJson" Source="$(var.SolutionDir)Autoprint.Server\bin\Release\net10.0\publish\appsettings.json" />
+			</Component>
+		</ComponentGroup>
+
+		<ComponentGroup Id="IisConfiguration" Directory="INSTALLFOLDER">
+			<Component Id="WebSiteComponent" Guid="{753D97F3-27B5-440D-A710-1B434ECAF414}" KeyPath="yes">
+
+<iis:WebAppPool Id="AutoprintPool" 
+                Name="AutoprintPool" 
+                ManagedPipelineMode="integrated" 
+                Identity="networkService" />
+
+				<iis:WebSite Id="AutoprintSite" Description="Autoprint Server" Directory="INSTALLFOLDER" AutoStart="yes">
+					<iis:WebAddress Id="AllUnassigned" Port="[WEB_PORT]" Secure="no" />
+					
+					<iis:WebApplication Id="AutoprintApp" Name="Autoprint" WebAppPool="AutoprintPool" />
+				</iis:WebSite>
+
+                <CreateFolder>
+                    <util:PermissionEx User="NT AUTHORITY\NetworkService" GenericRead="yes" GenericExecute="yes" />
+                </CreateFolder>
+
+			</Component>
+		</ComponentGroup>
+	</Fragment>
+</Wix>
