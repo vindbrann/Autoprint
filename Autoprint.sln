@@ -19,6 +19,8 @@ Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Autoprint.Server.Setup", "A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Autoprint.Setup.Actions", "Autoprint.Setup.Actions\Autoprint.Setup.Actions.csproj", "{2B8A2001-DFBC-4490-B878-701829EFCEE7}"
 EndProject
+Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Autoprint.Server.Bootstrapper", "Autoprint.Server.Bootstrapper\Autoprint.Server.Bootstrapper.wixproj", "{A798C9CC-2485-4068-A7EE-8A3B4A30027C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,6 +145,22 @@ Global
 		{2B8A2001-DFBC-4490-B878-701829EFCEE7}.Release|x64.Build.0 = Release|Any CPU
 		{2B8A2001-DFBC-4490-B878-701829EFCEE7}.Release|x86.ActiveCfg = Release|Any CPU
 		{2B8A2001-DFBC-4490-B878-701829EFCEE7}.Release|x86.Build.0 = Release|Any CPU
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|Any CPU.Build.0 = Debug|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|ARM64.Build.0 = Debug|ARM64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|x64.ActiveCfg = Debug|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|x64.Build.0 = Debug|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|x86.ActiveCfg = Debug|x86
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Debug|x86.Build.0 = Debug|x86
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|Any CPU.ActiveCfg = Release|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|Any CPU.Build.0 = Release|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|ARM64.ActiveCfg = Release|ARM64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|ARM64.Build.0 = Release|ARM64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|x64.ActiveCfg = Release|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|x64.Build.0 = Release|x64
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|x86.ActiveCfg = Release|x86
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -150,6 +168,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{B7DA8C1F-978A-42AE-BB80-261E73D66462} = {76295601-ABFD-4BA8-B6A2-6A93F9B356D6}
 		{2B8A2001-DFBC-4490-B878-701829EFCEE7} = {76295601-ABFD-4BA8-B6A2-6A93F9B356D6}
+		{A798C9CC-2485-4068-A7EE-8A3B4A30027C} = {76295601-ABFD-4BA8-B6A2-6A93F9B356D6}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {94348F66-B98A-4799-8995-2DCBB691BBF8}

@@ -23,11 +23,19 @@
 
 		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.0" />
 		<PackageReference Include="System.Management" Version="10.0.0" />
+		<PackageReference Include="System.Management.Automation" Version="7.5.4" />
 		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<Folder Include="Migrations\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="ResetPassword.bat">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</None>
 	</ItemGroup>
 
 	<ItemGroup>

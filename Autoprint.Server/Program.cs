@@ -200,4 +200,25 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+if (args.Contains("--reset-admin"))
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("--- MODE RESET ADMIN ---");
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var admin = context.Users.FirstOrDefault(u => u.Username == "admin");
+        if (admin != null)
+        {
+            admin.PasswordHash = Autoprint.Server.Helpers.SecurityHelper.ComputeSha256Hash("admin123");
+            admin.ForceChangePassword = true;
+            admin.IsActive = true;
+            context.SaveChanges();
+            Console.WriteLine("SUCCES : Mot de passe reinitialise a 'admin123'.");
+        }
+        else Console.WriteLine("ERREUR : Admin introuvable.");
+    }
+    return; // Stop l'application ici
+}
+
 app.Run();

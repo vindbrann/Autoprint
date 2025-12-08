@@ -207,6 +207,18 @@ else
                                                 </RadzenStack>
                                                 <RadzenButton Text="Appliquer (Partages)" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
                                             </RadzenStack>
+                                            <RadzenDivider />
+                                            @* --- SECTION MODE FILIALE --- *@
+                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultBranchOfficeEnabled" />
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenLabel Text="Mode Filiale par défaut" Style="font-weight: bold;" />
+                                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Pour les nouvelles créations</RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenStack>
+                                                <RadzenButton Text="Forcer sur tout le parc" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Info" Click="@ForcerModeFiliale" />
+                                            </RadzenStack>
                                         </RadzenStack>
                                     </RadzenCard>
 
@@ -459,6 +471,7 @@ else
         public string NamingTemplate { get; set; } = "";
         public bool NamingEnabled { get; set; } = false;
         public bool NamingSameShare { get; set; } = false;
+        public bool Printer_DefaultBranchOfficeEnabled { get; set; } = false;
         public int PasswordExpirationDays { get; set; } = 90;
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";
@@ -485,6 +498,7 @@ else
             model.NamingTemplate = GV(s, "NamingTemplate");
             model.NamingEnabled = bool.Parse(GV(s, "NamingEnabled", "false"));
             model.NamingSameShare = bool.Parse(GV(s, "NamingSameShare", "false"));
+            model.Printer_DefaultBranchOfficeEnabled = bool.Parse(GV(s, "Printer_DefaultBranchOfficeEnabled", "false"));
             model.PasswordExpirationDays = int.Parse(GV(s, "PasswordExpirationDays", "90"));
             model.AdDomain = GV(s, "AdDomain");
             model.AdBaseDn = GV(s, "AdBaseDn");
@@ -617,5 +631,36 @@ else
         }
         catch {}
         finally { testAdFilterEnCours = false; }
+    }
+    private async Task ForcerModeFiliale()
+    {
+        var confirm = await DialogService.Confirm(
+            "Cette action va activer le 'Mode Filiale' sur TOUTES les imprimantes existantes.\nCela déclenchera une resynchronisation massive.\n\nContinuer ?",
+            "Confirmation de masse",
+            new ConfirmOptions { OkButtonText = "Oui, Forcer", CancelButtonText = "Annuler" });
+
+        if (confirm == true)
+        {
+            sauvegardeEnCours = true; // On utilise le busy indicator du bouton save principal ou un dédié
+            try
+            {
+                // 1. On sauvegarde d'abord le setting global
+                await Http.PostAsJsonAsync("api/Settings/Save", model);
+
+                // 2. On appelle l'endpoint de mise à jour de masse (A créer côté serveur)
+                var r = await Http.PostAsync("api/Imprimantes/ForceBranchOfficeMode", null);
+
+                if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Tout le parc est passé en Mode Filiale.");
+                else NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Echec de la mise à jour de masse.");
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+            finally
+            {
+                sauvegardeEnCours = false;
+            }
+        }
     }
 }

@@ -1,0 +1,42 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+	<Bundle Name="Autoprint Server (Installation Complète)"
+			Manufacturer="Autoprint Inc."
+			Version="1.0.0.0"
+			UpgradeCode="{A1549033-2CC8-4771-ABC5-0349C7B344E6}">
+
+		<BootstrapperApplication>
+			<bal:WixStandardBootstrapperApplication
+			  LicenseUrl=""
+			  Theme="hyperlinkLicense" />
+		</BootstrapperApplication>
+
+		<Chain>
+			<ExePackage Id="DotNet10Hosting"
+							  SourceFile="..\prerequisites\dotnet-hosting-10.exe"
+							  Compressed="yes"
+							  InstallArguments="/quiet /norestart"
+							  RepairArguments="/repair /quiet /norestart"
+							  UninstallArguments="/uninstall /quiet /norestart"
+							  Permanent="yes"
+							  Vital="yes"
+							  DetectCondition="DotNetCoreInstalled">
+			</ExePackage>
+
+			<MsiPackage Id="AutoprintServerMSI"
+							  SourceFile="$(var.Autoprint.Server.Setup.TargetPath)"
+							  Compressed="yes"
+							  bal:DisplayInternalUICondition="1"
+							  Vital="yes" />
+		</Chain>
+
+		<util:RegistrySearch Id="CheckDotNetCore"
+							 Root="HKLM"
+							 Key="SOFTWARE\Microsoft\ASP.NET Core\Shared Framework\v10.0"
+							 Result="exists"
+							 Variable="DotNetCoreInstalled" />
+
+	</Bundle>
+</Wix>

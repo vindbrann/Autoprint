@@ -2,8 +2,8 @@
 using Autoprint.Shared.DTOs;
 using Autoprint.Shared.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR; // Ajout pour SignalR
-using Autoprint.Server.Hubs;        // Ajout pour ton Hub
+using Microsoft.AspNetCore.SignalR;
+using Autoprint.Server.Hubs;
 
 namespace Autoprint.Server.Services
 {
@@ -17,9 +17,8 @@ namespace Autoprint.Server.Services
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<SyncSpoolerService> _logger;
-        private readonly IHubContext<EventsHub> _hubContext; // Champ pour le Hub
+        private readonly IHubContext<EventsHub> _hubContext;
 
-        // Injection du HubContext dans le constructeur
         public SyncSpoolerService(
             IServiceScopeFactory scopeFactory,
             ILogger<SyncSpoolerService> logger,
@@ -38,7 +37,8 @@ namespace Autoprint.Server.Services
             var pending = await context.Imprimantes
                 .Where(i => i.Status == PrinterStatus.PendingCreation
                          || i.Status == PrinterStatus.PendingUpdate
-                         || i.Status == PrinterStatus.PendingDelete)
+                         || i.Status == PrinterStatus.PendingDelete
+                         || i.Status == PrinterStatus.SyncError)
                 .Select(i => new SyncPreviewDto
                 {
                     Id = i.Id,
@@ -47,9 +47,11 @@ namespace Autoprint.Server.Services
                     DateModification = i.DateModification,
                     ModifiePar = "Admin",
                     Action = i.Status == PrinterStatus.PendingCreation ? "Création" :
-                             i.Status == PrinterStatus.PendingDelete ? "Suppression" : "Mise à jour",
+                             i.Status == PrinterStatus.PendingDelete ? "Suppression" :
+                             i.Status == PrinterStatus.SyncError ? "Correction (Retry)" : "Mise à jour",
                     Details = i.Status == PrinterStatus.PendingCreation ? $"IP: {i.AdresseIp}" :
-                              i.Status == PrinterStatus.PendingUpdate ? "Mise à jour config/nom" : "Suppression du serveur"
+                              i.Status == PrinterStatus.PendingUpdate ? "Mise à jour config/nom" :
+                              i.Status == PrinterStatus.SyncError ? "Nouvelle tentative de synchro" : "Suppression du serveur"
                 })
                 .ToListAsync();
 
@@ -70,7 +72,6 @@ namespace Autoprint.Server.Services
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var spooler = scope.ServiceProvider.GetRequiredService<IPrintSpoolerService>();
 
-            // On charge tout ce qu'il faut, y compris l'emplacement pour le mapping
             var tasks = await context.Imprimantes
                 .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .Include(i => i.Emplacement)
@@ -81,11 +82,7 @@ namespace Autoprint.Server.Services
             {
                 try
                 {
-                    // --- MAPPING DES CHAMPS ---
-                    // BDD "Localisation" (Détails) -> Windows "Commentaire"
                     string winComment = imp.Localisation ?? "";
-
-                    // BDD "Emplacement.Nom" (Bâtiment) -> Windows "Location"
                     string winLocation = imp.Emplacement?.Nom ?? "";
 
                     // --- 1. CAS SUPPRESSION ---
@@ -103,55 +100,70 @@ namespace Autoprint.Server.Services
                         if (imp.Modele?.Pilote == null) throw new Exception("Pilote manquant");
 
                         await spooler.CreerPortTcp(imp.AdresseIp);
-                        await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp);
+                        await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsBranchOfficeEnabled);
+                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
 
-                        // On applique tout de suite les infos de localisation
-                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation);
-
-                        imp.Status = PrinterStatus.Synchronized;
-                        result.Messages.Add($"[CREATE] {imp.NomAffiche} créée.");
+                        // VERIFICATION
+                        bool configOk = await spooler.VerifierModeFiliale(imp.NomAffiche, imp.IsBranchOfficeEnabled);
+                        if (configOk)
+                        {
+                            imp.Status = PrinterStatus.Synchronized;
+                            result.Messages.Add($"[CREATE] {imp.NomAffiche} créée.");
+                        }
+                        else
+                        {
+                            imp.Status = PrinterStatus.SyncError;
+                            string etatVoulu = imp.IsBranchOfficeEnabled ? "ACTIF" : "INACTIF";
+                            imp.Commentaire = $"[WARN] Windows refuse d'appliquer le Mode Filiale ({etatVoulu}). Vérifiez le type de pilote (V3 vs V4).";
+                            result.Messages.Add($"[WARN] {imp.NomAffiche} : Windows bloque le mode filiale.");
+                        }
                     }
 
-                    // --- 3. CAS MISE À JOUR (INTELLIGENT) ---
-                    else if (imp.Status == PrinterStatus.PendingUpdate)
+                    // --- 3. CAS MISE À JOUR (OU RETRY ERREUR) ---
+                    else if (imp.Status == PrinterStatus.PendingUpdate || imp.Status == PrinterStatus.SyncError)
                     {
-                        // Stratégie : On cherche l'imprimante physique via son IP (Port)
-                        // car le Nom a pu changer en BDD.
                         string? nomActuelSurWindows = await spooler.RecupererNomImprimanteParIp(imp.AdresseIp);
 
                         if (!string.IsNullOrEmpty(nomActuelSurWindows))
                         {
-                            // TROUVÉE !
-
-                            // A. Renommage si nécessaire
                             if (nomActuelSurWindows != imp.NomAffiche)
                             {
                                 await spooler.RenommerImprimante(nomActuelSurWindows, imp.NomAffiche);
                                 result.Messages.Add($"[RENAME] '{nomActuelSurWindows}' -> '{imp.NomAffiche}'.");
                             }
 
-                            // B. Mise à jour des métadonnées (Lieu, Commentaire)
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation);
+                            // Mise à jour (y compris tentative d'application du Mode Filiale)
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
                             result.Messages.Add($"[UPDATE] {imp.NomAffiche} mise à jour.");
                         }
                         else
                         {
-                            // PAS TROUVÉE (Auto-Repair)
-                            // Elle a peut-être été supprimée manuellement ou l'IP a changé ?
-                            // Dans le doute, on recrée propre.
-                            _logger.LogWarning($"Imprimante {imp.NomAffiche} (IP: {imp.AdresseIp}) introuvable. Tentative de réparation...");
-
+                            // REPAIR
+                            _logger.LogWarning($"Imprimante {imp.NomAffiche} (IP: {imp.AdresseIp}) introuvable. Réparation...");
                             if (imp.Modele?.Pilote == null) throw new Exception("Pilote manquant pour réparation.");
 
-                            // On s'assure que le port et l'imprimante existent
                             await spooler.CreerPortTcp(imp.AdresseIp);
-                            await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp);
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation);
+                            await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsBranchOfficeEnabled);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
 
-                            result.Messages.Add($"[REPAIR] {imp.NomAffiche} recréée (Introuvable avant update).");
+                            result.Messages.Add($"[REPAIR] {imp.NomAffiche} recréée.");
                         }
 
-                        imp.Status = PrinterStatus.Synchronized;
+                        // VERIFICATION SYSTEMATIQUE
+                        bool configOk = await spooler.VerifierModeFiliale(imp.NomAffiche, imp.IsBranchOfficeEnabled);
+
+                        if (configOk)
+                        {
+                            imp.Status = PrinterStatus.Synchronized;
+                            imp.Commentaire = null;
+                        }
+                        else
+                        {
+                            imp.Status = PrinterStatus.SyncError;
+                            string etatVoulu = imp.IsBranchOfficeEnabled ? "ACTIF" : "INACTIF";
+                            imp.Commentaire = $"[WARN] Mode Filiale {etatVoulu} refusé par Windows. Vérifiez le pilote.";
+                            result.Messages.Add($"[WARN] {imp.NomAffiche} : Windows bloque le mode filiale.");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -159,22 +171,20 @@ namespace Autoprint.Server.Services
                     _logger.LogError(ex, $"Erreur synchro {imp.NomAffiche}");
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[ERREUR SYNC] {ex.Message}";
-                    result.Success = false;
                     result.Messages.Add($"[ERREUR] {imp.NomAffiche} : {ex.Message}");
                 }
             }
 
             await context.SaveChangesAsync();
 
-            // --- SIGNALR : NOTIFICATION ---
-            // On envoie le signal uniquement si on a traité des imprimantes
-            if (tasks.Any())
+            if (tasks.Any()) await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+
+            // CORRECTION CRITIQUE POUR L'AFFICHAGE VERT/ROUGE
+            // Si on a le moindre Warning ou Erreur dans les messages, on considère que l'opération n'est pas un succès total.
+            if (result.Messages.Any(m => m.Contains("[WARN]") || m.Contains("[ERREUR]")))
             {
-                // Le message "RefreshPrinters" partira à tous les clients connectés.
-                await _hubContext.Clients.All.SendAsync("RefreshPrinters");
-                _logger.LogInformation("SignalR: Notification 'RefreshPrinters' envoyée aux clients.");
+                result.Success = false;
             }
-            // ------------------------------
 
             return result;
         }

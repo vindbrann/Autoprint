@@ -20,7 +20,7 @@ namespace Autoprint.Shared
         public bool EstPartagee { get; set; } = false;
         public string? NomPartage { get; set; }
         public string? Commentaire { get; set; }
-
+        public bool IsBranchOfficeEnabled { get; set; } = false;
         // Relations
         public int EmplacementId { get; set; }
         public Emplacement? Emplacement { get; set; }

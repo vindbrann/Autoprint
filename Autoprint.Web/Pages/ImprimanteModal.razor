@@ -125,6 +125,17 @@
             </RadzenRow>
         </RadzenFieldset>
 
+        @* --- 3.5 MODE FILIALE (NOUVEAU) --- *@
+        <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="border-color: var(--rz-info);">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenSwitch @bind-Value="@imprimanteEdit.IsBranchOfficeEnabled" Name="ModeFiliale" />
+                <RadzenLabel Text="Mode Filiale (Impression Directe)" Component="ModeFiliale" Style="font-weight: bold;" />
+            </RadzenStack>
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                Le poste client envoie les données directement à l'IP de l'imprimante sans passer par le serveur central (Spooler Local). Recommandé pour les sites distants.
+            </RadzenText>
+        </RadzenCard>
+
         @* --- 4. PARTAGE --- *@
         @* CORRECTION : Suppression du background-color manuel. Variant.Flat gère le fond. *@
         <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
@@ -204,6 +215,7 @@
             EstPartagee = ImprimanteToEdit.EstPartagee,
             NomPartage = ImprimanteToEdit.NomPartage,
             Commentaire = ImprimanteToEdit.Commentaire,
+            IsBranchOfficeEnabled = ImprimanteToEdit.IsBranchOfficeEnabled,
             ModeleId = ImprimanteToEdit.ModeleId,
             EmplacementId = ImprimanteToEdit.EmplacementId,
             Status = ImprimanteToEdit.Status

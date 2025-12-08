@@ -9,9 +9,13 @@ namespace Autoprint.Server.Helpers
         {
             using (SHA256 sha256Hash = SHA256.Create())
             {
-                // On s'assure d'utiliser UTF8 partout
                 byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-                return Convert.ToBase64String(bytes);
+                StringBuilder builder = new StringBuilder();
+                for (int i = 0; i < bytes.Length; i++)
+                {
+                    builder.Append(bytes[i].ToString("x2")); // x2 = Hexadécimal minuscule
+                }
+                return builder.ToString();
             }
         }
     }
