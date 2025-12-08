@@ -3,40 +3,89 @@
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
 	<Bundle Name="Autoprint Server (Installation Complète)"
-			Manufacturer="Autoprint Inc."
+			Manufacturer="Vind"
 			Version="1.0.0.0"
 			UpgradeCode="{A1549033-2CC8-4771-ABC5-0349C7B344E6}">
 
 		<BootstrapperApplication>
 			<bal:WixStandardBootstrapperApplication
-			  LicenseUrl=""
-			  Theme="hyperlinkLicense" />
+				Theme="hyperlinkLicense"
+				LocalizationFile="Localization.wxl"
+				SuppressOptionsUI="yes" />
 		</BootstrapperApplication>
 
-		<Chain>
-			<ExePackage Id="DotNet10Hosting"
-							  SourceFile="..\prerequisites\dotnet-hosting-10.exe"
-							  Compressed="yes"
-							  InstallArguments="/quiet /norestart"
-							  RepairArguments="/repair /quiet /norestart"
-							  UninstallArguments="/uninstall /quiet /norestart"
-							  Permanent="yes"
-							  Vital="yes"
-							  DetectCondition="DotNetCoreInstalled">
-			</ExePackage>
+		<!-- Conditions d’environnement -->
+		<!-- On exige IIS installé ET une version minimale (ici: 10.0) -->
+		<bal:Condition Condition="IsIISInstalled"
+					   Message="Pré-requis manquant : Le rôle 'Web Server (IIS)' n'est pas installé." />
+		<bal:Condition Condition="IIS_MajorVersion &gt;= 10"
+					   Message="Pré-requis manquant : IIS doit être en version 10.0 ou supérieure." />
 
-			<MsiPackage Id="AutoprintServerMSI"
-							  SourceFile="$(var.Autoprint.Server.Setup.TargetPath)"
-							  Compressed="yes"
-							  bal:DisplayInternalUICondition="1"
-							  Vital="yes" />
-		</Chain>
+		<!-- Détections IIS -->
+		<!-- 1) Présence du rôle IIS (Web-Server) via WMI/CIM -->
+		<util:WmiSearch Id="DetectIISRole"
+						Namespace="\\.\root\cimv2"
+						Wql="SELECT InstallState FROM Win32_OptionalFeature WHERE Name='Web-Server' AND InstallState=1"
+						Variable="IsIISInstalled"
+						Result="exists" />
+
+		<!-- 2) Lecture de la version IIS via Registre -->
+		<util:RegistrySearch Id="CheckIISMajor"
+							 Root="HKLM"
+							 Key="SOFTWARE\Microsoft\InetStp"
+							 Value="MajorVersion"
+							 Result="value"
+							 Variable="IIS_MajorVersion"
+							 Bitness="always64" />
+
+		<!-- (optionnel) MinorVersion si tu veux filtrer 10.0 vs 10.5 etc. -->
+		<util:RegistrySearch Id="CheckIISMinor"
+							 Root="HKLM"
+							 Key="SOFTWARE\Microsoft\InetStp"
+							 Value="MinorVersion"
+							 Result="value"
+							 Variable="IIS_MinorVersion"
+							 Bitness="always64" />
+
+		<!-- Tu peux aussi combiner les deux dans une condition si nécessaire :
+         <bal:Condition Condition="(IIS_MajorVersion &gt; 10) OR (IIS_MajorVersion = 10 AND IIS_MinorVersion &gt;= 0)"
+                        Message="Pré-requis manquant : IIS 10.0 ou supérieur requis." />
+    -->
+
+		<!-- Détections supplémentaires (inchangées) -->
+		<bal:Condition Condition="IsPrintServerInstalled"
+					   Message="Pré-requis manquant : le rôle 'Serveur d'impression' (Print-Server) n'est pas installé." />
+
+		<util:WmiSearch Id="DetectPrintServerRole"
+						Namespace="\\.\root\cimv2"
+						Wql="SELECT InstallState FROM Win32_OptionalFeature WHERE Name='Print-Server' AND InstallState=1"
+						Variable="IsPrintServerInstalled"
+						Result="exists" />
 
 		<util:RegistrySearch Id="CheckDotNetCore"
 							 Root="HKLM"
 							 Key="SOFTWARE\Microsoft\ASP.NET Core\Shared Framework\v10.0"
 							 Result="exists"
-							 Variable="DotNetCoreInstalled" />
+							 Variable="DotNetCoreInstalled"
+							 Bitness="always64" />
+
+		<Chain>
+			<ExePackage Id="DotNet10Hosting"
+						SourceFile="..\prerequisites\dotnet-hosting-10.exe"
+						Compressed="yes"
+						InstallArguments="/quiet /norestart"
+						RepairArguments="/repair /quiet /norestart"
+						UninstallArguments="/uninstall /quiet /norestart"
+						Permanent="yes"
+						Vital="yes"
+						DetectCondition="DotNetCoreInstalled" />
+
+			<MsiPackage Id="AutoprintServerMSI"
+						SourceFile="$(var.Autoprint.Server.Setup.TargetPath)"
+						Compressed="yes"
+						bal:DisplayInternalUICondition="1"
+						Vital="yes" />
+		</Chain>
 
 	</Bundle>
 </Wix>

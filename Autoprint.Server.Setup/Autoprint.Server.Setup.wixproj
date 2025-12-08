@@ -3,15 +3,9 @@
     <Cultures>fr-FR</Cultures>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="License.rtf" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
     <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
     <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Autoprint.Setup.Actions\Autoprint.Setup.Actions.csproj" />
   </ItemGroup>
 </Project>
