@@ -29,7 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Autoprint.ico" />
+    <Resource Include="Autoprint.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,4 @@
 ﻿using Autoprint.Service.Services;
-// Assure-toi d'avoir ces usings pour le logger
 using Microsoft.Extensions.Logging;
 
 namespace Autoprint.Service
@@ -13,14 +12,9 @@ namespace Autoprint.Service
         {
             _logger = logger;
 
-            // 1. Création des loggers spécifiques
             var serverLogger = loggerFactory.CreateLogger<NamedPipeServer>();
             var engineLogger = loggerFactory.CreateLogger<PrinterEngine>();
-
-            // 2. Création du Moteur (Engine)
             var engine = new PrinterEngine(engineLogger);
-
-            // 3. Création du Serveur avec le Moteur injecté
             _pipeServer = new NamedPipeServer(serverLogger, engine);
         }
 

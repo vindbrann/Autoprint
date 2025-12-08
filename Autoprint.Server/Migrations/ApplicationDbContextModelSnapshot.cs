@@ -50,7 +50,7 @@ namespace Autoprint.Server.Migrations
                     b.HasIndex("AdIdentifier", "RoleId")
                         .IsUnique();
 
-                    b.ToTable("AdRoleMappings");
+                    b.ToTable("AdRoleMappings", (string)null);
                 });
 
             modelBuilder.Entity("Autoprint.Server.Models.Security.Permission", b =>
@@ -71,7 +71,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Permissions");
+                    b.ToTable("Permissions", (string)null);
 
                     b.HasData(
                         new
@@ -238,7 +238,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
 
                     b.HasData(
                         new
@@ -261,7 +261,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("RolePermissions");
+                    b.ToTable("RolePermissions", (string)null);
 
                     b.HasData(
                         new
@@ -431,7 +431,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
 
                     b.HasData(
                         new
@@ -460,7 +460,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles");
+                    b.ToTable("UserRoles", (string)null);
 
                     b.HasData(
                         new
@@ -512,7 +512,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Emplacement", b =>
@@ -545,7 +545,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Emplacements");
+                    b.ToTable("Emplacements", (string)null);
 
                     b.HasData(
                         new
@@ -618,7 +618,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasIndex("ModeleId");
 
-                    b.ToTable("Imprimantes");
+                    b.ToTable("Imprimantes", (string)null);
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Marque", b =>
@@ -642,7 +642,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Marques");
+                    b.ToTable("Marques", (string)null);
 
                     b.HasData(
                         new
@@ -689,7 +689,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasIndex("PiloteId");
 
-                    b.ToTable("Modeles");
+                    b.ToTable("Modeles", (string)null);
 
                     b.HasData(
                         new
@@ -731,7 +731,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Pilotes");
+                    b.ToTable("Pilotes", (string)null);
                 });
 
             modelBuilder.Entity("Autoprint.Shared.ServerSetting", b =>
@@ -756,7 +756,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("ServerSettings");
+                    b.ToTable("ServerSettings", (string)null);
 
                     b.HasData(
                         new
@@ -918,7 +918,7 @@ namespace Autoprint.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("SystemErrors");
+                    b.ToTable("SystemErrors", (string)null);
                 });
 
             modelBuilder.Entity("Autoprint.Server.Models.Security.AdRoleMapping", b =>

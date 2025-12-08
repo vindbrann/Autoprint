@@ -12,7 +12,8 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="{DynamicResource {x:Static SystemFonts.MessageFontWeightKey}}"
         TextElement.FontSize="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}"
-        FontFamily="{DynamicResource MaterialDesignFont}">
+        FontFamily="{DynamicResource MaterialDesignFont}"
+        Icon="Autoprint.ico">
 
     <Window.DataContext>
         <vm:MainWindowViewModel />
