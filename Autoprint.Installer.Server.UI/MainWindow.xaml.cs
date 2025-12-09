@@ -3,7 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Web.Administration;
 using System.Diagnostics;
 using System.IO;
-using System.Linq; // Important pour IIS
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -23,11 +23,8 @@ namespace Autoprint.Installer.Server.UI
         private readonly PrerequisiteService _prereqService;
         private bool _prereqsValidated = false;
 
-        // --- CONFIGURATION ---
-        // CHEMIN D'INSTALLATION CORRIGÉ (Sans double dossier)
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
 
-        // NAMESPACES RESSOURCES
         private const string NamespacePrefix = "Autoprint.Installer.Server.UI.Resources.";
         private const string MsiResourceName = NamespacePrefix + "Autoprint.Server.Setup.msi";
         private const string LicenseResourceName = NamespacePrefix + "License.rtf";
@@ -63,22 +60,19 @@ namespace Autoprint.Installer.Server.UI
             catch { /* Ignorer erreur RTF */ }
         }
 
-        // ------------------------------------------
-        // NAVIGATION WIZARD
-        // ------------------------------------------
         private void BtnNext_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateCurrentStep()) return;
 
-            if (_currentStep == 5) // Fin Config -> Installation
+            if (_currentStep == 5)
             {
                 _currentStep = 6;
                 UpdateView();
-                _ = RunInstallationSequence(); // Async Fire & Forget
+                _ = RunInstallationSequence();
                 return;
             }
 
-            if (_currentStep == 7) // Fin
+            if (_currentStep == 7) 
             {
                 System.Windows.Application.Current.Shutdown();
                 return;
@@ -144,9 +138,6 @@ namespace Autoprint.Installer.Server.UI
             return true;
         }
 
-        // ------------------------------------------
-        // ÉTAPE 3 : PRÉ-REQUIS
-        // ------------------------------------------
         private async void RunPrereqCheck()
         {
             _prereqsValidated = false;
@@ -206,9 +197,6 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
-        // ------------------------------------------
-        // ÉTAPE 4 : SQL
-        // ------------------------------------------
         private void RadioSql_Changed(object sender, RoutedEventArgs e)
         {
             if (PanelSqlServer != null) PanelSqlServer.Visibility = (RadioSqlServer.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
@@ -261,14 +249,10 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
-        // ------------------------------------------
-        // ÉTAPE 6 : INSTALLATION (Séquencée et Sécurisée)
-        // ------------------------------------------
         private async Task RunInstallationSequence()
         {
             try
             {
-                // 1. MSI
                 TxtInstallLog.Text = "Extraction des fichiers...";
                 string msi = Path.Combine(Path.GetTempPath(), "AutoprintSetup.msi");
                 await ExtractResource(MsiResourceName, msi);
@@ -279,11 +263,9 @@ namespace Autoprint.Installer.Server.UI
                 TxtInstallLog.Text = "Configuration des droits (NTFS)...";
                 await Task.Run(() => ConfigureNtfsPermissions());
 
-                // 2. Config App (JSON)
                 TxtInstallLog.Text = "Configuration Application (JSON)...";
                 await ConfigureAppSettings();
 
-                // 3. IIS
                 TxtInstallLog.Text = "Configuration IIS...";
                 ConfigureIIS();
 
@@ -327,12 +309,10 @@ namespace Autoprint.Installer.Server.UI
             });
         }
 
-        // --- CORRECTION CRITIQUE DU PLANTAGE JSON ---
         private async Task ConfigureAppSettings()
         {
             string path = Path.Combine(InstallPath, "appsettings.json");
 
-            // Retry loop
             for (int i = 0; i < 10; i++) { if (File.Exists(path)) break; await Task.Delay(500); }
 
             if (!File.Exists(path)) throw new FileNotFoundException($"Fichier de config introuvable : {path}");
@@ -342,9 +322,6 @@ namespace Autoprint.Installer.Server.UI
 
             if (root == null) return;
 
-            // ---------------------------------------------------------
-            // 1. CONFIGURATION BASE DE DONNÉES (Correction Bug Provider)
-            // ---------------------------------------------------------
             string provider = "";
             string connectionString = "";
 
@@ -359,7 +336,6 @@ namespace Autoprint.Installer.Server.UI
                 connectionString = "Data Source=Autoprint.db";
             }
 
-            // Mise à jour de la section "Database"
             if (root["Database"] is JsonObject dbSection)
             {
                 dbSection["Provider"] = provider;
@@ -369,7 +345,6 @@ namespace Autoprint.Installer.Server.UI
                 root["Database"] = new JsonObject { ["Provider"] = provider };
             }
 
-            // Mise à jour de la ConnectionString racine
             if (root["ConnectionStrings"] is not JsonObject connSection)
             {
                 connSection = new JsonObject();
@@ -377,36 +352,23 @@ namespace Autoprint.Installer.Server.UI
             }
             root["ConnectionStrings"]!["DefaultConnection"] = connectionString;
 
-            // Nettoyage (suppression de l'ancienne clé erronée si présente)
             if (root["DatabaseProvider"] != null) root.AsObject().Remove("DatabaseProvider");
 
-            // ---------------------------------------------------------
-            // 2. CONFIGURATION URL
-            // ---------------------------------------------------------
             if (root["ClientUrl"] == null) root["ClientUrl"] = "";
             root["ClientUrl"] = $"http://localhost:{TxtWebPort.Text}";
 
-            // ---------------------------------------------------------
-            // 3. SÉCURITÉ : GÉNÉRATION CLÉ JWT UNIQUE
-            // ---------------------------------------------------------
             if (root["Jwt"] is not JsonObject jwtSection)
             {
                 jwtSection = new JsonObject();
                 root["Jwt"] = jwtSection;
-                // Valeurs par défaut si la section manquait
                 jwtSection["Issuer"] = "AutoprintServer";
                 jwtSection["Audience"] = "AutoprintClient";
                 jwtSection["ExpireMinutes"] = 120;
             }
 
-            // Génération d'une clé aléatoire de 64 octets (512 bits) en Base64
-            // C'est beaucoup plus sûr qu'une phrase fixe.
             string secretKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
             root["Jwt"]!["Key"] = secretKey;
 
-            // ---------------------------------------------------------
-            // 4. SAUVEGARDE
-            // ---------------------------------------------------------
             await File.WriteAllTextAsync(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
@@ -416,14 +378,10 @@ namespace Autoprint.Installer.Server.UI
             {
                 var dirInfo = new DirectoryInfo(InstallPath);
 
-                // On récupère les droits actuels
                 var security = dirInfo.GetAccessControl();
 
-                // On définit le compte "Network Service" (celui du Pool IIS)
                 var networkService = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
 
-                // On crée une règle "Modifier" (Lecture + Écriture + Suppression)
-                // Héritage : ContainerInherit + ObjectInherit (S'applique aux fichiers et sous-dossiers)
                 var rule = new FileSystemAccessRule(
                     networkService,
                     FileSystemRights.Modify,
@@ -431,20 +389,16 @@ namespace Autoprint.Installer.Server.UI
                     PropagationFlags.None,
                     AccessControlType.Allow);
 
-                // On ajoute la règle
                 security.AddAccessRule(rule);
 
-                // On applique
                 dirInfo.SetAccessControl(security);
             }
             catch (Exception ex)
             {
-                // On ne bloque pas l'install, mais on prévient (ou on loggue)
                 throw new Exception($"Erreur lors de l'application des droits NTFS : {ex.Message}");
             }
         }
 
-        // --- CORRECTION IIS (LINQ) ---
         private void ConfigureIIS()
         {
             using var mgr = new ServerManager();
@@ -452,19 +406,21 @@ namespace Autoprint.Installer.Server.UI
             string siteName = "Autoprint";
             int port = int.Parse(TxtWebPort.Text);
 
-            // Recherche sécurisée avec LINQ (évite indexer crash)
             var existingSite = mgr.Sites.FirstOrDefault(s => s.Name == siteName);
             if (existingSite != null) mgr.Sites.Remove(existingSite);
 
             var existingPool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == poolName);
             if (existingPool != null) mgr.ApplicationPools.Remove(existingPool);
 
-            mgr.CommitChanges(); // Appliquer suppression
+            mgr.CommitChanges(); 
 
-            // Création propre
             var newPool = mgr.ApplicationPools.Add(poolName);
+
             newPool.ManagedRuntimeVersion = "";
-            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.NetworkService;
+
+            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.LocalSystem;
+
+            newPool.ProcessModel.IdleTimeout = TimeSpan.Zero;
 
             var newSite = mgr.Sites.Add(siteName, InstallPath, port);
             newSite.ApplicationDefaults.ApplicationPoolName = poolName;
@@ -476,7 +432,6 @@ namespace Autoprint.Installer.Server.UI
         {
             try
             {
-                // CORRECTION : UseShellExecute = true pour lancer un outil système
                 Process.Start(new ProcessStartInfo { FileName = "inetmgr.exe", UseShellExecute = true });
             }
             catch (Exception ex)

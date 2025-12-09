@@ -3,13 +3,16 @@ using System.Text.Json;
 using System.Net.Http.Headers;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.Timers;
 
 namespace Autoprint.Web.Services
 {
-    public class CustomAuthStateProvider : AuthenticationStateProvider
+    public class CustomAuthStateProvider : AuthenticationStateProvider, IDisposable
     {
         private readonly ILocalStorageService _localStorage;
         private readonly HttpClient _http;
+
+        private System.Timers.Timer? _authTimer;
 
         public CustomAuthStateProvider(ILocalStorageService localStorage, HttpClient http)
         {
@@ -19,65 +22,98 @@ namespace Autoprint.Web.Services
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            // Au démarrage, on regarde si un token existe dans le navigateur
             var token = await _localStorage.GetItemAsync<string>("authToken");
 
             if (string.IsNullOrWhiteSpace(token))
             {
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
+            var claims = ParseClaimsFromJwt(token);
+            var expClaim = claims.FirstOrDefault(c => c.Type == "exp");
 
-            // On prépare le HttpClient pour les futures requêtes
+            if (expClaim != null && long.TryParse(expClaim.Value, out long exp))
+            {
+                var expDate = DateTimeOffset.FromUnixTimeSeconds(exp);
+                if (expDate <= DateTimeOffset.UtcNow)
+                {
+                    await _localStorage.RemoveItemAsync("authToken");
+                    return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                }
+
+                StartAuthTimer(expDate);
+            }
+
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("bearer", token);
-
-            // On crée l'identité à partir du token
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt")));
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt")));
         }
 
-        // --- MÉTHODE 1 MANQUANTE : Connecter l'utilisateur ---
         public void MarkUserAsAuthenticated(string token)
         {
-            var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt"));
+            var claims = ParseClaimsFromJwt(token);
+            var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
             var authState = Task.FromResult(new AuthenticationState(authenticatedUser));
 
-            // On configure le HTTP Client immédiatement
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("bearer", token);
+            var expClaim = claims.FirstOrDefault(c => c.Type == "exp");
+            if (expClaim != null && long.TryParse(expClaim.Value, out long exp))
+            {
+                StartAuthTimer(DateTimeOffset.FromUnixTimeSeconds(exp));
+            }
 
-            // On notifie Blazor que l'état a changé (ça rafraîchit l'interface)
             NotifyAuthenticationStateChanged(authState);
         }
 
-        // --- MÉTHODE 2 MANQUANTE : Déconnecter l'utilisateur ---
         public void MarkUserAsLoggedOut()
         {
+            if (_authTimer != null)
+            {
+                _authTimer.Stop();
+                _authTimer.Dispose();
+                _authTimer = null;
+            }
+
             var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
             var authState = Task.FromResult(new AuthenticationState(anonymousUser));
 
-            // On nettoie le HTTP Client
             _http.DefaultRequestHeaders.Authorization = null;
 
-            // On notifie Blazor
             NotifyAuthenticationStateChanged(authState);
         }
 
-        // --- Vérifier un droit/Claim ---
-        public async Task<bool> HasPermission(string claimType, string claimValue)
+        private void StartAuthTimer(DateTimeOffset expDate)
         {
-            // Récupère l'état d'authentification actuel
-            var authState = await GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (!user.Identity?.IsAuthenticated ?? true)
+            var timeUntilExpiry = expDate - DateTimeOffset.UtcNow;
+            if (_authTimer != null)
             {
-                return false; // Non authentifié n'a aucun droit
+                _authTimer.Stop();
+                _authTimer.Dispose();
             }
 
-            // Le JWT doit contenir un Claim de type 'permission' (ou autre si configuré)
-            // Nous vérifions si l'utilisateur a un Claim qui correspond à la valeur (ex: 'Marques_READ')
+            if (timeUntilExpiry.TotalMilliseconds > 0)
+            {
+                _authTimer = new System.Timers.Timer(timeUntilExpiry.TotalMilliseconds);
+                _authTimer.AutoReset = false;
+                _authTimer.Elapsed += (sender, e) =>
+                {
+                    Console.WriteLine("Session expirée : Déconnexion automatique.");
+                    MarkUserAsLoggedOut();
+                };
+                _authTimer.Start();
+            }
+            else
+            {
+                MarkUserAsLoggedOut();
+            }
+        }
+
+        public async Task<bool> HasPermission(string claimType, string claimValue)
+        {
+            var authState = await GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (!user.Identity?.IsAuthenticated ?? true) return false;
             return user.HasClaim(claimType, claimValue);
         }
 
-        // --- Utilitaire pour lire le Token JWT ---
         private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
         {
             var claims = new List<Claim>();
@@ -89,20 +125,15 @@ namespace Autoprint.Web.Services
 
             foreach (var kvp in keyValuePairs)
             {
-                // Gère les tableaux de rôles/permissions ou les valeurs simples
                 if (kvp.Value is JsonElement element && element.ValueKind == JsonValueKind.Array)
                 {
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        claims.Add(new Claim(kvp.Key, item.ToString()));
-                    }
+                    foreach (var item in element.EnumerateArray()) claims.Add(new Claim(kvp.Key, item.ToString()));
                 }
                 else
                 {
                     claims.Add(new Claim(kvp.Key, kvp.Value.ToString()!));
                 }
             }
-
             return claims;
         }
 
@@ -114,6 +145,11 @@ namespace Autoprint.Web.Services
                 case 3: base64 += "="; break;
             }
             return Convert.FromBase64String(base64);
+        }
+
+        public void Dispose()
+        {
+            _authTimer?.Dispose();
         }
     }
 }

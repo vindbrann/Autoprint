@@ -74,8 +74,22 @@ namespace Autoprint.Client.ViewModels
                 _ = CheckSmbAccessAsync(_prefService.Current.PrintServerName);
             }
 
-            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (v != null) AppVersion = $"v{v.Major}.{v.Minor}.{v.Build}";
+            var assembly = System.Reflection.Assembly.GetEntryAssembly();
+
+            var infoAttr = assembly?.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).FirstOrDefault() as System.Reflection.AssemblyInformationalVersionAttribute;
+
+            if (infoAttr != null)
+            {
+                string versionRaw = infoAttr.InformationalVersion;
+                if (versionRaw.Contains("+")) versionRaw = versionRaw.Split('+')[0];
+                AppVersion = $"v{versionRaw}";
+            }
+            else
+            {
+                var standardVersion = assembly?.GetName().Version;
+                if (standardVersion != null)
+                    AppVersion = $"v{standardVersion.Major}.{standardVersion.Minor}.{standardVersion.Build}";
+            }
 
             _codeLieuActuel = codeLieu;
             Imprimantes.Clear();
@@ -128,30 +142,64 @@ namespace Autoprint.Client.ViewModels
             }
         }
 
-        private Dictionary<string, string> GetInstalledPrintersMap()
+        private Dictionary<string, List<string>> GetInstalledPrintersMap()
         {
-            var map = new Dictionary<string, string>();
+            var map = new Dictionary<string, List<string>>();
             try
             {
                 using (var printServer = new LocalPrintServer())
                 {
                     var queues = printServer.GetPrintQueues(new[] { EnumeratedPrintQueueTypes.Local, EnumeratedPrintQueueTypes.Connections });
+
                     foreach (var q in queues)
                     {
-                        string name = q.Name.ToLower();
-                        string path = !string.IsNullOrEmpty(q.FullName) ? q.FullName : q.Name;
-                        if (!map.ContainsKey(name)) map.Add(name, path);
+                        string fullPath = q.FullName.ToLower().Trim();
+                        string rawName = q.Name.ToLower().Trim();
+                        string shortName = rawName;
+
+                        if (rawName.StartsWith("\\\\"))
+                        {
+                            int lastSlash = rawName.LastIndexOf('\\');
+                            if (lastSlash >= 0 && lastSlash < rawName.Length - 1)
+                            {
+                                shortName = rawName.Substring(lastSlash + 1);
+                            }
+                        }
+
+                        if (!map.ContainsKey(shortName))
+                        {
+                            map.Add(shortName, new List<string>());
+                        }
+
+                        if (!map[shortName].Contains(fullPath))
+                        {
+                            map[shortName].Add(fullPath);
+                        }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Erreur WMI Printers: {ex.Message}");
+            }
             return map;
         }
 
-        private bool IsPrinterInstalled(string nomApp, Dictionary<string, string> map)
+        private bool IsPrinterInstalled(string nomImprimante, Dictionary<string, List<string>> map)
         {
-            if (map.ContainsKey(nomApp)) return true;
-            return map.Keys.Any(k => k.EndsWith($"\\{nomApp}") || k.Contains(nomApp));
+            string nomCherche = nomImprimante.ToLower().Trim();
+
+            if (!map.ContainsKey(nomCherche)) return false;
+
+            string? targetServer = _prefService?.Current.PrintServerName?.ToLower().Trim();
+
+            if (string.IsNullOrEmpty(targetServer)) return true;
+
+            List<string> installedPaths = map[nomCherche];
+
+            bool isInstalledOnTargetServer = installedPaths.Any(path => path.Contains(targetServer));
+
+            return isInstalledOnTargetServer;
         }
 
         private void OnFavoriChanged(ImprimanteUiItem itemClicked)

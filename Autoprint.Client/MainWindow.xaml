@@ -19,7 +19,8 @@
         <vm:MainWindowViewModel />
     </Window.DataContext>
 
-    <Border CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignBody}" Opacity="0.98">
+    <Border CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" Opacity="0.98">
+        
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

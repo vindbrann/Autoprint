@@ -9,6 +9,7 @@
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         FontFamily="{DynamicResource MaterialDesignFont}">
 
@@ -16,7 +17,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
 
-    <Border CornerRadius="0" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignBody}">
+    <Border CornerRadius="0" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

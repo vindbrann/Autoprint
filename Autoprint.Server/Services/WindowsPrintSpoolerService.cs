@@ -141,7 +141,9 @@ namespace Autoprint.Server.Services
         }
 
 
-        // --- VERSION PRODUCTION (CORRECTIF SÉCURITÉ APPLIQUÉ) ---
+        // Dans WindowsPrintSpoolerService.cs
+        // Remplace TOUTE la méthode SetDirectPrintingMode par celle-ci :
+
         private Task SetDirectPrintingMode(string printerName, bool enableDirect)
         {
             IntPtr hPrinter = IntPtr.Zero;
@@ -153,21 +155,18 @@ namespace Autoprint.Server.Services
                 {
                     pDatatype = IntPtr.Zero,
                     pDevMode = IntPtr.Zero,
-                    DesiredAccess = PRINTER_ALL_ACCESS
+                    DesiredAccess = PRINTER_ACCESS_ADMINISTER | PRINTER_ACCESS_USE
                 };
 
                 if (!OpenPrinter(printerName, out hPrinter, ref defaults))
                 {
-                    // On loggue juste, pour ne pas crasher si l'admin a supprimé l'imprimante entre temps
-                    Console.WriteLine($"[Win32 Error] Impossible d'ouvrir '{printerName}'. Code: {Marshal.GetLastWin32Error()}");
-                    return Task.CompletedTask;
+                    int err = Marshal.GetLastWin32Error();
+                    throw new Exception($"[Win32] Impossible d'ouvrir '{printerName}'. Code: {err}");
                 }
 
-                // 1. REGISTRE (Classique)
                 int regData = enableDirect ? 1 : 0;
                 SetPrinterDataEx(hPrinter, "PrinterDriverData", "EnableBranchOfficePrinting", REG_DWORD, ref regData, 4);
 
-                // 2. ATTRIBUTS (Le correctif est ici)
                 GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
                 if (needed > 0)
                 {
@@ -177,37 +176,26 @@ namespace Autoprint.Server.Services
                         PRINTER_INFO_2 info = Marshal.PtrToStructure<PRINTER_INFO_2>(pPrinterInfo);
                         uint oldAttributes = info.Attributes;
 
-                        // --- LE FIX CRITIQUE ---
-                        // On force le pointeur de sécurité à NULL.
-                        // Cela dit à SetPrinter : "Ignore la sécurité, garde celle existante".
-                        // C'est ce qui débloque l'écriture des attributs.
                         info.pSecurityDescriptor = IntPtr.Zero;
-                        // -----------------------
 
                         if (enableDirect)
                         {
-                            // Active DIRECT, Désactive QUEUED
                             info.Attributes |= (uint)PRINTER_ATTRIBUTE_DIRECT;
                             info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_QUEUED;
                         }
                         else
                         {
-                            // Retour standard
                             info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_DIRECT;
                             info.Attributes |= (uint)PRINTER_ATTRIBUTE_QUEUED;
                         }
 
-                        // On applique si changement détecté
                         if (info.Attributes != oldAttributes)
                         {
                             Marshal.StructureToPtr(info, pPrinterInfo, false);
 
-                            // On tente l'écriture
                             if (!SetPrinter(hPrinter, 2, pPrinterInfo, 0))
                             {
-                                int err = Marshal.GetLastWin32Error();
-                                // Ici on peut lever une exception car c'est une vraie erreur technique
-                                throw new Exception($"Echec écriture attributs Win32. Code erreur: {err}");
+                                throw new Exception($"Echec écriture attributs Win32. Code: {Marshal.GetLastWin32Error()}");
                             }
                         }
                     }
@@ -215,8 +203,7 @@ namespace Autoprint.Server.Services
             }
             catch (Exception ex)
             {
-                // On remonte l'exception pour qu'elle apparaisse dans les logs d'Audit
-                throw new Exception($"Erreur configuration Mode Direct : {ex.Message}");
+                throw new Exception($"Erreur Config Mode Direct : {ex.Message}");
             }
             finally
             {

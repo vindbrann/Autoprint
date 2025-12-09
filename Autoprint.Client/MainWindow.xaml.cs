@@ -45,15 +45,5 @@ namespace Autoprint.Client
                 Mouse.OverrideCursor = null; // Retour à la normale
             }
         }
-
-        // 6. RÉCUPÉRATION DE LA VERSION
-        public string ApplicationVersion
-        {
-            get
-            {
-                var version = Assembly.GetExecutingAssembly().GetName().Version;
-                return version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.0";
-            }
-        }
     }
 }

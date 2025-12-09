@@ -135,19 +135,17 @@ namespace Autoprint.Client
             catch (Exception ex)
             {
                 Debug.WriteLine($"ERREUR SYNC API/CACHE : {ex.Message}");
-
                 if (_dataService != null)
                 {
                     lieux = await _dataService.GetEmplacementsAsync();
                     _toutesLesImprimantes = await _dataService.GetImprimantesAsync();
-
-                    Debug.WriteLine($"Données locales lues : {lieux.Count} lieux found.");
                 }
             }
 
             string titreNotif = "Autoprint";
             string messageNotif = "Mise à jour...";
             BalloonIcon iconeNotif = BalloonIcon.None;
+            bool lieuAChange = false;
 
             if (_estHorsLigne) iconeNotif = BalloonIcon.Warning;
 
@@ -157,6 +155,11 @@ namespace Autoprint.Client
 
                 if (lieuTrouve != null)
                 {
+                    if (_lieuActuel?.Code != lieuTrouve.Code)
+                    {
+                        lieuAChange = true;
+                    }
+
                     _lieuActuel = lieuTrouve;
 
                     if (_prefService.Current.LastDetectedLocationCode != lieuTrouve.Code)
@@ -169,7 +172,7 @@ namespace Autoprint.Client
                     titreNotif = $"📍 Lieu : {lieuTrouve.Nom}";
 
                     string messageSwitch = "";
-                    if (_prefService.Current.AutoSwitchDefaultPrinter)
+                    if (_prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
                     {
                         if (_prefService.Current.PreferredPrinters.TryGetValue(lieuTrouve.Code, out string? favoritePrinterName))
                         {
@@ -187,6 +190,8 @@ namespace Autoprint.Client
                 }
                 else
                 {
+                    if (_lieuActuel != null) lieuAChange = true;
+
                     _lieuActuel = null;
                     titreNotif = "⛔ Lieu Inconnu";
                     messageNotif = $"IP : {myIp}";
@@ -202,9 +207,12 @@ namespace Autoprint.Client
 
             MettreAJourInterface(_estHorsLigne);
 
-            if (_notifyIcon != null && _prefService.Current.EnableNotifications && estDemarrage)
+            if (_notifyIcon != null && _prefService.Current.EnableNotifications)
             {
-                _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
+                if (estDemarrage || lieuAChange)
+                {
+                    _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
+                }
             }
         }
 

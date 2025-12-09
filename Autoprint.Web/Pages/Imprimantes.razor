@@ -284,7 +284,7 @@ else
     private List<Imprimante>? imprimantes;
     private bool isLoading = true;
     private bool isSyncing = false;
-    private bool isAuditing = false; // NOUVEAU pour le bouton Audit
+    private bool isAuditing = false;
     private BatchResult? syncResult;
     private bool CanReadPrinters { get; set; }
 
@@ -443,15 +443,15 @@ else
     {
         if (imprimantes == null || !imprimantes.Any()) return;
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom;Code;Modele;IP;Lieu;Emplacement;Partage;ModeFiliale");
+        csvBuilder.AppendLine("Id;Nom;Code;Modele;IP;Lieu;Emplacement;Partage;modeDirect");
 
         foreach (var i in imprimantes)
         {
             var nom = i.NomAffiche?.Replace(";", ",") ?? "";
             var modele = i.Modele?.Nom?.Replace(";", ",") ?? "";
             var lieu = i.Emplacement?.Nom?.Replace(";", ",") ?? "";
-            var modeFiliale = i.IsDirectPrintingEnabled ? "Oui" : "Non";
-            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeFiliale}");
+            var modeDirect = i.IsDirectPrintingEnabled ? "Oui" : "Non";
+            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();

@@ -20,10 +20,6 @@
 
 <AuthorizeView>
     <Authorized>
-        @* CORRECTION FLASH : 
-           On utilise IsBlocked sans condition 'processCompleted'.
-           Si c'est bloqué, le mur reste jusqu'à la redirection forcée.
-        *@
         @if (IsBlocked(context.User))
         {
             <SecurityWall OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
@@ -47,21 +43,34 @@
     <NotAuthorized>
         <div class="login-container d-flex align-items-center justify-content-center"
              style="min-height: 100vh; background-color: var(--rz-base-background-color);">
-            <div class="w-100" style="max-width: 500px;">
-                @Body
+            <div class="w-100" style="max-width: 500px; text-align: center;">
+                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                <p class="mt-2">Redirection vers la connexion...</p>
             </div>
         </div>
     </NotAuthorized>
 </AuthorizeView>
 
 @code {
-    // Variable processCompleted supprimée car elle causait le flash dashboard
-
     protected override async Task OnInitializedAsync()
     {
         var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
         if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
         ThemeService.SetTheme(savedTheme);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+
+        if (!state.User.Identity?.IsAuthenticated ?? true)
+        {
+            var uri = NavManager.Uri;
+            if (!uri.Contains("/login") && !uri.Contains("/reset-password"))
+            {
+                NavManager.NavigateTo("/login", true);
+            }
+        }
     }
 
     private bool IsBlocked(ClaimsPrincipal user)
@@ -71,7 +80,6 @@
 
     private async Task HandleSuccess()
     {
-        // 1. Notification propre
         NotificationService.Notify(new NotificationMessage
         {
             Severity = NotificationSeverity.Success,
@@ -79,11 +87,7 @@
             Detail = "Mot de passe mis à jour. Redirection...",
             Duration = 3000
         });
-
-        // 2. On attend un peu pour que l'utilisateur voie le message
         await Task.Delay(2000);
-
-        // 3. On déconnecte et on redirige SANS cacher le mur (pas de flash)
         await HandleLogout();
     }
 
