@@ -17,7 +17,7 @@ namespace Autoprint.Shared
         public bool EstPartagee { get; set; } = false;
         public string? NomPartage { get; set; }
         public string? Commentaire { get; set; }
-        public bool IsBranchOfficeEnabled { get; set; } = false;
+        public bool IsDirectPrintingEnabled { get; set; } = false;
         public int EmplacementId { get; set; }
         public Emplacement? Emplacement { get; set; }
         [MaxLength(100)]

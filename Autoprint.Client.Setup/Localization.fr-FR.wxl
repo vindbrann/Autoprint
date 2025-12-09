@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="fr-FR" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+
+	<String Id="WixSchedFirewallExceptionsInstall" Value="Configuration du Pare-feu Windows..." />
+	<String Id="WixSchedFirewallExceptionsUninstall" Value="Suppression des règles du Pare-feu Windows..." />
+	<String Id="WixRollbackFirewallExceptionsInstall" Value="Annulation de la configuration du Pare-feu..." />
+	<String Id="WixRollbackFirewallExceptionsUninstall" Value="Restauration des règles du Pare-feu Windows..." />
+	<String Id="WixExecFirewallExceptionsInstall" Value="Installation des exceptions pare-feu" />
+	<String Id="WixExecFirewallExceptionsUninstall" Value="Désinstallation des exceptions pare-feu" />
+
+	<String Id="msierrFirewallCannotConnect" Value="Impossible de se connecter au Pare-feu Windows. Veuillez vérifier que le service Pare-feu Windows est en cours d'exécution. ([2])" />
+
+	<String Id="WixUINext" Value="&amp;Suivant" />
+	<String Id="WixUIBack" Value="&amp;Précédent" />
+	<String Id="WixUICancel" Value="Annuler" />
+	<String Id="WixUIFinish" Value="&amp;Terminer" />
+	<String Id="WixUIRetry" Value="&amp;Réessayer" />
+	<String Id="WixUIIgnore" Value="&amp;Ignorer" />
+	<String Id="WixUIYes" Value="&amp;Oui" />
+	<String Id="WixUINo" Value="&amp;Non" />
+
+	<String Id="InstallDirDlgBannerBitmap" Value="WixUI_Bmp_Banner" />
+	<String Id="InstallDirDlgDescription" Value="Cliquez sur Suivant pour installer dans le dossier par défaut ou choisissez un autre emplacement." />
+	<String Id="InstallDirDlgTitle" Value="{\WixUI_Font_Title}Dossier d'installation" />
+	<String Id="InstallDirDlgChange" Value="&amp;Changer..." />
+	<String Id="InstallDirDlgFolderLabel" Value="Installer [ProductName] dans :" />
+
+	<String Id="LicenseAgreementDlgTitle" Value="{\WixUI_Font_Title}Contrat de Licence" />
+	<String Id="LicenseAgreementDlgDescription" Value="Veuillez lire attentivement le contrat de licence suivant." />
+	<String Id="LicenseAgreementDlgLicenseAccepted" Value="J'accepte les termes du contrat de &amp;licence" />
+	<String Id="LicenseAgreementDlgLicenseRefused" Value="Je &amp;n'accepte pas les termes du contrat de licence" />
+
+</WixLocalization>

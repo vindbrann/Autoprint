@@ -1,10 +1,12 @@
-﻿using Autoprint.Client.Data;
-using Autoprint.Shared;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Autoprint.Client.Data;
+using Autoprint.Shared;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Autoprint.Client.Services
 {
@@ -17,25 +19,6 @@ namespace Autoprint.Client.Services
             _dbPath = Path.Combine(pathService.LocalCachePath, "client_cache.db");
         }
 
-        public async Task InitializeAsync()
-        {
-            using (var context = new ClientDbContext(_dbPath))
-            {
-                 await context.Database.EnsureCreatedAsync();
-                try
-                {
-                    string sqlPatch = "ALTER TABLE Imprimantes ADD COLUMN IsBranchOfficeEnabled INTEGER NOT NULL DEFAULT 0;";
-
-                    await context.Database.ExecuteSqlRawAsync(sqlPatch);
-
-                    System.Diagnostics.Debug.WriteLine("✅ Patch BDD appliqué : Colonne IsBranchOfficeEnabled ajoutée.");
-                }
-                catch (Exception)
-                {
-                    System.Diagnostics.Debug.WriteLine("ℹ️ Patch BDD ignoré (Colonne déjà présente ou autre erreur).");
-                }
-            }
-        }
         public async Task UpdateCacheAsync(List<Emplacement> lieux, List<Imprimante> imprimantes)
         {
             using (var context = new ClientDbContext(_dbPath))
@@ -77,6 +60,57 @@ namespace Autoprint.Client.Services
                 await context.Imprimantes.AddRangeAsync(imprimantes);
 
                 await context.SaveChangesAsync();
+            }
+        }
+        public async Task InitializeDatabaseAsync()
+        {
+            bool dbEstCorrompue = false;
+            using (var context = new ClientDbContext(_dbPath))
+            {
+                try
+                {
+                    await context.Database.EnsureCreatedAsync();
+
+                    var test = await context.Imprimantes.FirstOrDefaultAsync();
+                }
+                catch (Exception)
+                {
+                    dbEstCorrompue = true;
+                }
+            }
+
+            if (dbEstCorrompue)
+            {
+                System.Diagnostics.Debug.WriteLine("⚠️ BDD Corrompue détectée. Tentative de réparation...");
+
+                SqliteConnection.ClearAllPools();
+
+                await Task.Delay(100);
+
+                try
+                {
+                    using (var context = new ClientDbContext(_dbPath))
+                    {
+                        await context.Database.EnsureDeletedAsync();
+                        await context.Database.EnsureCreatedAsync();
+                    }
+                    System.Diagnostics.Debug.WriteLine("✅ BDD Réparée avec succès.");
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        if (File.Exists(_dbPath)) File.Delete(_dbPath);
+                        using (var context = new ClientDbContext(_dbPath))
+                        {
+                            await context.Database.EnsureCreatedAsync();
+                        }
+                    }
+                    catch (Exception exFatal)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"❌ ÉCHEC FATAL RÉPARATION : {exFatal.Message}");
+                    }
+                }
             }
         }
 

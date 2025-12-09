@@ -100,11 +100,11 @@ namespace Autoprint.Server.Services
                         if (imp.Modele?.Pilote == null) throw new Exception("Pilote manquant");
 
                         await spooler.CreerPortTcp(imp.AdresseIp);
-                        await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsBranchOfficeEnabled);
-                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
+                        await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
+                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
 
                         // VERIFICATION
-                        bool configOk = await spooler.VerifierModeFiliale(imp.NomAffiche, imp.IsBranchOfficeEnabled);
+                        bool configOk = await spooler.VerifierModeDirect(imp.NomAffiche, imp.IsDirectPrintingEnabled);
                         if (configOk)
                         {
                             imp.Status = PrinterStatus.Synchronized;
@@ -113,7 +113,7 @@ namespace Autoprint.Server.Services
                         else
                         {
                             imp.Status = PrinterStatus.SyncError;
-                            string etatVoulu = imp.IsBranchOfficeEnabled ? "ACTIF" : "INACTIF";
+                            string etatVoulu = imp.IsDirectPrintingEnabled ? "ACTIF" : "INACTIF";
                             imp.Commentaire = $"[WARN] Windows refuse d'appliquer le Mode Filiale ({etatVoulu}). Vérifiez le type de pilote (V3 vs V4).";
                             result.Messages.Add($"[WARN] {imp.NomAffiche} : Windows bloque le mode filiale.");
                         }
@@ -133,7 +133,7 @@ namespace Autoprint.Server.Services
                             }
 
                             // Mise à jour (y compris tentative d'application du Mode Filiale)
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
                             result.Messages.Add($"[UPDATE] {imp.NomAffiche} mise à jour.");
                         }
                         else
@@ -143,14 +143,14 @@ namespace Autoprint.Server.Services
                             if (imp.Modele?.Pilote == null) throw new Exception("Pilote manquant pour réparation.");
 
                             await spooler.CreerPortTcp(imp.AdresseIp);
-                            await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsBranchOfficeEnabled);
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsBranchOfficeEnabled);
+                            await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
 
                             result.Messages.Add($"[REPAIR] {imp.NomAffiche} recréée.");
                         }
 
                         // VERIFICATION SYSTEMATIQUE
-                        bool configOk = await spooler.VerifierModeFiliale(imp.NomAffiche, imp.IsBranchOfficeEnabled);
+                        bool configOk = await spooler.VerifierModeDirect(imp.NomAffiche, imp.IsDirectPrintingEnabled);
 
                         if (configOk)
                         {
@@ -160,7 +160,7 @@ namespace Autoprint.Server.Services
                         else
                         {
                             imp.Status = PrinterStatus.SyncError;
-                            string etatVoulu = imp.IsBranchOfficeEnabled ? "ACTIF" : "INACTIF";
+                            string etatVoulu = imp.IsDirectPrintingEnabled ? "ACTIF" : "INACTIF";
                             imp.Commentaire = $"[WARN] Mode Filiale {etatVoulu} refusé par Windows. Vérifiez le pilote.";
                             result.Messages.Add($"[WARN] {imp.NomAffiche} : Windows bloque le mode filiale.");
                         }

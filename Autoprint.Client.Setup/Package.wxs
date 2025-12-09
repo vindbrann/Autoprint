@@ -1,0 +1,96 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:firewall="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+	<Package Name="Autoprint Client"
+			 Manufacturer="Vind"
+			 Version="1.0.0.0"
+			 UpgradeCode="{5F72F6F4-EAFD-4118-9E6F-D96A89869684}"
+			 Scope="perMachine"
+			 Compressed="yes"
+			 InstallerVersion="200"
+			 ProductCode="{D279B759-1DCB-4071-942D-132AD72ED673}">
+		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." />
+		<MediaTemplate EmbedCab="yes" />
+
+		<Property Id="APIKEY" Secure="yes" />
+		<Property Id="PRINTSERVER" Secure="yes" />
+
+		<ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+		<WixVariable Id="WixUILicenseRtf" Value="Resources\License.rtf" />
+
+		<UI>
+			<Dialog Id="ConfigDlg" Width="370" Height="270" Title="Configuration Autoprint">
+
+				<Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Paramètres de connexion" />
+				<Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Veuillez saisir les informations de connexion au serveur." />
+				<Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+				<Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+				<Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+				<Control Id="LblServer" Type="Text" X="20" Y="60" Width="290" Height="15" Text="Nom ou IP du Serveur d'Impression :" />
+				<Control Id="EditServer" Type="Edit" X="20" Y="75" Width="200" Height="18" Property="PRINTSERVER" />
+
+				<Control Id="LblKey" Type="Text" X="20" Y="100" Width="290" Height="15" Text="Clé d'API (Agent Key) :" />
+				<Control Id="EditKey" Type="Edit" X="20" Y="115" Width="320" Height="18" Property="APIKEY" />
+
+				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+				<Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+					<Publish Event="SpawnDialog" Value="CancelDlg" />
+				</Control>
+			</Dialog>
+
+			<Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="ConfigDlg" Order="2" />
+			<Publish Dialog="ConfigDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
+			<Publish Dialog="ConfigDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
+			<Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="ConfigDlg" Order="2" />
+		</UI>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="INSTALLFOLDER" Name="Autoprint Client">
+				<Directory Id="ClientDir" Name="Client" />
+				<Directory Id="ServiceDir" Name="Service" />
+			</Directory>
+		</StandardDirectory>
+
+		<StandardDirectory Id="ProgramMenuFolder">
+			<Directory Id="ApplicationProgramsFolder" Name="Autoprint" />
+		</StandardDirectory>
+
+		<ComponentGroup Id="ManualComponents">
+			<Component Id="RegistryConfig" Guid="{6EBBC4AC-3A75-488B-8414-5679EB4D10C2}" Directory="INSTALLFOLDER">
+				<RegistryKey Root="HKLM" Key="SOFTWARE\Autoprint">
+					<RegistryValue Name="APIKEY" Value="[APIKEY]" Type="string" />
+					<RegistryValue Name="PRINTSERVER" Value="[PRINTSERVER]" Type="string" />
+				</RegistryKey>
+			</Component>
+
+			<Component Id="ClientExecutable" Guid="{287CF2AF-2A22-456C-B5CC-D5EA4B64DA7D}" Directory="ClientDir">
+				<File Id="AutoprintClientExe" Source="..\Executables\Autoprint.Client.exe" KeyPath="yes">
+					<Shortcut Id="ApplicationStartMenuShortcut" Directory="ApplicationProgramsFolder" Name="Autoprint" WorkingDirectory="ClientDir" Icon="AppIcon.ico" Advertise="yes" />
+				</File>
+				<RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+				<RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="AutoprintClient" Value="[#AutoprintClientExe]" Type="string" />
+			</Component>
+
+			<Component Id="ServiceExecutable" Guid="{9917DB95-5118-4547-BB7A-BEC6DE23E9B2}" Directory="ServiceDir">
+				<File Id="AutoprintServiceExe" Source="..\Executables\Autoprint.Service.exe" KeyPath="yes">
+					<firewall:FirewallException Id="FW_Service" Name="Autoprint Service" Scope="any" IgnoreFailure="yes" Profile="all" />
+				</File>
+				<ServiceInstall Id="ServiceInstaller" Type="ownProcess" Name="AutoprintWorker" DisplayName="Autoprint Agent Service" Description="Gère l'installation des pilotes d'impression." Start="auto" Account="LocalSystem" ErrorControl="normal" />
+				<ServiceControl Id="StartService" Name="AutoprintWorker" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+			</Component>
+		</ComponentGroup>
+
+		<Feature Id="Main">
+			<ComponentGroupRef Id="ManualComponents" />
+			<ComponentGroupRef Id="Autoprint.Client" />
+			<ComponentGroupRef Id="Autoprint.Service" />
+		</Feature>
+
+		<Icon Id="AppIcon.ico" SourceFile="..\Autoprint.Client\Autoprint.ico" />
+		<Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+	</Package>
+</Wix>

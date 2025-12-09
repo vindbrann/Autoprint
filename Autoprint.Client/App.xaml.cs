@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 using System.Windows;
-using Autoprint.Client.Data;
 using Autoprint.Client.Models;
 using Autoprint.Client.Services;
 using Autoprint.Client.ViewModels;
@@ -19,7 +18,6 @@ namespace Autoprint.Client
     public partial class App : Application
     {
         private TaskbarIcon? _notifyIcon;
-
         private readonly PathService _pathService = new PathService();
         private readonly NetworkService _networkService = new NetworkService();
         private readonly ConfigurationService _configService = new ConfigurationService();
@@ -67,30 +65,48 @@ namespace Autoprint.Client
             try
             {
                 _configService.Initialize(e.Args, _prefService);
-                _apiService = new ApiService(_configService.ApiKey);
+
+                string serverInput = _configService.PrintServerName;
+
+                if (string.IsNullOrWhiteSpace(serverInput)) serverInput = "localhost";
+
+                string baseUrl;
+                if (serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    baseUrl = serverInput;
+                }
+                else
+                {
+                    baseUrl = $"https://{serverInput}";
+                }
+
+                _apiService = new ApiService(baseUrl, _configService.ApiKey);
+
                 _pathService.Initialize(e.Args);
                 _dataService = new DataService(_pathService);
-                await _dataService.InitializeAsync();
+
+                await _dataService.InitializeDatabaseAsync();
+                _realTimeService = new RealTimeService(baseUrl);
+
+                _realTimeService.Initialize(
+                    onRefreshRequested: async () => await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync(false)),
+                    onStatusChanged: (isOnline) =>
+                    {
+                        _estHorsLigne = !isOnline;
+                        MettreAJourInterface(_estHorsLigne);
+                    }
+                );
+
+                _ = _realTimeService.StartAsync();
+
+                NetworkChange.NetworkAddressChanged += async (s, args) => await OnReseauChangeAsync();
+
+                await RafraichirDonneesAsync(estDemarrage: true);
             }
-            catch { /* Log silencieux si besoin */ }
-
-            string serverUrl = $"https://{_configService.PrintServerName}:7159";
-            _realTimeService = new RealTimeService(serverUrl);
-
-            _realTimeService.Initialize(
-                onRefreshRequested: async () => await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync(false)),
-                onStatusChanged: (isOnline) =>
-                {
-                    _estHorsLigne = !isOnline;
-                    MettreAJourInterface(_estHorsLigne);
-                }
-            );
-
-            _ = _realTimeService.StartAsync();
-
-            NetworkChange.NetworkAddressChanged += async (s, args) => await OnReseauChangeAsync();
-
-            await RafraichirDonneesAsync(estDemarrage: true);
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Erreur init services/BDD : {ex.Message}");
+            }
         }
 
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
@@ -116,12 +132,16 @@ namespace Autoprint.Client
                     if (_dataService != null) await _dataService.UpdateCacheAsync(lieux, _toutesLesImprimantes);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"ERREUR SYNC API/CACHE : {ex.Message}");
+
                 if (_dataService != null)
                 {
                     lieux = await _dataService.GetEmplacementsAsync();
                     _toutesLesImprimantes = await _dataService.GetImprimantesAsync();
+
+                    Debug.WriteLine($"Données locales lues : {lieux.Count} lieux found.");
                 }
             }
 

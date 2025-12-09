@@ -9,14 +9,47 @@ namespace Autoprint.Server.Services
     [SupportedOSPlatform("windows")]
     public class WindowsPrintSpoolerService : IPrintSpoolerService
     {
-        // --- API WIN32 (P/Invoke) ---
+        private const int PRINTER_ATTRIBUTE_QUEUED = 0x00000001;
+        private const int PRINTER_ATTRIBUTE_DIRECT = 0x00000002;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        private struct PRINTER_INFO_2
+        {
+            [MarshalAs(UnmanagedType.LPStr)] public string pServerName;
+            [MarshalAs(UnmanagedType.LPStr)] public string pPrinterName;
+            [MarshalAs(UnmanagedType.LPStr)] public string pShareName;
+            [MarshalAs(UnmanagedType.LPStr)] public string pPortName;
+            [MarshalAs(UnmanagedType.LPStr)] public string pDriverName;
+            [MarshalAs(UnmanagedType.LPStr)] public string pComment;
+            [MarshalAs(UnmanagedType.LPStr)] public string pLocation;
+            public IntPtr pDevMode;
+            [MarshalAs(UnmanagedType.LPStr)] public string pSepFile;
+            [MarshalAs(UnmanagedType.LPStr)] public string pPrintProcessor;
+            [MarshalAs(UnmanagedType.LPStr)] public string pDatatype;
+            [MarshalAs(UnmanagedType.LPStr)] public string pParameters;
+            public IntPtr pSecurityDescriptor;
+            public uint Attributes; // Cible de la modification
+            public uint Priority;
+            public uint DefaultPriority;
+            public uint StartTime;
+            public uint UntilTime;
+            public uint Status;
+            public uint cJobs;
+            public uint AveragePPM;
+        }
+
         [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         private static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, ref PRINTER_DEFAULTS pd);
 
         [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         private static extern bool ClosePrinter(IntPtr hPrinter);
 
-        // API pour le Registre Imprimante (C'est la seule qui compte désormais)
+        [DllImport("winspool.drv", CharSet = CharSet.Ansi, SetLastError = true)]
+        private static extern bool GetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int cbBuf, out int pcbNeeded);
+
+        [DllImport("winspool.drv", CharSet = CharSet.Ansi, SetLastError = true)]
+        private static extern bool SetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int Command);
+
         [DllImport("winspool.drv", EntryPoint = "SetPrinterDataExA", SetLastError = true, CharSet = CharSet.Ansi)]
         private static extern uint SetPrinterDataEx(IntPtr hPrinter, string pKeyName, string pValueName, uint Type, ref int pData, int cbData);
 
@@ -31,17 +64,13 @@ namespace Autoprint.Server.Services
             public int DesiredAccess;
         }
 
-        // Droits d'accès
         private const int PRINTER_ACCESS_ADMINISTER = 0x00000004;
         private const int PRINTER_ACCESS_USE = 0x00000008;
         private const int STANDARD_RIGHTS_REQUIRED = 0x000F0000;
         private const int PRINTER_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | PRINTER_ACCESS_ADMINISTER | PRINTER_ACCESS_USE);
 
-        // Types Registre
         private const uint REG_DWORD = 4;
         private const int ERROR_SUCCESS = 0;
-
-        // --- IMPLEMENTATION ---
 
         public Task CreerPortTcp(string ipAddress)
         {
@@ -51,7 +80,7 @@ namespace Autoprint.Server.Services
                 var portClass = new ManagementClass("Win32_TCPIPPrinterPort");
                 var newPort = portClass.CreateInstance();
                 newPort["Name"] = "IP_" + ipAddress;
-                newPort["Protocol"] = 1; // RAW
+                newPort["Protocol"] = 1;
                 newPort["HostAddress"] = ipAddress;
                 newPort["PortNumber"] = 9100;
                 newPort["SNMPEnabled"] = false;
@@ -61,11 +90,10 @@ namespace Autoprint.Server.Services
             return Task.CompletedTask;
         }
 
-        public async Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableBODP)
+        public async Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableDirectMode)
         {
             try
             {
-                // Création WMI standard
                 var printerClass = new ManagementClass("Win32_Printer");
                 var newPrinter = printerClass.CreateInstance();
                 newPrinter["Name"] = nom;
@@ -76,8 +104,7 @@ namespace Autoprint.Server.Services
                 newPrinter["ShareName"] = nom;
                 newPrinter.Put();
 
-                // Application Config
-                await SetRenderingMode(nom, enableBODP);
+                await SetDirectPrintingMode(nom, enableDirectMode);
             }
             catch (Exception ex) { throw new Exception($"Erreur création: {ex.Message}"); }
         }
@@ -94,7 +121,7 @@ namespace Autoprint.Server.Services
             return Task.CompletedTask;
         }
 
-        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableBODP)
+        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode)
         {
             try
             {
@@ -108,18 +135,20 @@ namespace Autoprint.Server.Services
                     if (changed) printer.Put();
                 }
 
-                await SetRenderingMode(nomActuel, enableBODP);
+                await SetDirectPrintingMode(nomActuel, enableDirectMode);
             }
             catch (Exception ex) { throw new Exception($"Erreur modif: {ex.Message}"); }
         }
 
-        // --- CŒUR DU SYSTÈME : Registre uniquement ---
-        private Task SetRenderingMode(string printerName, bool useClientSideRendering)
+
+        // --- VERSION PRODUCTION (CORRECTIF SÉCURITÉ APPLIQUÉ) ---
+        private Task SetDirectPrintingMode(string printerName, bool enableDirect)
         {
             IntPtr hPrinter = IntPtr.Zero;
+            IntPtr pPrinterInfo = IntPtr.Zero;
+
             try
             {
-                // Ouverture Admin requise pour SetPrinterDataEx
                 PRINTER_DEFAULTS defaults = new PRINTER_DEFAULTS
                 {
                     pDatatype = IntPtr.Zero,
@@ -129,34 +158,81 @@ namespace Autoprint.Server.Services
 
                 if (!OpenPrinter(printerName, out hPrinter, ref defaults))
                 {
-                    Console.WriteLine($"[Win32] Impossible d'ouvrir '{printerName}' en Admin. Code: {Marshal.GetLastWin32Error()}");
+                    // On loggue juste, pour ne pas crasher si l'admin a supprimé l'imprimante entre temps
+                    Console.WriteLine($"[Win32 Error] Impossible d'ouvrir '{printerName}'. Code: {Marshal.GetLastWin32Error()}");
                     return Task.CompletedTask;
                 }
 
-                // Basé sur vos tests V3 et V4 : Seule cette clé compte.
-                int data = useClientSideRendering ? 1 : 0;
+                // 1. REGISTRE (Classique)
+                int regData = enableDirect ? 1 : 0;
+                SetPrinterDataEx(hPrinter, "PrinterDriverData", "EnableBranchOfficePrinting", REG_DWORD, ref regData, 4);
 
-                // Ecriture dans HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\<Name>\PrinterDriverData
-                uint result = SetPrinterDataEx(hPrinter, "PrinterDriverData", "EnableBranchOfficePrinting", REG_DWORD, ref data, 4);
-
-                if (result != ERROR_SUCCESS)
+                // 2. ATTRIBUTS (Le correctif est ici)
+                GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
+                if (needed > 0)
                 {
-                    Console.WriteLine($"[Win32] Echec SetPrinterDataEx. Code erreur: {result}");
+                    pPrinterInfo = Marshal.AllocHGlobal(needed);
+                    if (GetPrinter(hPrinter, 2, pPrinterInfo, needed, out _))
+                    {
+                        PRINTER_INFO_2 info = Marshal.PtrToStructure<PRINTER_INFO_2>(pPrinterInfo);
+                        uint oldAttributes = info.Attributes;
+
+                        // --- LE FIX CRITIQUE ---
+                        // On force le pointeur de sécurité à NULL.
+                        // Cela dit à SetPrinter : "Ignore la sécurité, garde celle existante".
+                        // C'est ce qui débloque l'écriture des attributs.
+                        info.pSecurityDescriptor = IntPtr.Zero;
+                        // -----------------------
+
+                        if (enableDirect)
+                        {
+                            // Active DIRECT, Désactive QUEUED
+                            info.Attributes |= (uint)PRINTER_ATTRIBUTE_DIRECT;
+                            info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_QUEUED;
+                        }
+                        else
+                        {
+                            // Retour standard
+                            info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_DIRECT;
+                            info.Attributes |= (uint)PRINTER_ATTRIBUTE_QUEUED;
+                        }
+
+                        // On applique si changement détecté
+                        if (info.Attributes != oldAttributes)
+                        {
+                            Marshal.StructureToPtr(info, pPrinterInfo, false);
+
+                            // On tente l'écriture
+                            if (!SetPrinter(hPrinter, 2, pPrinterInfo, 0))
+                            {
+                                int err = Marshal.GetLastWin32Error();
+                                // Ici on peut lever une exception car c'est une vraie erreur technique
+                                throw new Exception($"Echec écriture attributs Win32. Code erreur: {err}");
+                            }
+                        }
+                    }
                 }
             }
-            catch (Exception ex) { Console.WriteLine($"[Win32 Exception] {ex.Message}"); }
-            finally { if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter); }
+            catch (Exception ex)
+            {
+                // On remonte l'exception pour qu'elle apparaisse dans les logs d'Audit
+                throw new Exception($"Erreur configuration Mode Direct : {ex.Message}");
+            }
+            finally
+            {
+                if (pPrinterInfo != IntPtr.Zero) Marshal.FreeHGlobal(pPrinterInfo);
+                if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter);
+            }
 
             return Task.CompletedTask;
         }
 
-        // --- VERIFICATEUR ---
-        public Task<bool> VerifierModeFiliale(string nomImprimante, bool modeAttendu)
+        public Task<bool> VerifierModeDirect(string nomImprimante, bool modeAttendu)
         {
             IntPtr hPrinter = IntPtr.Zero;
+            IntPtr pPrinterInfo = IntPtr.Zero;
             try
             {
-                // Lecture seule suffit
                 PRINTER_DEFAULTS defaults = new PRINTER_DEFAULTS
                 {
                     pDatatype = IntPtr.Zero,
@@ -166,34 +242,37 @@ namespace Autoprint.Server.Services
 
                 if (!OpenPrinter(nomImprimante, out hPrinter, ref defaults)) return Task.FromResult(false);
 
-                string keyName = "PrinterDriverData";
-                string valueName = "EnableBranchOfficePrinting";
-                uint type;
-                int data;
-                int needed;
-
-                uint result = GetPrinterDataEx(hPrinter, keyName, valueName, out type, out data, 4, out needed);
-
-                if (result == ERROR_SUCCESS)
+                bool regEnabled = false;
+                if (GetPrinterDataEx(hPrinter, "PrinterDriverData", "EnableBranchOfficePrinting", out _, out int data, 4, out _) == ERROR_SUCCESS)
                 {
-                    // La clé existe, on vérifie la valeur (1 = Activé, 0 = Désactivé)
-                    bool isEnabled = (data == 1);
-                    return Task.FromResult(isEnabled == modeAttendu);
+                    regEnabled = (data == 1);
                 }
-                else
+
+                bool attrEnabled = false;
+                GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
+                if (needed > 0)
                 {
-                    // La clé n'existe pas (cas par défaut)
-                    // Par défaut, le mode filiale est désactivé (0).
-                    // Donc si la clé est absente et qu'on attendait "Faux", c'est bon.
-                    // Si on attendait "Vrai", c'est pas bon.
-                    return Task.FromResult(modeAttendu == false);
+                    pPrinterInfo = Marshal.AllocHGlobal(needed);
+                    if (GetPrinter(hPrinter, 2, pPrinterInfo, needed, out _))
+                    {
+                        PRINTER_INFO_2 info = Marshal.PtrToStructure<PRINTER_INFO_2>(pPrinterInfo);
+                        bool isDirect = (info.Attributes & PRINTER_ATTRIBUTE_DIRECT) == PRINTER_ATTRIBUTE_DIRECT;
+                        bool isNotQueued = (info.Attributes & PRINTER_ATTRIBUTE_QUEUED) != PRINTER_ATTRIBUTE_QUEUED;
+                        attrEnabled = isDirect && isNotQueued;
+                    }
                 }
+
+                if (modeAttendu) return Task.FromResult(regEnabled || attrEnabled);
+                else return Task.FromResult(!regEnabled && !attrEnabled);
             }
             catch { return Task.FromResult(false); }
-            finally { if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter); }
+            finally
+            {
+                if (pPrinterInfo != IntPtr.Zero) Marshal.FreeHGlobal(pPrinterInfo);
+                if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter);
+            }
         }
 
-        // ... Reste inchangé ...
         public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
         {
             try

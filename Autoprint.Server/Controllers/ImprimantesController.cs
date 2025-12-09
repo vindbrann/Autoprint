@@ -14,13 +14,13 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
-        private readonly IPrintSpoolerService _spooler; // NOUVEAU : Injection nécessaire
+        private readonly IPrintSpoolerService _spooler;
 
         public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler)
         {
             _context = context;
             _auditService = auditService;
-            _spooler = spooler; // NOUVEAU
+            _spooler = spooler;
         }
 
         [HttpGet]
@@ -77,12 +77,14 @@ namespace Autoprint.Server.Controllers
             if (string.IsNullOrWhiteSpace(imprimante.NomPartage))
                 imprimante.NomPartage = imprimante.NomAffiche;
 
-            if (!imprimante.IsBranchOfficeEnabled)
+            // Si le mode n'est pas explicitement activé, on regarde le paramètre par défaut
+            if (!imprimante.IsDirectPrintingEnabled)
             {
-                var defaultSetting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "Printer_DefaultBranchOfficeEnabled");
+                // CORRECTION : Renommage de la clé de setting pour correspondre à Parametres.razor
+                var defaultSetting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "Printer_DefaultDirectModeEnabled");
                 if (defaultSetting != null && bool.TryParse(defaultSetting.Value, out bool defVal) && defVal)
                 {
-                    imprimante.IsBranchOfficeEnabled = true;
+                    imprimante.IsDirectPrintingEnabled = true;
                 }
             }
 
@@ -123,10 +125,11 @@ namespace Autoprint.Server.Controllers
             dbImprimante.Localisation = inputImprimante.Localisation;
             dbImprimante.EstPartagee = inputImprimante.EstPartagee;
             dbImprimante.Code = inputImprimante.Code;
-            dbImprimante.IsBranchOfficeEnabled = inputImprimante.IsBranchOfficeEnabled;
+            dbImprimante.IsDirectPrintingEnabled = inputImprimante.IsDirectPrintingEnabled;
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
 
+            // Chargement pour le snapshot d'audit
             var snapModele = await _context.Modeles.AsNoTracking().Include(m => m.Marque).Include(m => m.Pilote).FirstOrDefaultAsync(m => m.Id == inputImprimante.ModeleId);
             var snapEmplacement = await _context.Emplacements.AsNoTracking().FirstOrDefaultAsync(e => e.Id == inputImprimante.EmplacementId);
 
@@ -140,7 +143,7 @@ namespace Autoprint.Server.Controllers
                 Localisation = dbImprimante.Localisation,
                 EstPartagee = dbImprimante.EstPartagee,
                 Code = dbImprimante.Code,
-                IsBranchOfficeEnabled = dbImprimante.IsBranchOfficeEnabled,
+                IsDirectPrintingEnabled = dbImprimante.IsDirectPrintingEnabled,
                 Status = dbImprimante.Status,
                 ModeleId = dbImprimante.ModeleId,
                 EmplacementId = dbImprimante.EmplacementId,
@@ -162,7 +165,6 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
-        // --- NOUVEAU : Audit & Comparaison ---
         [HttpPost("Audit")]
         [Authorize(Policy = "PRINTER_SYNC")]
         public async Task<IActionResult> AuditConfiguration()
@@ -173,15 +175,11 @@ namespace Autoprint.Server.Controllers
 
             foreach (var imp in printers)
             {
-                // On ne touche pas à celles qui sont déjà en attente de création/suppression
                 if (imp.Status == PrinterStatus.PendingCreation || imp.Status == PrinterStatus.PendingDelete) continue;
-
-                // 1. Vérification existence Windows (via IP)
                 var windowsName = await _spooler.RecupererNomImprimanteParIp(imp.AdresseIp);
 
                 if (string.IsNullOrEmpty(windowsName))
                 {
-                    // Elle n'existe pas sur Windows -> Erreur
                     if (imp.Status != PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.SyncError;
@@ -191,29 +189,27 @@ namespace Autoprint.Server.Controllers
                     continue;
                 }
 
-                // 2. Vérification Mode Filiale
-                bool isBodpActive = await _spooler.VerifierModeFiliale(windowsName, true); // On demande si actif pour savoir
-                bool configMatch = (isBodpActive == imp.IsBranchOfficeEnabled);
+                // CORRECTION : Appel à VerifierModeDirect (ex VerifierModeFiliale)
+                bool isDirectActive = await _spooler.VerifierModeDirect(windowsName, true);
+                bool configMatch = (isDirectActive == imp.IsDirectPrintingEnabled);
 
                 if (!configMatch)
                 {
-                    // Incohérence détectée
                     imp.Status = PrinterStatus.SyncError;
-                    string etatWin = isBodpActive ? "ACTIF" : "INACTIF";
-                    string etatDb = imp.IsBranchOfficeEnabled ? "ACTIF" : "INACTIF";
-                    imp.Commentaire = $"[AUDIT] Incohérence Mode Filiale. Windows: {etatWin} / Base: {etatDb}.";
+                    string etatWin = isDirectActive ? "ACTIF" : "INACTIF";
+                    string etatDb = imp.IsDirectPrintingEnabled ? "ACTIF" : "INACTIF";
+                    // CORRECTION : Message d'erreur
+                    imp.Commentaire = $"[AUDIT] Incohérence Mode Direct. Windows: {etatWin} / Base: {etatDb}.";
                     errorsFound++;
                 }
                 else if (windowsName != imp.NomAffiche)
                 {
-                    // Incohérence Nom
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[AUDIT] Nom incorrect sur Windows : '{windowsName}'.";
                     errorsFound++;
                 }
                 else
                 {
-                    // Tout est OK -> On repasse en Vert si c'était rouge
                     if (imp.Status == PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.Synchronized;
@@ -231,21 +227,23 @@ namespace Autoprint.Server.Controllers
             return Ok(new { message = $"Audit terminé. {errorsFound} erreurs détectées, {corrections} corrections de statut." });
         }
 
-        [HttpPost("ForceBranchOfficeMode")]
+        // CORRECTION : Renommage de l'endpoint et de la méthode
+        [HttpPost("ForceDirectMode")]
         [Authorize(Policy = "PRINTER_WRITE")]
-        public async Task<IActionResult> ForceBranchOfficeMode()
+        public async Task<IActionResult> ForceDirectMode()
         {
-            var printersToUpdate = await _context.Imprimantes.Where(p => p.IsBranchOfficeEnabled == false).ToListAsync();
+            var printersToUpdate = await _context.Imprimantes.Where(p => p.IsDirectPrintingEnabled == false).ToListAsync();
             if (!printersToUpdate.Any()) return Ok(new { message = "Aucune imprimante à mettre à jour." });
 
             foreach (var printer in printersToUpdate)
             {
-                printer.IsBranchOfficeEnabled = true;
+                printer.IsDirectPrintingEnabled = true;
                 if (printer.Status == PrinterStatus.Synchronized || printer.Status == PrinterStatus.SyncError)
                     printer.Status = PrinterStatus.PendingUpdate;
             }
 
-            _auditService.LogAction("BULK_UPDATE", $"Forçage Mode Filiale sur {printersToUpdate.Count} imprimantes", User.Identity?.Name);
+            // CORRECTION : Message de log
+            _auditService.LogAction("BULK_UPDATE", $"Forçage Mode Direct sur {printersToUpdate.Count} imprimantes", User.Identity?.Name);
             await _context.SaveChangesAsync();
             return Ok(new { message = $"{printersToUpdate.Count} imprimantes mises à jour." });
         }

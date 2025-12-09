@@ -1,4 +1,5 @@
 ﻿using Autoprint.Client.Models;
+using Microsoft.Win32;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -10,7 +11,6 @@ namespace Autoprint.Client.Services
         private readonly string _configPath;
         private UserPreferences _currentPreferences;
 
-        // C'est cette propriété "Current" qui manquait et causait l'erreur CS1061
         public UserPreferences Current => _currentPreferences;
 
         public UserPreferencesService()
@@ -24,26 +24,52 @@ namespace Autoprint.Client.Services
             }
 
             _configPath = Path.Combine(appFolder, "user-settings.json");
+
             _currentPreferences = LoadPreferences();
+
+            if (!File.Exists(_configPath) &&
+               (!string.IsNullOrEmpty(_currentPreferences.PrintServerName) || !string.IsNullOrEmpty(_currentPreferences.AgentApiKey)))
+            {
+                Save();
+            }
         }
 
         private UserPreferences LoadPreferences()
         {
-            if (!File.Exists(_configPath))
+            if (File.Exists(_configPath))
             {
-                return new UserPreferences();
+                try
+                {
+                    string json = File.ReadAllText(_configPath);
+                    var prefs = JsonSerializer.Deserialize<UserPreferences>(json);
+                    return prefs ?? new UserPreferences();
+                }
+                catch
+                {
+                    return new UserPreferences();
+                }
             }
 
+            var registryPrefs = new UserPreferences();
             try
             {
-                string json = File.ReadAllText(_configPath);
-                var prefs = JsonSerializer.Deserialize<UserPreferences>(json);
-                return prefs ?? new UserPreferences();
+                using (RegistryKey? key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Autoprint"))
+                {
+                    if (key != null)
+                    {
+                        object? server = key.GetValue("PRINTSERVER");
+                        object? apiKey = key.GetValue("APIKEY");
+
+                        if (server != null) registryPrefs.PrintServerName = server.ToString();
+                        if (apiKey != null) registryPrefs.AgentApiKey = apiKey.ToString();
+                    }
+                }
             }
-            catch
+            catch (Exception)
             {
-                return new UserPreferences();
             }
+
+            return registryPrefs;
         }
 
         public void Save()

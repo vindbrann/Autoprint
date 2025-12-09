@@ -229,16 +229,20 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            @* 7. FILIALE *@
-            <RadzenDataGridColumn TItem="Imprimante" Property="IsBranchOfficeEnabled" Title="Filiale" Width="90px" TextAlign="TextAlign.Center">
+            @* 7. MODE DIRECT *@
+            <RadzenDataGridColumn TItem="Imprimante" Property="IsDirectPrintingEnabled" Title="Direct" Width="90px" TextAlign="TextAlign.Center">
                 <Template Context="imp">
-                    @if (imp.IsBranchOfficeEnabled)
+                    @if (imp.IsDirectPrintingEnabled)
                     {
-                        <RadzenIcon Icon="domain" Style="color: var(--rz-info);" Tooltip="Mode Filiale (Direct IP)" />
+                        @* Icone : Flèche directe ou Ethernet pour signifier le RAW *@
+                        <RadzenIcon Icon="settings_ethernet" Style="color: var(--rz-info);"
+                                    Tooltip="Mode Direct (RAW - Pas de Spooler)" />
                     }
                     else
                     {
-                        <RadzenIcon Icon="dns" Style="color: var(--rz-text-disabled-color); opacity: 0.5;" Tooltip="Mode Serveur (Centralisé)" />
+                        @* Icone : Serveur pour signifier le Spooler central *@
+                        <RadzenIcon Icon="dns" Style="color: var(--rz-text-disabled-color); opacity: 0.5;"
+                                    Tooltip="Mode Serveur (Spooler Standard)" />
                     }
                 </Template>
             </RadzenDataGridColumn>
@@ -421,7 +425,7 @@ else
             ModeleId = imp.ModeleId,
             EmplacementId = imp.EmplacementId,
             Status = imp.Status,
-            IsBranchOfficeEnabled = imp.IsBranchOfficeEnabled
+            IsDirectPrintingEnabled = imp.IsDirectPrintingEnabled
         };
 
         var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
@@ -446,7 +450,7 @@ else
             var nom = i.NomAffiche?.Replace(";", ",") ?? "";
             var modele = i.Modele?.Nom?.Replace(";", ",") ?? "";
             var lieu = i.Emplacement?.Nom?.Replace(";", ",") ?? "";
-            var modeFiliale = i.IsBranchOfficeEnabled ? "Oui" : "Non";
+            var modeFiliale = i.IsDirectPrintingEnabled ? "Oui" : "Non";
             csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeFiliale}");
         }
 

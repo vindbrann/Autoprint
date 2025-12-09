@@ -125,14 +125,16 @@
             </RadzenRow>
         </RadzenFieldset>
 
-        @* --- 3.5 MODE FILIALE (NOUVEAU) --- *@
+        @* --- 3.5 MODE IMPRESSION DIRECTE --- *@
         <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="border-color: var(--rz-info);">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                <RadzenSwitch @bind-Value="@imprimanteEdit.IsBranchOfficeEnabled" Name="ModeFiliale" />
-                <RadzenLabel Text="Mode Filiale (Impression Directe)" Component="ModeFiliale" Style="font-weight: bold;" />
+                <RadzenSwitch @bind-Value="@imprimanteEdit.IsDirectPrintingEnabled" Name="ModeDirect" />
+                <RadzenLabel Text="Mode Impression Directe (RAW)" Component="ModeDirect" Style="font-weight: bold;" />
             </RadzenStack>
             <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                Le poste client envoie les données directement à l'IP de l'imprimante sans passer par le serveur central (Spooler Local). Recommandé pour les sites distants.
+                <strong>Mode Performance :</strong> Le serveur agit comme un simple tuyau (Passthrough).<br />
+                Le spouleur est désactivé (Bit QUEUED=0) et le flux part directement à l'IP (Bit DIRECT=1).<br />
+                <em>Idéal pour les sites distants ou pour réduire la charge CPU/Disque du serveur.</em>
             </RadzenText>
         </RadzenCard>
 
@@ -215,7 +217,7 @@
             EstPartagee = ImprimanteToEdit.EstPartagee,
             NomPartage = ImprimanteToEdit.NomPartage,
             Commentaire = ImprimanteToEdit.Commentaire,
-            IsBranchOfficeEnabled = ImprimanteToEdit.IsBranchOfficeEnabled,
+            IsDirectPrintingEnabled = ImprimanteToEdit.IsDirectPrintingEnabled,
             ModeleId = ImprimanteToEdit.ModeleId,
             EmplacementId = ImprimanteToEdit.EmplacementId,
             Status = ImprimanteToEdit.Status
