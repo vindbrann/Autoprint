@@ -13,6 +13,10 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         FontFamily="{DynamicResource MaterialDesignFont}">
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+
     <Border CornerRadius="0" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}">
         <Grid>
             <Grid.RowDefinitions>
@@ -80,10 +84,63 @@
                     <ToggleButton Grid.Column="1" IsChecked="{Binding StartWithWindows}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
                 </Grid>
 
+                <StackPanel Margin="0,25,0,0"
+                            Visibility="{Binding IsAdminPanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                    <Separator Background="Orange" Margin="0,0,0,10"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                        <materialDesign:PackIcon Kind="Security" Foreground="Orange" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="ZONE TECHNIQUE" FontWeight="Bold" Foreground="Orange"/>
+                    </StackPanel>
+
+                    <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                             materialDesign:HintAssist.Hint="URL Serveur"
+                             Text="{Binding AdminServerUrl, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,10"/>
+
+                    <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                             materialDesign:HintAssist.Hint="Clé API (Agent)"
+                             Text="{Binding AdminApiKey, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas"
+                             Margin="0,0,0,20"/>
+
+                    <Button Command="{Binding TestAndSaveCommand}"
+                            Content="TESTER &amp; SAUVEGARDER"
+                            IsEnabled="{Binding IsNotTesting}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            BorderBrush="Orange" Foreground="Orange"
+                            materialDesign:ButtonAssist.CornerRadius="5"/>
+
+                    <Grid Margin="0,10,0,0">
+                        <TextBlock Text="{Binding TestStatusMessage}" 
+                                   Foreground="{Binding TestStatusColor}" 
+                                   TextWrapping="Wrap" 
+                                   HorizontalAlignment="Center"
+                                   Visibility="{Binding IsNotTesting, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                        <ProgressBar IsIndeterminate="True" 
+                                     Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                     Value="0" Width="20" Height="20"
+                                     Visibility="{Binding IsTesting, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </Grid>
+                </StackPanel>
             </StackPanel>
 
-            <TextBlock Grid.Row="2" Text="Les modifications sont enregistrées automatiquement." 
-                       HorizontalAlignment="Center" FontSize="10" Opacity="0.4" Margin="0,0,0,10" FontStyle="Italic"/>
+            <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                <TextBlock Text="Les modifications sont enregistrées automatiquement." 
+                           HorizontalAlignment="Center" FontSize="10" Opacity="0.4" FontStyle="Italic" Margin="0,0,0,2"/>
+
+                <Button Command="{Binding VersionClickCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Height="Auto" Padding="5,0"
+                        HorizontalAlignment="Center"
+                        Foreground="{DynamicResource MaterialDesignBody}"
+                        Opacity="0.3"
+                        ToolTip="Version de l'agent">
+                    <TextBlock Text="{Binding VersionText}" FontSize="9"/>
+                </Button>
+            </StackPanel>
+
         </Grid>
     </Border>
 </Window>

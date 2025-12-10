@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Autoprint.Shared;
 
@@ -10,43 +12,44 @@ namespace Autoprint.Client.Services
     public class ApiService
     {
         private readonly HttpClient _httpClient;
+        private readonly JsonSerializerOptions _jsonOptions;
 
         public ApiService(string baseUrl, string apiKey)
         {
-            _httpClient = new HttpClient
+            var handler = new HttpClientHandler
             {
-                BaseAddress = new Uri(baseUrl)
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+            };
+
+            _httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri(baseUrl),
+                Timeout = TimeSpan.FromSeconds(10)
             };
 
             _httpClient.DefaultRequestHeaders.Add("X-Agent-Secret", apiKey);
+
+            _jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                ReferenceHandler = ReferenceHandler.IgnoreCycles
+            };
         }
 
         public async Task<List<Emplacement>> GetLieuxAsync()
         {
-            try
-            {
-                var result = await _httpClient.GetFromJsonAsync<List<Emplacement>>("api/emplacements");
-                return result ?? new List<Emplacement>();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Erreur API : {ex.Message}");
-                return new List<Emplacement>();
-            }
+            var response = await _httpClient.GetAsync("api/emplacements");
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<List<Emplacement>>(_jsonOptions);
+            return result ?? new List<Emplacement>();
         }
 
         public async Task<List<Imprimante>> GetImprimantesAsync()
         {
-            try
-            {
-                var result = await _httpClient.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes");
-                return result ?? new List<Imprimante>();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Erreur API Imprimantes : {ex.Message}");
-                return new List<Imprimante>();
-            }
+            var response = await _httpClient.GetAsync("api/imprimantes");
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<List<Imprimante>>(_jsonOptions);
+            return result ?? new List<Imprimante>();
         }
     }
 }

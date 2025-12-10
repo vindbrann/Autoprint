@@ -7,7 +7,6 @@ using Autoprint.Shared;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace Autoprint.Client.Services
 {
     public class DataService
@@ -23,45 +22,67 @@ namespace Autoprint.Client.Services
         {
             using (var context = new ClientDbContext(_dbPath))
             {
-                context.Imprimantes.RemoveRange(context.Imprimantes);
-                context.Modeles.RemoveRange(context.Modeles);
-                context.Marques.RemoveRange(context.Marques);
-                context.Pilotes.RemoveRange(context.Pilotes);
-
-                context.Emplacements.RemoveRange(context.Emplacements);
-
-                await context.SaveChangesAsync();
-                await context.Emplacements.AddRangeAsync(lieux);
-                var marquesVues = new Dictionary<int, Marque>();
-                var modelesVus = new Dictionary<int, Modele>();
-                var pilotesVus = new Dictionary<int, Pilote>();
-
-                foreach (var imp in imprimantes)
+                using (var transaction = await context.Database.BeginTransactionAsync())
                 {
-                    imp.Emplacement = null;
-
-                    if (imp.Modele != null)
+                    try
                     {
-                        if (imp.Modele.Marque != null)
+                        await context.Imprimantes.ExecuteDeleteAsync();
+                        await context.Modeles.ExecuteDeleteAsync();
+                        await context.Marques.ExecuteDeleteAsync();
+                        await context.Pilotes.ExecuteDeleteAsync();
+                        await context.Emplacements.ExecuteDeleteAsync();
+                        await context.Emplacements.AddRangeAsync(lieux);
+                        await context.SaveChangesAsync();
+
+                        var marquesVues = new Dictionary<int, Marque>();
+                        var pilotesVus = new Dictionary<int, Pilote>();
+                        var modelesVus = new Dictionary<int, Modele>();
+
+                        foreach (var imp in imprimantes)
                         {
-                            if (marquesVues.TryGetValue(imp.Modele.Marque.Id, out var m)) imp.Modele.Marque = m;
-                            else marquesVues[imp.Modele.Marque.Id] = imp.Modele.Marque;
+                            imp.Emplacement = null;
+
+                            if (imp.Modele != null)
+                            {
+                                if (imp.Modele.Marque != null)
+                                {
+                                    if (marquesVues.TryGetValue(imp.Modele.Marque.Id, out var m))
+                                        imp.Modele.Marque = m;
+                                    else
+                                        marquesVues[imp.Modele.Marque.Id] = imp.Modele.Marque;
+                                }
+
+                                if (imp.Modele.Pilote != null)
+                                {
+                                    if (pilotesVus.TryGetValue(imp.Modele.Pilote.Id, out var p))
+                                        imp.Modele.Pilote = p;
+                                    else
+                                        pilotesVus[imp.Modele.Pilote.Id] = imp.Modele.Pilote;
+                                }
+
+                                if (modelesVus.TryGetValue(imp.Modele.Id, out var mod))
+                                    imp.Modele = mod;
+                                else
+                                    modelesVus[imp.Modele.Id] = imp.Modele;
+                            }
                         }
-                        if (imp.Modele.Pilote != null)
-                        {
-                            if (pilotesVus.TryGetValue(imp.Modele.Pilote.Id, out var p)) imp.Modele.Pilote = p;
-                            else pilotesVus[imp.Modele.Pilote.Id] = imp.Modele.Pilote;
-                        }
-                        if (modelesVus.TryGetValue(imp.Modele.Id, out var mod)) imp.Modele = mod;
-                        else modelesVus[imp.Modele.Id] = imp.Modele;
+
+                        await context.Imprimantes.AddRangeAsync(imprimantes);
+                        await context.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+
+                        System.Diagnostics.Debug.WriteLine($"[CACHE] Mise à jour réussie : {lieux.Count} lieux, {imprimantes.Count} imprimantes.");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[CACHE] ERREUR CRITIQUE : {ex.Message}");
+                        throw;
                     }
                 }
-
-                await context.Imprimantes.AddRangeAsync(imprimantes);
-
-                await context.SaveChangesAsync();
             }
         }
+
         public async Task InitializeDatabaseAsync()
         {
             bool dbEstCorrompue = false;
@@ -70,7 +91,6 @@ namespace Autoprint.Client.Services
                 try
                 {
                     await context.Database.EnsureCreatedAsync();
-
                     var test = await context.Imprimantes.FirstOrDefaultAsync();
                 }
                 catch (Exception)
@@ -82,9 +102,7 @@ namespace Autoprint.Client.Services
             if (dbEstCorrompue)
             {
                 System.Diagnostics.Debug.WriteLine("⚠️ BDD Corrompue détectée. Tentative de réparation...");
-
                 SqliteConnection.ClearAllPools();
-
                 await Task.Delay(100);
 
                 try
@@ -118,8 +136,14 @@ namespace Autoprint.Client.Services
         {
             using (var context = new ClientDbContext(_dbPath))
             {
-                try { return await context.Emplacements.ToListAsync(); }
-                catch { return new List<Emplacement>(); }
+                try
+                {
+                    return await context.Emplacements.ToListAsync();
+                }
+                catch
+                {
+                    return new List<Emplacement>();
+                }
             }
         }
 
@@ -135,7 +159,10 @@ namespace Autoprint.Client.Services
                         .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                         .ToListAsync();
                 }
-                catch { return new List<Imprimante>(); }
+                catch
+                {
+                    return new List<Imprimante>();
+                }
             }
         }
     }

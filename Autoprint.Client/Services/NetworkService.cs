@@ -1,5 +1,5 @@
-﻿using System.Linq;
-using System.Net;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
@@ -7,8 +7,10 @@ namespace Autoprint.Client.Services
 {
     public class NetworkService
     {
-        public string? GetLocalIpAddress()
+        public List<string> GetAllLocalIpAddresses()
         {
+            var ips = new List<string>();
+
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(c => c.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
                             c.OperationalStatus == OperationalStatus.Up);
@@ -17,16 +19,19 @@ namespace Autoprint.Client.Services
             {
                 var props = item.GetIPProperties();
 
-                var ipInfo = props.UnicastAddresses
-                    .FirstOrDefault(d => d.Address.AddressFamily == AddressFamily.InterNetwork);
+                var ipInfos = props.UnicastAddresses
+                    .Where(d => d.Address.AddressFamily == AddressFamily.InterNetwork);
 
-                if (ipInfo != null)
+                foreach (var ip in ipInfos)
                 {
-                    return ipInfo.Address.ToString();
+                    if (!ip.Address.ToString().StartsWith("169.254"))
+                    {
+                        ips.Add(ip.Address.ToString());
+                    }
                 }
             }
 
-            return null;
+            return ips;
         }
     }
 }

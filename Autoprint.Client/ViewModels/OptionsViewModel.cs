@@ -1,17 +1,40 @@
 ﻿using Autoprint.Client.Services;
+using System;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Autoprint.Client.ViewModels
 {
     public class OptionsViewModel : INotifyPropertyChanged
     {
         private readonly UserPreferencesService _prefService;
+        private int _secretClickCount = 0;
 
         public OptionsViewModel(UserPreferencesService prefService)
         {
             _prefService = prefService;
+
+            // Initialisation des champs Admin
+            AdminServerUrl = _prefService.Current.PrintServerName ?? "";
+            AdminApiKey = _prefService.Current.AgentApiKey ?? "";
+
+            // Version
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            VersionText = version != null ? $"v{version.ToString(3)}" : "v1.0.0";
+
+            // Commandes (Utilise ton RelayCommand existant)
+            VersionClickCommand = new RelayCommand(param => OnVersionClicked());
+
+            // Astuce pour l'async avec RelayCommand standard : on passe une lambda async void
+            TestAndSaveCommand = new RelayCommand(async param => await TestAndSaveAsync());
         }
+
+        // --- OPTIONS EXISTANTES ---
 
         public bool EnableNotifications
         {
@@ -52,6 +75,149 @@ namespace Autoprint.Client.ViewModels
                     OnPropertyChanged();
                 }
             }
+        }
+
+        // --- ZONE ADMIN ---
+
+        public string VersionText { get; }
+
+        private bool _isAdminPanelVisible;
+        public bool IsAdminPanelVisible
+        {
+            get => _isAdminPanelVisible;
+            set { _isAdminPanelVisible = value; OnPropertyChanged(); }
+        }
+
+        private string _adminServerUrl = "";
+        public string AdminServerUrl
+        {
+            get => _adminServerUrl;
+            set { _adminServerUrl = value; OnPropertyChanged(); }
+        }
+
+        private string _adminApiKey = "";
+        public string AdminApiKey
+        {
+            get => _adminApiKey;
+            set { _adminApiKey = value; OnPropertyChanged(); }
+        }
+
+        private bool _isTesting;
+        public bool IsTesting
+        {
+            get => _isTesting;
+            set
+            {
+                _isTesting = value;
+                OnPropertyChanged();
+                // CRITIQUE : Notifie la vue que l'inverse a changé pour activer/désactiver le bouton
+                OnPropertyChanged(nameof(IsNotTesting));
+            }
+        }
+
+        // Propriété calculée pour le XAML (remplace le besoin d'un Converter)
+        public bool IsNotTesting => !IsTesting;
+
+        private string _testStatusMessage = "";
+        public string TestStatusMessage
+        {
+            get => _testStatusMessage;
+            set { _testStatusMessage = value; OnPropertyChanged(); }
+        }
+
+        private Brush _testStatusColor = Brushes.Black;
+        public Brush TestStatusColor
+        {
+            get => _testStatusColor;
+            set { _testStatusColor = value; OnPropertyChanged(); }
+        }
+
+        // --- COMMANDES ---
+
+        public ICommand VersionClickCommand { get; }
+        public ICommand TestAndSaveCommand { get; }
+
+        // --- LOGIQUE MÉTIER ---
+
+        private void OnVersionClicked()
+        {
+            if (IsAdminPanelVisible) return;
+
+            _secretClickCount++;
+            Debug.WriteLine($"Clic Secret : {_secretClickCount}/5");
+
+            if (_secretClickCount >= 5)
+            {
+                IsAdminPanelVisible = true;
+                _secretClickCount = 0;
+            }
+        }
+
+        private async Task TestAndSaveAsync()
+        {
+            if (IsTesting) return;
+
+            if (string.IsNullOrWhiteSpace(AdminServerUrl) || string.IsNullOrWhiteSpace(AdminApiKey))
+            {
+                SetStatus("Champs vides !", Brushes.Red);
+                return;
+            }
+
+            string urlNettoyee = AdminServerUrl.Trim();
+            if (!urlNettoyee.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !urlNettoyee.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                urlNettoyee = "https://" + urlNettoyee;
+            }
+            AdminServerUrl = urlNettoyee;
+
+            if (!Uri.TryCreate(urlNettoyee, UriKind.Absolute, out Uri? uriResult) ||
+                (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
+            {
+                SetStatus("URL invalide (http/https requis)", Brushes.Red);
+                return;
+            }
+
+            IsTesting = true;
+            SetStatus("Test de connexion en cours...", Brushes.Orange);
+
+            try
+            {
+                var tempApiService = new ApiService(urlNettoyee, AdminApiKey);
+                await tempApiService.GetLieuxAsync();
+
+                IsTesting = false;
+
+                SetStatus("✅ VALIDÉ ! Sauvegarde effectuée.", Brushes.Green);
+
+                _prefService.Current.PrintServerName = urlNettoyee;
+                _prefService.Current.AgentApiKey = AdminApiKey;
+                _prefService.Save();
+
+                await Task.Delay(1500);
+
+                IsAdminPanelVisible = false;
+                SetStatus("", Brushes.Black);
+                _secretClickCount = 0;
+            }
+            catch (Exception ex)
+            {
+                string msg = ex.Message;
+                if (msg.Contains("401")) msg = "Clé API refusée (401)";
+                else if (msg.Contains("404")) msg = "Serveur introuvable (404)";
+
+                SetStatus($"ÉCHEC : {msg}", Brushes.Red);
+            }
+            finally
+            {
+                IsTesting = false;
+            }
+        }
+
+        private void SetStatus(string msg, Brush color)
+        {
+            TestStatusMessage = msg;
+            TestStatusColor = color;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

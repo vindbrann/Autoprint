@@ -72,12 +72,7 @@ namespace Autoprint.Client.Services
             {
                 NotifyStatus(false);
                 _watchdogTimer.Start();
-
-                System.Windows.MessageBox.Show(
-                    $"ERREUR SIGNALR :\n{ex.Message}\n\nINNER :\n{ex.InnerException?.Message}",
-                    "Diagnostic",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                System.Diagnostics.Debug.WriteLine($"ERREUR SIGNALR : {ex.Message}");
             }
         }
 
