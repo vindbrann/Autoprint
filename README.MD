@@ -1,81 +1,71 @@
 #  Autoprint
 
-**Autoprint** est une solution centralisée de gestion et de déploiement d'imprimantes pour environnements Windows, conçue sur la plateforme **.NET 10**.
+[cite_start]**Autoprint** est une solution hybride de gestion d'impression pour environnements Windows, conçue pour résoudre les problématiques de mobilité et de sécurité (Point & Print) sous Windows 10/11 [cite: 981-984].
 
-Son objectif est de simplifier l'administration du parc d'impression tout en garantissant une sécurité maximale sur les postes clients grâce à une architecture à séparation de privilèges.
+Basée sur une architecture **.NET 10**, elle combine une administration centralisée avec une intelligence locale sur les postes clients ("Location Awareness").
 
 ---
 
-##  Architecture Globale
+##  Architecture Hybride
 
-La solution repose sur une architecture distribuée Client/Serveur sécurisée, divisée en deux pôles principaux :
+La solution repose sur une architecture distribuée conçue pour la résilience (Offline-First) :
 
 ###  Pôle SERVEUR (Back-Office)
-Hébergé centralement, il gère les données et la logique métier.
-* **API REST (.NET 10)** : Cœur du système, communique avec la base de données SQL Server.
-* **Admin UI (Blazor WASM)** : Interface web pour les techniciens, connectée à l'API.
+* [cite_start]**API REST (.NET 10)** : Cœur du système, gère le référentiel et la sécurité via JWT[cite: 1173].
+* [cite_start]**Admin UI (Blazor WASM + Radzen)** : Interface riche pour les techniciens (Matrice de droits RBAC, Dashboard, Logs)[cite: 1183].
+* [cite_start]**Moteur WMI** : Synchronisation avec le Spouleur Windows Server (Source de vérité) et nettoyage intelligent des pilotes [cite: 994-999].
 
-###  Pôle CLIENT (Poste Windows)
-Installé sur les machines utilisateurs, il applique les configurations.
-* **Service Windows** : S'exécute avec les droits élevés (LocalSystem) pour gérer les pilotes.
-* **App WPF** : S'exécute dans la session utilisateur (droits restreints) pour l'interaction visuelle.
-
-> **Lien Réseau** : Le Service Client communique avec l'API Serveur via **SignalR** (Temps réel) et **HTTPS**.
-> **Lien Local** : L'App WPF communique avec le Service Windows via **IPC** (Named Pipes).
+###  Pôle CLIENT (Poste Utilisateur)
+[cite_start]Architecture scindée pour contourner les limitations de sécurité (UAC/Intune)[cite: 1214]:
+1.  **Service Windows (LocalSystem)** : Le "Worker". [cite_start]Il injecte les pilotes dans le Driver Store avec les privilèges élevés (Admin)[cite: 1218].
+2.  **App WPF (Session Utilisateur)** : L'interface. [cite_start]Elle détecte le réseau (CIDR), gère les préférences et mappe les imprimantes dans la session de l'utilisateur [cite: 1224-1231].
+3.  [cite_start]**Cache Local (SQLite)** : Permet au client de fonctionner même si le serveur est injoignable (Mode Hors-Ligne)[cite: 1233].
 
 ---
 
-##  Composants du Système
+##  Fonctionnalités Clés
 
-### 1. Le Serveur (Cerveau)
-Le point central de la solution qui orchestre les configurations.
-* **API Core (.NET 10)** : Expose les endpoints REST pour les clients et l'administration. Gère l'authentification et la logique métier.
-* **Interface d'Administration (Blazor WASM + Radzen)** : Permet aux techniciens de :
-    * Définir les files d'impression.
-    * Associer des imprimantes à des groupes ou des postes.
-    * Monitorer l'état du parc en temps réel via **SignalR**.
+###  Sécurité & Conformité
+* [cite_start]**Authentification Hybride** : Supporte Active Directory et les comptes locaux[cite: 1021].
+* [cite_start]**RBAC Granulaire** : Gestion fine des droits (Lecture, Écriture, Sync, Scan)[cite: 1067].
+* [cite_start]**Protection M2M** : Les clients s'authentifient via une clé d'API unique (`X-Agent-Secret`)[cite: 1045].
 
-### 2. Le Client (Agent)
-Installé sur les postes utilisateurs, il est conçu selon le principe de **Moindre Privilège**. Il est scindé en deux processus distincts :
-
-#### A. Le Service Windows (`Autoprint.Service`)
-* **Rôle** : L'ouvrier qualifié.
-* **Contexte** : S'exécute en arrière-plan sous le compte **LocalSystem**.
-* **Responsabilités** :
-    * Installation / Suppression des pilotes d'impression (nécessite des droits Admin).
-    * Modification du Spooler Windows.
-    * Communication sécurisée avec l'API Serveur.
-
-#### B. L'Interface Utilisateur (`Autoprint.Client.UI`)
-* **Rôle** : La fenêtre de dialogue.
-* **Contexte** : S'exécute dans la **session de l'utilisateur** standard (WPF).
-* **Responsabilités** :
-    * Afficher les notifications (ex: "Nouvelle imprimante installée").
-    * Permettre à l'utilisateur de choisir ses préférences (imprimante par défaut).
-    * **Sécurité** : Cette interface n'a *aucun* droit administratif. Elle envoie des commandes au Service via un canal local sécurisé.
+###  Intelligence Client
+* [cite_start]**Location Awareness** : Détection automatique du "Lieu" en fonction de l'IP et du sous-réseau (CIDR)[cite: 1154].
+* [cite_start]**Smart Sync** : Installation "Zéro-Touche" des pilotes sans droits admin pour l'utilisateur[cite: 1164].
+* [cite_start]**Mode Filiale (Direct IP)** : Capacité de configurer des ports RAW directs pour contourner le serveur d'impression en cas de panne WAN[cite: 1142].
 
 ---
 
-##  Flux de Communication
+##  Déploiement & Installation
 
-1.  **Serveur vers Service (Réseau)** :
-    * Le Serveur notifie le Service d'un changement via **SignalR** (WebSockets).
-    * Le Service télécharge la configuration via l'API REST sécurisée.
+### Pré-requis Serveur
+[cite_start]L'installation se fait via un **Launcher Intelligent (WPF)** qui vérifie et installe automatiquement les pré-requis (Rôles IIS, .NET 10, Print Services) via WMI [cite: 1290-1297].
 
-2.  **Service vers UI (Local)** :
-    * Le Service et l'UI communiquent via **Named Pipes** (IPC).
-    * Protocole JSON strict pour éviter les injections.
+### Déploiement Client (Mass Deployment)
+[cite_start]Le client est packagé sous forme de **MSI unique** compatible GPO/Intune/SCCM[cite: 1329].
+Il supporte l'injection des paramètres de connexion à l'installation :
 
----
+```cmd
+msiexec /i Autoprint.Client.msi /qn PRINTSERVER="srv-print.corp.local" APIKEY="votre-guid-unique"
+````
+
+  * [cite_start]**PRINTSERVER** : Nom DNS ou IP du serveur Autoprint[cite: 1334].
+  * [cite_start]**APIKEY** : Clé d'authentification Agent générée lors de l'installation serveur[cite: 1335].
+
+> [cite_start]**Note** : La configuration est ensuite stockée de manière persistante dans le fichier `user-settings.json` du profil utilisateur[cite: 1340].
+
+-----
 
 ##  Stack Technique
 
-* **Framework** : .NET 10 (Dernière version LTS/Preview).
-* **Base de données** : Microsoft SQL Server + Entity Framework Core.
-* **Backend** : ASP.NET Core Web API.
-* **Frontend Admin** : Blazor WebAssembly.
-* **Desktop** : WPF (Windows Presentation Foundation) & Windows Services.
-* **Communication** : System.IO.Pipes, SignalR.
+  * [cite_start]**Framework** : .NET 10 (Dernière version)[cite: 1173].
+  * **Serveur** : ASP.NET Core Web API + Entity Framework Core (SQL Server).
+  * [cite_start]**Web UI** : Blazor WebAssembly + Composants **Radzen**[cite: 1183].
+  * **Client** : WPF (Desktop) + Windows Worker Service.
+  * [cite_start]**BDD Locale** : SQLite (Cache client)[cite: 1233].
+  * [cite_start]**Protocole** : SignalR (Notifications Temps Réel "Push-to-Pull") + Named Pipes (IPC Local)[cite: 1253, 1272].
 
----
-*Autoprint - Solution de Gestion d'Impression*
+-----
+
+*Autoprint - Solution de Gestion Dynamique d'Impression.*
