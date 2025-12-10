@@ -34,5 +34,15 @@
 			<Visible>false</Visible>
 		</EmbeddedResource>
 	</ItemGroup>
+
+	<Target Name="BuildServerMsi" BeforeTargets="BeforeBuild">
+		<Message Text="📦 Compilation forcée du MSI Serveur (WiX)..." Importance="high" />
+
+		<MSBuild Projects="..\Autoprint.Server.Setup\Autoprint.Server.Setup.wixproj"
+				 Properties="Configuration=$(Configuration);Platform=x64"
+				 Targets="Build" />
+
+		<Message Text="✅ MSI Serveur généré et prêt pour l'embarquement." Importance="high" />
+	</Target>
 	
 </Project>

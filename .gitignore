@@ -364,3 +364,18 @@ FodyWeavers.xsd
 
 # Exécutables lourds
 *.exe
+
+# Dossiers de publication et de tests
+Publish*/
+_DIST/
+Executables/
+
+# Pré-requis lourds (à ne pas versionner)
+prerequisites/
+*.exe
+
+# Sauf les exécutables critiques nécessaires au build (ex: outils internes)
+!Tools/*.exe
+
+# Ignorer les résultats de tes tests Beta
+PublishBeta*/
