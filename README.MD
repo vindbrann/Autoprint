@@ -4,91 +4,78 @@
 
 Son objectif est de simplifier l'administration du parc d'impression tout en garantissant une sécurité maximale sur les postes clients grâce à une architecture à séparation de privilèges.
 
------
+---
 
 ##  Architecture Globale
 
-La solution repose sur une architecture distribuée Client/Serveur sécurisée :
+La solution repose sur une architecture distribuée Client/Serveur sécurisée, divisée en deux pôles principaux :
 
-```mermaid
-graph TD
-    subgraph SERVEUR [" SERVEUR (Back-Office)"]
-        API[API REST .NET 10]
-        Admin[Admin UI (Blazor WASM)]
-        DB[(SQL Server)]
-        API <--> DB
-        Admin <--> API
-    end
+###  Pôle SERVEUR (Back-Office)
+Hébergé centralement, il gère les données et la logique métier.
+* **API REST (.NET 10)** : Cœur du système, communique avec la base de données SQL Server.
+* **Admin UI (Blazor WASM)** : Interface web pour les techniciens, connectée à l'API.
 
-    subgraph CLIENT [" POSTE CLIENT (Windows)"]
-        Service[Service Windows (LocalSystem)]
-        UI[App WPF (Session Utilisateur)]
-        
-        UI -- "IPC (Named Pipes)" --> Service
-    end
+###  Pôle CLIENT (Poste Windows)
+Installé sur les machines utilisateurs, il applique les configurations.
+* **Service Windows** : S'exécute avec les droits élevés (LocalSystem) pour gérer les pilotes.
+* **App WPF** : S'exécute dans la session utilisateur (droits restreints) pour l'interaction visuelle.
 
-    Service -- "SignalR + HTTPS" --> API
-```
+> **Lien Réseau** : Le Service Client communique avec l'API Serveur via **SignalR** (Temps réel) et **HTTPS**.
+> **Lien Local** : L'App WPF communique avec le Service Windows via **IPC** (Named Pipes).
 
------
+---
 
 ##  Composants du Système
 
-### 1\. Le Serveur (Cerveau)
-
+### 1. Le Serveur (Cerveau)
 Le point central de la solution qui orchestre les configurations.
+* **API Core (.NET 10)** : Expose les endpoints REST pour les clients et l'administration. Gère l'authentification et la logique métier.
+* **Interface d'Administration (Blazor WASM + Radzen)** : Permet aux techniciens de :
+    * Définir les files d'impression.
+    * Associer des imprimantes à des groupes ou des postes.
+    * Monitorer l'état du parc en temps réel via **SignalR**.
 
-  * **API Core (.NET 10)** : Expose les endpoints REST pour les clients et l'administration. Gère l'authentification et la logique métier.
-  * **Interface d'Administration (Blazor WASM + Radzen)** : Permet aux techniciens de :
-      * Définir les files d'impression.
-      * Associer des imprimantes à des groupes ou des postes.
-      * Monitorer l'état du parc en temps réel via **SignalR**.
-
-### 2\. Le Client (Agent)
-
+### 2. Le Client (Agent)
 Installé sur les postes utilisateurs, il est conçu selon le principe de **Moindre Privilège**. Il est scindé en deux processus distincts :
 
 #### A. Le Service Windows (`Autoprint.Service`)
-
-  * **Rôle** : L'ouvrier qualifié.
-  * **Contexte** : S'exécute en arrière-plan sous le compte **LocalSystem**.
-  * **Responsabilités** :
-      * Installation / Suppression des pilotes d'impression (nécessite des droits Admin).
-      * Modification du Spooler Windows.
-      * Communication sécurisée avec l'API Serveur.
+* **Rôle** : L'ouvrier qualifié.
+* **Contexte** : S'exécute en arrière-plan sous le compte **LocalSystem**.
+* **Responsabilités** :
+    * Installation / Suppression des pilotes d'impression (nécessite des droits Admin).
+    * Modification du Spooler Windows.
+    * Communication sécurisée avec l'API Serveur.
 
 #### B. L'Interface Utilisateur (`Autoprint.Client.UI`)
+* **Rôle** : La fenêtre de dialogue.
+* **Contexte** : S'exécute dans la **session de l'utilisateur** standard (WPF).
+* **Responsabilités** :
+    * Afficher les notifications (ex: "Nouvelle imprimante installée").
+    * Permettre à l'utilisateur de choisir ses préférences (imprimante par défaut).
+    * **Sécurité** : Cette interface n'a *aucun* droit administratif. Elle envoie des commandes au Service via un canal local sécurisé.
 
-  * **Rôle** : La fenêtre de dialogue.
-  * **Contexte** : S'exécute dans la **session de l'utilisateur** standard (WPF).
-  * **Responsabilités** :
-      * Afficher les notifications (ex: "Nouvelle imprimante installée").
-      * Permettre à l'utilisateur de choisir ses préférences (imprimante par défaut).
-      * **Sécurité** : Cette interface n'a *aucun* droit administratif. Elle envoie des commandes au Service via un canal local sécurisé.
-
------
+---
 
 ##  Flux de Communication
 
 1.  **Serveur vers Service (Réseau)** :
-
-      * Le Serveur notifie le Service d'un changement via **SignalR** (WebSockets).
-      * Le Service télécharge la configuration via l'API REST sécurisée.
+    * Le Serveur notifie le Service d'un changement via **SignalR** (WebSockets).
+    * Le Service télécharge la configuration via l'API REST sécurisée.
 
 2.  **Service vers UI (Local)** :
+    * Le Service et l'UI communiquent via **Named Pipes** (IPC).
+    * Protocole JSON strict pour éviter les injections.
 
-      * Le Service et l'UI communiquent via **Named Pipes** (IPC).
-      * Protocole JSON strict pour éviter les injections.
-
------
+---
 
 ##  Stack Technique
 
-  * **Framework** : .NET 10 (Dernière version LTS/Preview).
-  * **Base de données** : Microsoft SQL Server + Entity Framework Core.
-  * **Backend** : ASP.NET Core Web API.
-  * **Frontend Admin** : Blazor WebAssembly.
-  * **Desktop** : WPF (Windows Presentation Foundation) & Windows Services.
-  * **Communication** : System.IO.Pipes, SignalR.
+* **Framework** : .NET 10 (Dernière version LTS/Preview).
+* **Base de données** : Microsoft SQL Server + Entity Framework Core.
+* **Backend** : ASP.NET Core Web API.
+* **Frontend Admin** : Blazor WebAssembly.
+* **Desktop** : WPF (Windows Presentation Foundation) & Windows Services.
+* **Communication** : System.IO.Pipes, SignalR.
 
------
+---
+*Autoprint - Solution de Gestion d'Impression*
