@@ -1,0 +1,30 @@
+﻿@inherits LayoutComponentBase
+@using Radzen
+@using Radzen.Blazor
+@using Blazored.LocalStorage
+
+@inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
+
+<RadzenComponents />
+<RadzenTheme />
+
+<div class="main" style="background-color: var(--rz-base-background-color); min-height: 100vh;">
+    <div class="content px-4">
+        @Body
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+
+        if (string.IsNullOrEmpty(savedTheme))
+        {
+            savedTheme = "material";
+        }
+
+        ThemeService.SetTheme(savedTheme);
+    }
+}

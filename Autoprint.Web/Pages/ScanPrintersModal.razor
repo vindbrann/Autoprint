@@ -1,0 +1,298 @@
+﻿@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using System.Text.Json
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1rem" Style="height: 100%;">
+
+    <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Wrap="FlexWrap.Wrap">
+
+            <RadzenStack Gap="0.2rem">
+                <RadzenLabel Text="Serveur Cible" Component="Host" Style="font-size: 0.8rem; font-weight: bold;" />
+                <RadzenTextBox Name="Host" @bind-Value="@request.TargetHost" Placeholder="localhost ou IP" Style="width: 200px;" />
+            </RadzenStack>
+
+            <RadzenStack Gap="0.2rem">
+                <RadzenLabel Text="Utilisateur (Admin)" Component="User" Style="font-size: 0.8rem; font-weight: bold;" />
+                <RadzenTextBox Name="User" @bind-Value="@request.Username" Placeholder="DOMAIN\Admin" Style="width: 150px;" />
+            </RadzenStack>
+
+            <RadzenStack Gap="0.2rem">
+                <RadzenLabel Text="Mot de passe" Component="Pwd" Style="font-size: 0.8rem; font-weight: bold;" />
+                <RadzenPassword Name="Pwd" @bind-Value="@request.Password" Style="width: 150px;" />
+            </RadzenStack>
+
+            <RadzenButton Text="Lancer le Scan" Icon="search" Click="@LancerScan" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Primary" />
+
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (resultats != null)
+    {
+        if (resultats.Any())
+        {
+            <div style="flex: 1; overflow: hidden; border: 1px solid var(--rz-border-color); border-radius: var(--rz-border-radius);">
+                <RadzenDataGrid Data="@resultats" TItem="ImportPrinterViewModel"
+                                AllowFiltering="true" FilterMode="FilterMode.Simple"
+                                AllowSorting="true" AllowPaging="false"
+                                Style="height: 100%;">
+                    <Columns>
+
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Width="60px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                            <HeaderTemplate>
+                                <RadzenIcon Icon="save_alt" />
+                            </HeaderTemplate>
+                            <Template Context="p">
+                                @if (p.ExistsInDb)
+                                {
+                                    <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" Tooltip="Déjà gérée" />
+                                }
+                                else
+                                {
+                                    <RadzenCheckBox @bind-Value="p.SelectedForImport" TriState="false" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="Name" Title="Imprimante Windows" Width="250px">
+                            <Template Context="p">
+                                <div style="line-height: 1.2;">
+                                    <strong>@p.Name</strong>
+                                    @if (p.IsShared)
+                                    {
+                                        <br />
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@p.ShareName" Icon="share" Style="margin-top: 4px;" />
+                                    }
+                                    <div style="font-size: 0.75rem; color: var(--rz-text-tertiary-color);">Drivers: @p.DriverName</div>
+                                </div>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="PortName" Title="Port / IP" Width="160px">
+                            <Template Context="p">
+                                @if (p.ExistsInDb)
+                                {
+                                    <span style="font-family: monospace; color: var(--rz-text-disabled-color);">@p.PortName</span>
+                                }
+                                else
+                                {
+                                    <RadzenTextBox @bind-Value="p.PortName" Change="@(args => OnIpChanged(p, args))"
+                                                   Style="width: 100%; font-family: monospace;"
+                                                   Class="@(p.IpMismatchWarning ? "rz-border-warning" : "")" />
+                                    @if (p.IpMismatchWarning)
+                                    {
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-warning);" TagName="TagName.Div">
+                                            <RadzenIcon Icon="warning" Style="font-size: 0.8rem" /> Incohérent avec le Lieu
+                                        </RadzenText>
+                                    }
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Title="Modèle (Requis)" Width="200px">
+                            <Template Context="p">
+                                @if (!p.ExistsInDb)
+                                {
+                                    <RadzenDropDown @bind-Value="p.SelectedModeleId" Data="@listeModeles"
+                                                    TextProperty="Nom" ValueProperty="Id"
+                                                    Placeholder="Choisir..." Style="width: 100%;"
+                                                    AllowFiltering="true" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Title="Lieu (Requis)" Width="200px">
+                            <Template Context="p">
+                                @if (!p.ExistsInDb)
+                                {
+                                    <RadzenDropDown @bind-Value="p.SelectedLieuId" Data="@listeLieux"
+                                                    TextProperty="Nom" ValueProperty="Id"
+                                                    Placeholder="Choisir..." Style="width: 100%;"
+                                                    Change="@(args => OnLieuChanged(p, args))"
+                                                    AllowFiltering="true" />
+                                    @if (p.SelectedLieuId > 0)
+                                    {
+                                        var l = listeLieux.FirstOrDefault(x => x.Id == p.SelectedLieuId);
+                                        if (l != null && !string.IsNullOrEmpty(l.CidrIpv4))
+                                        {
+                                            <div style="font-size: 0.7rem; text-align: right; color: var(--rz-text-tertiary-color);">@l.CidrIpv4</div>
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    <span style="color: var(--rz-text-disabled-color);">Déjà assigné</span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        }
+        else if (!scanEnCours)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-4">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="info" />
+                    <span>Aucune imprimante trouvée sur ce serveur (ou accès refusé).</span>
+                </RadzenStack>
+            </RadzenAlert>
+        }
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-2">
+        <RadzenButton Text="Fermer" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+
+        @if (resultats != null && resultats.Any(p => p.SelectedForImport))
+        {
+            <RadzenButton Text="@($"Importer la sélection ({resultats.Count(p => p.SelectedForImport)})")"
+                          Icon="save_alt" ButtonStyle="ButtonStyle.Success" Click="@ImporterSelection" />
+        }
+    </RadzenStack>
+
+</RadzenStack>
+
+@code {
+
+    private bool scanEnCours = false;
+    private RemoteScanRequestDto request = new() { TargetHost = "localhost" };
+    private List<ImportPrinterViewModel>? resultats;
+    private List<Modele> listeModeles = new();
+    private List<Emplacement> listeLieux = new();
+
+    public class ImportPrinterViewModel : DiscoveredPrinterDto
+    {
+        public bool SelectedForImport { get; set; }
+        public int SelectedModeleId { get; set; }
+        public int SelectedLieuId { get; set; }
+        public bool IpMismatchWarning { get; set; } = false;
+        public string IpMismatchMessage { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var t1 = Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
+            var t2 = Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
+            await Task.WhenAll(t1, t2);
+
+            listeModeles = t1.Result ?? new();
+            listeLieux = t2.Result ?? new();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Init", ex.Message);
+        }
+    }
+
+    private async Task LancerScan()
+    {
+        scanEnCours = true;
+        resultats = null;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Import/Scan/Printers", request);
+            if (response.IsSuccessStatusCode)
+            {
+                resultats = await response.Content.ReadFromJsonAsync<List<ImportPrinterViewModel>>();
+                if (resultats != null)
+                {
+                }
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur WMI", await response.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Technique", ex.Message);
+        }
+        finally
+        {
+            scanEnCours = false;
+        }
+    }
+
+    private void OnLieuChanged(ImportPrinterViewModel p, object? value)
+    {
+        p.SelectedLieuId = (int)value;
+        CheckIpConsistency(p);
+    }
+
+    private void OnIpChanged(ImportPrinterViewModel p, string value)
+    {
+        p.PortName = value;
+        CheckIpConsistency(p);
+    }
+
+    private void CheckIpConsistency(ImportPrinterViewModel p)
+    {
+        p.IpMismatchWarning = false;
+        if (p.SelectedLieuId == 0 || string.IsNullOrEmpty(p.PortName)) return;
+
+        var lieu = listeLieux.FirstOrDefault(l => l.Id == p.SelectedLieuId);
+        if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
+        {
+            try
+            {
+                var parts = lieu.CidrIpv4.Split('/');
+                var ipParts = parts[0].Split('.');
+                if (int.TryParse(parts[1], out int cidr))
+                {
+                    string prefixToCheck = "";
+                    if (cidr >= 24) prefixToCheck = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
+                    else if (cidr >= 16) prefixToCheck = $"{ipParts[0]}.{ipParts[1]}.";
+
+                    if (!string.IsNullOrEmpty(prefixToCheck) && !p.PortName.StartsWith(prefixToCheck))
+                    {
+                        p.IpMismatchWarning = true;
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task ImporterSelection()
+    {
+        if (resultats == null) return;
+        var selection = resultats.Where(p => p.SelectedForImport).Select(p => new
+        {
+            Name = p.Name,
+            PortName = p.PortName,
+            ShareName = p.ShareName,
+            IsShared = p.IsShared,
+            SelectedModeleId = p.SelectedModeleId,
+            SelectedLieuId = p.SelectedLieuId
+        }).ToList();
+
+        if (!selection.Any()) return;
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/Import/Import/Printers", selection);
+            if (res.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Import terminé !");
+                DialogService.Close(true); 
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur Import", await res.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Technique", ex.Message);
+        }
+    }
+}

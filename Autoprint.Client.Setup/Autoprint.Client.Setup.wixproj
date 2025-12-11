@@ -1,0 +1,46 @@
+﻿<Project Sdk="WixToolset.Sdk/6.0.2">
+	<PropertyGroup>
+		<Platform>x64</Platform>
+		<Cultures>fr-FR</Cultures>
+		<DefineConstants>ClientSource=..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish;ServiceSource=..\Autoprint.Service\bin\Release\net10.0-windows\win-x64\publish;ExeSource=..\Executables</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+		<PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+		<PackageReference Include="WixToolset.Firewall.wixext" Version="6.0.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Autoprint.Client\Autoprint.Client.csproj" />
+		<ProjectReference Include="..\Autoprint.Service\Autoprint.Service.csproj" />
+	</ItemGroup>
+
+	<Target Name="PrepareFiles" BeforeTargets="BeforeBuild">
+		<Exec Command="dotnet publish &quot;..\Autoprint.Client\Autoprint.Client.csproj&quot; -c Release -r win-x64 --self-contained" />
+		<Exec Command="dotnet publish &quot;..\Autoprint.Service\Autoprint.Service.csproj&quot; -c Release -r win-x64 --self-contained" />
+
+		<MakeDir Directories="..\Executables" />
+
+		<Move SourceFiles="..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish\Autoprint.Client.exe" DestinationFolder="..\Executables" OverwriteReadOnlyFiles="true" />
+		<Move SourceFiles="..\Autoprint.Service\bin\Release\net10.0-windows\win-x64\publish\Autoprint.Service.exe" DestinationFolder="..\Executables" OverwriteReadOnlyFiles="true" />
+	</Target>
+
+	<ItemGroup>
+		<HarvestDirectory Include="..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish">
+			<ComponentGroupName>Autoprint.Client</ComponentGroupName>
+			<DirectoryRefId>ClientDir</DirectoryRefId>
+			<SuppressRootDirectory>true</SuppressRootDirectory>
+			<PreprocessorVariable>var.ClientSource</PreprocessorVariable>
+			<SuppressRegistry>true</SuppressRegistry>
+		</HarvestDirectory>
+
+		<HarvestDirectory Include="..\Autoprint.Service\bin\Release\net10.0-windows\win-x64\publish">
+			<ComponentGroupName>Autoprint.Service</ComponentGroupName>
+			<DirectoryRefId>ServiceDir</DirectoryRefId>
+			<SuppressRootDirectory>true</SuppressRootDirectory>
+			<PreprocessorVariable>var.ServiceSource</PreprocessorVariable>
+			<SuppressRegistry>true</SuppressRegistry>
+		</HarvestDirectory>
+	</ItemGroup>
+</Project>

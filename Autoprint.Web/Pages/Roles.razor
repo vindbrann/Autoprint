@@ -1,0 +1,163 @@
+﻿@page "/roles"
+@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.Enums
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
+@inject IRoleService RoleService
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ROLE_READ")]
+
+<PageTitle>Gestion des Rôles</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🛡️ Rôles & Permissions
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(roles == null || !roles.Any())" />
+
+        <AuthorizeView Policy="ROLE_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouveau Rôle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OpenRoleModal(0))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (roles == null)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px">
+        <Columns>
+
+            <RadzenDataGridColumn TItem="RoleViewDto" Property="Name" SortProperty="Name" Title="Rôle" Width="200px">
+                <Template Context="role">
+                    <span style="font-weight: bold; font-size: 1.1em; color: var(--rz-primary);">@role.Name</span>
+                    @if (role.Name == "SuperAdmin")
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Système" Class="rz-ml-2" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="RoleViewDto" Property="Description" Title="Description" />
+
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Droits" Width="100px" TextAlign="TextAlign.Center" Sortable="false">
+                <Template Context="role">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@(role.PermissionCodes.Count + " perms")" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="220px" Sortable="false" TextAlign="TextAlign.Right">
+                <Template Context="role">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+
+                        <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                      Click="@(() => OpenAdModal(role.Id, role.Name))"
+                                      Tooltip="Gérer la liaison Active Directory" />
+
+                        @if (role.Name != "SuperAdmin")
+                        {
+                            <AuthorizeView Policy="ROLE_WRITE">
+                                <Authorized Context="auth">
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
+                                </Authorized>
+                            </AuthorizeView>
+                            <AuthorizeView Policy="ROLE_DELETE">
+                                <Authorized Context="auth">
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
+                                </Authorized>
+                            </AuthorizeView>
+                        }
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<RoleViewDto>? roles;
+    private List<PermissionDto> allPermissions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var pTask = RoleService.GetAllPermissions();
+        var rTask = RoleService.GetRoles();
+        await Task.WhenAll(pTask, rTask);
+        allPermissions = pTask.Result;
+        roles = rTask.Result;
+    }
+
+    private async Task OpenRoleModal(int roleId)
+    {
+        var title = roleId == 0 ? "➕ Créer un Rôle" : "✏️ Modifier le Rôle";
+
+        var result = await DialogService.OpenAsync<RolePermissionModal>(title,
+            new Dictionary<string, object>
+            {
+                { "RoleId", roleId },
+                { "AllPermissions", allPermissions }
+            },
+            new DialogOptions() { Width = "900px", Height = "800px", Resizable = true, Draggable = true }
+        );
+
+        if (result == true) await LoadData();
+    }
+
+    private async Task OpenAdModal(int roleId, string roleName)
+    {
+        await DialogService.OpenAsync<AdMappingModal>($"Mappage AD : {roleName}",
+            new Dictionary<string, object> { { "RoleId", roleId } },
+            new DialogOptions() { Width = "800px", Height = "600px" }
+        );
+    }
+
+    private async Task DeleteRole(RoleViewDto role)
+    {
+        var confirm = await DialogService.Confirm($"Supprimer le rôle {role.Name} ?", "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            await RoleService.DeleteRole(role.Id);
+            await LoadData();
+            NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (roles == null || !roles.Any()) return;
+
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Rôle;Description;NombrePermissions");
+
+        foreach (var r in roles)
+        {
+            var desc = r.Description?.Replace(";", ",") ?? "";
+            csvBuilder.AppendLine($"{r.Id};{r.Name};{desc};{r.PermissionCodes.Count}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Roles_Export_{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "CSV généré.");
+    }
+}

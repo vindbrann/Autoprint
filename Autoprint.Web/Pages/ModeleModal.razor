@@ -1,0 +1,187 @@
+﻿@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
+
+<RadzenTemplateForm TItem="Modele" Data="@modeleEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+
+        <div>
+            <RadzenLabel Text="Nom du Modèle" Component="Nom" />
+            <RadzenTextBox Name="Nom" @bind-Value="@modeleEdit.Nom" Style="width: 100%;" Placeholder="Ex: LaserJet Pro 400" />
+            <RadzenRequiredValidator Component="Nom" Text="Le nom est obligatoire" Popup="true" />
+        </div>
+
+        <div>
+            <RadzenLabel Text="Marque" Component="Marque" />
+            @if (canReadMarques)
+            {
+                <RadzenDropDown Name="Marque" @bind-Value="@modeleEdit.MarqueId"
+                                Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
+                                AllowClear="true" Placeholder="Sélectionner une marque..."
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                Style="width: 100%;" />
+                <RadzenRequiredValidator Component="Marque" Text="La marque est obligatoire" Popup="true" DefaultValue="0" />
+            }
+            else
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
+                    <RadzenIcon Icon="lock" /> Vous n'avez pas les droits pour voir les marques.
+                </RadzenAlert>
+            }
+        </div>
+
+        <div>
+            <RadzenLabel Text="Pilote par défaut" Component="Pilote" />
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
+                Indispensable pour l'installation automatique.
+            </RadzenText>
+
+            @if (canReadPilotes)
+            {
+                <RadzenDropDown Name="Pilote" @bind-Value="@modeleEdit.PiloteId"
+                                Data="@listePilotesFiltrée" TextProperty="Nom" ValueProperty="Id"
+                                AllowClear="true" Placeholder="Sélectionner un pilote..."
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                Style="width: 100%;">
+                    <Template Context="p">
+                        @((p as Pilote).Nom)
+                        @if (!(p as Pilote).EstInstalle)
+                        {
+                            <span style="color: var(--rz-danger); font-weight: bold; font-size: 0.8em; margin-left: 5px;"> (⚠️ MANQUANT)</span>
+                        }
+                    </Template>
+                </RadzenDropDown>
+                <RadzenRequiredValidator Component="Pilote" Text="Le pilote est obligatoire" Popup="true" DefaultValue="0" />
+            }
+            else
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
+                    <RadzenIcon Icon="lock" /> Vous n'avez pas les droits pour voir les pilotes.
+                </RadzenAlert>
+            }
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+
+            @if (modeleEdit.Id != 0)
+            {
+                <AuthorizeView Policy="MODEL_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Modele ModeleToEdit { get; set; } = new();
+
+    private Modele modeleEdit = new();
+    private List<Marque> listeMarques = new();
+    private List<Pilote> listePilotesFiltrée = new(); // Liste filtrée pour l'affichage
+
+    private bool canReadMarques = false;
+    private bool canReadPilotes = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        modeleEdit = new Modele
+        {
+            Id = ModeleToEdit.Id,
+            Nom = ModeleToEdit.Nom,
+            MarqueId = ModeleToEdit.MarqueId,
+            PiloteId = ModeleToEdit.PiloteId
+        };
+
+        canReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
+        canReadPilotes = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
+
+        var tasks = new List<Task>();
+        if (canReadMarques) tasks.Add(LoadMarques());
+        if (canReadPilotes) tasks.Add(LoadPilotes());
+
+        if (tasks.Any()) await Task.WhenAll(tasks);
+    }
+
+    private async Task LoadMarques()
+    {
+        try
+        {
+            listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques") ?? new();
+        }
+        catch {  }
+    }
+
+    private async Task LoadPilotes()
+    {
+        try
+        {
+            var tousLesPilotes = await Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes") ?? new();
+
+            listePilotesFiltrée = tousLesPilotes
+                .Where(p => p.EstInstalle || p.Id == modeleEdit.PiloteId)
+                .OrderBy(p => p.Nom)
+                .ToList();
+        }
+        catch {  }
+    }
+
+    private async Task OnSubmit(Modele args)
+    {
+        try
+        {
+            if (modeleEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Modeles", modeleEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Modèle créé.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Modeles/{modeleEdit.Id}", modeleEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Modèle mis à jour.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Supprimer ce modèle ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Modeles/{modeleEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Le modèle a été supprimé.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
+    }
+}

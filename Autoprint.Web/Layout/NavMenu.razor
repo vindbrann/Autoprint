@@ -1,0 +1,214 @@
+﻿@using Autoprint.Web.Services
+@using Blazored.LocalStorage
+@implements IDisposable
+@inject IAuthService AuthService
+@inject NavigationManager NavManager
+@inject AlertService AlertService
+@inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
+
+<RadzenStack Orientation="Orientation.Vertical" Style="height: 100%; width: 100%;" Gap="0">
+
+    <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color);">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenImage Path="images/Autoprint.png" Style="height: 32px; width: auto; object-fit: contain;" AlternateText="Logo" />
+            <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; font-weight: bold;">Autoprint</RadzenText>
+        </RadzenStack>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; overflow-x: hidden;" class="rz-py-2">
+
+        <AuthorizeView>
+            <Authorized Context="menuAuth">
+
+                <RadzenPanelMenu>
+                    <RadzenPanelMenuItem Text="Tableau de bord" Path="" Icon="dashboard" />
+                </RadzenPanelMenu>
+
+                @if (CanShowGestionSection(menuAuth.User))
+                {
+                    <RadzenText TextStyle="TextStyle.Overline" Style="padding: 1rem 1rem 0.5rem 1rem; color: var(--rz-text-tertiary-color); font-weight: bold;">
+                        Gestion
+                    </RadzenText>
+
+                    <RadzenPanelMenu>
+                        <AuthorizeView Policy="PRINTER_READ">
+                            <RadzenPanelMenuItem Text="Imprimantes" Path="imprimantes" Icon="print" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="LOCATION_READ">
+                            <RadzenPanelMenuItem Text="Lieux" Path="lieux" Icon="place" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="BRAND_READ">
+                            <RadzenPanelMenuItem Text="Marques" Path="marques" Icon="sell" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="MODEL_READ">
+                            <RadzenPanelMenuItem Path="modeles">
+                                <Template>
+                                    <RadzenIcon Icon="description" Style="margin-right: 4px;" />
+                                    <span style="flex: 1;">Modèles</span>
+                                    @if (AlertService.State.ModelAlert)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Variant="Variant.Filled" Text="!" IsPill="true" Style="margin-left: 8px;" />
+                                    }
+                                </Template>
+                            </RadzenPanelMenuItem>
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="DRIVER_READ">
+                            <RadzenPanelMenuItem Path="pilotes">
+                                <Template>
+                                    <RadzenIcon Icon="usb" Style="margin-right: 4px;" />
+                                    <span style="flex: 1;">Pilotes</span>
+                                    @if (AlertService.State.DriverAlert)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Variant="Variant.Filled" Text="!" IsPill="true" Style="margin-left: 8px;" />
+                                    }
+                                </Template>
+                            </RadzenPanelMenuItem>
+                        </AuthorizeView>
+                    </RadzenPanelMenu>
+                }
+
+                @if (CanShowSystemSection(menuAuth.User))
+                {
+                    <RadzenText TextStyle="TextStyle.Overline" Style="padding: 1rem 1rem 0.5rem 1rem; color: var(--rz-text-tertiary-color); font-weight: bold;">
+                        Système
+                    </RadzenText>
+
+                    <RadzenPanelMenu>
+                        <AuthorizeView Policy="SETTINGS_MANAGE">
+                            <RadzenPanelMenuItem Text="Paramètres" Path="parametres" Icon="settings" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="USER_READ">
+                            <RadzenPanelMenuItem Text="Utilisateurs" Path="users" Icon="people" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="AUDIT_READ">
+                            <RadzenPanelMenuItem Text="Journal d'Audit" Path="audit" Icon="history" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="ROLE_READ">
+                            <RadzenPanelMenuItem Text="Rôles & Droits" Path="roles" Icon="admin_panel_settings" />
+                        </AuthorizeView>
+                    </RadzenPanelMenu>
+                }
+
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="rz-p-3" style="border-top: 1px solid var(--rz-border-color);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+
+                    <div style="flex: 1; cursor: pointer; overflow: hidden; display: flex; align-items: center; gap: 0.5rem;"
+                         @onclick="@(() => NavManager.NavigateTo("profile"))"
+                         title="Mon Profil">
+
+                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background-color: var(--rz-secondary); color: var(--rz-on-secondary); display: flex; align-items: center; justify-content: center;">
+                            <span style="font-weight: bold; font-size: 0.8rem; line-height: 1;">
+                                @GetInitials(GetNomAffichage(context.User))
+                            </span>
+                        </div>
+
+                        <div style="overflow: hidden; display: flex; flex-direction: column;">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.Div" Style="margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @GetNomAffichage(context.User)
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" TagName="TagName.Div" Style="margin: 0; color: var(--rz-text-tertiary-color);">
+                                Connecté
+                            </RadzenText>
+                        </div>
+                    </div>
+
+                    <RadzenButton Icon="@currentThemeIcon"
+                                  Variant="Variant.Text"
+                                  ButtonStyle="ButtonStyle.Base"
+                                  Size="ButtonSize.Small"
+                                  Click="ToggleTheme"
+                                  Tooltip="Changer de thème" />
+
+                    <RadzenButton Icon="logout" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="BeginLogout" Tooltip="Déconnexion" />
+
+                </RadzenStack>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+
+</RadzenStack>
+
+@code {
+    private string currentThemeIcon = "dark_mode";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AlertService.OnChange += StateHasChanged;
+        _ = AlertService.RefreshState();
+
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+        UpdateIcon(savedTheme);
+    }
+
+    public void Dispose()
+    {
+        AlertService.OnChange -= StateHasChanged;
+    }
+
+    private async Task ToggleTheme()
+    {
+        var current = await LocalStorage.GetItemAsync<string>("user_theme") ?? "material";
+        var newTheme = (current == "material") ? "material-dark" : "material";
+
+        ThemeService.SetTheme(newTheme);
+        await LocalStorage.SetItemAsync("user_theme", newTheme);
+        UpdateIcon(newTheme);
+    }
+
+    private void UpdateIcon(string? theme)
+    {
+        if (theme == "material-dark") currentThemeIcon = "light_mode";
+        else currentThemeIcon = "dark_mode";
+    }
+
+    private async Task BeginLogout()
+    {
+        await AuthService.Logout();
+        NavManager.NavigateTo("/login", true);
+    }
+
+    private string GetNomAffichage(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var display = user.FindFirst("DisplayName")?.Value;
+        return !string.IsNullOrEmpty(display) ? display : user.Identity?.Name ?? "User";
+    }
+
+    private string GetInitials(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        return name.Substring(0, 1).ToUpper();
+    }
+
+    private bool CanShowSystemSection(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == "Permission" &&
+                             (c.Value == "SETTINGS_MANAGE" ||
+                              c.Value == "USER_READ" ||
+                              c.Value == "AUDIT_READ" ||
+                              c.Value == "ROLE_READ"));
+    }
+
+    private bool CanShowGestionSection(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == "Permission" &&
+                             (c.Value == "PRINTER_READ" ||
+                              c.Value == "LOCATION_READ" ||
+                              c.Value == "BRAND_READ" ||
+                              c.Value == "MODEL_READ" ||
+                              c.Value == "DRIVER_READ"));
+    }
+}

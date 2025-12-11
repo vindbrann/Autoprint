@@ -1,0 +1,145 @@
+﻿@page "/lieux"
+@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
+
+<PageTitle>Gestion des Lieux</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        📍 Gestion des Lieux
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(lieux == null || !lieux.Any())" />
+
+        <AuthorizeView Policy="LOCATION_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouveau Lieu" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Emplacement()))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@lieux" TItem="Emplacement"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.Advanced"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="300px">
+        <Columns>
+
+            <RadzenDataGridColumn TItem="Emplacement" Property="Nom" Title="Nom" Sortable="true" Filterable="true" />
+
+            <RadzenDataGridColumn TItem="Emplacement" Property="Code" Title="Code" Sortable="true" Filterable="true" Width="120px">
+                <Template Context="l">
+                    @if (!string.IsNullOrEmpty(l.Code))
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@l.Code" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">-</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Emplacement" Property="CidrIpv4" Title="Réseau (CIDR)" Sortable="true" Filterable="true" Width="180px">
+                <Template Context="l">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@l.CidrIpv4" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Emplacement" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="l">
+                    <AuthorizeView Policy="LOCATION_WRITE">
+                        <Authorized>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(l))" />
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<Emplacement>? lieux;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerListe();
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try
+        {
+            lieux = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Chargement", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OuvrirModal(Emplacement lieu)
+    {
+        var resultat = await DialogService.OpenAsync<LieuModal>(
+            lieu.Id == 0 ? "Nouveau Lieu" : "Modifier le Lieu",
+            new Dictionary<string, object> { { "LieuToEdit", lieu } },
+            new DialogOptions() { Width = "550px", CloseDialogOnOverlayClick = true }
+        );
+
+        if (resultat == true)
+        {
+            await ChargerListe();
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (lieux == null || !lieux.Any()) return;
+
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom;Code;CIDR");
+
+        foreach (var l in lieux)
+        {
+            var nomClean = l.Nom?.Replace(";", ",") ?? "";
+            var codeClean = l.Code?.Replace(";", ",") ?? "";
+            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{l.CidrIpv4}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Lieux_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "Fichier CSV téléchargé.");
+    }
+}

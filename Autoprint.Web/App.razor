@@ -1,0 +1,18 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <Autoprint.Web.Pages.Login />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Introuvable</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p>Désolé, page introuvable.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

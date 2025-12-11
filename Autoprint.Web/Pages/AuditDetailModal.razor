@@ -1,0 +1,119 @@
+﻿@using Autoprint.Shared
+@using System.Text.Json
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<RadzenStack Gap="1rem">
+
+    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
+        <RadzenRow>
+            <RadzenColumn Size="6"><strong>Date :</strong> @Log.DateAction.ToLocalTime()</RadzenColumn>
+            <RadzenColumn Size="6"><strong>Utilisateur :</strong> @Log.Utilisateur</RadzenColumn>
+            <RadzenColumn Size="12" Class="rz-mt-2"><strong>Action :</strong> @Log.Action (@Log.ResourceName)</RadzenColumn>
+            <RadzenColumn Size="12" Class="rz-mt-2"><strong>Détails :</strong> @Log.Details</RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    @if (comparisonResult.Any())
+    {
+        <RadzenText TextStyle="TextStyle.H6" Class="rz-mt-2">Changements détectés</RadzenText>
+
+        <RadzenDataGrid Data="@comparisonResult" TItem="AuditComparison" AllowSorting="true" Density="Density.Compact">
+            <Columns>
+                <RadzenDataGridColumn TItem="AuditComparison" Property="PropertyName" Title="Propriété" Width="150px" />
+
+                <RadzenDataGridColumn TItem="AuditComparison" Property="OldValue" Title="Avant" />
+
+                <RadzenDataGridColumn TItem="AuditComparison" Property="NewValue" Title="Après">
+                    <Template Context="c">
+                        <span style="@(c.IsChanged ? "color: var(--rz-primary); font-weight: bold;" : "")">
+                            @c.NewValue
+                        </span>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+    else
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter">
+            Aucun changement de propriété détecté (Action simple).
+        </RadzenAlert>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Class="rz-mt-2">
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
+    </RadzenStack>
+
+</RadzenStack>
+
+@code {
+    [Parameter] public AuditLog Log { get; set; } = new();
+
+    private List<AuditComparison> comparisonResult = new();
+
+    public class AuditComparison
+    {
+        public string PropertyName { get; set; } = "";
+        public string OldValue { get; set; } = "";
+        public string NewValue { get; set; } = "";
+        public bool IsChanged => OldValue != NewValue;
+    }
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            using var oldDoc = JsonDocument.Parse(Log.OldValues ?? "{}");
+            using var newDoc = JsonDocument.Parse(Log.NewValues ?? "{}");
+
+            var oldProps = oldDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+            var newProps = newDoc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.ToString());
+
+            var allKeys = oldProps.Keys.Union(newProps.Keys).OrderBy(k => k);
+            foreach (var key in allKeys)
+            {
+                oldProps.TryGetValue(key, out var oldValue);
+                newProps.TryGetValue(key, out var newValue);
+
+                if (IsIgnoredKey(key)) continue;
+
+                string vOld = Simplify(oldValue);
+                string vNew = Simplify(newValue);
+                if (vOld != vNew || key.Equals("nom", StringComparison.OrdinalIgnoreCase))
+                {
+                    comparisonResult.Add(new AuditComparison
+                    {
+                        PropertyName = char.ToUpper(key[0]) + key.Substring(1),
+                        OldValue = vOld,
+                        NewValue = vNew
+                    });
+                }
+            }
+        }
+        catch {  }
+    }
+
+    private bool IsIgnoredKey(string key)
+    {
+        return key.Equals("id", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("dateModification", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("estSupprime", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("status", StringComparison.OrdinalIgnoreCase) ||
+               key.EndsWith("Id", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string Simplify(string? jsonValue)
+    {
+        if (string.IsNullOrEmpty(jsonValue) || jsonValue == "null") return "N/A";
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonValue);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("nom", out var nom))
+                return nom.GetString() ?? "Nom Inconnu";
+        }
+        catch { }
+        return jsonValue;
+    }
+}

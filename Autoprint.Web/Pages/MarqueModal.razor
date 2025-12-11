@@ -1,0 +1,97 @@
+﻿@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="Marque" Data="@marqueEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+
+        <div>
+            <RadzenLabel Text="Nom de la marque" Component="Nom" Style="margin-bottom: 0.5rem;" />
+            <RadzenTextBox Name="Nom" @bind-Value="@marqueEdit.Nom" Style="width: 100%;" />
+            <RadzenRequiredValidator Component="Nom" Text="Le nom est obligatoire" Popup="true" />
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+
+            @if (marqueEdit.Id != 0)
+            {
+                <AuthorizeView Policy="BRAND_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Marque MarqueToEdit { get; set; } = new();
+
+    private Marque marqueEdit = new();
+
+    protected override void OnInitialized()
+    {
+        marqueEdit = new Marque
+        {
+            Id = MarqueToEdit.Id,
+            Nom = MarqueToEdit.Nom
+        };
+    }
+
+    private async Task OnSubmit(Marque args)
+    {
+        try
+        {
+            if (marqueEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Marques", marqueEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque créée avec succès.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Marques/{marqueEdit.Id}", marqueEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque mise à jour.");
+            }
+
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Impossible d'enregistrer : {ex.Message}");
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer cette marque ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Marques/{marqueEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "La marque a été supprimée.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Erreur de suppression : {ex.Message}");
+            }
+        }
+    }
+}

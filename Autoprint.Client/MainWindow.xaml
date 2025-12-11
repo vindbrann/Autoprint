@@ -1,0 +1,203 @@
+﻿<Window x:Class="Autoprint.Client.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Autoprint.Client.ViewModels"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="Autoprint" Height="600" Width="550"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="{DynamicResource {x:Static SystemFonts.MessageFontWeightKey}}"
+        TextElement.FontSize="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}"
+        FontFamily="{DynamicResource MaterialDesignFont}"
+        Icon="Autoprint.ico">
+
+    <Window.DataContext>
+        <vm:MainWindowViewModel />
+    </Window.DataContext>
+
+    <Border CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" Opacity="0.98">
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <materialDesign:ColorZone Grid.Row="0" Mode="Standard" Padding="15" MouseDown="Header_MouseDown">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+
+                        <Image Source="pack://application:,,,/Autoprint.ico" 
+                               Width="24" Height="24" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,12,0" 
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                        <TextBlock Text="AUTOPRINT CLIENT" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Opacity="0.5"/>
+
+                        <TextBlock Text=" - MODE HORS LIGNE" 
+                                   FontSize="10" 
+                                   FontWeight="Bold" 
+                                   VerticalAlignment="Center" 
+                                   Foreground="{DynamicResource MaterialDesignValidationErrorBrush}" 
+                                   Margin="5,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOffline}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,10,0,0">
+                        <materialDesign:PackIcon Kind="MapMarker" Width="22" Height="22" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding TitreLieu}" FontSize="22" FontWeight="Regular" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <Button Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" 
+                            Style="{StaticResource MaterialDesignIconForegroundButton}" 
+                            Click="BtnFermer_Click" 
+                            ToolTip="Réduire" 
+                            VerticalAlignment="Top" 
+                            Margin="0,-5,-5,0">
+                        <materialDesign:PackIcon Kind="Close" />
+                    </Button>
+                </Grid>
+            </materialDesign:ColorZone>
+
+            <Separator Grid.Row="0" VerticalAlignment="Bottom" Background="{DynamicResource MaterialDesignDivider}" Margin="0"/>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20">
+                <ItemsControl ItemsSource="{Binding Imprimantes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <materialDesign:Card Margin="0,0,0,15" Padding="0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Background="{DynamicResource MaterialDesignDivider}" Width="60" CornerRadius="8,0,0,8">
+                                        <materialDesign:PackIcon Kind="Printer" Width="28" Height="28" Opacity="0.8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Margin="15,12">
+                                        <TextBlock Text="{Binding Data.NomAffiche}" FontWeight="Bold" FontSize="16" Margin="0,0,0,4"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6" Opacity="0.8">
+                                            <materialDesign:PackIcon Kind="MapMarkerRadius" Width="14" Height="14" VerticalAlignment="Center" Margin="0,1,6,0"/>
+                                            <TextBlock Text="{Binding Data.Localisation}" FontSize="13" FontWeight="Medium"/>
+                                        </StackPanel>
+
+                                        <TextBlock Opacity="0.5" FontSize="11" FontStyle="Italic">
+                                            <Run Text="{Binding Data.Modele.Marque.Nom, Mode=OneWay}" FontWeight="SemiBold"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding Data.Modele.Nom, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+
+                                        <StackPanel.Resources>
+                                            <Style x:Key="BtnInstallStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+
+                                            <Style x:Key="PanelActionsStyle" TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Resources>
+
+                                        <Button Style="{StaticResource BtnInstallStyle}" 
+            Command="{Binding InstallCommand}"
+            Content="INSTALLER" 
+            Height="32" 
+            FontSize="11" 
+            Padding="15,0"
+            BorderBrush="{DynamicResource MaterialDesignBody}"
+            Foreground="{DynamicResource MaterialDesignBody}"/>
+
+                                        <StackPanel Orientation="Horizontal" Style="{StaticResource PanelActionsStyle}">
+
+                                            <ToggleButton 
+            Style="{StaticResource MaterialDesignActionToggleButton}" 
+            IsChecked="{Binding IsFavorite, Mode=TwoWay}"
+            ToolTip="Définir comme imprimante par défaut" 
+            Margin="0,0,5,0" 
+            Width="32" Height="32">
+                                                <materialDesign:PackIcon Kind="StarOutline" Opacity="0.3" />
+                                                <materialDesign:ToggleButtonAssist.OnContent>
+                                                    <materialDesign:PackIcon Kind="Star" Foreground="Gold"/>
+                                                </materialDesign:ToggleButtonAssist.OnContent>
+                                            </ToggleButton>
+
+                                            <Button Style="{StaticResource MaterialDesignIconButton}" 
+                Command="{Binding UninstallCommand}"
+                ToolTip="Retirer cette imprimante"
+                Width="32" Height="32"
+                Foreground="{DynamicResource MaterialDesignErrorBrush}">
+                                                <materialDesign:PackIcon Kind="DeleteOutline" />
+                                            </Button>
+                                        </StackPanel>
+
+                                    </StackPanel>
+                                </Grid>
+                            </materialDesign:Card>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <materialDesign:ColorZone Grid.Row="2" Mode="Standard" Padding="15" materialDesign:ElevationAssist.Elevation="Dp0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" Opacity="0.4" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="InformationOutline" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding AppVersion}" FontSize="11"/>
+                    </StackPanel>
+
+                    <Button Style="{StaticResource MaterialDesignFlatButton}" 
+        HorizontalAlignment="Right" 
+        Height="30" 
+        Padding="10,0" 
+        Foreground="{DynamicResource MaterialDesignBody}"
+        Click="BtnActualiser_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Text="ACTUALISER" FontSize="11" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </materialDesign:ColorZone>
+        </Grid>
+    </Border>
+</Window>

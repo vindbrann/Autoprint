@@ -1,0 +1,6 @@
+@Autoprint.Server_HostAddress = http://localhost:5139
+
+GET {{Autoprint.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

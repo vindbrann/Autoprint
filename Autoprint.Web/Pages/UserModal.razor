@@ -1,0 +1,207 @@
+﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject IUserService UserService
+@inject IRoleService RoleService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenTemplateForm Data="@formData" Submit="@OnSubmit" TItem="object">
+        <RadzenStack Gap="1rem">
+
+            <RadzenRow RowGap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenLabel Text="Identifiant (Login)" Component="Username" />
+                    <RadzenTextBox Name="Username" @bind-Value="@formData.Username" Style="width: 100%;"
+                                   Disabled="@editMode" Placeholder="ex: jdupont" />
+                    @if (!editMode)
+                    {
+                        <RadzenRequiredValidator Component="Username" Text="L'identifiant est requis" Popup="true" />
+                    }
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenLabel Text="Rôle / Groupe" Component="Role" />
+                    <RadzenDropDown Name="Role" @bind-Value="@formData.RoleId"
+                                    Data="@availableRoles" TextProperty="Name" ValueProperty="Id"
+                                    Style="width: 100%;" />
+                    <RadzenRequiredValidator Component="Role" Text="Le rôle est requis" Popup="true" DefaultValue="0" />
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow RowGap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenLabel Text="Nom Affiché" Component="DisplayName" />
+                    <RadzenTextBox Name="DisplayName" @bind-Value="@formData.DisplayName" Style="width: 100%;"
+                                   Disabled="@isAdUser" />
+                    @if (isAdUser)
+                    {
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-info);">
+                            <RadzenIcon Icon="info" Style="font-size: 0.8rem" /> Géré par Active Directory
+                        </RadzenText>
+                    }
+                </RadzenColumn>
+
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenLabel Text="Email" Component="Email" />
+                    <RadzenTextBox Name="Email" @bind-Value="@formData.Email" Style="width: 100%;"
+                                   Disabled="@isAdUser" Placeholder="jean.dupont@entreprise.com" />
+                    @if (!isAdUser)
+                    {
+                        <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="true" />
+                    }
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-my-2">
+                <RadzenIcon Icon="lock" />
+                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">Sécurité</RadzenText>
+                <div style="flex: 1; height: 1px; background-color: var(--rz-border-color);"></div>
+            </RadzenStack>
+
+            <RadzenRow RowGap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenLabel Text="Mot de passe" Component="Password" />
+                    <RadzenPassword Name="Password" @bind-Value="@formData.Password" Style="width: 100%;"
+                                    Disabled="@isAdUser"
+                                    Placeholder="@(isAdUser ? "Géré par Windows" : (editMode ? "Laisser vide pour ne pas changer" : ""))" />
+
+                    @if (!editMode && !isAdUser)
+                    {
+                        <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="true" />
+                    }
+                </RadzenColumn>
+
+                @if (editMode)
+                {
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenCard Variant="Variant.Outlined" Class="rz-p-2">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenSwitch @bind-Value="@formData.IsActive" />
+                                    <RadzenLabel Text="Compte Actif" />
+                                </RadzenStack>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenCheckBox @bind-Value="@formData.ForceChangePassword" Disabled="@isAdUser" Name="ForceChange" />
+                                    <RadzenLabel Text="Forcer changement MDP" Component="ForceChange" Style="@(isAdUser ? "color: var(--rz-text-disabled-color);" : "color: var(--rz-danger); font-weight: bold;")" />
+                                </RadzenStack>
+                            </RadzenStack>
+                        </RadzenCard>
+                    </RadzenColumn>
+                }
+            </RadzenRow>
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="@(editMode ? "Enregistrer" : "Créer")" Icon="save" ButtonStyle="ButtonStyle.Success" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenTemplateForm>
+}
+
+@code {
+    [Parameter] public UserViewDto? UserToEdit { get; set; }
+
+    private class UserFormData
+    {
+        public string Username { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public int RoleId { get; set; }
+        public bool IsActive { get; set; } = true;
+        public bool ForceChangePassword { get; set; }
+    }
+
+    private UserFormData formData = new();
+    private List<RoleViewDto> availableRoles = new();
+    private bool isLoading = true;
+    private bool editMode => UserToEdit != null;
+    private bool isAdUser => UserToEdit?.IsAdUser ?? false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableRoles = await RoleService.GetRoles();
+            if (editMode)
+            {
+                formData = new UserFormData
+                {
+                    Username = UserToEdit!.Username,
+                    DisplayName = UserToEdit.DisplayName,
+                    Email = UserToEdit.Email,
+                    IsActive = UserToEdit.IsActive,
+                    RoleId = GetRoleIdFromNames(UserToEdit.Roles)
+                };
+            }
+            else
+            {
+                formData.RoleId = availableRoles.FirstOrDefault()?.Id ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de charger les rôles.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private int GetRoleIdFromNames(List<string> roleNames)
+    {
+        if (roleNames == null || !roleNames.Any()) return availableRoles.FirstOrDefault()?.Id ?? 0;
+        var roleName = roleNames.First();
+        return availableRoles.FirstOrDefault(r => r.Name == roleName)?.Id ?? 0;
+    }
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            if (editMode)
+            {
+                var updateDto = new UpdateUserDto
+                {
+                    DisplayName = formData.DisplayName,
+                    Email = formData.Email,
+                    IsActive = formData.IsActive,
+                    RoleId = formData.RoleId,
+                    ForceChangePassword = formData.ForceChangePassword,
+                    NewPassword = string.IsNullOrWhiteSpace(formData.Password) ? null : formData.Password
+                };
+                await UserService.UpdateUser(UserToEdit!.Id, updateDto);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Utilisateur modifié.");
+            }
+            else
+            {
+                var createDto = new CreateUserDto
+                {
+                    Username = formData.Username,
+                    DisplayName = formData.DisplayName,
+                    Email = formData.Email,
+                    Password = formData.Password,
+                    RoleId = formData.RoleId
+                };
+                await UserService.CreateUser(createDto);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Utilisateur créé.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+}

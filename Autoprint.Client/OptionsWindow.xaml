@@ -1,0 +1,146 @@
+﻿<Window x:Class="Autoprint.Client.OptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="Options" Width="400"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Border CornerRadius="0" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <materialDesign:ColorZone Grid.Row="0" Mode="PrimaryMid" Padding="15" MouseDown="Header_MouseDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Cog" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="OPTIONS" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,-5,0"
+                            Style="{StaticResource MaterialDesignIconForegroundButton}" 
+                            Click="BtnFermer_Click">
+                        <materialDesign:PackIcon Kind="Close" />
+                    </Button>
+                </Grid>
+            </materialDesign:ColorZone>
+
+            <StackPanel Grid.Row="1" Margin="20">
+
+                <TextBlock Text="Préférences Utilisateur" Style="{StaticResource MaterialDesignSubtitle1TextBlock}" Margin="0,0,0,15" Opacity="0.6"/>
+
+                <Grid Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Notifications" FontWeight="SemiBold"/>
+                        <TextBlock Text="M'avertir lors du changement de lieu" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" IsChecked="{Binding EnableNotifications}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                </Grid>
+
+                <Separator Margin="0,0,0,20"/>
+
+                <Grid Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Gestion Intelligente" FontWeight="SemiBold"/>
+                        <TextBlock Text="Changer l'imprimante par défaut automatiquement selon mes favoris" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoSwitchDefaultPrinter}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                </Grid>
+
+                <Separator Margin="0,0,0,20"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Démarrage automatique" FontWeight="SemiBold"/>
+                        <TextBlock Text="Lancer Autoprint à l'ouverture de session Windows" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" IsChecked="{Binding StartWithWindows}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                </Grid>
+
+                <StackPanel Margin="0,25,0,0"
+                            Visibility="{Binding IsAdminPanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                    <Separator Background="Orange" Margin="0,0,0,10"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                        <materialDesign:PackIcon Kind="Security" Foreground="Orange" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="ZONE TECHNIQUE" FontWeight="Bold" Foreground="Orange"/>
+                    </StackPanel>
+
+                    <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                             materialDesign:HintAssist.Hint="URL Serveur"
+                             Text="{Binding AdminServerUrl, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,10"/>
+
+                    <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                             materialDesign:HintAssist.Hint="Clé API (Agent)"
+                             Text="{Binding AdminApiKey, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas"
+                             Margin="0,0,0,20"/>
+
+                    <Button Command="{Binding TestAndSaveCommand}"
+                            Content="TESTER &amp; SAUVEGARDER"
+                            IsEnabled="{Binding IsNotTesting}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            BorderBrush="Orange" Foreground="Orange"
+                            materialDesign:ButtonAssist.CornerRadius="5"/>
+
+                    <Grid Margin="0,10,0,0">
+                        <TextBlock Text="{Binding TestStatusMessage}" 
+                                   Foreground="{Binding TestStatusColor}" 
+                                   TextWrapping="Wrap" 
+                                   HorizontalAlignment="Center"
+                                   Visibility="{Binding IsNotTesting, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                        <ProgressBar IsIndeterminate="True" 
+                                     Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                     Value="0" Width="20" Height="20"
+                                     Visibility="{Binding IsTesting, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                <TextBlock Text="Les modifications sont enregistrées automatiquement." 
+                           HorizontalAlignment="Center" FontSize="10" Opacity="0.4" FontStyle="Italic" Margin="0,0,0,2"/>
+
+                <Button Command="{Binding VersionClickCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Height="Auto" Padding="5,0"
+                        HorizontalAlignment="Center"
+                        Foreground="{DynamicResource MaterialDesignBody}"
+                        Opacity="0.3"
+                        ToolTip="Version de l'agent">
+                    <TextBlock Text="{Binding VersionText}" FontSize="9"/>
+                </Button>
+            </StackPanel>
+
+        </Grid>
+    </Border>
+</Window>

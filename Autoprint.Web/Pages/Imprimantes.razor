@@ -1,0 +1,459 @@
+﻿@page "/imprimantes"
+@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.Enums
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
+@using Blazored.LocalStorage
+@inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
+@inject ISyncService SyncService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
+@inject ILocalStorageService LocalStorage
+
+<PageTitle>Gestion des Imprimantes</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🖨️ Parc d'Imprimantes
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(imprimantes == null || !imprimantes.Any())" />
+
+        <AuthorizeView Policy="PRINTER_SYNC">
+            <Authorized>
+                <RadzenButton Icon="fact_check" Text="Audit Serveur" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Outlined" Click="@AuditerServeur" IsBusy="@isAuditing" BusyText="Audit..." />
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Policy="PRINTER_WRITE">
+            <Authorized Context="authContext">
+                <RadzenButton Icon="search" Text="Scanner Réseau" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Click="OuvrirScanModal" />
+                <RadzenButton Icon="add_circle" Text="Ajouter" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation }))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (imprimantes != null)
+{
+    var toCreate = imprimantes.Count(i => i.Status == PrinterStatus.PendingCreation);
+    var toUpdate = imprimantes.Count(i => i.Status == PrinterStatus.PendingUpdate);
+    var toDelete = imprimantes.Count(i => i.Status == PrinterStatus.PendingDelete);
+    var errors = imprimantes.Count(i => i.Status == PrinterStatus.SyncError);
+    var totalPending = toCreate + toUpdate + toDelete;
+
+    @if (errors > 0)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Icon="report" AllowClose="false" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mb-4">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <span><strong>Attention !</strong> Il y a @errors erreur(s) de synchronisation.</span>
+                <AuthorizeView Policy="PRINTER_SYNC">
+                    <RadzenButton Text="Réessayer la synchro" Icon="sync_problem" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="ApplyChanges" Disabled="@isSyncing" />
+                </AuthorizeView>
+            </RadzenStack>
+        </RadzenAlert>
+    }
+    else if (totalPending > 0)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Icon="info" AllowClose="false" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mb-4">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0">
+                    <span style="font-weight: bold;">Modifications en attente de synchronisation :</span>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Style="font-size: 0.85rem;">
+                        @if (toCreate > 0)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@($"+ {toCreate} Création(s)")" />
+                        }
+                        @if (toUpdate > 0)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@($"+ {toUpdate} Mise(s) à jour")" />
+                        }
+                        @if (toDelete > 0)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@($"- {toDelete} Suppression(s)")" />
+                        }
+                    </RadzenStack>
+                </RadzenStack>
+
+                <AuthorizeView Policy="PRINTER_SYNC">
+                    <RadzenButton Text="Synchroniser Maintenant" Icon="sync" ButtonStyle="ButtonStyle.Warning" Click="ApplyChanges" IsBusy="@isSyncing" BusyText="Analyse..." />
+                </AuthorizeView>
+            </RadzenStack>
+        </RadzenAlert>
+    }
+}
+
+@if (syncResult != null)
+{
+    <RadzenAlert AlertStyle="@(syncResult.Success? AlertStyle.Success: AlertStyle.Danger)" AllowClose="true" Variant="Variant.Flat" Shade="Shade.Light" Class="rz-mb-4">
+        <strong>@(syncResult.Success ? "Opération terminée" : "Erreur survenue")</strong>
+        <ul style="margin: 0; padding-left: 1rem; font-size: 0.9rem;">
+            @foreach (var msg in syncResult.Messages)
+            {
+                <li>@msg</li>
+            }
+        </ul>
+    </RadzenAlert>
+}
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid @ref="grid" Data="@imprimantes" TItem="Imprimante"
+                    AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true"
+                    AllowColumnResize="true"
+                    AllowColumnPicking="true"
+                    ColumnWidth="200px"
+                    Responsive="true"
+                    Settings="@gridSettings"
+                    SettingsChanged="@OnSettingsChanged"
+                    Style="width: 100%;">
+
+        <Columns>
+            <RadzenDataGridColumn TItem="Imprimante" Property="Status" Title="" Width="60px" Sortable="true" Filterable="false" TextAlign="TextAlign.Center">
+                <Template Context="imp">
+                    @switch (imp.Status)
+                    {
+                        case PrinterStatus.Synchronized:
+                            <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" Tooltip="Synchronisé" />
+                            break;
+                        case PrinterStatus.ImportedNeedsFix:
+                            <RadzenIcon Icon="build" Style="color: var(--rz-warning);" Tooltip="@GenererMessageIncomplet(imp)" />
+                            break;
+                        case PrinterStatus.PendingCreation:
+                            <RadzenIcon Icon="add_circle" Style="color: var(--rz-success);" Tooltip="En attente de création" />
+                            break;
+                        case PrinterStatus.PendingUpdate:
+                            <RadzenIcon Icon="edit" Style="color: var(--rz-warning);" Tooltip="En attente de mise à jour" />
+                            break;
+                        case PrinterStatus.PendingDelete:
+                            <RadzenIcon Icon="delete" Style="color: var(--rz-danger);" Tooltip="En attente de suppression" />
+                            break;
+                        case PrinterStatus.SyncError:
+                            <RadzenIcon Icon="error" Style="color: var(--rz-danger);" Tooltip="Erreur de synchro" />
+                            break;
+                        default:
+                            <RadzenIcon Icon="help" Style="color: var(--rz-text-disabled-color);" />
+                            break;
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="NomAffiche" Title="Nom" Sortable="true" Filterable="true"
+                                  Width="250px" MinWidth="100px">
+                <Template Context="imp">
+                    <div style="white-space: normal; word-wrap: break-word; font-weight: bold; font-size: 1.05em;">
+                        @imp.NomAffiche
+                    </div>
+                    @if (imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
+                    {
+                        <div style="color: var(--rz-danger); font-size: 0.8rem; font-style: italic; white-space: normal;">
+                            ↳ @imp.Commentaire
+                        </div>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="Code" Title="Code" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="imp">
+                    @if (!string.IsNullOrEmpty(imp.Code))
+                    {
+                        <RadzenBadge Variant="Variant.Flat" BadgeStyle="BadgeStyle.Secondary" Text="@imp.Code" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="Modele.Nom" Title="Modèle"
+                                  Width="200px" MinWidth="100px">
+                <Template Context="imp">
+                    @if (imp.Modele != null)
+                    {
+                        <div style="white-space: normal;">
+                            @if (imp.Modele.Nom == "GÉNÉRIQUE" || imp.Modele.Nom == "NON DÉFINI")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@imp.Modele.Nom" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@imp.Modele.Nom" />
+                            }
+                        </div>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="AdresseIp" Title="IP" Width="140px">
+                <Template Context="imp">
+                    <span style="font-family: monospace; font-size: 1.1em;">@imp.AdresseIp</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="Emplacement.Nom" Title="Lieu"
+                                  Width="200px" MinWidth="100px">
+                <Template Context="imp">
+                    @if (imp.Emplacement != null)
+                    {
+                        <div style="white-space: normal;">
+                            @if (imp.Emplacement.Nom == "NON DÉFINI")
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@imp.Emplacement.Nom" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@imp.Emplacement.Nom" />
+                            }
+                        </div>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="IsDirectPrintingEnabled" Title="Direct" Width="90px" TextAlign="TextAlign.Center">
+                <Template Context="imp">
+                    @if (imp.IsDirectPrintingEnabled)
+                    {
+                        @* Icone : Flèche directe ou Ethernet pour signifier le RAW *@
+                        <RadzenIcon Icon="settings_ethernet" Style="color: var(--rz-info);"
+                                    Tooltip="Mode Direct (RAW - Pas de Spooler)" />
+                    }
+                    else
+                    {
+                        @* Icone : Serveur pour signifier le Spooler central *@
+                        <RadzenIcon Icon="dns" Style="color: var(--rz-text-disabled-color); opacity: 0.5;"
+                                    Tooltip="Mode Serveur (Spooler Standard)" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="EstPartagee" Title="Partage" Width="110px" TextAlign="TextAlign.Center">
+                <Template Context="imp">
+                    @if (imp.EstPartagee)
+                    {
+                        <RadzenIcon Icon="folder_shared" Style="color: var(--rz-success);" Tooltip="@("Partage : " + imp.NomPartage)" />
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color);">-</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Title="" Width="70px" Sortable="false" Filterable="false"
+                                  TextAlign="TextAlign.Center"
+                                  Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                <Template Context="imp">
+                    <AuthorizeView Policy="PRINTER_WRITE">
+                        <Authorized Context="auth">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" />
+                        </Authorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    RadzenDataGrid<Imprimante> grid;
+    DataGridSettings gridSettings;
+
+    private List<Imprimante>? imprimantes;
+    private bool isLoading = true;
+    private bool isSyncing = false;
+    private bool isAuditing = false;
+    private BatchResult? syncResult;
+    private bool CanReadPrinters { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        CanReadPrinters = await AuthProvider.HasPermission("Permission", "PRINTER_READ");
+        if (CanReadPrinters) await ChargerListe();
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Accès refusé", "Vous n'avez pas les droits.");
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var settingsJson = await LocalStorage.GetItemAsync<string>("PrintersGridSettings");
+                if (!string.IsNullOrEmpty(settingsJson))
+                {
+                    gridSettings = System.Text.Json.JsonSerializer.Deserialize<DataGridSettings>(settingsJson);
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task OnSettingsChanged(DataGridSettings settings)
+    {
+        gridSettings = settings;
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(settings);
+            await LocalStorage.SetItemAsync("PrintersGridSettings", json);
+        }
+        catch { }
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try { imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes"); }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { isLoading = false; }
+    }
+
+    private async Task ApplyChanges()
+    {
+        isSyncing = true;
+        try
+        {
+            var previewItems = await SyncService.GetPreview();
+            var selectedIds = await DialogService.OpenAsync<SyncPreviewModal>("Aperçu des modifications",
+                new Dictionary<string, object> { { "Items", previewItems } },
+                new DialogOptions() { Width = "800px", Height = "600px", CloseDialogOnOverlayClick = false }
+            );
+            if (selectedIds is List<int> idsToSync && idsToSync.Any())
+            {
+                await ExecuterSynchroReelle(idsToSync);
+            }
+        }
+        catch (Exception ex)
+        {
+            syncResult = new BatchResult { Success = false, Messages = new List<string> { "Erreur : " + ex.Message } };
+        }
+        finally { isSyncing = false; }
+    }
+
+    private async Task ExecuterSynchroReelle(List<int> ids)
+    {
+        syncResult = null;
+        try
+        {
+            syncResult = await SyncService.ApplyChanges(ids);
+            if (syncResult.Success) await ChargerListe();
+        }
+        catch (Exception ex)
+        {
+            syncResult = new BatchResult { Success = false, Messages = new List<string> { ex.Message } };
+        }
+    }
+
+    private async Task AuditerServeur()
+    {
+        isAuditing = true;
+        try
+        {
+            var response = await Http.PostAsync("api/Imprimantes/Audit", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                string msg = json.TryGetProperty("message", out var p) ? p.GetString() : "Audit terminé.";
+
+                NotificationService.Notify(NotificationSeverity.Info, "Audit Terminé", msg);
+                await ChargerListe();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur Audit", await response.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Exception", ex.Message);
+        }
+        finally
+        {
+            isAuditing = false;
+        }
+    }
+
+    private async Task OuvrirScanModal()
+    {
+        await DialogService.OpenAsync<ScanPrintersModal>("Scanner Réseau",
+             null,
+             new DialogOptions() { Width = "90%", Height = "85%", CloseDialogOnOverlayClick = false }
+        );
+        await ChargerListe();
+    }
+
+    private async Task OuvrirModal(Imprimante imp)
+    {
+        var impClone = new Imprimante
+        {
+            Id = imp.Id,
+            NomAffiche = imp.NomAffiche,
+            Code = imp.Code,
+            AdresseIp = imp.AdresseIp,
+            Localisation = imp.Localisation,
+            EstPartagee = imp.EstPartagee,
+            NomPartage = imp.NomPartage,
+            Commentaire = imp.Commentaire,
+            ModeleId = imp.ModeleId,
+            EmplacementId = imp.EmplacementId,
+            Status = imp.Status,
+            IsDirectPrintingEnabled = imp.IsDirectPrintingEnabled
+        };
+
+        var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
+        var result = await DialogService.OpenAsync<ImprimanteModal>(title,
+            new Dictionary<string, object> { { "ImprimanteToEdit", impClone } },
+            new DialogOptions() { Width = "900px", CloseDialogOnOverlayClick = true }
+        );
+        if (result == true)
+        {
+            await ChargerListe();
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (imprimantes == null || !imprimantes.Any()) return;
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom;Code;Modele;IP;Lieu;Emplacement;Partage;modeDirect");
+
+        foreach (var i in imprimantes)
+        {
+            var nom = i.NomAffiche?.Replace(";", ",") ?? "";
+            var modele = i.Modele?.Nom?.Replace(";", ",") ?? "";
+            var lieu = i.Emplacement?.Nom?.Replace(";", ",") ?? "";
+            var modeDirect = i.IsDirectPrintingEnabled ? "Oui" : "Non";
+            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Parc_Imprimantes_{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "CSV généré.");
+    }
+
+    private string GenererMessageIncomplet(Imprimante imp)
+    {
+        var manquants = new List<string>();
+        if (imp.ModeleId <= 1) manquants.Add("Modèle");
+        if (imp.EmplacementId == 0) manquants.Add("Emplacement");
+        if (string.IsNullOrWhiteSpace(imp.AdresseIp)) manquants.Add("Adresse IP");
+        return manquants.Any() ? "Action requise : Sélectionnez " + string.Join(", ", manquants) : "Données incomplètes";
+    }
+}

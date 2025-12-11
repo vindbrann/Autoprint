@@ -1,0 +1,109 @@
+﻿@page "/pilotes"
+@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject CustomAuthStateProvider AuthProvider
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Gestion des Pilotes</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenStack Gap="0">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">💾 Bibliothèque des Pilotes</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Inventaire WMI du serveur (Lecture Seule).</RadzenText>
+    </RadzenStack>
+
+    <AuthorizeView Policy="DRIVER_SCAN">
+        <Authorized Context="auth">
+            <RadzenButton Icon="dns" Text="Scanner le Serveur" ButtonStyle="ButtonStyle.Primary" Click="@OuvrirScan" />
+        </Authorized>
+    </AuthorizeView>
+</RadzenStack>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@pilotes" TItem="Pilote"
+                    AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="200px">
+        <Columns>
+
+            <RadzenDataGridColumn TItem="Pilote" Property="Nom" Title="Nom du Pilote" Sortable="true" Filterable="true" Width="300px">
+                <Template Context="p">
+                    <span style="font-weight: bold; color: var(--rz-text-color);">@p.Nom</span>
+                    @if (!p.EstInstalle)
+                    {
+                        <div class="rz-mt-1">
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="INTROUVABLE SUR LE SERVEUR" Icon="warning" />
+                        </div>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Pilote" Property="Version" Title="Version" Width="150px">
+                <Template Context="p">
+                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Outlined" Text="@p.Version" />
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Pilote" Property="DateModification" Title="Dernière Maj" Width="150px">
+                <Template Context="p">
+                    @p.DateModification.ToShortDateString()
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Pilote" Property="EstInstalle" Title="État" Width="120px" TextAlign="TextAlign.Center">
+                <Template Context="p">
+                    @if (p.EstInstalle)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Actif" IsPill="true" />
+                    }
+                    else
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Manquant" IsPill="true" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+
+        </Columns>
+    </RadzenDataGrid>
+
+    <div class="rz-mt-2 rz-text-align-right" style="color: var(--rz-text-tertiary-color); font-size: 0.8rem;">
+        Total : @(pilotes?.Count ?? 0) pilotes répertoriés.
+    </div>
+}
+
+@code {
+    private List<Pilote>? pilotes;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var canRead = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
+        if (canRead) await ChargerListe();
+        else { NotificationService.Notify(NotificationSeverity.Warning, "Accès refusé", "Vous n'avez pas les droits."); isLoading = false; }
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try { pilotes = await Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes"); }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { isLoading = false; }
+    }
+
+    private async Task OuvrirScan()
+    {
+        var result = await DialogService.OpenAsync<ScanDriversModal>("Scanner le Serveur", null, new DialogOptions() { Width = "500px" });
+        if (result == true) await ChargerListe();
+    }
+
+}

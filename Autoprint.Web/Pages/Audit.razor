@@ -1,0 +1,214 @@
+﻿@page "/audit"
+@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using System.Text.Json
+@using System.Text
+@using Radzen
+@using Radzen.Blazor
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Journal d'Audit</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🕵️ Journal d'Audit
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
+        <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+    </RadzenStack>
+</RadzenStack>
+
+<RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 rz-p-2">
+    <RadzenTextBox Placeholder="Rechercher (Utilisateur, Action, Détails)..."
+                   @oninput="@(args => OnSearchChange(args.Value?.ToString()))"
+                   Style="width: 100%;" />
+</RadzenCard>
+
+<RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
+                TItem="AuditLogDto"
+                AllowPaging="true" PageSize="20"
+                AllowSorting="true" AllowFiltering="false"
+                Density="Density.Compact"
+                Style="height: 600px;">
+    <Columns>
+
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="DateAction" Title="Date" Sortable="true" Width="160px">
+            <Template Context="log">
+                <span class="text-muted small">@log.DateAction.ToLocalTime().ToString("dd/MM/yy HH:mm")</span>
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Niveau" Title="Niveau" Width="90px" TextAlign="TextAlign.Center">
+            <Template Context="log">
+                @switch (log.Niveau)
+                {
+                    case "ERROR":
+                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ERR" />
+                        break;
+                    case "WARNING":
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="WARN" />
+                        break;
+                    case "INFO":
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="INFO" />
+                        break;
+                    default:
+
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@log.Niveau" />
+                        break;
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Utilisateur" Title="Utilisateur" Width="140px">
+            <Template Context="log">
+                <span style="font-weight: 500; font-size: 0.9em;">@log.Utilisateur</span>
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Action" Title="Détails de l'opération" MinWidth="300px">
+            <Template Context="log">
+                <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; white-space: nowrap;">
+
+                    <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall"
+                                  Click="@(() => ShowDetails(log.Id))" Tooltip="Voir les détails" Style="flex-shrink: 0;" />
+
+                    <div style="overflow: hidden; text-overflow: ellipsis;">
+                        <span style="font-weight: bold; color: var(--rz-text-title-color);">@log.ActionLisible</span>
+                        <span style="color: var(--rz-text-tertiary-color); margin-left: 8px;">@log.Details</span>
+                    </div>
+                </div>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private RadzenDataGrid<AuditLogDto>? grid;
+    private IEnumerable<AuditLogDto>? logs;
+    private int totalCount;
+    private bool isLoading;
+
+    private string currentSearch = "";
+    private System.Timers.Timer? debounceTimer;
+
+    protected override void OnInitialized()
+    {
+        debounceTimer = new System.Timers.Timer(500);
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (sender, e) =>
+        {
+            await InvokeAsync(() => grid?.Reload());
+        };
+    }
+
+    private void OnSearchChange(string? value)
+    {
+        currentSearch = value ?? "";
+        debounceTimer?.Stop();
+        debounceTimer?.Start();
+    }
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        isLoading = true;
+        try
+        {
+            var page = (args.Skip / args.Top) + 1;
+            var pageSize = args.Top ?? 20;
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={page}&pageSize={pageSize}&search={currentSearch}");
+            if (result != null)
+            {
+                logs = result.Items;
+                totalCount = result.TotalCount;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erreur Audit Load: " + ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ShowDetails(int logId)
+    {
+        var fullLog = await Http.GetFromJsonAsync<AuditLog>($"/api/Audit/{logId}");
+        if (fullLog != null)
+        {
+            await DialogService.OpenAsync<AuditDetailModal>($"Détails Log #{logId}",
+                new Dictionary<string, object> { { "Log", fullLog } },
+                new DialogOptions() { Width = "800px" }
+            );
+        }
+    }
+
+    private async Task PurgerLogs()
+    {
+        var confirm = await DialogService.Confirm("Supprimer définitivement les logs vieux de plus de 30 jours ?", "Nettoyage",
+            new ConfirmOptions { OkButtonText = "Oui, nettoyer", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            var res = await Http.DeleteAsync("api/Audit/cleanup");
+            if (res.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Nettoyage", "Logs anciens supprimés.");
+                grid?.Reload();
+            }
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (totalCount == 0) return;
+
+        try
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "Export", "Génération du fichier en cours...");
+
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page=1&pageSize=100000&search={currentSearch}");
+
+            if (result?.Items == null || !result.Items.Any()) return;
+
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Date;Niveau;Utilisateur;Action;Details");
+
+            foreach (var l in result.Items)
+            {
+                var detailsClean = l.Details?.Replace(";", ",").Replace("\n", " ") ?? "";
+                var actionClean = l.ActionLisible?.Replace(";", ",") ?? "";
+
+                csvBuilder.AppendLine($"{l.DateAction};{l.Niveau};{l.Utilisateur};{actionClean};{detailsClean}");
+            }
+
+            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+            using var stream = new MemoryStream(bytes);
+            using var streamRef = new DotNetStreamReference(stream);
+
+            var nomFichier = $"Audit_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+            await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+            NotificationService.Notify(NotificationSeverity.Success, "Export", "Téléchargement terminé.");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Export", ex.Message);
+        }
+    }
+
+    public void Dispose()
+    {
+        debounceTimer?.Dispose();
+    }
+}

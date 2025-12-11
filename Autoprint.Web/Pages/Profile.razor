@@ -1,0 +1,194 @@
+﻿@page "/profile"
+@using Autoprint.Shared.DTOs
+@using System.Net
+@using Radzen
+@using Radzen.Blazor
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Mon Profil</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-4">
+    👤 Mon Profil
+</RadzenText>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenRow Gap="2rem">
+        
+        <RadzenColumn Size="12" SizeMD="7">
+            <RadzenCard>
+                <RadzenStack Gap="1.5rem">
+                    <RadzenText TextStyle="TextStyle.H6" Class="rz-color-primary rz-mb-0">Mes informations</RadzenText>
+
+                    @if (userProfile.IsAdUser)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="domain" />
+                                <div>
+                                    <strong>Compte Active Directory</strong><br/>
+                                    Vos informations sont gérées par votre organisation.
+                                </div>
+                            </RadzenStack>
+                        </RadzenAlert>
+                    }
+
+                    <RadzenTemplateForm Data="@profileModel" Submit="@HandleInfoSubmit" TItem="UpdateProfileDto">
+                        <RadzenStack Gap="1rem">
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Identifiant" />
+                                    <RadzenTextBox Value="@userProfile.Username" Disabled="true" Style="width: 100%;" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Rôle" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@userProfile.Role" Class="rz-mt-2" />
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Nom Affiché" Component="DisplayName" />
+                                    <RadzenTextBox Name="DisplayName" @bind-Value="@profileModel.DisplayName" Disabled="@userProfile.IsAdUser" Style="width: 100%;" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Email" Component="Email" />
+                                    <RadzenTextBox Name="Email" @bind-Value="@profileModel.Email" Disabled="@userProfile.IsAdUser" Style="width: 100%;" />
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            @if (!userProfile.IsAdUser)
+                            {
+                                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer les infos" Icon="save" ButtonStyle="ButtonStyle.Success" Class="rz-mt-2" />
+                            }
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        @if (!userProfile.IsAdUser)
+        {
+            <RadzenColumn Size="12" SizeMD="5">
+                <RadzenCard Style="border-top: 4px solid var(--rz-warning);">
+                    <RadzenStack Gap="1.5rem">
+                        
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sécurité du compte</RadzenText>
+                            <RadzenIcon Icon="security" Style="color: var(--rz-warning); font-size: 2rem;" />
+                        </RadzenStack>
+
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Validité du mot de passe</RadzenText>
+                            
+                            @if (userProfile.PasswordExpired)
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-danger); font-weight: bold;">EXPIRÉ !</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption">Vous devez le changer immédiatement.</RadzenText>
+                            }
+                            else
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1">
+                                    Encore <strong style="font-size: 1.2em;">@userProfile.DaysUntilExpiration</strong> jours
+                                </RadzenText>
+
+                                <RadzenProgressBar Value="@(Math.Clamp((double)userProfile.DaysUntilExpiration, 0, 90) / 90 * 100)"
+                                                   ProgressBarStyle="@(userProfile.DaysUntilExpiration > 30 ? ProgressBarStyle.Success : (userProfile.DaysUntilExpiration > 7 ? ProgressBarStyle.Warning : ProgressBarStyle.Danger))"
+                                                   ShowValue="false"
+                                                   Style="height: 8px;" />
+                            }
+                        </RadzenStack>
+
+                        <RadzenButton Text="Modifier mon mot de passe" Icon="password" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Click="@OpenPasswordModal" />
+
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        }
+
+    </RadzenRow>
+}
+
+@code {
+    private UserProfileDto userProfile = new();
+    private UpdateProfileDto profileModel = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        try
+        {
+            userProfile = await Http.GetFromJsonAsync<UserProfileDto>("api/users/profile") ?? new();
+            profileModel = new UpdateProfileDto { DisplayName = userProfile.DisplayName, Email = userProfile.Email };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement profil: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleInfoSubmit()
+    {
+        try
+        {
+            var res = await Http.PutAsJsonAsync("api/users/profile", profileModel);
+            if (res.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Infos mises à jour !");
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task OpenPasswordModal()
+    {
+        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+            new Dictionary<string, object> { { "IsForced", false } },
+            new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
+        );
+
+        if (result is ChangePasswordDto dto)
+        {
+            await ChangePassword(dto);
+        }
+    }
+
+    private async Task ChangePassword(ChangePasswordDto dto)
+    {
+        try
+        {
+            var res = await Http.PutAsJsonAsync("api/users/change-password", dto);
+            if (res.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Mot de passe modifié !");
+                await LoadProfile();
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+}

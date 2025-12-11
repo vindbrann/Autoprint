@@ -1,0 +1,110 @@
+﻿@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="Emplacement" Data="@lieuEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+
+        <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
+            <RadzenColumn Size="8">
+                <RadzenLabel Text="Nom du Lieu" Component="Nom" />
+                <RadzenTextBox Name="Nom" @bind-Value="@lieuEdit.Nom" Style="width: 100%;" Placeholder="Ex: Siège Social" />
+                <RadzenRequiredValidator Component="Nom" Text="Le nom est requis" Popup="true" />
+            </RadzenColumn>
+            <RadzenColumn Size="4">
+                <RadzenLabel Text="Code" Component="Code" />
+                <RadzenTextBox Name="Code" @bind-Value="@lieuEdit.Code" Style="width: 100%;" Placeholder="Ex: SIEGE" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <div>
+            <RadzenLabel Text="Plage IP (CIDR)" Component="Cidr" />
+            <RadzenTextBox Name="Cidr" @bind-Value="@lieuEdit.CidrIpv4" Style="width: 100%;" Placeholder="Ex: 192.168.10.0/24" />
+            <RadzenRequiredValidator Component="Cidr" Text="Le CIDR est requis pour la détection" Popup="true" />
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+
+            @if (lieuEdit.Id != 0)
+            {
+                <AuthorizeView Policy="LOCATION_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Emplacement LieuToEdit { get; set; } = new();
+
+    private Emplacement lieuEdit = new();
+
+    protected override void OnInitialized()
+    {
+        lieuEdit = new Emplacement
+        {
+            Id = LieuToEdit.Id,
+            Nom = LieuToEdit.Nom,
+            Code = LieuToEdit.Code,
+            CidrIpv4 = LieuToEdit.CidrIpv4
+        };
+    }
+
+    private async Task OnSubmit(Emplacement args)
+    {
+        try
+        {
+            if (lieuEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Emplacements", lieuEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu créé avec succès.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Emplacements/{lieuEdit.Id}", lieuEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu mis à jour.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Impossible d'enregistrer : {ex.Message}");
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer ce lieu ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Emplacements/{lieuEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Le lieu a été supprimé.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", $"Erreur de suppression : {ex.Message}");
+            }
+        }
+    }
+}

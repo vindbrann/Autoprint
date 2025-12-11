@@ -1,0 +1,82 @@
+﻿@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject AlertService AlertService
+
+<RadzenStack Gap="1rem" AlignItems="AlignItems.Center" Class="rz-p-4">
+
+    @if (isSyncing)
+    {
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" ProgressBarStyle="ProgressBarStyle.Base" />
+        <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-text-secondary-color);">Analyse des pilotes WMI en cours...</RadzenText>
+    }
+    else if (result != null)
+    {
+        <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
+        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-text-title-color);">Synchronisation terminée !</RadzenText>
+
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="width: 100%;">
+            <RadzenStack Gap="0.5rem">
+                <div>➕ <strong>@result.Added</strong> ajoutés</div>
+                <div>🔄 <strong>@result.Updated</strong> mis à jour</div>
+                <div>❌ <strong>@result.Deleted</strong> nettoyés</div>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close(true))" ButtonStyle="ButtonStyle.Primary" Class="rz-mt-2" />
+    }
+    else
+    {
+        <RadzenIcon Icon="dns" Style="font-size: 4rem; color: var(--rz-primary);" />
+        <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center" Style="color: var(--rz-text-title-color);">
+            Lancer la synchronisation avec le Spouleur Windows ?
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" TextAlign="TextAlign.Center" Style="color: var(--rz-text-tertiary-color);">
+            Cette opération va scanner les pilotes installés localement et mettre à jour la base de données.
+        </RadzenText>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Class="rz-mt-4">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton Text="Lancer le Scan" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" Click="@LancerSynchro" />
+        </RadzenStack>
+    }
+
+</RadzenStack>
+
+@code {
+    private bool isSyncing = false;
+    private BatchResult? result;
+
+    private async Task LancerSynchro()
+    {
+        isSyncing = true;
+        try
+        {
+            var response = await Http.PostAsync("api/Pilotes/sync", null);
+            if (response.IsSuccessStatusCode)
+            {
+                result = await response.Content.ReadFromJsonAsync<BatchResult>();
+                await AlertService.RefreshState(); // Met à jour le badge rouge du menu
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur Serveur", response.ReasonPhrase);
+                DialogService.Close(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Technique", ex.Message);
+            DialogService.Close(false);
+        }
+        finally
+        {
+            isSyncing = false;
+        }
+    }
+}

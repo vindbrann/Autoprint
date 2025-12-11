@@ -1,0 +1,124 @@
+﻿@page "/marques"
+@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JS
+
+<PageTitle>Gestion des Marques</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        🏷️ Gestion des Marques
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(marques == null || !marques.Any())" />
+
+        <AuthorizeView Policy="BRAND_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouvelle Marque" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Marque()))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@marques" TItem="Marque"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.Advanced"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="300px">
+        <Columns>
+            <RadzenDataGridColumn TItem="Marque" Property="Nom" Title="Nom de la Marque" Sortable="true" Filterable="true" />
+
+            <RadzenDataGridColumn TItem="Marque" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    <AuthorizeView Policy="BRAND_WRITE">
+                        <Authorized>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(m))" />
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<Marque>? marques;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerListe();
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try
+        {
+            marques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Chargement", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OuvrirModal(Marque marque)
+    {
+        var resultat = await DialogService.OpenAsync<MarqueModal>(
+            marque.Id == 0 ? "Ajouter une Marque" : "Modifier la Marque",
+            new Dictionary<string, object> { { "MarqueToEdit", marque } },
+            new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
+        );
+
+        if (resultat == true)
+        {
+            await ChargerListe();
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (marques == null || !marques.Any()) return;
+
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom de la Marque");
+
+        foreach (var m in marques)
+        {
+            var nomEsthetique = m.Nom?.Replace(";", ",");
+            csvBuilder.AppendLine($"{m.Id};{nomEsthetique}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+
+        using var stream = new MemoryStream(bytes);
+
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Marques_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+        NotificationService.Notify(NotificationSeverity.Info, "Export réussi", "Le fichier a été téléchargé.");
+    }
+}

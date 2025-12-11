@@ -1,0 +1,179 @@
+﻿@page "/users"
+@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject IUserService UserService
+@inject IRoleService RoleService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Gestion des Utilisateurs</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+        👥 Gestion des Utilisateurs
+    </RadzenText>
+
+    <AuthorizeView Policy="USER_WRITE">
+        <Authorized>
+            <RadzenButton Icon="person_add" Text="Nouvel Utilisateur" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(null))" />
+        </Authorized>
+    </AuthorizeView>
+</RadzenStack>
+
+@if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@users" TItem="UserViewDto"
+                    AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="200px">
+        <Columns>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Property="Username" Title="Identifiant" Sortable="true" Filterable="true">
+                <Template Context="u">
+                    @if (u.IsAdUser)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="AD" Class="rz-mr-1" Style="vertical-align: middle;" />
+                    }
+                    <span style="font-weight: bold; color: var(--rz-text-color);">@u.Username</span>
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Property="DisplayName" Title="Nom" Sortable="true" Filterable="true" />
+
+            <RadzenDataGridColumn TItem="UserViewDto" Property="Email" Title="Email" Sortable="true" Filterable="true">
+                <Template Context="u">
+                    @if (!string.IsNullOrEmpty(u.Email))
+                    {
+                        <a href="mailto:@u.Email" style="color: var(--rz-primary);">@u.Email</a>
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.8em;">-</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Title="Rôle" Sortable="false" Filterable="false">
+                <Template Context="u">
+                    @foreach (var r in u.Roles)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Outlined" Text="@r" Class="rz-mr-1" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Property="LastLogin" Title="Dernière connexion" Width="180px">
+                <Template Context="u">
+                    @if (u.LastLogin == DateTime.MinValue)
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.8em;">Jamais</span>
+                    }
+                    else
+                    {
+                        @u.LastLogin.ToString("g")
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Property="IsActive" Title="État" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="u">
+                    @if (u.IsActive)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Actif" IsPill="true" />
+                    }
+                    else
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Désactivé" IsPill="true" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="UserViewDto" Title="Actions" Sortable="false" Filterable="false" Width="120px" TextAlign="TextAlign.Center">
+                <Template Context="u">
+                    <AuthorizeView Policy="USER_WRITE">
+                        <Authorized Context="auth">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Class="rz-mr-1"
+                                          Click="@(() => OuvrirModal(u))" />
+                        </Authorized>
+                    </AuthorizeView>
+
+                    <AuthorizeView Policy="USER_DELETE">
+                        <Authorized Context="auth">
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Medium"
+                                          Click="@(() => DeleteUser(u))" Disabled="@u.IsAdUser"
+                                          Tooltip="@(u.IsAdUser ? "Impossible de supprimer un compte AD ici" : "Supprimer")" />
+                        </Authorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<UserViewDto>? users;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            users = await UserService.GetUsers();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OuvrirModal(UserViewDto? user)
+    {
+        var title = user == null ? "➕ Créer un utilisateur" : "✏️ Modifier l'utilisateur";
+
+        var result = await DialogService.OpenAsync<UserModal>(title,
+            new Dictionary<string, object> { { "UserToEdit", user } },
+            new DialogOptions() { Width = "700px", CloseDialogOnOverlayClick = true }
+        );
+        if (result == true)
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task DeleteUser(UserViewDto user)
+    {
+        var confirm = await DialogService.Confirm($"Voulez-vous vraiment supprimer {user.Username} ?", "Confirmation",
+            new ConfirmOptions { OkButtonText = "Oui, supprimer", CancelButtonText = "Annuler" });
+        if (confirm == true)
+        {
+            try
+            {
+                await UserService.DeleteUser(user.Id);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Utilisateur supprimé.");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
+    }
+}

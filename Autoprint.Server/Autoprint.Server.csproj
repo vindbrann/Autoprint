@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.6.2" />
+
+		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.0" />
+		<PackageReference Include="System.Management" Version="10.0.0" />
+		<PackageReference Include="System.Management.Automation" Version="7.5.4" />
+		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="ResetPassword.bat">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Autoprint.Shared\Autoprint.Shared.csproj" />
+
+		<ProjectReference Include="..\Autoprint.Web\Autoprint.Web.csproj" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,191 @@
+﻿@page "/modeles"
+@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@using System.Text
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject AlertService AlertService
+@inject CustomAuthStateProvider AuthProvider
+@inject IJSRuntime JS
+
+<PageTitle>Gestion des Modèles</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        📄 Gestion des Modèles
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(modeles == null || !modeles.Any())" />
+
+        <AuthorizeView Policy="MODEL_WRITE">
+            <Authorized>
+                <RadzenButton Icon="add_circle" Text="Nouveau Modèle" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Modele()))" />
+            </Authorized>
+        </AuthorizeView>
+    </RadzenStack>
+</RadzenStack>
+
+@if (messageErreur != null)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Icon="lock" Variant="Variant.Flat" Shade="Shade.Lighter">
+        @messageErreur
+    </RadzenAlert>
+}
+else if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenDataGrid Data="@modeles" TItem="Modele"
+                    AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="300px"
+                    RowRender="@RowRender">
+        <Columns>
+
+            <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du Modèle" Sortable="true" Filterable="true" />
+
+            <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px">
+                <Template Context="m">
+                    @if (m.Marque != null)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@m.Marque.Nom" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">ID: @m.MarqueId</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Modele" Title="Pilote" Sortable="false" Filterable="false">
+                <Template Context="m">
+                    @if (m.Pilote != null)
+                    {
+                        if (m.Pilote.EstInstalle)
+                        {
+                            <RadzenText TextStyle="TextStyle.Body2" Class="rz-mb-0">
+                                <RadzenIcon Icon="check_circle" Style="color: var(--rz-success); font-size: 1rem; vertical-align: middle;" />
+                                @m.Pilote.Nom
+                            </RadzenText>
+                        }
+                        else
+                        {
+                            <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-danger); font-weight: bold;">
+                                <RadzenIcon Icon="warning" Style="vertical-align: middle;" />
+                                Pilote manquant : @m.Pilote.Nom
+                            </RadzenText>
+                        }
+                    }
+                    else
+                    {
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-disabled-color);">Aucun pilote</RadzenText>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Modele" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    <AuthorizeView Policy="MODEL_WRITE">
+                        <Authorized>
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(m))" />
+                        </Authorized>
+                        <NotAuthorized>
+                            <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<Modele>? modeles;
+    private bool isLoading = true;
+    private string? messageErreur;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var canRead = await AuthProvider.HasPermission("Permission", "MODEL_READ");
+        if (canRead)
+        {
+            await ChargerListe();
+        }
+        else
+        {
+            messageErreur = "Vous n'avez pas l'autorisation de consulter la liste des modèles.";
+            isLoading = false;
+        }
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try
+        {
+            modeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Chargement", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    void RowRender(RowRenderEventArgs<Modele> args)
+    {
+        bool alertePilote = args.Data.PiloteId.HasValue && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
+        if (alertePilote)
+        {
+            args.Attributes.Add("style", "border-left: 4px solid var(--rz-danger) !important;");
+        }
+    }
+
+    private async Task OuvrirModal(Modele modele)
+    {
+        var resultat = await DialogService.OpenAsync<ModeleModal>(
+            modele.Id == 0 ? "Nouveau Modèle" : "Modifier le Modèle",
+            new Dictionary<string, object> { { "ModeleToEdit", modele } },
+            new DialogOptions() { Width = "600px", CloseDialogOnOverlayClick = true }
+        );
+        if (resultat == true)
+        {
+            await ChargerListe();
+            await AlertService.RefreshState(); 
+        }
+    }
+
+    private async Task ExporterEnCsv()
+    {
+        if (modeles == null || !modeles.Any()) return;
+        var csvBuilder = new StringBuilder();
+        csvBuilder.AppendLine("Id;Nom du Modele;Marque;Pilote");
+
+        foreach (var m in modeles)
+        {
+            var nomClean = m.Nom?.Replace(";", ",") ?? "";
+            var marqueClean = m.Marque?.Nom?.Replace(";", ",") ?? "";
+            var piloteClean = m.Pilote?.Nom?.Replace(";", ",") ?? "";
+            csvBuilder.AppendLine($"{m.Id};{nomClean};{marqueClean};{piloteClean}");
+        }
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
+
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+
+        var nomFichier = $"Modeles_Export_{DateTime.Now:yyyyMMdd_HHmm}.csv";
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomFichier, streamRef);
+
+        NotificationService.Notify(NotificationSeverity.Info, "Export", "Fichier CSV téléchargé.");
+    }
+}

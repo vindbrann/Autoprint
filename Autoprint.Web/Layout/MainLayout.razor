@@ -1,0 +1,99 @@
+﻿@inherits LayoutComponentBase
+@using System.Security.Claims
+@using Autoprint.Shared.DTOs
+@using Autoprint.Web.Pages
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@using Blazored.LocalStorage
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavManager
+@inject IAuthService AuthService
+@inject IJSRuntime JS
+@inject ThemeService ThemeService
+@inject ILocalStorageService LocalStorage
+@inject NotificationService NotificationService
+
+<RadzenComponents />
+<RadzenTheme />
+
+<AuthorizeView>
+    <Authorized>
+        @if (IsBlocked(context.User))
+        {
+            <SecurityWall OnSuccess="HandleSuccess" OnLogout="HandleLogout" />
+        }
+        else
+        {
+            <RadzenLayout Style="height: 100vh; display: flex;">
+                <RadzenSidebar Expanded="true" Style="width: 280px; min-width: 280px; display: flex; flex-direction: column; z-index: 1;">
+                    <NavMenu />
+                </RadzenSidebar>
+
+                <RadzenBody Style="flex: 1; overflow: auto;">
+                    <div class="rz-p-4">
+                        @Body
+                    </div>
+                </RadzenBody>
+            </RadzenLayout>
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <div class="login-container d-flex align-items-center justify-content-center"
+             style="min-height: 100vh; background-color: var(--rz-base-background-color);">
+            <div class="w-100" style="max-width: 500px; text-align: center;">
+                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                <p class="mt-2">Redirection vers la connexion...</p>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
+        if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
+        ThemeService.SetTheme(savedTheme);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+
+        if (!state.User.Identity?.IsAuthenticated ?? true)
+        {
+            var uri = NavManager.Uri;
+            if (!uri.Contains("/login") && !uri.Contains("/reset-password"))
+            {
+                NavManager.NavigateTo("/login", true);
+            }
+        }
+    }
+
+    private bool IsBlocked(ClaimsPrincipal user)
+    {
+        return user.HasClaim(c => c.Type == "ForcePasswordChange" && c.Value == "true");
+    }
+
+    private async Task HandleSuccess()
+    {
+        NotificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = "Succès",
+            Detail = "Mot de passe mis à jour. Redirection...",
+            Duration = 3000
+        });
+        await Task.Delay(2000);
+        await HandleLogout();
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.Logout();
+        NavManager.NavigateTo("/login", true);
+    }
+}

@@ -1,0 +1,629 @@
+﻿@page "/parametres"
+@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+
+<PageTitle>Configuration</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenStack Gap="0">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+            ⚙️ Configuration Système
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+            Gérez les paramètres globaux du serveur Autoprint.
+        </RadzenText>
+    </RadzenStack>
+    
+    <RadzenButton Text="Enregistrer la configuration" Icon="save" ButtonStyle="ButtonStyle.Success" Click="@Sauvegarder" IsBusy="@sauvegardeEnCours" />
+</RadzenStack>
+
+@if (isLoading)
+{
+    <div class="rz-p-12 rz-text-align-center">
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 50%; margin: auto;" />
+        <RadzenText TextStyle="TextStyle.Subtitle1" Class="rz-mt-4">Chargement des paramètres...</RadzenText>
+    </div>
+}
+else
+{
+    <RadzenTabs RenderMode="TabRenderMode.Client" TabPosition="TabPosition.Top" Style="min-height: 600px;">
+        <Tabs>
+            
+            <RadzenTabsItem Text="Maintenance">
+                <Template><RadzenIcon Icon="build_circle" /> Maintenance</Template>
+                <ChildContent>
+                    <RadzenStack Gap="2rem" Class="rz-p-2">
+                        
+                        <RadzenFieldset Text="Rétention & Audit" Icon="history">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                <RadzenIcon Icon="auto_delete" Style="font-size: 2rem; color: var(--rz-text-tertiary-color);" />
+                                <RadzenStack Gap="0" Style="flex: 1;">
+                                    <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Purge automatique</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Les logs d'audit plus anciens que la durée définie seront supprimés.</RadzenText>
+                                </RadzenStack>
+                                <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="1" Max="3650" Style="width: 120px;" />
+                                <span style="color: var(--rz-text-secondary-color);">jours</span>
+                            </RadzenStack>
+                        </RadzenFieldset>
+
+                        <RadzenRow Gap="1.5rem">
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-primary);">
+                                    <RadzenStack Gap="1rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                            <RadzenIcon Icon="cloud_download" Style="color: var(--rz-primary);" />
+                                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sauvegarde</RadzenText>
+                                        </RadzenStack>
+                                        <RadzenText TextStyle="TextStyle.Body2">Exportez la configuration complète au format JSON.</RadzenText>
+                                        <RadzenButton Text="Télécharger le fichier" Icon="download" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Click="@DownloadBackup" Class="rz-mt-auto" />
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-danger);">
+                                    <RadzenStack Gap="1rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                                                <RadzenIcon Icon="cloud_upload" Style="color: var(--rz-danger);" />
+                                                <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Restauration</RadzenText>
+                                            </RadzenStack>
+                                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ZONE DANGER" />
+                                        </RadzenStack>
+                                        
+                                        <RadzenText TextStyle="TextStyle.Body2">Restaurez une configuration. <strong>Attention : Écrase les données.</strong></RadzenText>
+
+                                        @if (uploadedBackup == null)
+                                        {
+                                            <div class="custom-file-upload">
+                                                <InputFile OnChange="LoadFile" class="form-control" accept=".json" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
+                                                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                                                    <div><strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())</div>
+                                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                                        <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
+                                                        <RadzenButton Text="Ecraser" Size="ButtonSize.ExtraSmall" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
+                                                    </RadzenStack>
+                                                </RadzenStack>
+                                            </RadzenAlert>
+                                        }
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="SMTP">
+                <Template><RadzenIcon Icon="email" /> SMTP</Template>
+                <ChildContent>
+                    <RadzenRow Class="rz-p-2" Gap="2rem">
+                        
+                        <RadzenColumn Size="12" SizeLG="8">
+                            <RadzenFieldset Text="Serveur de Messagerie" Icon="mail_outline">
+                                <RadzenRow RowGap="1rem">
+                                    <RadzenColumn Size="8">
+                                        <RadzenLabel Text="Hôte SMTP" />
+                                        <RadzenTextBox @bind-Value="@model.SmtpHost" Style="width: 100%;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="4">
+                                        <RadzenLabel Text="Port" />
+                                        <RadzenNumeric @bind-Value="@model.SmtpPort" Style="width: 100%;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6">
+                                        <RadzenLabel Text="Utilisateur" />
+                                        <RadzenTextBox @bind-Value="@model.SmtpUser" Style="width: 100%;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6">
+                                        <RadzenLabel Text="Mot de passe" />
+                                        <RadzenPassword @bind-Value="@model.SmtpPass" Style="width: 100%;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6">
+                                        <RadzenLabel Text="Adresse Expéditeur (From)" />
+                                        <RadzenTextBox @bind-Value="@model.SmtpFromAddress" Style="width: 100%;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" Class="rz-display-flex rz-align-items-center">
+                                        <RadzenSwitch @bind-Value="@model.SmtpEnableSsl" />
+                                        <RadzenLabel Text="Activer SSL / TLS" Class="rz-ml-2" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenFieldset>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeLG="4">
+                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-secondary);">
+                                <RadzenStack Gap="1rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="mark_email_read" Style="color: var(--rz-secondary);" />
+                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-secondary">Test d'envoi</RadzenText>
+                                    </RadzenStack>
+                                    
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+                                        Vérifiez la connexion SMTP en envoyant un email de test.
+                                    </RadzenText>
+
+                                    <RadzenLabel Text="Email destinataire" Component="TestEmail" Style="font-size: 0.8rem; font-weight: bold;" />
+                                    <RadzenTextBox Name="TestEmail" @bind-Value="testEmailTo" Placeholder="email@test.com" Style="width: 100%;" />
+                                    
+                                    <RadzenButton Text="Envoyer le test" Icon="send" ButtonStyle="ButtonStyle.Secondary" Click="@TesterEmail" IsBusy="@testEnCours" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Nommage">
+                <Template><RadzenIcon Icon="edit_note" /> Nommage</Template>
+                <ChildContent>
+                    <RadzenRow Class="rz-p-2" Gap="2rem">
+                        
+                        <RadzenColumn Size="12" SizeLG="7">
+                            <RadzenFieldset Text="Règles & Automatisation" Icon="settings_suggest">
+                                <RadzenStack Gap="1.5rem">
+                                    
+                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
+                                        <RadzenStack Gap="1rem">
+                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                                    <RadzenSwitch @bind-Value="@model.NamingEnabled" />
+                                                    <RadzenLabel Text="Activer le nommage automatique" Style="font-weight: bold;" />
+                                                </RadzenStack>
+                                                <RadzenButton Text="Appliquer (Imprimantes)" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Click="@RenommerToutesImprimantes" Disabled="@(!model.NamingEnabled)" />
+                                            </RadzenStack>
+                                            <RadzenDivider />
+                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                                    <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" />
+                                                    <RadzenLabel Text="Appliquer aussi au Partage Windows" />
+                                                </RadzenStack>
+                                                <RadzenButton Text="Appliquer (Partages)" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
+                                            </RadzenStack>
+                                            <RadzenDivider />
+                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" />
+                                                    <RadzenStack Gap="0">
+                                                        <RadzenLabel Text="Mode Direct par défaut" Style="font-weight: bold;" />
+                                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Pour les nouvelles créations</RadzenText>
+                                                    </RadzenStack>
+                                                </RadzenStack>
+                                                <RadzenButton Text="Forcer le Mode Direct (Masse)" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Info" Click="@ForcerModeDirect" />
+                                            </RadzenStack>
+                                        </RadzenStack>
+                                        </RadzenCard>
+                                    <RadzenStack Gap="0.5rem">
+                                        <RadzenLabel Text="Modèle de nom (Template)" />
+                                        <RadzenTextBox @bind-Value="@model.NamingTemplate" Disabled="@(!model.NamingEnabled)" Style="width: 100%; font-family: monospace; font-size: 1.1rem;" Placeholder="IMP_{LIEU}_{IP_LAST}" />
+                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1" Style="color: var(--rz-text-tertiary-color);">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenFieldset>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeLG="5">
+                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-info);">
+                                <RadzenStack Gap="1rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="science" Style="color: var(--rz-info);" />
+                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-info">Simulateur en direct</RadzenText>
+                                    </RadzenStack>
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+                                        Testez tous les tokens disponibles.
+                                    </RadzenText>
+
+                                    <RadzenRow RowGap="0.5rem">
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Lieu (Nom)" Component="TLieu" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TLieu" @bind-Value="testLieu" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Lieu (Code)" Component="TLieuCode" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TLieuCode" @bind-Value="testLieuCode" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow RowGap="0.5rem">
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Marque" Component="TMarque" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TMarque" @bind-Value="testMarque" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Modèle" Component="TModele" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TModele" @bind-Value="testModele" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenRow RowGap="0.5rem">
+                                        <RadzenColumn Size="8">
+                                            <RadzenLabel Text="Adresse IP" Component="TIP" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TIP" @bind-Value="testIp" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="4">
+                                            <RadzenLabel Text="Code Imp" Component="TCode" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenTextBox Name="TCode" @bind-Value="testImpCode" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenButton Text="Générer l'aperçu" Icon="visibility" ButtonStyle="ButtonStyle.Info" Click="@SimulerNom" />
+
+                                    @if (!string.IsNullOrEmpty(previewResult))
+                                    {
+                                        <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-2 rz-text-align-center" Style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">
+                                            @previewResult
+                                        </RadzenAlert>
+                                    }
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Active Directory">
+                <Template><RadzenIcon Icon="domain" /> Active Directory</Template>
+                <ChildContent>
+                    <RadzenRow Class="rz-p-2" Gap="2rem">
+                        
+                        <RadzenColumn Size="12" SizeLG="8">
+                            <RadzenFieldset Text="Connexion & Annuaire" Icon="link">
+                                <RadzenStack Gap="1rem">
+                                    <RadzenRow>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Nom de Domaine" />
+                                            <RadzenTextBox @bind-Value="@model.AdDomain" Placeholder="mondomaine.lan" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6" Class="rz-display-flex rz-align-items-center">
+                                            <RadzenSwitch @bind-Value="@model.AdUseServiceAccount" />
+                                            <RadzenLabel Text="Utiliser un compte de service" Class="rz-ml-2" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    @if (model.AdUseServiceAccount)
+                                    {
+                                        <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
+                                            <RadzenRow>
+                                                <RadzenColumn Size="6">
+                                                    <RadzenLabel Text="Utilisateur" />
+                                                    <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="DOMAIN\SvcPrint" Style="width: 100%;" />
+                                                </RadzenColumn>
+                                                <RadzenColumn Size="6">
+                                                    <RadzenLabel Text="Mot de passe" />
+                                                    <RadzenPassword @bind-Value="@model.AdServicePassword" Style="width: 100%;" />
+                                                </RadzenColumn>
+                                            </RadzenRow>
+                                        </RadzenCard>
+                                    }
+
+                                    <RadzenDivider />
+
+                                    <RadzenRow>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Base DN (Racine)" />
+                                            <RadzenTextBox @bind-Value="@model.AdBaseDn" Placeholder="OU=Users,DC=corp,DC=local" Style="width: 100%; font-family: monospace;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Filtre LDAP" />
+                                            <RadzenTextBox @bind-Value="@model.AdLdapFilter" Style="width: 100%; font-family: monospace;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                            <RadzenIcon Icon="auto_fix_high" Style="color: var(--rz-secondary);" />
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: bold;">Assistant Filtre :</RadzenText>
+                                            <RadzenTextBox @bind-Value="builderGroupName" Placeholder="Nom du Groupe" Style="width: 150px;" />
+                                            <RadzenButton Text="+ Groupe" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Secondary" Click="@AddGroupFilter" />
+                                            <RadzenButton Icon="clear" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Click="@(() => model.AdLdapFilter = "")" Tooltip="Effacer le filtre" />
+                                        </RadzenStack>
+                                    </RadzenCard>
+
+                                    <RadzenLabel Text="Emails Alertes Admin" Class="rz-mt-2" />
+                                    <RadzenTextBox @bind-Value="@model.AdAdminEmails" Style="width: 100%;" Placeholder="admin1@corp.com; admin2@corp.com" />
+                                </RadzenStack>
+                            </RadzenFieldset>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeLG="4">
+                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-secondary);">
+                                <RadzenStack Gap="1rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="verified_user" Style="color: var(--rz-secondary);" />
+                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-secondary">Testeur d'accès</RadzenText>
+                                    </RadzenStack>
+                                    <RadzenText TextStyle="TextStyle.Body2">
+                                        Vérifie si un utilisateur spécifique est bien couvert par le filtre LDAP actuel.
+                                    </RadzenText>
+
+                                    <RadzenTextBox @bind-Value="testAdQuery" Placeholder="Login (ex: jdupont)" Style="width: 100%;" />
+                                    <RadzenButton Text="Vérifier l'éligibilité" Icon="check" ButtonStyle="ButtonStyle.Secondary" Click="@TesterFiltreAd" IsBusy="@testAdFilterEnCours" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Sécurité">
+                <Template><RadzenIcon Icon="security" /> Sécurité</Template>
+                <ChildContent>
+                    <RadzenStack Gap="2rem" Class="rz-p-2">
+                        
+                        <RadzenCard Variant="Variant.Outlined" Style="border-color: var(--rz-warning);">
+                            <RadzenStack Gap="1rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning); font-size: 2rem;" />
+                                    <RadzenStack Gap="0">
+                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux agents Autoprint de s'identifier. Ne la modifiez qu'en cas de sinistre.</RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mt-2">
+                                    <RadzenSwitch @bind-Value="@isAgentKeyEditable" />
+                                    <RadzenLabel Text="@(isAgentKeyEditable ? "Modification AUTORISÉE (DANGER)" : "Verrouillé (Lecture seule)")" 
+                                                 Style="@(isAgentKeyEditable ? "color: var(--rz-danger); font-weight: bold;" : "color: var(--rz-text-disabled-color);")" />
+                                </RadzenStack>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                    <RadzenTextBox @bind-Value="@model.AgentApiKey" Disabled="@(!isAgentKeyEditable)" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
+                                    <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await JS.InvokeVoidAsync("navigator.clipboard.writeText", model.AgentApiKey))" Tooltip="Copier" />
+                                </RadzenStack>
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        <RadzenFieldset Text="Politique de Mots de Passe" Icon="password">
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="6">
+                                    <RadzenLabel Text="Expiration des mots de passe locaux" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="3">
+                                    <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Style="width: 100px;" />
+                                    <span class="rz-ml-2" style="color: var(--rz-text-secondary-color);">jours</span>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenFieldset>
+
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenTabsItem>
+
+        </Tabs>
+    </RadzenTabs>
+}
+
+@code {
+    
+    private SettingsModel model = new();
+    private bool isLoading = true;
+    private bool sauvegardeEnCours = false;
+    private bool testEnCours = false;
+    private bool testAdFilterEnCours = false;
+    private bool isAgentKeyEditable = false;
+    private string testEmailTo = "";
+    private string testAdQuery = "";
+    private string builderGroupName = "";
+    private BackupRootDto? uploadedBackup;
+    private bool isRestoring = false;
+    private string testLieu = "Bur", testLieuCode = "B", testImpCode = "P1", testIp = "1.1.1.1", previewResult = "";
+    private string testMarque = "HP";
+    private string testModele = "LaserJet";
+
+    private class SettingsModel
+    {
+        public string AgentApiKey { get; set; } = "";
+        public int LogRetentionDays { get; set; } = 180;
+        public string SmtpHost { get; set; } = "";
+        public int SmtpPort { get; set; } = 25;
+        public string SmtpUser { get; set; } = "";
+        public string SmtpPass { get; set; } = "";
+        public bool SmtpEnableSsl { get; set; } = false;
+        public string SmtpFromAddress { get; set; } = "";
+        public string NamingTemplate { get; set; } = "";
+        public bool NamingEnabled { get; set; } = false;
+        public bool NamingSameShare { get; set; } = false;
+        public bool Printer_DefaultDirectModeEnabled { get; set; } = false;
+        public int PasswordExpirationDays { get; set; } = 90;
+        public string AdDomain { get; set; } = "";
+        public string AdBaseDn { get; set; } = "";
+        public string AdLdapFilter { get; set; } = "";
+        public bool AdUseServiceAccount { get; set; } = false;
+        public string AdServiceUser { get; set; } = "";
+        public string AdServicePassword { get; set; } = "";
+        public string AdAdminEmails { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var s = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            model.AgentApiKey = GV(s, "AgentApiKey");
+            model.LogRetentionDays = int.Parse(GV(s, "LogRetentionDays", "180"));
+            model.SmtpHost = GV(s, "SmtpHost");
+            model.SmtpPort = int.Parse(GV(s, "SmtpPort", "25"));
+            model.SmtpUser = GV(s, "SmtpUser");
+            model.SmtpPass = GV(s, "SmtpPass");
+            model.SmtpEnableSsl = bool.Parse(GV(s, "SmtpEnableSsl", "false"));
+            model.SmtpFromAddress = GV(s, "SmtpFromAddress");
+            model.NamingTemplate = GV(s, "NamingTemplate");
+            model.NamingEnabled = bool.Parse(GV(s, "NamingEnabled", "false"));
+            model.NamingSameShare = bool.Parse(GV(s, "NamingSameShare", "false"));
+            model.Printer_DefaultDirectModeEnabled = bool.Parse(GV(s, "Printer_DefaultDirectModeEnabled", "false"));
+            model.PasswordExpirationDays = int.Parse(GV(s, "PasswordExpirationDays", "90"));
+            model.AdDomain = GV(s, "AdDomain");
+            model.AdBaseDn = GV(s, "AdBaseDn");
+            model.AdLdapFilter = GV(s, "AdLdapFilter");
+            model.AdUseServiceAccount = bool.Parse(GV(s, "AdUseServiceAccount", "false"));
+            model.AdServiceUser = GV(s, "AdServiceUser");
+            model.AdAdminEmails = GV(s, "AdAdminEmails");
+        }
+        catch { }
+        finally { isLoading = false; }
+    }
+
+    private string GV(List<ServerSetting>? l, string k, string d = "") => l?.FirstOrDefault(s => s.Key == k)?.Value ?? d;
+
+
+    private async Task Sauvegarder()
+    {
+        sauvegardeEnCours = true;
+        try
+        {
+            var r = await Http.PostAsJsonAsync("api/Settings/Save", model);
+            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Sauvegardé", "Configuration mise à jour.");
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { sauvegardeEnCours = false; }
+    }
+
+    private async Task DownloadBackup() => await JS.InvokeVoidAsync("open", "api/Backup/export", "_blank");
+    private async Task LoadFile(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
+            uploadedBackup = await JsonSerializer.DeserializeAsync<BackupRootDto>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", ex.Message); }
+    }
+
+    private async Task ExecuteRestore()
+    {
+        if (uploadedBackup == null) return;
+        var confirm = await DialogService.Confirm("⛔ ATTENTION : Toutes les données seront remplacées.\nContinuer ?", "Danger", new ConfirmOptions() { OkButtonText = "Oui, écraser", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            isRestoring = true;
+            try
+            {
+                var res = await Http.PostAsJsonAsync("api/Backup/restore", uploadedBackup);
+                if (res.IsSuccessStatusCode)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Terminé", "Restauration effectuée.");
+                    uploadedBackup = null;
+                }
+                else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await res.Content.ReadAsStringAsync());
+            }
+            catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+            finally { isRestoring = false; }
+        }
+    }
+
+    private async Task RenommerToutesImprimantes() => await ActionNaming("api/Naming/ApplyToNames");
+    private async Task RenommerTousPartages() => await ActionNaming("api/Naming/ApplyToShares");
+    
+    private async Task ActionNaming(string url)
+    {
+        var confirm = await DialogService.Confirm("Confirmer l'opération de renommage en masse ?", "Confirmation");
+        if (confirm == true)
+        {
+            await Http.PostAsJsonAsync("api/Settings/Save", model);
+            var r = await Http.PostAsync(url, null);
+            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès");
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur");
+        }
+    }
+
+    private async Task TesterEmail()
+    {
+        testEnCours = true;
+        try
+        {
+            var dto = new { Host = model.SmtpHost, Port = model.SmtpPort, User = model.SmtpUser, Password = model.SmtpPass, Ssl = model.SmtpEnableSsl, From = model.SmtpFromAddress, To = testEmailTo };
+            var r = await Http.PostAsJsonAsync("api/Settings/TestEmail", dto);
+            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Email envoyé");
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
+        }
+        catch {}
+        finally { testEnCours = false; }
+    }
+
+    private void AddGroupFilter()
+    {
+        if (string.IsNullOrWhiteSpace(builderGroupName)) return;
+        var filter = $"(memberOf=CN={builderGroupName},CN=Users,DC=mondomaine,DC=lan)";
+        if (string.IsNullOrWhiteSpace(model.AdLdapFilter)) model.AdLdapFilter = filter;
+        else model.AdLdapFilter += filter;
+        builderGroupName = "";
+    }
+
+    private async Task SimulerNom()
+    {
+        var dto = new { 
+            Template = model.NamingTemplate, 
+            Ip = testIp, 
+            LieuNom = testLieu, 
+            LieuCode = testLieuCode, 
+            ImpCode = testImpCode, 
+            ModeleNom = testModele, 
+            MarqueNom = testMarque 
+        };
+        var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+        if (r.IsSuccessStatusCode)
+        {
+            var json = await r.Content.ReadFromJsonAsync<JsonElement>();
+            if (json.TryGetProperty("generatedName", out var p)) previewResult = p.GetString() ?? "";
+        }
+    }
+
+    private async Task TesterFiltreAd()
+    {
+        testAdFilterEnCours = true;
+        try
+        {
+            var dto = new { Domain = model.AdDomain, BaseDn = model.AdBaseDn, Filter = model.AdLdapFilter, TestUserQuery = testAdQuery, UseServiceAccount = model.AdUseServiceAccount, ServiceUser = model.AdServiceUser, ServicePassword = model.AdServicePassword };
+            var r = await Http.PostAsJsonAsync("api/Settings/TestAdFilter", dto);
+            var json = await r.Content.ReadFromJsonAsync<JsonElement>();
+            string msg = json.TryGetProperty("message", out var p) ? p.GetString() ?? "" : "";
+            NotificationService.Notify(NotificationSeverity.Info, "Résultat", msg);
+        }
+        catch {}
+        finally { testAdFilterEnCours = false; }
+    }
+    private async Task ForcerModeDirect()
+    {
+        var confirm = await DialogService.Confirm(
+            "Cette action va activer le 'Mode Direct' (RAW) sur TOUTES les imprimantes existantes.\nCela déclenchera une resynchronisation massive.\n\nContinuer ?",
+            "Confirmation de masse",
+            new ConfirmOptions { OkButtonText = "Oui, Forcer", CancelButtonText = "Annuler" });
+
+        if (confirm == true)
+        {
+            sauvegardeEnCours = true;
+            try
+            {
+                await Http.PostAsJsonAsync("api/Settings/Save", model);
+                var r = await Http.PostAsync("api/Imprimantes/ForceDirectMode", null);
+
+                if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Tout le parc est passé en Mode Direct.");
+                else NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Echec de la mise à jour.");
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+            finally
+            {
+                sauvegardeEnCours = false;
+            }
+        }
+    }
+}

@@ -1,0 +1,110 @@
+﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+@if (Items == null)
+{
+    <div class="rz-p-4 rz-text-align-center">
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        <RadzenText TextStyle="TextStyle.Body1" Class="rz-mt-2">Analyse des changements en cours...</RadzenText>
+    </div>
+}
+else if (Items.Count == 0)
+{
+    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-4">
+        <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
+        <RadzenText TextStyle="TextStyle.H6">Aucune modification en attente.</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2">Le serveur Windows est à jour.</RadzenText>
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close(null))" ButtonStyle="ButtonStyle.Light" Class="rz-mt-2" />
+    </RadzenStack>
+}
+else
+{
+    <RadzenStack Gap="1rem" Style="height: 100%;">
+
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter">
+            Sélectionnez les opérations à appliquer sur le serveur d'impression Windows.
+        </RadzenAlert>
+
+        <RadzenDataGrid Data="@Items" TItem="SyncPreviewDto" AllowSorting="true"
+                        Style="flex: 1; overflow: auto;">
+            <Columns>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Width="50px" TextAlign="TextAlign.Center" Sortable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox TValue="bool" @bind-Value="@selectAll" Change="@(args => ToggleSelectAll(args))" TriState="false" />
+                    </HeaderTemplate>
+                    <Template Context="item">
+                        <RadzenCheckBox @bind-Value="item.IsSelected" TriState="false" />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="Status" Title="Action" Width="120px">
+                    <Template Context="item">
+                        @switch (item.Status)
+                        {
+                            case PrinterStatus.PendingCreation:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="CRÉATION" />
+                                break;
+                            case PrinterStatus.PendingDelete:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="SUPPRESSION" />
+                                break;
+                            default:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="MODIFICATION" />
+                                break;
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="NomImprimante" Title="Imprimante" Sortable="true">
+                    <Template Context="item">
+                        <strong>@item.NomImprimante</strong>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="Details" Title="Détails" />
+
+                <RadzenDataGridColumn TItem="SyncPreviewDto" Property="ModifiePar" Title="Par" Width="150px">
+                    <Template Context="item">
+                        <RadzenIcon Icon="person" Style="font-size: 0.8rem;" /> @item.ModifiePar
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+            <RadzenText TextStyle="TextStyle.Body2">
+                <strong>@Items.Count(i => i.IsSelected)</strong> élément(s) sélectionné(s)
+            </RadzenText>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+                <RadzenButton Text="Lancer la Synchronisation" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                              Click="Confirmer" Disabled="@(!Items.Any(i => i.IsSelected))" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+}
+
+@code {
+    [Parameter] public List<SyncPreviewDto> Items { get; set; } = new();
+
+    private bool selectAll = false;
+
+
+    void ToggleSelectAll(bool value)
+    {
+        selectAll = value;
+        Items.ForEach(i => i.IsSelected = selectAll);
+    }
+
+    void Confirmer()
+    {
+        var ids = Items.Where(i => i.IsSelected).Select(i => i.Id).ToList();
+        DialogService.Close(ids);
+    }
+}

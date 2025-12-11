@@ -1,0 +1,415 @@
+﻿@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using System.Text.Json
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
+@using Autoprint.Shared.Enums
+
+<RadzenTemplateForm TItem="Imprimante" Data="@imprimanteEdit" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+
+        <RadzenFieldset Text="Identification">
+            <RadzenRow AlignItems="AlignItems.End">
+                <RadzenColumn Size="8">
+                    <RadzenLabel Text="Nom affiché" Component="NomAffiche" />
+                    <div style="display: flex; gap: 0.5rem;">
+                        <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="flex: 1;"
+                                       Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
+                        @if (namingEnabled)
+                        {
+                            <RadzenButton Icon="autorenew" ButtonStyle="ButtonStyle.Secondary" Click="@ForcerRefreshNom" Tooltip="Recalculer le nom" />
+                        }
+                    </div>
+                </RadzenColumn>
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Code Inventaire" Component="Code" />
+                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;"
+                                   @onblur="GenerateNameIfEnabled" Placeholder="P001" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Localisation & Réseau">
+            <RadzenStack Gap="1rem">
+
+                <div>
+                    <RadzenLabel Text="Emplacement" Component="Emplacement" />
+                    @if (CanReadEmplacements)
+                    {
+                        <RadzenDropDown Name="Emplacement" @bind-Value="@imprimanteEdit.EmplacementId"
+                                        Data="@listeEmplacements" TextProperty="Nom" ValueProperty="Id"
+                                        Change="@(args => OnLieuChanged((int)args))"
+                                        Style="width: 100%;"
+                                        Placeholder="Choisir un emplacement..."
+                                        AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                            <Template Context="l">
+                                @((l as Emplacement).Nom)
+                                @if (!string.IsNullOrEmpty((l as Emplacement).CidrIpv4))
+                                {
+                                    <span style="color: var(--rz-text-tertiary-color); font-size: 0.8em; margin-left: 5px;">(@((l as Emplacement).CidrIpv4))</span>
+                                }
+                            </Template>
+                        </RadzenDropDown>
+                        <RadzenRequiredValidator Component="Emplacement" Text="L'emplacement est requis" Popup="true" DefaultValue="0" />
+                    }
+                    else
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" Variant="Variant.Flat">Accès refusé aux lieux</RadzenAlert>
+                    }
+                </div>
+
+                <RadzenRow>
+                    <RadzenColumn Size="7">
+                        <RadzenLabel Text="Adresse IP" Component="Ip" />
+                        @if (!string.IsNullOrEmpty(prefixeReseau))
+                        {
+                            <div class="input-group">
+                                <span class="input-group-text" style="font-weight: bold; border-right: none; background-color: var(--rz-base-200); color: var(--rz-text-color);">
+                                    @prefixeReseau
+                                </span>
+                                <input type="text" class="form-control" style="border-left: none; background-color: var(--rz-base-100); color: var(--rz-text-color);"
+                                       value="@ipSuffix" @onchange="OnSuffixChanged" placeholder="Ex: 50" />
+                            </div>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                Masque imposé par le lieu. Saisissez la fin de l'IP.
+                            </RadzenText>
+                        }
+                        else
+                        {
+                            <RadzenTextBox Name="Ip" @bind-Value="@imprimanteEdit.AdresseIp" Style="width: 100%;" Placeholder="192.168.x.x" />
+                        }
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="5">
+                        <RadzenLabel Text="Détail (Bureau)" Component="Loc" />
+                        <RadzenTextBox Name="Loc" @bind-Value="@imprimanteEdit.Localisation" Style="width: 100%;" Placeholder="Bureau 204" />
+                    </RadzenColumn>
+                </RadzenRow>
+
+            </RadzenStack>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Matériel">
+            <RadzenRow>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Marque" Component="Marque" />
+                    <RadzenDropDown Name="Marque" @bind-Value="@selectedMarqueId"
+                                    Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
+                                    Change="@OnMarqueChange"
+                                    Disabled="@(!CanReadMarques)"
+                                    Style="width: 100%;"
+                                    Placeholder="-- Marque --" AllowFiltering="true" />
+                </RadzenColumn>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Modèle" Component="Modele" />
+                    <RadzenDropDown Name="Modele" @bind-Value="@imprimanteEdit.ModeleId"
+                                    Data="@listeModelesFiltres" TextProperty="Nom" ValueProperty="Id"
+                                    Disabled="@(selectedMarqueId == 0 || !CanReadModeles)"
+                                    Change="@(args => GenerateNameIfEnabled())"
+                                    Style="width: 100%;"
+                                    Placeholder="-- Modèle --" AllowFiltering="true" />
+                    <RadzenRequiredValidator Component="Modele" Text="Le modèle est requis" Popup="true" DefaultValue="0" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+
+        <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="border-color: var(--rz-info);">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenSwitch @bind-Value="@imprimanteEdit.IsDirectPrintingEnabled" Name="ModeDirect" />
+                <RadzenLabel Text="Mode Impression Directe (RAW)" Component="ModeDirect" Style="font-weight: bold;" />
+            </RadzenStack>
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                <strong>Mode Performance :</strong> Le serveur agit comme un simple tuyau (Passthrough).<br />
+                Le spouleur est désactivé (Bit QUEUED=0) et le flux part directement à l'IP (Bit DIRECT=1).<br />
+                <em>Idéal pour les sites distants ou pour réduire la charge CPU/Disque du serveur.</em>
+            </RadzenText>
+        </RadzenCard>
+
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" />
+                <RadzenLabel Text="Partager sur le réseau Windows ?" Component="Partage" Style="font-weight: bold;" />
+            </RadzenStack>
+
+            @if (imprimanteEdit.EstPartagee)
+            {
+                <div class="rz-mt-2 rz-pl-4" style="border-left: 3px solid var(--rz-success);">
+                    <RadzenLabel Text="Nom du partage" Component="NomPartage" />
+                    <RadzenTextBox Name="NomPartage" @bind-Value="@imprimanteEdit.NomPartage" Style="width: 100%;"
+                                   Disabled="@(namingEnabled && namingSameShare)" />
+                </div>
+            }
+        </RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+            @if (imprimanteEdit.Id != 0)
+            {
+                <AuthorizeView Policy="PRINTER_DELETE">
+                    <Authorized Context="authContext">
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else
+            {
+                <div></div>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Imprimante ImprimanteToEdit { get; set; } = new();
+
+    private Imprimante imprimanteEdit = new();
+    private List<Emplacement>? listeEmplacements;
+    private List<Marque>? listeMarques;
+    private List<Modele>? listeTousModeles;
+    private List<Modele>? listeModelesFiltres;
+    private int selectedMarqueId = 0;
+    private bool CanReadEmplacements { get; set; }
+    private bool CanReadMarques { get; set; }
+    private bool CanReadModeles { get; set; }
+    private bool namingEnabled = false;
+    private bool namingSameShare = false;
+    private string namingTemplate = "";
+    private string prefixeReseau = "";
+    private string ipSuffix = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        imprimanteEdit = new Imprimante
+        {
+            Id = ImprimanteToEdit.Id,
+            NomAffiche = ImprimanteToEdit.NomAffiche,
+            Code = ImprimanteToEdit.Code,
+            AdresseIp = ImprimanteToEdit.AdresseIp,
+            Localisation = ImprimanteToEdit.Localisation,
+            EstPartagee = ImprimanteToEdit.EstPartagee,
+            NomPartage = ImprimanteToEdit.NomPartage,
+            Commentaire = ImprimanteToEdit.Commentaire,
+            IsDirectPrintingEnabled = ImprimanteToEdit.IsDirectPrintingEnabled,
+            ModeleId = ImprimanteToEdit.ModeleId,
+            EmplacementId = ImprimanteToEdit.EmplacementId,
+            Status = ImprimanteToEdit.Status
+        };
+
+        CanReadEmplacements = await AuthProvider.HasPermission("Permission", "LOCATION_READ");
+        CanReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
+        CanReadModeles = await AuthProvider.HasPermission("Permission", "MODEL_READ");
+
+        try
+        {
+            var tasks = new List<Task>();
+            if (CanReadEmplacements) tasks.Add(Task.Run(async () => listeEmplacements = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements")));
+            if (CanReadMarques) tasks.Add(Task.Run(async () => listeMarques = await Http.GetFromJsonAsync<List<Marque>>("api/Marques")));
+            if (CanReadModeles) tasks.Add(Task.Run(async () => listeTousModeles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles")));
+            tasks.Add(LoadSettingsAsync());
+
+            if (tasks.Any()) await Task.WhenAll(tasks);
+
+            InitCascadeEtIp();
+        }
+        catch { }
+    }
+
+    private void InitCascadeEtIp()
+    {
+        if (listeTousModeles != null && imprimanteEdit.ModeleId != 0)
+        {
+            var currentModele = listeTousModeles.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId);
+            if (currentModele != null)
+            {
+                selectedMarqueId = currentModele.MarqueId;
+                FilterModeles();
+            }
+        }
+        else
+        {
+            selectedMarqueId = 0;
+            listeModelesFiltres = new List<Modele>();
+        }
+
+        CalculerPrefixe(imprimanteEdit.EmplacementId);
+        if (!string.IsNullOrEmpty(prefixeReseau) && !string.IsNullOrEmpty(imprimanteEdit.AdresseIp) && imprimanteEdit.AdresseIp.StartsWith(prefixeReseau))
+        {
+            ipSuffix = imprimanteEdit.AdresseIp.Replace(prefixeReseau, "");
+        }
+        else
+        {
+            ipSuffix = imprimanteEdit.AdresseIp ?? "";
+        }
+    }
+
+    private void OnMarqueChange(object value)
+    {
+        selectedMarqueId = (int)value;
+        FilterModeles();
+        imprimanteEdit.ModeleId = 0; 
+        GenerateNameIfEnabled();
+    }
+
+    private void FilterModeles()
+    {
+        if (listeTousModeles != null)
+            listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList();
+    }
+
+    private void OnLieuChanged(int id)
+    {
+        imprimanteEdit.EmplacementId = id;
+        CalculerPrefixe(id);
+        GenerateNameIfEnabled();
+    }
+
+    private void CalculerPrefixe(int emplacementId)
+    {
+        prefixeReseau = "";
+        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == emplacementId);
+        if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
+        {
+            try
+            {
+                var parts = lieu.CidrIpv4.Split('/');
+                var ipParts = parts[0].Split('.');
+                if (parts.Length > 1 && int.TryParse(parts[1], out int cidr))
+                {
+                    if (cidr >= 24) prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
+                    else if (cidr >= 16) prefixeReseau = $"{ipParts[0]}.{ipParts[1]}.";
+                    else if (cidr >= 8) prefixeReseau = $"{ipParts[0]}.";
+                }
+            }
+            catch { prefixeReseau = ""; }
+        }
+    }
+
+    private void OnSuffixChanged(ChangeEventArgs e)
+    {
+        ipSuffix = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(prefixeReseau))
+        {
+            if (ipSuffix.StartsWith(prefixeReseau)) ipSuffix = ipSuffix.Replace(prefixeReseau, "");
+            imprimanteEdit.AdresseIp = prefixeReseau + ipSuffix;
+        }
+        else
+        {
+            imprimanteEdit.AdresseIp = ipSuffix;
+        }
+        GenerateNameIfEnabled();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
+            if (settings != null)
+            {
+                namingEnabled = bool.Parse(GetVal(settings, "NamingEnabled", "false"));
+                namingSameShare = bool.Parse(GetVal(settings, "NamingSameShare", "false"));
+                namingTemplate = GetVal(settings, "NamingTemplate", "");
+            }
+        }
+        catch { }
+    }
+    private string GetVal(List<ServerSetting> list, string key, string def) => list.FirstOrDefault(s => s.Key == key)?.Value ?? def;
+
+    private async Task ForcerRefreshNom() => await GenerateNameIfEnabled();
+
+    private async Task GenerateNameIfEnabled()
+    {
+        if (!namingEnabled) return;
+        var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == imprimanteEdit.EmplacementId);
+        var modele = listeTousModeles?.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId);
+        var marque = listeMarques?.FirstOrDefault(m => m.Id == selectedMarqueId);
+
+        var dto = new
+        {
+            Template = namingTemplate,
+            Ip = imprimanteEdit.AdresseIp ?? "",
+            LieuNom = lieu?.Nom ?? "",
+            LieuCode = lieu?.Code ?? "",
+            ModeleNom = modele?.Nom ?? "",
+            MarqueNom = marque?.Nom ?? "",
+            ImpCode = imprimanteEdit.Code ?? ""
+        };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+                if (doc.RootElement.TryGetProperty("generatedName", out var prop))
+                {
+                    string val = prop.GetString() ?? "";
+                    imprimanteEdit.NomAffiche = val;
+                    if (namingSameShare) imprimanteEdit.NomPartage = val;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private async Task OnSubmit(Imprimante args)
+    {
+        if (imprimanteEdit.EmplacementId == 0 || imprimanteEdit.ModeleId == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Incomplet", "Lieu et Modèle sont requis.");
+            return;
+        }
+
+        try
+        {
+            if (imprimanteEdit.Status == PrinterStatus.ImportedNeedsFix)
+            {
+                imprimanteEdit.Status = PrinterStatus.PendingUpdate;
+            }
+
+            if (imprimanteEdit.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante créée.");
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante mise à jour.");
+            }
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task OnDelete()
+    {
+        var confirm = await DialogService.Confirm("Êtes-vous sûr de vouloir supprimer cette imprimante ?", "Suppression",
+            new ConfirmOptions() { OkButtonText = "Oui", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "L'imprimante a été supprimée.");
+                DialogService.Close(true);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
+    }
+}
