@@ -45,11 +45,65 @@ namespace Autoprint.Server.Services
             }
             else if (OperatingSystem.IsWindows())
             {
-                var domainSetting = await _context.ServerSettings.FindAsync("AdDomain");
-                string domain = domainSetting?.Value ?? _configuration["Ldap:Domain"] ?? "";
+                var settings = await _context.ServerSettings
+                    .Where(s => s.Key == "AdDomain" || s.Key == "AdServiceUser" || s.Key == "AdServicePassword")
+                    .ToListAsync();
 
-                if (CheckAdCredentials(request.Username, request.Password, domain))
-                    user = await SyncAdUserAsync(request.Username);
+                string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
+                string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+
+                if (!string.IsNullOrWhiteSpace(domain) && !string.IsNullOrWhiteSpace(serviceUser) && !string.IsNullOrWhiteSpace(servicePass))
+                {
+                    bool isAuthenticated = false;
+                    string effectiveLogin = request.Username;
+
+                    try
+                    {
+                        if (request.Username.Contains("@"))
+                        {
+                            string ldapPath = $"LDAP://{domain}";
+                            using var searchEntry = new System.DirectoryServices.DirectoryEntry(ldapPath, serviceUser, servicePass, AuthenticationTypes.Secure);
+                            using var searcher = new System.DirectoryServices.DirectorySearcher(searchEntry);
+
+                            searcher.Filter = $"(&(objectClass=user)(|(mail={request.Username})(userPrincipalName={request.Username})))";
+                            searcher.PropertiesToLoad.Add("sAMAccountName");
+
+                            var result = searcher.FindOne();
+                            if (result != null && result.Properties["sAMAccountName"].Count > 0)
+                            {
+                                effectiveLogin = result.Properties["sAMAccountName"][0].ToString()!;
+                                Console.WriteLine($"[AUTH] Email '{request.Username}' résolu en Login '{effectiveLogin}'");
+                            }
+                        }
+
+                        string effectiveServiceUser = (!serviceUser.Contains("\\") && !serviceUser.Contains("@"))
+                                                    ? $"{domain}\\{serviceUser}" : serviceUser;
+
+                        using var context = new PrincipalContext(ContextType.Domain, domain, effectiveServiceUser, servicePass);
+
+                        if (context.ValidateCredentials(effectiveLogin, request.Password))
+                        {
+                            isAuthenticated = true;
+                        }
+                        else if (!effectiveLogin.Contains("\\") && !effectiveLogin.Contains("@"))
+                        {
+                            if (context.ValidateCredentials($"{domain}\\{effectiveLogin}", request.Password))
+                            {
+                                isAuthenticated = true;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AuthService] Erreur Login AD : {ex.Message}");
+                    }
+
+                    if (isAuthenticated)
+                    {
+                        user = await SyncAdUserAsync(effectiveLogin);
+                    }
+                }
             }
 
             if (user == null || !user.IsActive) return null;
@@ -79,6 +133,9 @@ namespace Autoprint.Server.Services
                 throw new UnauthorizedAccessException("NO_ACCESS");
             }
 
+            user.LastLogin = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
             var token = GenerateJwtToken(user, permissions, passwordExpired, request.RememberMe);
 
             return new LoginResponse
@@ -97,15 +154,18 @@ namespace Autoprint.Server.Services
             if (!OperatingSystem.IsWindows()) return new List<AdSearchResultDto>();
 
             var settings = await _context.ServerSettings.ToListAsync();
+
             string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? "";
             string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
             string customFilter = settings.FirstOrDefault(s => s.Key == "AdLdapFilter")?.Value ?? "";
-
-            bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
             string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
             string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
 
-            if (string.IsNullOrEmpty(domain)) return new List<AdSearchResultDto>();
+            if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(serviceUser) || string.IsNullOrWhiteSpace(servicePass))
+            {
+                Console.WriteLine("[AuthService] Configuration AD incomplète (Compte de service manquant).");
+                return new List<AdSearchResultDto>();
+            }
 
             return await Task.Run(() =>
             {
@@ -114,9 +174,12 @@ namespace Autoprint.Server.Services
                 {
                     string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
 
-                    using System.DirectoryServices.DirectoryEntry entry = useServiceAccount
-                        ? new System.DirectoryServices.DirectoryEntry(ldapPath, serviceUser, servicePass)
-                        : new System.DirectoryServices.DirectoryEntry(ldapPath);
+                    using var entry = new System.DirectoryServices.DirectoryEntry(
+                        ldapPath,
+                        serviceUser,
+                        servicePass,
+                        System.DirectoryServices.AuthenticationTypes.Secure
+                    );
 
                     using var searcher = new System.DirectoryServices.DirectorySearcher(entry);
 
@@ -139,29 +202,12 @@ namespace Autoprint.Server.Services
                         }
                     }
                 }
-                catch (Exception ex) { Console.WriteLine($"Erreur Recherche AD: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Erreur Recherche AD: {ex.Message}");
+                }
                 return results;
             });
-        }
-
-
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-        private bool CheckAdCredentials(string username, string password, string domain)
-        {
-            try
-            {
-                ContextType contextType = string.IsNullOrEmpty(domain) ? ContextType.Machine : ContextType.Domain;
-                using var context = new PrincipalContext(contextType, domain);
-
-                if (context.ValidateCredentials(username, password)) return true;
-
-                if (!string.IsNullOrEmpty(domain) && !username.Contains("\\") && !username.Contains("@"))
-                {
-                    if (context.ValidateCredentials($"{domain}\\{username}", password)) return true;
-                }
-                return false;
-            }
-            catch { return false; }
         }
 
         private async Task<User> SyncAdUserAsync(string username)
@@ -177,16 +223,20 @@ namespace Autoprint.Server.Services
                     var settings = await _context.ServerSettings.ToListAsync();
                     string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
                     string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
-                    bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
+
                     string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
                     string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
 
-                    if (!string.IsNullOrEmpty(domain))
+                    if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(serviceUser) && !string.IsNullOrEmpty(servicePass))
                     {
                         string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
-                        using DirectoryEntry entry = useServiceAccount
-                            ? new DirectoryEntry(ldapPath, serviceUser, servicePass)
-                            : new DirectoryEntry(ldapPath);
+
+                        using DirectoryEntry entry = new DirectoryEntry(
+                            ldapPath,
+                            serviceUser,
+                            servicePass,
+                            AuthenticationTypes.Secure
+                        );
 
                         using DirectorySearcher searcher = new DirectorySearcher(entry);
                         searcher.Filter = $"(&(objectClass=user)(sAMAccountName={cleanUsername}))";
@@ -213,7 +263,10 @@ namespace Autoprint.Server.Services
                         }
                     }
                 }
-                catch (Exception ex) { Console.WriteLine($"Erreur Sync AD: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SyncService] Erreur Sync AD: {ex.Message}");
+                }
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == cleanUsername);
@@ -232,12 +285,12 @@ namespace Autoprint.Server.Services
             }
 
             await _context.SaveChangesAsync();
+
             if (OperatingSystem.IsWindows()) await ApplyAdGroupMappings(user);
+
             return user;
         }
 
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private async Task ApplyAdGroupMappings(User user)
         {
@@ -247,18 +300,21 @@ namespace Autoprint.Server.Services
                 string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
                 string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
-                bool useServiceAccount = bool.Parse(settings.FirstOrDefault(s => s.Key == "AdUseServiceAccount")?.Value ?? "false");
                 string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
                 string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
 
+                if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(serviceUser)) return;
+
                 string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
 
-                using DirectoryEntry entry = useServiceAccount
-                    ? new DirectoryEntry(ldapPath, serviceUser, servicePass)
-                    : new DirectoryEntry(ldapPath);
+                using DirectoryEntry entry = new DirectoryEntry(
+                    ldapPath,
+                    serviceUser,
+                    servicePass,
+                    AuthenticationTypes.Secure
+                );
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
-
                 searcher.Filter = $"(&(objectClass=user)(sAMAccountName={user.Username}))";
                 searcher.PropertiesToLoad.Add("distinguishedName");
 

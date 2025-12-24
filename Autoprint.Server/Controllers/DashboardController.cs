@@ -1,10 +1,12 @@
-﻿using Autoprint.Server.Data;
+﻿using System.Diagnostics;
+using System.Reflection;
+using System.ServiceProcess;
+using Autoprint.Server.Data;
 using Autoprint.Shared.DTOs;
 using Autoprint.Shared.Enums; 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.ServiceProcess;
 
 namespace Autoprint.Server.Controllers
 {
@@ -71,15 +73,31 @@ namespace Autoprint.Server.Controllers
             }
             try
             {
-                var version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
-                if (version != null)
+                var assembly = System.Reflection.Assembly.GetEntryAssembly();
+
+                var version = assembly?
+                    .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion;
+
+                if (!string.IsNullOrEmpty(version))
                 {
-                    stats.ServerVersion = $"v{version.Major}.{version.Minor}.{version.Build}";
+                    if (version.Contains("+"))
+                    {
+                        stats.ServerVersion = version.Split('+')[0];
+                    }
+                    else
+                    {
+                        stats.ServerVersion = version;
+                    }
+                }
+                else
+                {
+                    stats.ServerVersion = "Version Non Définie";
                 }
             }
             catch
             {
-                stats.ServerVersion = "v?.?.?";
+                stats.ServerVersion = "Erreur Lecture";
             }
 
             return stats;

@@ -41,16 +41,28 @@ else
                 <Template><RadzenIcon Icon="build_circle" /> Maintenance</Template>
                 <ChildContent>
                     <RadzenStack Gap="2rem" Class="rz-p-2">
-                        
                         <RadzenFieldset Text="Rétention & Audit" Icon="history">
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+
                                 <RadzenIcon Icon="auto_delete" Style="font-size: 2rem; color: var(--rz-text-tertiary-color);" />
+
                                 <RadzenStack Gap="0" Style="flex: 1;">
                                     <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Purge automatique</RadzenText>
-                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Les logs d'audit plus anciens que la durée définie seront supprimés.</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                        Les logs d'audit plus anciens que la durée définie seront supprimés.
+                                    </RadzenText>
+
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-mt-1">
+                                        <RadzenIcon Icon="info" Style="font-size: 1rem; color: var(--rz-secondary);" />
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-secondary); margin: 0;">
+                                            Mettre <strong>0</strong> pour désactiver (Illimité).
+                                        </RadzenText>
+                                    </RadzenStack>
                                 </RadzenStack>
-                                <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="1" Max="3650" Style="width: 120px;" />
-                                <span style="color: var(--rz-text-secondary-color);">jours</span>
+
+                                <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="0" Max="3650" Style="width: 120px;" />
+                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">jours</RadzenText>
+
                             </RadzenStack>
                         </RadzenFieldset>
 
@@ -281,62 +293,55 @@ else
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         
                         <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Connexion & Annuaire" Icon="link">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenRow>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Nom de Domaine" />
-                                            <RadzenTextBox @bind-Value="@model.AdDomain" Placeholder="mondomaine.lan" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6" Class="rz-display-flex rz-align-items-center">
-                                            <RadzenSwitch @bind-Value="@model.AdUseServiceAccount" />
-                                            <RadzenLabel Text="Utiliser un compte de service" Class="rz-ml-2" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
+<RadzenFieldset Text="Connexion & Annuaire (Mode Service Obligatoire)" Icon="link">
+    <RadzenStack Gap="1rem">
+        <RadzenRow>
+            <RadzenColumn Size="12">
+                <RadzenLabel Text="Nom de Domaine" />
+                <RadzenTextBox @bind-Value="@model.AdDomain" Placeholder="mondomaine.lan" Style="width: 100%;" />
+            </RadzenColumn>
+            </RadzenRow>
 
-                                    @if (model.AdUseServiceAccount)
-                                    {
-                                        <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
-                                            <RadzenRow>
-                                                <RadzenColumn Size="6">
-                                                    <RadzenLabel Text="Utilisateur" />
-                                                    <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="DOMAIN\SvcPrint" Style="width: 100%;" />
-                                                </RadzenColumn>
-                                                <RadzenColumn Size="6">
-                                                    <RadzenLabel Text="Mot de passe" />
-                                                    <RadzenPassword @bind-Value="@model.AdServicePassword" Style="width: 100%;" />
-                                                </RadzenColumn>
-                                            </RadzenRow>
-                                        </RadzenCard>
-                                    }
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-2" Style="background-color: var(--rz-base-200);">
+            <RadzenRow>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Utilisateur de Service (AD)" />
+                    <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="DOMAIN\SvcPrint" Style="width: 100%;" />
+                </RadzenColumn>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Mot de passe" />
+                    <RadzenPassword @bind-Value="@model.AdServicePassword" Style="width: 100%;" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
 
-                                    <RadzenDivider />
+        <RadzenDivider />
 
-                                    <RadzenRow>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Base DN (Racine)" />
-                                            <RadzenTextBox @bind-Value="@model.AdBaseDn" Placeholder="OU=Users,DC=corp,DC=local" Style="width: 100%; font-family: monospace;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Filtre LDAP" />
-                                            <RadzenTextBox @bind-Value="@model.AdLdapFilter" Style="width: 100%; font-family: monospace;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
+        <RadzenRow>
+            <RadzenColumn Size="6">
+                <RadzenLabel Text="Base DN (Racine)" />
+                <RadzenTextBox @bind-Value="@model.AdBaseDn" Placeholder="OU=Users,DC=corp,DC=local" Style="width: 100%; font-family: monospace;" />
+            </RadzenColumn>
+            <RadzenColumn Size="6">
+                <RadzenLabel Text="Filtre LDAP" />
+                <RadzenTextBox @bind-Value="@model.AdLdapFilter" Style="width: 100%; font-family: monospace;" />
+            </RadzenColumn>
+        </RadzenRow>
 
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                            <RadzenIcon Icon="auto_fix_high" Style="color: var(--rz-secondary);" />
-                                            <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: bold;">Assistant Filtre :</RadzenText>
-                                            <RadzenTextBox @bind-Value="builderGroupName" Placeholder="Nom du Groupe" Style="width: 150px;" />
-                                            <RadzenButton Text="+ Groupe" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Secondary" Click="@AddGroupFilter" />
-                                            <RadzenButton Icon="clear" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Click="@(() => model.AdLdapFilter = "")" Tooltip="Effacer le filtre" />
-                                        </RadzenStack>
-                                    </RadzenCard>
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="auto_fix_high" Style="color: var(--rz-secondary);" />
+                <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: bold;">Assistant Filtre :</RadzenText>
+                <RadzenTextBox @bind-Value="builderGroupName" Placeholder="Nom du Groupe" Style="width: 150px;" />
+                <RadzenButton Text="+ Groupe" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Secondary" Click="@AddGroupFilter" />
+                <RadzenButton Icon="clear" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Click="@(() => model.AdLdapFilter = "")" Tooltip="Effacer le filtre" />
+            </RadzenStack>
+        </RadzenCard>
 
-                                    <RadzenLabel Text="Emails Alertes Admin" Class="rz-mt-2" />
-                                    <RadzenTextBox @bind-Value="@model.AdAdminEmails" Style="width: 100%;" Placeholder="admin1@corp.com; admin2@corp.com" />
-                                </RadzenStack>
-                            </RadzenFieldset>
+        <RadzenLabel Text="Emails Alertes Admin" Class="rz-mt-2" />
+        <RadzenTextBox @bind-Value="@model.AdAdminEmails" Style="width: 100%;" Placeholder="admin1@corp.com; admin2@corp.com" />
+    </RadzenStack>
+</RadzenFieldset>
                         </RadzenColumn>
 
                         <RadzenColumn Size="12" SizeLG="4">
@@ -390,13 +395,27 @@ else
 
                         <RadzenFieldset Text="Politique de Mots de Passe" Icon="password">
                             <RadzenRow AlignItems="AlignItems.Center">
-                                <RadzenColumn Size="6">
-                                    <RadzenLabel Text="Expiration des mots de passe locaux" />
+
+                                <RadzenColumn Size="12" SizeMD="8">
+                                    <RadzenStack Gap="0">
+                                        <RadzenLabel Text="Expiration des mots de passe locaux" Style="font-weight: 600;" />
+
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="4px">
+                                            <RadzenIcon Icon="info" Style="font-size: 1rem; color: var(--rz-secondary);" />
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-secondary); margin: 0;">
+                                                Mettre <strong>0</strong> pour désactiver (Toujours valide).
+                                            </RadzenText>
+                                        </RadzenStack>
+                                    </RadzenStack>
                                 </RadzenColumn>
-                                <RadzenColumn Size="3">
-                                    <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Style="width: 100px;" />
-                                    <span class="rz-ml-2" style="color: var(--rz-text-secondary-color);">jours</span>
+
+                                <RadzenColumn Size="12" SizeMD="4">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" JustifyContent="JustifyContent.End">
+                                        <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Min="0" Max="999" Style="width: 100px;" />
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">jours</RadzenText>
+                                    </RadzenStack>
                                 </RadzenColumn>
+
                             </RadzenRow>
                         </RadzenFieldset>
 

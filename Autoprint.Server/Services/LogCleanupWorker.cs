@@ -26,22 +26,39 @@ namespace Autoprint.Server.Services
                     {
                         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                        int retentionDays = 180;
+                        int retentionDays = 180; 
+                        bool purgeEnabled = true;
+
                         var setting = await context.ServerSettings.FindAsync("LogRetentionDays");
+
                         if (setting != null && int.TryParse(setting.Value, out int days))
                         {
-                            if (days > 0) retentionDays = days;
+                            if (days == 0)
+                            {
+                                purgeEnabled = false;
+                            }
+                            else if (days > 0)
+                            {
+                                retentionDays = days;
+                            }
                         }
 
-                        var limitDate = DateTime.UtcNow.AddDays(-retentionDays);
-
-                        int deletedCount = await context.AuditLogs
-                            .Where(l => l.DateAction < limitDate)
-                            .ExecuteDeleteAsync(stoppingToken);
-
-                        if (deletedCount > 0)
+                        if (!purgeEnabled)
                         {
-                            _logger.LogInformation($" Nettoyage Logs : {deletedCount} entrées supprimées (> {retentionDays} jours).");
+                            _logger.LogInformation("Nettoyage des logs : DÉSACTIVÉ (Configuration = 0).");
+                        }
+                        else
+                        {
+                            var limitDate = DateTime.UtcNow.AddDays(-retentionDays);
+
+                            int deletedCount = await context.AuditLogs
+                                .Where(l => l.DateAction < limitDate)
+                                .ExecuteDeleteAsync(stoppingToken);
+
+                            if (deletedCount > 0)
+                            {
+                                _logger.LogInformation($"Nettoyage Logs : {deletedCount} entrées supprimées (> {retentionDays} jours).");
+                            }
                         }
                     }
                 }
