@@ -24,6 +24,11 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
+                <MenuItem Header="Gérer imprimantes Windows" Click="MenuWindowsPrinters_Click">
+                    <MenuItem.Icon>
+                        <materialDesign:PackIcon Kind="MicrosoftWindows" />
+                    </MenuItem.Icon>
+                </MenuItem>
                 <MenuItem Header="Options" Click="MenuOptions_Click">
                     <MenuItem.Icon>
                         <materialDesign:PackIcon Kind="Cog" />

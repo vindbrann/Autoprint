@@ -2,6 +2,7 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -22,8 +23,21 @@ namespace Autoprint.Client.ViewModels
             AdminServerUrl = _prefService.Current.PrintServerName ?? "";
             AdminApiKey = _prefService.Current.AgentApiKey ?? "";
 
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            VersionText = version != null ? $"v{version.ToString(3)}" : "v1.0.0";
+            var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            var infoAttr = assembly.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
+                                   .FirstOrDefault() as AssemblyInformationalVersionAttribute;
+
+            if (infoAttr != null)
+            {
+                string versionRaw = infoAttr.InformationalVersion;
+                if (versionRaw.Contains("+")) versionRaw = versionRaw.Split('+')[0];
+                VersionText = $"v{versionRaw}";
+            }
+            else
+            {
+                var version = assembly.GetName().Version;
+                VersionText = version != null ? $"v{version.ToString(3)}" : "v1.0.0";
+            }
 
             VersionClickCommand = new RelayCommand(param => OnVersionClicked());
 
