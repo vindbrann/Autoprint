@@ -37,5 +37,17 @@ namespace Autoprint.Web.Services
             }
             return null;
         }
+
+        public async Task<List<PrinterScanResult>> ScanNetworkForImportAsync(string cidr)
+        {
+            var response = await _http.PostAsJsonAsync("api/discovery/scan-network", cidr);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<List<PrinterScanResult>>() ?? new List<PrinterScanResult>();
+            }
+
+            return new List<PrinterScanResult>();
+        }
     }
 }

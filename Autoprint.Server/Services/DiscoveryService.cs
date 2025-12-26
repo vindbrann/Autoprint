@@ -1,7 +1,11 @@
-﻿using System.Net.NetworkInformation;
+﻿using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
-using Autoprint.Shared;
 using Autoprint.Server.Data;
+using Autoprint.Shared;
+using Lextm.SharpSnmpLib;
+using Lextm.SharpSnmpLib.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Services
@@ -10,20 +14,74 @@ namespace Autoprint.Server.Services
     {
         private readonly ILogger<DiscoveryService> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
-        // 1. On injecte le service Email (via ScopeFactory car on est dans un Singleton/Worker souvent)
+        private readonly ApplicationDbContext _context;
 
-        public DiscoveryService(ILogger<DiscoveryService> logger, IServiceScopeFactory scopeFactory)
+        private const string OidHrDeviceDescr = "1.3.6.1.2.1.25.3.2.1.3.1";
+        private const string OidSysDescr = "1.3.6.1.2.1.1.1.0";
+
+        public DiscoveryService(ILogger<DiscoveryService> logger, IServiceScopeFactory scopeFactory, ApplicationDbContext context)
         {
             _logger = logger;
             _scopeFactory = scopeFactory;
+            _context = context;
+        }
+
+        public async Task<List<PrinterScanResult>> ScanForImportAsync(string cidr)
+        {
+            var results = new List<PrinterScanResult>();
+            var ipsToScan = GenerateIpsFromCidr(cidr);
+
+            var knownIps = await _context.Imprimantes.Select(p => p.AdresseIp).ToListAsync();
+
+            _logger.LogInformation($"[Import Scan] Démarrage sur {cidr} ({ipsToScan.Count} IPs)");
+
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
+
+            await Parallel.ForEachAsync(ipsToScan, parallelOptions, async (ip, token) =>
+            {
+                if (await IsPortOpenAsync(ip, 9100, 200))
+                {
+                    var result = new PrinterScanResult
+                    {
+                        IpAddress = ip.ToString(),
+                        IsRegistered = knownIps.Contains(ip.ToString())
+                    };
+
+                    try
+                    {
+                        result.SnmpModel = await GetSnmpStringAsync(ip, OidHrDeviceDescr);
+                        if (string.IsNullOrWhiteSpace(result.SnmpModel) || result.SnmpModel == "NoSuchObject")
+                        {
+                            result.SnmpModel = await GetSnmpStringAsync(ip, OidSysDescr);
+                        }
+                    }
+                    catch
+                    {
+                        result.SnmpModel = "Inconnu (SNMP Muet)";
+                    }
+
+                    try
+                    {
+                        var entry = await Dns.GetHostEntryAsync(ip);
+                        result.Hostname = entry.HostName;
+                    }
+                    catch {  }
+
+                    lock (results)
+                    {
+                        results.Add(result);
+                    }
+                }
+            });
+
+            return results.OrderBy(r => r.IpAddress).ToList();
         }
 
         public async Task ExecuteScanAsync(int profileId)
         {
-            // On crée un scope unique pour tout le traitement (DB + Email)
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>(); // Récupération du service
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
             var profile = await db.DiscoveryProfiles.FindAsync(profileId);
             if (profile == null) return;
@@ -31,7 +89,6 @@ namespace Autoprint.Server.Services
             var startTime = DateTime.Now;
             _logger.LogInformation($"[Discovery] Démarrage du scan : {profile.Name}");
 
-            // --- LOGIQUE DE SCAN (IDENTIQUE A AVANT) ---
             var separators = new[] { ';', '\n', '\r', ',' };
             var targets = profile.TargetRanges.Split(separators, StringSplitOptions.RemoveEmptyEntries);
             var exclusions = (profile.ExcludedRanges ?? "").Split(separators, StringSplitOptions.RemoveEmptyEntries).ToList();
@@ -68,9 +125,8 @@ namespace Autoprint.Server.Services
                 }
             });
 
-            // --- SAUVEGARDE ET RAPPORT ---
 
-            var newNetworks = new List<string>(); // On garde la liste des nouveaux pour le mail
+            var newNetworks = new List<string>();
             string rapportText;
 
             if (detectedSubnets.Any())
@@ -109,7 +165,6 @@ namespace Autoprint.Server.Services
             profile.LastRunDate = DateTime.Now;
             await db.SaveChangesAsync();
 
-            // --- ENVOI MAIL ---
             if (profile.SendEmailReport && !string.IsNullOrEmpty(profile.EmailRecipients))
             {
                 await SendReportEmail(emailService, profile, newNetworks, detectedSubnets.Count, startTime);
@@ -163,7 +218,63 @@ namespace Autoprint.Server.Services
             }
         }
 
-        // --- Helpers (Inchangés) ---
+
+        private List<IPAddress> GenerateIpsFromCidr(string cidr)
+        {
+            var ips = new List<IPAddress>();
+            try
+            {
+                var parts = cidr.Split('/');
+                var baseIpParts = parts[0].Split('.').Select(byte.Parse).ToArray();
+                for (int i = 1; i < 255; i++)
+                {
+                    ips.Add(new IPAddress(new byte[] { baseIpParts[0], baseIpParts[1], baseIpParts[2], (byte)i }));
+                }
+            }
+            catch {  }
+            return ips;
+        }
+
+        private async Task<bool> IsPortOpenAsync(IPAddress ip, int port, int timeoutMs)
+        {
+            try
+            {
+                using var tcp = new TcpClient();
+                var connectTask = tcp.ConnectAsync(ip, port);
+                var timeoutTask = Task.Delay(timeoutMs);
+
+                var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+                if (completedTask == timeoutTask) return false;
+
+                return tcp.Connected;
+            }
+            catch { return false; }
+        }
+
+        private async Task<string> GetSnmpStringAsync(IPAddress ip, string oid)
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(2000);
+
+                var result = await Messenger.GetAsync(
+                    VersionCode.V1,
+                    new IPEndPoint(ip, 161),
+                    new OctetString("public"),
+                    new List<Variable> { new Variable(new ObjectIdentifier(oid)) },
+                    cts.Token
+                );
+
+                if (result != null && result.Count > 0)
+                {
+                    return result[0].Data.ToString();
+                }
+            }
+            catch
+            {
+            }
+            return string.Empty;
+        }
 
         private bool IsRangeTooLarge(string cidr)
         {

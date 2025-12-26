@@ -7,31 +7,56 @@
 @inject IJSRuntime JS
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject Autoprint.Web.Services.NetworkScannerService ScannerService
 
 <RadzenStack Gap="1rem" Style="height: 100%;">
 
-    <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Wrap="FlexWrap.Wrap">
+    <RadzenTabs RenderMode="TabRenderMode.Client" @bind-SelectedIndex="@selectedTabIndex">
+        <Tabs>
+            <RadzenTabsItem Text="Serveur Windows (RPC)">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-p-2">
+                    <RadzenStack Gap="0.2rem">
+                        <RadzenLabel Text="Serveur Cible" Component="Host" Style="font-size: 0.8rem; font-weight: bold;" />
+                        <RadzenTextBox Name="Host" @bind-Value="@request.TargetHost" Placeholder="localhost ou IP" Style="width: 200px;" />
+                    </RadzenStack>
 
-            <RadzenStack Gap="0.2rem">
-                <RadzenLabel Text="Serveur Cible" Component="Host" Style="font-size: 0.8rem; font-weight: bold;" />
-                <RadzenTextBox Name="Host" @bind-Value="@request.TargetHost" Placeholder="localhost ou IP" Style="width: 200px;" />
-            </RadzenStack>
+                    <RadzenStack Gap="0.2rem">
+                        <RadzenLabel Text="Utilisateur (Admin)" Component="User" Style="font-size: 0.8rem; font-weight: bold;" />
+                        <RadzenTextBox Name="User" @bind-Value="@request.Username" Placeholder="DOMAIN\Admin" Style="width: 150px;" />
+                    </RadzenStack>
 
-            <RadzenStack Gap="0.2rem">
-                <RadzenLabel Text="Utilisateur (Admin)" Component="User" Style="font-size: 0.8rem; font-weight: bold;" />
-                <RadzenTextBox Name="User" @bind-Value="@request.Username" Placeholder="DOMAIN\Admin" Style="width: 150px;" />
-            </RadzenStack>
+                    <RadzenStack Gap="0.2rem">
+                        <RadzenLabel Text="Mot de passe" Component="Pwd" Style="font-size: 0.8rem; font-weight: bold;" />
+                        <RadzenPassword Name="Pwd" @bind-Value="@request.Password" Style="width: 150px;" />
+                    </RadzenStack>
 
-            <RadzenStack Gap="0.2rem">
-                <RadzenLabel Text="Mot de passe" Component="Pwd" Style="font-size: 0.8rem; font-weight: bold;" />
-                <RadzenPassword Name="Pwd" @bind-Value="@request.Password" Style="width: 150px;" />
-            </RadzenStack>
+                    <RadzenButton Text="Scanner le Serveur" Icon="dns" Click="@LancerScanWindows" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Primary" />
+                </RadzenStack>
+            </RadzenTabsItem>
 
-            <RadzenButton Text="Lancer le Scan" Icon="search" Click="@LancerScan" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenTabsItem Text="Scan Réseau (Port 9100 + SNMP)">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-p-2">
+                    <RadzenStack Gap="0.2rem" Style="flex: 1;">
+                        <RadzenLabel Text="Sélectionner un Lieu à scanner" Component="LieuScan" Style="font-size: 0.8rem; font-weight: bold;" />
+                        <RadzenDropDown Name="LieuScan" Data="@listeLieux" @bind-Value="scanLieuId"
+                                        TextProperty="Nom" ValueProperty="Id"
+                                        Placeholder="Choisir un emplacement..."
+                                        AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                        Style="width: 100%;">
+                            <Template Context="lieu">
+                                @((lieu as Emplacement).Nom)
+                                <span style="color:var(--rz-text-tertiary-color); font-size:0.8em; margin-left:5px;">
+                                    (@((lieu as Emplacement).CidrIpv4))
+                                </span>
+                            </Template>
+                        </RadzenDropDown>
+                    </RadzenStack>
 
-        </RadzenStack>
-    </RadzenCard>
+                    <RadzenButton Text="Scanner le Réseau" Icon="radar" Click="@LancerScanReseau" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Secondary" Disabled="@(scanLieuId == 0)" />
+                </RadzenStack>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
 
     @if (resultats != null)
     {
@@ -60,21 +85,46 @@
                             </Template>
                         </RadzenDataGridColumn>
 
-                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="Name" Title="Imprimante Windows" Width="250px">
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="Name" Title="Nom & Modèle" Width="250px">
                             <Template Context="p">
                                 <div style="line-height: 1.2;">
-                                    <strong>@p.Name</strong>
+                                    @if (!string.IsNullOrEmpty(p.Name) && p.Name != p.PortName)
+                                    {
+                                        <strong>@p.Name</strong>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-style: italic; color: var(--rz-text-disabled-color); font-size: 0.9em;">
+                                            <RadzenIcon Icon="dns" Style="font-size: 0.8rem; margin-right: 2px; vertical-align: middle;" />
+                                            Nom DNS introuvable
+                                        </span>
+                                    }
+
                                     @if (p.IsShared)
                                     {
                                         <br />
                                         <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@p.ShareName" Icon="share" Style="margin-top: 4px;" />
                                     }
-                                    <div style="font-size: 0.75rem; color: var(--rz-text-tertiary-color);">Drivers: @p.DriverName</div>
+
+                                    @if (!string.IsNullOrEmpty(p.DriverName) && p.DriverName != "Inconnu (SNMP Muet)")
+                                    {
+                                        <div style="font-size: 0.75rem; color: #1e88e5; margin-top: 4px;">
+                                            <RadzenIcon Icon="print" Style="font-size: 0.7rem; margin-right: 3px; vertical-align: middle;" />
+                                            @p.DriverName
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div style="font-size: 0.75rem; color: #ff9800; margin-top: 4px;">
+                                            <RadzenIcon Icon="question_mark" Style="font-size: 0.7rem; margin-right: 3px; vertical-align: middle;" />
+                                            Modèle inconnu (SNMP)
+                                        </div>
+                                    }
                                 </div>
                             </Template>
                         </RadzenDataGridColumn>
 
-                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="PortName" Title="Port / IP" Width="160px">
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Property="PortName" Title="Adresse IP" Width="140px">
                             <Template Context="p">
                                 @if (p.ExistsInDb)
                                 {
@@ -88,7 +138,7 @@
                                     @if (p.IpMismatchWarning)
                                     {
                                         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-warning);" TagName="TagName.Div">
-                                            <RadzenIcon Icon="warning" Style="font-size: 0.8rem" /> Incohérent avec le Lieu
+                                            <RadzenIcon Icon="warning" Style="font-size: 0.8rem" /> Hors zone
                                         </RadzenText>
                                     }
                                 }
@@ -104,6 +154,10 @@
                                                     Placeholder="Choisir..." Style="width: 100%;"
                                                     AllowFiltering="true" />
                                 }
+                                else
+                                {
+                                    <span>-</span>
+                                }
                             </Template>
                         </RadzenDataGridColumn>
 
@@ -116,14 +170,6 @@
                                                     Placeholder="Choisir..." Style="width: 100%;"
                                                     Change="@(args => OnLieuChanged(p, args))"
                                                     AllowFiltering="true" />
-                                    @if (p.SelectedLieuId > 0)
-                                    {
-                                        var l = listeLieux.FirstOrDefault(x => x.Id == p.SelectedLieuId);
-                                        if (l != null && !string.IsNullOrEmpty(l.CidrIpv4))
-                                        {
-                                            <div style="font-size: 0.7rem; text-align: right; color: var(--rz-text-tertiary-color);">@l.CidrIpv4</div>
-                                        }
-                                    }
                                 }
                                 else
                                 {
@@ -141,7 +187,7 @@
             <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-4">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
                     <RadzenIcon Icon="info" />
-                    <span>Aucune imprimante trouvée sur ce serveur (ou accès refusé).</span>
+                    <span>Aucune imprimante trouvée avec les critères actuels.</span>
                 </RadzenStack>
             </RadzenAlert>
         }
@@ -161,7 +207,10 @@
 
 @code {
 
+    private int selectedTabIndex = 0;
     private bool scanEnCours = false;
+    private int scanLieuId = 0;
+
     private RemoteScanRequestDto request = new() { TargetHost = "localhost" };
     private List<ImportPrinterViewModel>? resultats;
     private List<Modele> listeModeles = new();
@@ -193,7 +242,7 @@
         }
     }
 
-    private async Task LancerScan()
+    private async Task LancerScanWindows()
     {
         scanEnCours = true;
         resultats = null;
@@ -203,9 +252,6 @@
             if (response.IsSuccessStatusCode)
             {
                 resultats = await response.Content.ReadFromJsonAsync<List<ImportPrinterViewModel>>();
-                if (resultats != null)
-                {
-                }
             }
             else
             {
@@ -222,10 +268,67 @@
         }
     }
 
+    private async Task LancerScanReseau()
+    {
+        if (scanLieuId == 0) return;
+        var lieu = listeLieux.FirstOrDefault(l => l.Id == scanLieuId);
+        if (lieu == null || string.IsNullOrEmpty(lieu.CidrIpv4))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Attention", "Ce lieu n'a pas de plage IP (CIDR) définie.");
+            return;
+        }
+
+        scanEnCours = true;
+        resultats = null;
+
+        try
+        {
+            var scanResults = await ScannerService.ScanNetworkForImportAsync(lieu.CidrIpv4);
+
+            resultats = scanResults.Select(r => new ImportPrinterViewModel
+            {
+                PortName = r.IpAddress,
+                // Si Hostname vide (pas de DNS), on remet l'IP dans Name pour qu'il ne soit pas vide
+                Name = string.IsNullOrEmpty(r.Hostname) ? r.IpAddress : r.Hostname,
+
+                // On met le modèle SNMP dans DriverName pour l'affichage
+                DriverName = r.SnmpModel,
+
+                ExistsInDb = r.IsRegistered,
+                SelectedLieuId = scanLieuId,
+                SelectedForImport = !r.IsRegistered,
+                SelectedModeleId = FindModelIdBySnmp(r.SnmpModel)
+            }).ToList();
+
+            if (resultats.Any())
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Scan terminé", $"{resultats.Count} imprimantes trouvées.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Scan", ex.Message);
+        }
+        finally
+        {
+            scanEnCours = false;
+        }
+    }
+
+    private int FindModelIdBySnmp(string snmpModel)
+    {
+        if (string.IsNullOrWhiteSpace(snmpModel) || !listeModeles.Any()) return 0;
+        var match = listeModeles.FirstOrDefault(m => snmpModel.Contains(m.Nom, StringComparison.OrdinalIgnoreCase));
+        return match?.Id ?? 0;
+    }
+
     private void OnLieuChanged(ImportPrinterViewModel p, object? value)
     {
-        p.SelectedLieuId = (int)value;
-        CheckIpConsistency(p);
+        if (value is int val)
+        {
+            p.SelectedLieuId = val;
+            CheckIpConsistency(p);
+        }
     }
 
     private void OnIpChanged(ImportPrinterViewModel p, string value)
@@ -265,6 +368,7 @@
     private async Task ImporterSelection()
     {
         if (resultats == null) return;
+
         var selection = resultats.Where(p => p.SelectedForImport).Select(p => new
         {
             Name = p.Name,
@@ -283,7 +387,7 @@
             if (res.IsSuccessStatusCode)
             {
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Import terminé !");
-                DialogService.Close(true); 
+                DialogService.Close(true);
             }
             else
             {
