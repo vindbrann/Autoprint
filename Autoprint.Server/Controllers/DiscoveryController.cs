@@ -82,5 +82,21 @@ namespace Autoprint.Server.Controllers
             var updatedProfile = await _context.DiscoveryProfiles.FindAsync(id);
             return Ok(updatedProfile);
         }
+
+        [HttpPost("scan-network")]
+        public async Task<ActionResult<List<PrinterScanResult>>> ScanNetwork([FromBody] string cidr)
+        {
+            if (string.IsNullOrWhiteSpace(cidr)) return BadRequest("CIDR manquant ou invalide.");
+
+            try
+            {
+                var results = await _discoveryService.ScanForImportAsync(cidr);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erreur de scan : {ex.Message}");
+            }
+        }
     }
 }
