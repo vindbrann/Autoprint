@@ -61,6 +61,23 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
+            <RadzenDataGridColumn TItem="Emplacement" Property="Status" Title="État" Width="140px" Sortable="true" Filterable="true">
+                <Template Context="l">
+                    @if (l.Status == LieuStatus.Active)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="ACTIF" IsPill="true" />
+                    }
+                    else if (l.Status == LieuStatus.Inactive)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="INACTIF" IsPill="true" Style="color: #666;" />
+                    }
+                    else if (l.Status == LieuStatus.Detected)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="À TRAITER" IsPill="true" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
             <RadzenDataGridColumn TItem="Emplacement" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
                 <Template Context="l">
                     <AuthorizeView Policy="LOCATION_WRITE">
@@ -123,13 +140,13 @@ else
         if (lieux == null || !lieux.Any()) return;
 
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom;Code;CIDR");
+        csvBuilder.AppendLine("Id;Nom;Code;CIDR;Statut");
 
         foreach (var l in lieux)
         {
             var nomClean = l.Nom?.Replace(";", ",") ?? "";
             var codeClean = l.Code?.Replace(";", ",") ?? "";
-            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{l.CidrIpv4}");
+            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{l.CidrIpv4};{l.Status}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();

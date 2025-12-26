@@ -494,6 +494,65 @@ namespace Autoprint.Server.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.DiscoveryProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailRecipients")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ExcludedRanges")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastRunDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastRunResult")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProbeTargets")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ScheduleDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScheduleHour")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("SendEmailReport")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SkipKnownSubnets")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TargetRanges")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DiscoveryProfiles");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.Emplacement", b =>
                 {
                     b.Property<int>("Id")
@@ -522,6 +581,9 @@ namespace Autoprint.Server.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.ToTable("Emplacements");
@@ -532,9 +594,10 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 12, 11, 10, 21, 7, 77, DateTimeKind.Utc).AddTicks(653),
+                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(5150),
                             EstSupprime = false,
-                            Nom = "NON DÉFINI"
+                            Nom = "NON DÉFINI",
+                            Status = 0
                         });
                 });
 
@@ -627,7 +690,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 12, 11, 10, 21, 7, 76, DateTimeKind.Utc).AddTicks(9776),
+                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(4337),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -674,7 +737,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 12, 11, 10, 21, 7, 77, DateTimeKind.Utc).AddTicks(1495),
+                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(5871),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

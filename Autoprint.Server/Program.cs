@@ -37,7 +37,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<AuditService>();
-
+builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();
+builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 
 builder.Services.AddHostedService<LogCleanupWorker>();
 
