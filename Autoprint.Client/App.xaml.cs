@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Printing;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using Autoprint.Client.Models;
 using Autoprint.Client.Services;
 using Autoprint.Client.ViewModels;
 using Autoprint.Shared;
+using Autoprint.Shared.Enums;
 using Hardcodet.Wpf.TaskbarNotification;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
@@ -18,6 +21,9 @@ namespace Autoprint.Client
 {
     public partial class App : Application
     {
+        [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern bool SetDefaultPrinter(string Name);
+
         private TaskbarIcon? _notifyIcon;
         private readonly PathService _pathService = new PathService();
         private readonly NetworkService _networkService = new NetworkService();
@@ -143,6 +149,11 @@ namespace Autoprint.Client
                 }
             }
 
+            lieux = lieux.Where(l => l.Status == LieuStatus.Active).ToList();
+            _toutesLesImprimantes = _toutesLesImprimantes
+                                    .Where(i => i.Status == PrinterStatus.Synchronized)
+                                    .ToList();
+
             Emplacement? meilleurLieu = null;
             string meilleureIp = _ipActuelle;
             int meilleurScoreCidr = -1;
@@ -198,12 +209,23 @@ namespace Autoprint.Client
                 titreNotif = $"📍 Lieu : {meilleurLieu.Nom}";
 
                 string messageSwitch = "";
-                if (_prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
+
+                if (_prefService.Current.PreferredPrinters.TryGetValue(meilleurLieu.Code, out string? favoritePrinterName))
                 {
-                    if (_prefService.Current.PreferredPrinters.TryGetValue(meilleurLieu.Code, out string? favoritePrinterName))
+                    bool favoriExisteSurServeur = _toutesLesImprimantes.Any(p => p.NomAffiche == favoritePrinterName);
+
+                    if (!favoriExisteSurServeur)
                     {
-                        if (SetDefaultPrinter(favoritePrinterName))
-                            messageSwitch = $"\n✅ {favoritePrinterName} par défaut.";
+                        Debug.WriteLine($"[Startup] Le favori '{favoritePrinterName}' n'existe plus sur le serveur. Suppression.");
+                        _prefService.RemovePreferredPrinter(meilleurLieu.Code);
+                    }
+                    else
+                    {
+                        if (_prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
+                        {
+                            if (SetDefaultPrinterSafe(favoritePrinterName))
+                                messageSwitch = $"\n✅ {favoritePrinterName} par défaut.";
+                        }
                     }
                 }
 
@@ -263,13 +285,15 @@ namespace Autoprint.Client
             paletteHelper.SetTheme(theme);
         }
 
-        private bool SetDefaultPrinter(string printerShortName)
+        public bool SetDefaultPrinterSafe(string printerShortName)
         {
             try
             {
                 string? serverName = _prefService.Current.PrintServerName;
 
                 if (string.IsNullOrEmpty(serverName)) return false;
+
+                serverName = serverName.Replace("https://", "").Replace("http://", "").Trim('/');
 
                 string targetUncName = $@"\\{serverName}\{printerShortName}";
                 bool isInstalled = false;
@@ -286,6 +310,7 @@ namespace Autoprint.Client
                                 q.Name.Equals(printerShortName, StringComparison.OrdinalIgnoreCase))
                             {
                                 isInstalled = true;
+                                targetUncName = q.FullName;
                                 break;
                             }
                         }
@@ -299,29 +324,26 @@ namespace Autoprint.Client
 
                 if (!isInstalled)
                 {
-                    Debug.WriteLine($"[Switch] Favori '{printerShortName}' non installé. Notification utilisateur.");
-
                     if (_notifyIcon != null && _prefService.Current.EnableNotifications)
                     {
-                        _notifyIcon.ShowBalloonTip(
-                            "Imprimante favorite manquante",
-                            $"L'imprimante '{printerShortName}' est définie comme favorite pour ce lieu mais n'est pas installée.\nVeuillez l'installer via l'application.",
-                            BalloonIcon.Info);
+                        Debug.WriteLine($"[Switch] Impossible de mettre par défaut : '{printerShortName}' non trouvée.");
                     }
                     return false;
                 }
 
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "rundll32.exe",
-                    Arguments = $"printui.dll,PrintUIEntry /y /q /n \"{targetUncName}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                Process.Start(psi);
+                bool result = SetDefaultPrinter(targetUncName);
 
-                Debug.WriteLine($"[Switch] Nouvelle imprimante par défaut : {targetUncName}");
-                return true;
+                if (result)
+                {
+                    Debug.WriteLine($"[Switch] Succès : '{targetUncName}' est maintenant par défaut.");
+                    return true;
+                }
+                else
+                {
+                    int errorCode = Marshal.GetLastWin32Error();
+                    Debug.WriteLine($"[Switch] Échec API SetDefaultPrinter. Code: {errorCode}");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
@@ -358,6 +380,18 @@ namespace Autoprint.Client
             };
 
             _manageWindow.Show();
+        }
+
+        private void MenuWindowsPrinters_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("ms-settings:printers") { UseShellExecute = true });
+            }
+            catch
+            {
+                try { Process.Start(new ProcessStartInfo("control", "printers") { UseShellExecute = true }); } catch { }
+            }
         }
 
         private void AfficherFenetre()

@@ -84,47 +84,69 @@ namespace Autoprint.Client.ViewModels
 
         public void ChargerDonnees(string nomLieu, string codeLieu, List<Imprimante> toutesLesImprimantes, string ipLocale, bool isOffline)
         {
-            IsOffline = isOffline;
-            TitreLieu = nomLieu;
+            _isUpdatingFavorites = true;
 
-            if (!isOffline && _prefService?.Current.PrintServerName != null)
+            try
             {
-                _ = CheckSmbAccessAsync(_prefService.Current.PrintServerName);
+                IsOffline = isOffline;
+                TitreLieu = nomLieu;
+
+                if (!isOffline && _prefService?.Current.PrintServerName != null)
+                {
+                    _ = CheckSmbAccessAsync(_prefService.Current.PrintServerName);
+                }
+
+                // Versioning
+                var assembly = System.Reflection.Assembly.GetEntryAssembly();
+                var infoAttr = assembly?.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).FirstOrDefault() as System.Reflection.AssemblyInformationalVersionAttribute;
+
+                if (infoAttr != null)
+                {
+                    string versionRaw = infoAttr.InformationalVersion;
+                    if (versionRaw.Contains("+")) versionRaw = versionRaw.Split('+')[0];
+                    AppVersion = $"v{versionRaw}";
+                }
+
+                _codeLieuActuel = codeLieu;
+                Imprimantes.Clear();
+
+                string? favoriActuel = null;
+                if (_prefService != null && !string.IsNullOrEmpty(codeLieu))
+                {
+                    if (_prefService.Current.PreferredPrinters != null)
+                        _prefService.Current.PreferredPrinters.TryGetValue(codeLieu, out favoriActuel);
+                }
+
+                if (toutesLesImprimantes == null) toutesLesImprimantes = new List<Imprimante>();
+
+                if (favoriActuel != null)
+                {
+                    bool favoriExisteEncore = toutesLesImprimantes.Any(p => p.NomAffiche == favoriActuel);
+                    if (!favoriExisteEncore)
+                    {
+                        Debug.WriteLine($"[Cleanup] Le favori '{favoriActuel}' n'existe plus pour ce lieu. Suppression silencieuse.");
+                        _prefService?.RemovePreferredPrinter(codeLieu);
+                        favoriActuel = null; 
+                    }
+                }
+
+                var installedMap = GetInstalledPrintersMap();
+
+                foreach (var imp in toutesLesImprimantes)
+                {
+                    var item = new ImprimanteUiItem(imp, this, OnFavoriChanged, OnInstallStatusChanged);
+                    string nomApp = imp.NomAffiche;
+
+                    if (IsPrinterInstalled(nomApp, installedMap)) item.IsInstalled = true;
+
+                    if (favoriActuel != null && imp.NomAffiche == favoriActuel) item.IsFavorite = true;
+
+                    Imprimantes.Add(item);
+                }
             }
-
-            var assembly = System.Reflection.Assembly.GetEntryAssembly();
-            var infoAttr = assembly?.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).FirstOrDefault() as System.Reflection.AssemblyInformationalVersionAttribute;
-
-            if (infoAttr != null)
+            finally
             {
-                string versionRaw = infoAttr.InformationalVersion;
-                if (versionRaw.Contains("+")) versionRaw = versionRaw.Split('+')[0];
-                AppVersion = $"v{versionRaw}";
-            }
-
-            _codeLieuActuel = codeLieu;
-            Imprimantes.Clear();
-
-            string? favoriActuel = null;
-            if (_prefService != null && !string.IsNullOrEmpty(codeLieu))
-            {
-                if (_prefService.Current.PreferredPrinters != null)
-                    _prefService.Current.PreferredPrinters.TryGetValue(codeLieu, out favoriActuel);
-            }
-
-            var installedMap = GetInstalledPrintersMap();
-
-            if (toutesLesImprimantes == null) toutesLesImprimantes = new List<Imprimante>();
-
-            foreach (var imp in toutesLesImprimantes)
-            {
-                var item = new ImprimanteUiItem(imp, this, OnFavoriChanged, OnInstallStatusChanged);
-                string nomApp = imp.NomAffiche;
-
-                if (IsPrinterInstalled(nomApp, installedMap)) item.IsInstalled = true;
-                if (favoriActuel != null && imp.NomAffiche == favoriActuel) item.IsFavorite = true;
-
-                Imprimantes.Add(item);
+                _isUpdatingFavorites = false;
             }
         }
 
@@ -212,13 +234,24 @@ namespace Autoprint.Client.ViewModels
         private void OnFavoriChanged(ImprimanteUiItem itemClicked)
         {
             if (_prefService == null || string.IsNullOrEmpty(_codeLieuActuel) || _isUpdatingFavorites) return;
+
             try
             {
                 _isUpdatingFavorites = true;
+
                 if (itemClicked.IsFavorite)
                 {
                     foreach (var item in Imprimantes) if (item != itemClicked) item.IsFavorite = false;
+
                     _prefService.SetPreferredPrinter(_codeLieuActuel, itemClicked.Data.NomAffiche);
+
+                    if (_prefService.Current.AutoSwitchDefaultPrinter)
+                    {
+                        if (Application.Current is App myApp)
+                        {
+                            myApp.SetDefaultPrinterSafe(itemClicked.Data.NomAffiche);
+                        }
+                    }
                 }
                 else
                 {
@@ -276,6 +309,7 @@ namespace Autoprint.Client.ViewModels
                 if (await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /dn /q /n \"{uncPath}\"")))
                 {
                     item.IsInstalled = false;
+
                     if (_prefService != null && !string.IsNullOrEmpty(_codeLieuActuel))
                     {
                         if (_prefService.Current.PreferredPrinters.TryGetValue(_codeLieuActuel, out string? favImprimante))
