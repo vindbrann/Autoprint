@@ -452,7 +452,8 @@ namespace Autoprint.Server.Migrations
                 name: "IX_UserRoles_RoleId",
                 table: "UserRoles",
                 column: "RoleId");
-        }
+            }
+        
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)

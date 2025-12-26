@@ -26,7 +26,7 @@ namespace Autoprint.Server.Data
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RolePermission> RolePermissions { get; set; }
         public DbSet<AdRoleMapping> AdRoleMappings { get; set; }
-
+        public DbSet<DiscoveryProfile> DiscoveryProfiles { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.ConfigureWarnings(warnings =>

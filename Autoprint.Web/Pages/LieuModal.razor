@@ -26,6 +26,28 @@
             <RadzenRequiredValidator Component="Cidr" Text="Le CIDR est requis pour la détection" Popup="true" />
         </div>
 
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
+            <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="IsActive" Name="StatusCheck" TValue="bool" />
+                    <RadzenLabel Text="Site Actif (Opérationnel)" Component="StatusCheck" Style="cursor: pointer; font-weight: bold;" />
+
+                    @if (lieuEdit.Status == LieuStatus.Detected)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Nouveau (Détecté)" Class="rz-ml-2" />
+                    }
+                </RadzenStack>
+
+                @if (lieuEdit.Status == LieuStatus.Detected)
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                        <RadzenIcon Icon="info" Style="font-size: 0.8rem" />
+                        Ce site a été découvert automatiquement par le scanner. Cochez la case pour le valider officiellement.
+                    </RadzenText>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
 
             @if (lieuEdit.Id != 0)
@@ -55,6 +77,12 @@
 
     private Emplacement lieuEdit = new();
 
+    bool IsActive
+    {
+        get => lieuEdit.Status == LieuStatus.Active;
+        set => lieuEdit.Status = value ? LieuStatus.Active : LieuStatus.Inactive;
+    }
+
     protected override void OnInitialized()
     {
         lieuEdit = new Emplacement
@@ -62,7 +90,8 @@
             Id = LieuToEdit.Id,
             Nom = LieuToEdit.Nom,
             Code = LieuToEdit.Code,
-            CidrIpv4 = LieuToEdit.CidrIpv4
+            CidrIpv4 = LieuToEdit.CidrIpv4,
+            Status = LieuToEdit.Status 
         };
     }
 

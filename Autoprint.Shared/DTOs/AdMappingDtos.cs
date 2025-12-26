@@ -24,8 +24,8 @@ namespace Autoprint.Shared.DTOs
     }
     public class AdSearchResultDto
     {
-        public string Name { get; set; } = string.Empty; // Nom d'affichage
-        public string SamAccountName { get; set; } = string.Empty; // L'identifiant technique
+        public string Name { get; set; } = string.Empty;
+        public string SamAccountName { get; set; } = string.Empty;
         public string? Description { get; set; }
         public AdMappingType Type { get; set; }
     }

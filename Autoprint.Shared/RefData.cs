@@ -36,5 +36,6 @@ namespace Autoprint.Shared
         [Required]
         [MaxLength(50)]
         public string CidrIpv4 { get; set; } = string.Empty;
+        public LieuStatus Status { get; set; } = LieuStatus.Active;
     }
 }
