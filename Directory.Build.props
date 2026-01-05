@@ -1,13 +1,13 @@
 <Project>
   <PropertyGroup>
-    <Version>1.0.0-beta1</Version>
+    <Version>1.1.0</Version>
     
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     
-    <Company>Autoprint Dev</Company>
+    <Company></Company>
     <Product>Autoprint Solution</Product>
-    <Authors>Autoprint Dev</Authors>
+    <Authors>Vindbrann</Authors>
     <Copyright>Copyright © 2025</Copyright>
   </PropertyGroup>
 </Project>

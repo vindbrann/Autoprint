@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,9 +40,7 @@
 
 	<Target Name="BuildServerMsi" BeforeTargets="BeforeBuild">
 		<Message Text="📦 Génération automatique du MSI Serveur..." Importance="high" />
-		<MSBuild Projects="..\Autoprint.Server.Setup\Autoprint.Server.Setup.wixproj"
-				 Properties="Configuration=$(Configuration);Platform=x64"
-				 Targets="Build" />
+		<MSBuild Projects="..\Autoprint.Server.Setup\Autoprint.Server.Setup.wixproj" Properties="Configuration=$(Configuration);Platform=x64" Targets="Build" />
 	</Target>
 	
 </Project>
