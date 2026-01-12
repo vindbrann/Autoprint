@@ -56,8 +56,8 @@ namespace Autoprint.Server.Services
         private string NettoyerChaine(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
-            string clean = input.Trim().Replace(" ", "_");
-            clean = Regex.Replace(clean, "[^a-zA-Z0-9_]", "");
+            string clean = input.Trim();
+            clean = Regex.Replace(clean, "[^a-zA-Z0-9_ ]", "");
             return clean;
         }
     }

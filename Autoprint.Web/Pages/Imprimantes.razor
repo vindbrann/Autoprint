@@ -34,7 +34,7 @@
         <AuthorizeView Policy="PRINTER_WRITE">
             <Authorized Context="authContext">
                 <RadzenButton Icon="search" Text="Scanner Réseau" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Click="OuvrirScanModal" />
-                <RadzenButton Icon="add_circle" Text="Ajouter" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation }))" />
+                <RadzenButton Icon="add_circle" Text="Ajouter" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation, IsDirectPrintingEnabled = _defaultDirectMode }))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
@@ -218,6 +218,21 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
+            <RadzenDataGridColumn TItem="Imprimante" Property="Localisation" Title="Détail" Width="160px">
+                <Template Context="imp">
+                    @if (!string.IsNullOrEmpty(imp.Localisation))
+                    {
+                        <span style="color: var(--rz-text-secondary-color); font-size: 0.95em;">
+                            @imp.Localisation
+                        </span>
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.8em;">-</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
             <RadzenDataGridColumn TItem="Imprimante" Property="IsDirectPrintingEnabled" Title="Direct" Width="90px" TextAlign="TextAlign.Center">
                 <Template Context="imp">
                     @if (imp.IsDirectPrintingEnabled)
@@ -273,11 +288,23 @@ else
     private bool isAuditing = false;
     private BatchResult? syncResult;
     private bool CanReadPrinters { get; set; }
+    private bool _defaultDirectMode = false;
 
     protected override async Task OnInitializedAsync()
     {
         CanReadPrinters = await AuthProvider.HasPermission("Permission", "PRINTER_READ");
-        if (CanReadPrinters) await ChargerListe();
+        if (CanReadPrinters)
+        {
+            try
+            {
+                var settings = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
+                var val = settings?.FirstOrDefault(s => s.Key == "Printer_DefaultDirectModeEnabled")?.Value;
+                bool.TryParse(val, out _defaultDirectMode);
+            }
+            catch {  }
+            await ChargerListe();
+        }
+
         else
         {
             NotificationService.Notify(NotificationSeverity.Warning, "Accès refusé", "Vous n'avez pas les droits.");

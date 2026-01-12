@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Radzen
 @using Radzen.Blazor
+@using Microsoft.JSInterop
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NotificationService NotificationService
@@ -297,7 +298,7 @@ else
                                         <RadzenRow>
                                             <RadzenColumn Size="6">
                                                 <RadzenLabel Text="Utilisateur de Service (AD)" />
-                                                <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="DOMAIN\SvcPrint" Style="width: 100%;" />
+                                                <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="Login simple (ex: jdupont)" Style="width: 100%;" />
                                             </RadzenColumn>
                                             <RadzenColumn Size="6">
                                                 <RadzenLabel Text="Mot de passe" />
@@ -622,7 +623,34 @@ else
         finally { sauvegardeEnCours = false; }
     }
 
-    private async Task DownloadBackup() => await JS.InvokeVoidAsync("open", "api/Backup/export", "_blank");
+    private async Task DownloadBackup()
+    {
+        try
+        {
+            NotificationService.Notify(NotificationSeverity.Info, "Export", "Préparation du téléchargement...");
+
+            var response = await Http.GetAsync("api/Backup/export");
+
+            if (response.IsSuccessStatusCode)
+            {
+                using var fileStream = await response.Content.ReadAsStreamAsync();
+                var fileName = $"Autoprint_Backup_{DateTime.Now:yyyyMMdd_HHmm}.json";
+
+                using var streamRef = new DotNetStreamReference(fileStream);
+                await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+
+                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Téléchargement démarré.");
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Accès refusé par le serveur.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
     private async Task LoadFile(InputFileChangeEventArgs e)
     {
         try
@@ -764,9 +792,9 @@ else
     void ToggleDay(bool? value, ScanDays day)
     {
         if (value == true)
-            scanConfig.ScheduleDays |= day; // Ajoute le jour
+            scanConfig.ScheduleDays |= day; 
         else
-            scanConfig.ScheduleDays &= ~day; // Enlève le jour
+            scanConfig.ScheduleDays &= ~day;
     }
 
     async Task LoadScanProfile()

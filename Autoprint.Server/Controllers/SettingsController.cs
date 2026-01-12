@@ -69,6 +69,8 @@ namespace Autoprint.Server.Controllers
             Check("NamingTemplate", dto.NamingTemplate, "Template Nom", "Nommage");
             Check("NamingEnabled", dto.NamingEnabled.ToString(), "Nommage Auto", "Nommage");
             Check("NamingSameShare", dto.NamingSameShare.ToString(), "Nom Partage", "Nommage");
+            Check("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString(), "Mode Direct par défaut", "Impression");
+
             Check("PasswordExpirationDays", dto.PasswordExpirationDays.ToString(), "Expiration MDP", "Sécurité");
             Check("AdDomain", dto.AdDomain, "AD Domaine", "Active Directory");
             Check("AdBaseDn", dto.AdBaseDn, "AD BaseDN", "Active Directory");
@@ -90,6 +92,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("NamingTemplate", dto.NamingTemplate);
             await UpdateSetting("NamingEnabled", dto.NamingEnabled.ToString());
             await UpdateSetting("NamingSameShare", dto.NamingSameShare.ToString());
+            await UpdateSetting("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString());
             if (dto.PasswordExpirationDays >= 0) await UpdateSetting("PasswordExpirationDays", dto.PasswordExpirationDays.ToString());
 
             await UpdateSetting("AdDomain", dto.AdDomain);
@@ -157,8 +160,16 @@ namespace Autoprint.Server.Controllers
                     if (saved != null) finalPass = saved.Value;
                 }
 
+                string finalUser = dto.ServiceUser;
+                if (dto.UseServiceAccount && !string.IsNullOrEmpty(finalUser) && !finalUser.Contains("\\") && !finalUser.Contains("@"))
+                {
+                    finalUser = $"{finalUser}@{dto.Domain}";
+                }
+
+                var options = ContextOptions.Negotiate | ContextOptions.Sealing;
+
                 using var context = dto.UseServiceAccount
-                    ? new PrincipalContext(contextType, dto.Domain, null, dto.ServiceUser, finalPass)
+                    ? new PrincipalContext(contextType, dto.Domain, null, options, finalUser, finalPass)
                     : new PrincipalContext(contextType, dto.Domain);
 
                 var server = context.ConnectedServer;
@@ -183,9 +194,15 @@ namespace Autoprint.Server.Controllers
 
                 string ldapPath = string.IsNullOrEmpty(dto.BaseDn) ? $"LDAP://{dto.Domain}" : $"LDAP://{dto.Domain}/{dto.BaseDn}";
 
+                string finalUser = dto.ServiceUser;
+                if (dto.UseServiceAccount && !string.IsNullOrEmpty(finalUser) && !finalUser.Contains("\\") && !finalUser.Contains("@"))
+                {
+                    finalUser = $"{finalUser}@{dto.Domain}";
+                }
+
                 using DirectoryEntry entry = dto.UseServiceAccount
-                    ? new DirectoryEntry(ldapPath, dto.ServiceUser, finalPass)
-                    : new DirectoryEntry(ldapPath);
+                    ? new DirectoryEntry(ldapPath, finalUser, finalPass, AuthenticationTypes.Secure)
+                    : new DirectoryEntry(ldapPath, null, null, AuthenticationTypes.Secure);
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
                 string configFilter = string.IsNullOrWhiteSpace(dto.Filter) ? "(objectClass=user)" : dto.Filter;
@@ -219,6 +236,7 @@ namespace Autoprint.Server.Controllers
         public string NamingTemplate { get; set; } = "";
         public bool NamingEnabled { get; set; } = false;
         public bool NamingSameShare { get; set; } = false;
+        public bool Printer_DefaultDirectModeEnabled { get; set; }
         public int PasswordExpirationDays { get; set; }
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";

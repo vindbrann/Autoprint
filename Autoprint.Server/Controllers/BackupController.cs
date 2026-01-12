@@ -45,7 +45,8 @@ namespace Autoprint.Server.Controllers
                     EstPartagee = x.EstPartagee,
                     ModeleId = x.ModeleId,
                     EmplacementId = x.EmplacementId,
-                    Status = x.Status
+                    Status = x.Status,
+                    Localisation = x.Localisation
                 }).ToListAsync(),
 
                 Roles = await _context.Roles.Include(r => r.RolePermissions).Select(x => new BackupRoleDto
@@ -131,7 +132,8 @@ namespace Autoprint.Server.Controllers
                     EstPartagee = x.EstPartagee,
                     ModeleId = x.ModeleId,
                     EmplacementId = x.EmplacementId,
-                    Status = x.Status
+                    Status = x.Status,
+                    Localisation = x.Localisation
                 }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Imprimantes");
@@ -183,7 +185,20 @@ namespace Autoprint.Server.Controllers
             }
         }
 
-        private async Task EnableIdentityInsert(string table) => await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} ON");
-        private async Task DisableIdentityInsert(string table) => await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} OFF");
+        private async Task EnableIdentityInsert(string table)
+        {
+            if (_context.Database.IsSqlServer())
+            {
+                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} ON");
+            }
+        }
+
+        private async Task DisableIdentityInsert(string table)
+        {
+            if (_context.Database.IsSqlServer())
+            {
+                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} OFF");
+            }
+        }
     }
 }
