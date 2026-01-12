@@ -34,6 +34,7 @@ namespace Autoprint.Shared.DTOs
         public bool EstPartagee { get; set; }
         public int ModeleId { get; set; }
         public int EmplacementId { get; set; }
+        public string? Localisation { get; set; }
         public PrinterStatus Status { get; set; }
     }
 

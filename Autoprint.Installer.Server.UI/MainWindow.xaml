@@ -116,7 +116,7 @@
                 <RadioButton x:Name="RadioSqlite" GroupName="SqlGroup" Content="SQLite (Local - Fichier unique)" IsChecked="True" 
                              Margin="0,0,0,15" Checked="RadioSql_Changed"/>
 
-                <RadioButton x:Name="RadioSqlServer" GroupName="SqlGroup" Content="SQL Server (Production)" 
+                <RadioButton x:Name="RadioSqlServer" GroupName="SqlGroup" Content="SQL Server" 
                              Margin="0,0,0,10" Checked="RadioSql_Changed"/>
 
                 <Border x:Name="PanelSqlServer" Background="White" BorderBrush="#DDD" BorderThickness="1" Padding="15" Margin="20,0,0,0" Visibility="Collapsed">

@@ -453,6 +453,7 @@ namespace Autoprint.Installer.Server.UI
             newPool.ManagedRuntimeVersion = "";
             newPool.ProcessModel.IdentityType = ProcessModelIdentityType.LocalSystem;
             newPool.ProcessModel.IdleTimeout = TimeSpan.Zero;
+            newPool.ProcessModel.LoadUserProfile = true;
 
             var newSite = mgr.Sites.Add(siteName, InstallPath, port);
             newSite.ApplicationDefaults.ApplicationPoolName = poolName;

@@ -77,12 +77,16 @@ namespace Autoprint.Server.Services
                             }
                         }
 
-                        string effectiveServiceUser = (!serviceUser.Contains("\\") && !serviceUser.Contains("@"))
-                                                    ? $"{domain}\\{serviceUser}" : serviceUser;
+                        string effectiveServiceUser = serviceUser;
+                        if (!serviceUser.Contains("\\") && !serviceUser.Contains("@"))
+                        {
+                            effectiveServiceUser = $"{serviceUser}@{domain}";
+                        }
 
-                        using var context = new PrincipalContext(ContextType.Domain, domain, effectiveServiceUser, servicePass);
+                        var options = ContextOptions.Negotiate | ContextOptions.Sealing;
+                        using var context = new PrincipalContext(ContextType.Domain, domain, null, options, effectiveServiceUser, servicePass);
 
-                        if (context.ValidateCredentials(effectiveLogin, request.Password))
+                        if (context.ValidateCredentials(effectiveLogin, request.Password, options))
                         {
                             isAuthenticated = true;
                         }
