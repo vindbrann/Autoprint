@@ -74,6 +74,7 @@ namespace Autoprint.Server.Controllers
                     NomPartage = item.ShareName,
                     ModeleId = item.SelectedModeleId > 0 ? item.SelectedModeleId : defaultModeleId,
                     EmplacementId = item.SelectedLieuId > 0 ? item.SelectedLieuId : defaultLieuId,
+                    IsDirectPrintingEnabled = item.IsDirectPrintingEnabled,
                     Status = (item.SelectedModeleId > 0 && item.SelectedLieuId > 0)
                              ? PrinterStatus.PendingCreation
                              : PrinterStatus.ImportedNeedsFix
@@ -190,5 +191,6 @@ namespace Autoprint.Server.Controllers
         public bool IsShared { get; set; }
         public int SelectedModeleId { get; set; }
         public int SelectedLieuId { get; set; }
+        public bool IsDirectPrintingEnabled { get; set; }
     }
 }
