@@ -34,7 +34,7 @@
         <AuthorizeView Policy="PRINTER_WRITE">
             <Authorized Context="authContext">
                 <RadzenButton Icon="search" Text="Scanner Réseau" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Click="OuvrirScanModal" />
-                <RadzenButton Icon="add_circle" Text="Ajouter" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation, IsDirectPrintingEnabled = _defaultDirectMode }))" />
+                <RadzenButton Icon="add_circle" Text="Ajouter" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Imprimante { ModeleId = 0, EmplacementId = 0, Status = PrinterStatus.PendingCreation, IsDirectPrintingEnabled = _defaultDirectMode, EstPartagee = _defaultShare }))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
@@ -289,6 +289,7 @@ else
     private BatchResult? syncResult;
     private bool CanReadPrinters { get; set; }
     private bool _defaultDirectMode = false;
+    private bool _defaultShare = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -300,6 +301,8 @@ else
                 var settings = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
                 var val = settings?.FirstOrDefault(s => s.Key == "Printer_DefaultDirectModeEnabled")?.Value;
                 bool.TryParse(val, out _defaultDirectMode);
+                var valShare = settings?.FirstOrDefault(s => s.Key == "NamingSameShare")?.Value;
+                bool.TryParse(valShare, out _defaultShare);
             }
             catch {  }
             await ChargerListe();

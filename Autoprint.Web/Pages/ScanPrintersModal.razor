@@ -210,6 +210,8 @@
     private int selectedTabIndex = 0;
     private bool scanEnCours = false;
     private int scanLieuId = 0;
+    private bool _defaultDirectMode = false;
+    private bool _forceShare = false;
 
     private RemoteScanRequestDto request = new() { TargetHost = "localhost" };
     private List<ImportPrinterViewModel>? resultats;
@@ -223,6 +225,7 @@
         public int SelectedLieuId { get; set; }
         public bool IpMismatchWarning { get; set; } = false;
         public string IpMismatchMessage { get; set; } = "";
+        public bool IsDirectPrintingEnabled { get; set; }
     }
 
     protected override async Task OnInitializedAsync()
@@ -231,10 +234,14 @@
         {
             var t1 = Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
             var t2 = Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements");
+            var t3 = Http.GetFromJsonAsync<List<ServerSetting>>("api/Settings");
             await Task.WhenAll(t1, t2);
 
             listeModeles = t1.Result ?? new();
             listeLieux = t2.Result ?? new();
+            var settings = t3.Result ?? new();
+            _defaultDirectMode = bool.Parse(settings.FirstOrDefault(s => s.Key == "Printer_DefaultDirectModeEnabled")?.Value ?? "false");
+            _forceShare = bool.Parse(settings.FirstOrDefault(s => s.Key == "NamingSameShare")?.Value ?? "false");
         }
         catch (Exception ex)
         {
@@ -288,16 +295,16 @@
             resultats = scanResults.Select(r => new ImportPrinterViewModel
             {
                 PortName = r.IpAddress,
-                // Si Hostname vide (pas de DNS), on remet l'IP dans Name pour qu'il ne soit pas vide
                 Name = string.IsNullOrEmpty(r.Hostname) ? r.IpAddress : r.Hostname,
 
-                // On met le modèle SNMP dans DriverName pour l'affichage
                 DriverName = r.SnmpModel,
 
                 ExistsInDb = r.IsRegistered,
                 SelectedLieuId = scanLieuId,
                 SelectedForImport = !r.IsRegistered,
-                SelectedModeleId = FindModelIdBySnmp(r.SnmpModel)
+                SelectedModeleId = FindModelIdBySnmp(r.SnmpModel),
+                IsShared = _forceShare,
+                IsDirectPrintingEnabled = _defaultDirectMode
             }).ToList();
 
             if (resultats.Any())
@@ -376,7 +383,8 @@
             ShareName = p.ShareName,
             IsShared = p.IsShared,
             SelectedModeleId = p.SelectedModeleId,
-            SelectedLieuId = p.SelectedLieuId
+            SelectedLieuId = p.SelectedLieuId,
+            IsDirectPrintingEnabled = p.IsDirectPrintingEnabled
         }).ToList();
 
         if (!selection.Any()) return;
