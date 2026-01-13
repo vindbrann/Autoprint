@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace Autoprint.Shared
@@ -37,5 +38,8 @@ namespace Autoprint.Shared
         [MaxLength(50)]
         public string CidrIpv4 { get; set; } = string.Empty;
         public LieuStatus Status { get; set; } = LieuStatus.Active;
+
+        [NotMapped]
+        public int PrinterCount { get; set; }
     }
 }

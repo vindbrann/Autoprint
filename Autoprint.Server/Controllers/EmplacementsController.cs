@@ -25,9 +25,19 @@ namespace Autoprint.Server.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Emplacement>>> GetEmplacements()
         {
+            var query = _context.Emplacements.Select(e => new Emplacement
+            {
+                Id = e.Id,
+                Nom = e.Nom,
+                Code = e.Code,
+                CidrIpv4 = e.CidrIpv4,
+                Status = e.Status,
+                PrinterCount = _context.Imprimantes.Count(p => p.EmplacementId == e.Id)
+            });
+
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return await _context.Emplacements.ToListAsync();
+                return await query.ToListAsync();
             }
 
             if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
@@ -42,7 +52,7 @@ namespace Autoprint.Server.Controllers
 
                 if (receivedSecret == setting.Value)
                 {
-                    return await _context.Emplacements.ToListAsync();
+                    return await query.ToListAsync();
                 }
             }
 

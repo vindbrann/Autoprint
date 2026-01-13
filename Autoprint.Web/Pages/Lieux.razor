@@ -55,6 +55,19 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
+            <RadzenDataGridColumn TItem="Emplacement" Property="PrinterCount" Title="Imprimantes" Width="120px" TextAlign="TextAlign.Center">
+                <Template Context="l">
+                    @if (l.PrinterCount > 0)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@l.PrinterCount.ToString()" IsPill="true" />
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.9em;">0</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
             <RadzenDataGridColumn TItem="Emplacement" Property="CidrIpv4" Title="Réseau (CIDR)" Sortable="true" Filterable="true" Width="180px">
                 <Template Context="l">
                     <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@l.CidrIpv4" />
