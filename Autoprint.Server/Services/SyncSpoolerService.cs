@@ -99,7 +99,7 @@ namespace Autoprint.Server.Services
 
                         await spooler.CreerPortTcp(imp.AdresseIp);
                         await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
-                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
+                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.AdresseIp);
 
                         bool configOk = await spooler.VerifierModeDirect(imp.NomAffiche, imp.IsDirectPrintingEnabled);
                         if (configOk)
@@ -128,6 +128,7 @@ namespace Autoprint.Server.Services
                                 result.Messages.Add($"[RENAME] '{nomActuelSurWindows}' -> '{imp.NomAffiche}'.");
                             }
 
+                            await spooler.CreerPortTcp(imp.AdresseIp);
                             await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
                             result.Messages.Add($"[UPDATE] {imp.NomAffiche} mise à jour.");
                         }
@@ -138,7 +139,7 @@ namespace Autoprint.Server.Services
 
                             await spooler.CreerPortTcp(imp.AdresseIp);
                             await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.AdresseIp);
 
                             result.Messages.Add($"[REPAIR] {imp.NomAffiche} recréée.");
                         }

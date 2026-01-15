@@ -74,20 +74,27 @@ namespace Autoprint.Server.Services
 
         public Task CreerPortTcp(string ipAddress)
         {
-            try
+            return Task.Run(() =>
             {
-                if (PortExists(ipAddress)) return Task.CompletedTask;
+                string cleanIp = ipAddress.Trim();
+                string targetPortName = $"IP_{cleanIp}";
+
+                var query = new SelectQuery("Win32_TCPIPPrinterPort", $"Name = '{targetPortName}'");
+                using var searcher = new ManagementObjectSearcher(query);
+
+                if (searcher.Get().Count > 0) return;
+
                 var portClass = new ManagementClass("Win32_TCPIPPrinterPort");
                 var newPort = portClass.CreateInstance();
-                newPort["Name"] = "IP_" + ipAddress;
-                newPort["Protocol"] = 1;
-                newPort["HostAddress"] = ipAddress;
+
+                newPort["Name"] = targetPortName;
+                newPort["Protocol"] = 1; // TCP
+                newPort["HostAddress"] = cleanIp;
                 newPort["PortNumber"] = 9100;
                 newPort["SNMPEnabled"] = false;
+
                 newPort.Put();
-            }
-            catch (Exception ex) { Console.WriteLine($"Erreur port {ipAddress}: {ex.Message}"); }
-            return Task.CompletedTask;
+            });
         }
 
         public async Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableDirectMode)
@@ -121,25 +128,71 @@ namespace Autoprint.Server.Services
             return Task.CompletedTask;
         }
 
-        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode)
+        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? forcePortIp = null)
         {
             try
             {
                 var query = new SelectQuery("Win32_Printer", $"Name = '{nomActuel}'");
                 using var searcher = new ManagementObjectSearcher(query);
+
+                if (searcher.Get().Count == 0) throw new Exception($"Imprimante '{nomActuel}' introuvable.");
+
                 foreach (ManagementObject printer in searcher.Get())
                 {
-                    bool changed = false;
-                    if (comment != null && printer["Comment"]?.ToString() != comment) { printer["Comment"] = comment; changed = true; }
-                    if (location != null && printer["Location"]?.ToString() != location) { printer["Location"] = location; changed = true; }
-                    if (changed) printer.Put();
+                    bool infoChanged = false;
+                    if (comment != null && printer["Comment"]?.ToString() != comment)
+                    {
+                        printer["Comment"] = comment;
+                        infoChanged = true;
+                    }
+                    if (location != null && printer["Location"]?.ToString() != location)
+                    {
+                        printer["Location"] = location;
+                        infoChanged = true;
+                    }
+
+                    if (infoChanged)
+                    {
+                        printer.Put();
+                        printer.Get();
+                    }
+
+                    if (!string.IsNullOrEmpty(forcePortIp))
+                    {
+                        string targetPortName = $"IP_{forcePortIp.Trim()}";
+                        string currentPort = printer["PortName"]?.ToString() ?? "";
+
+                        if (!currentPort.Equals(targetPortName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            printer["PortName"] = targetPortName;
+
+                            try
+                            {
+                                printer.Put();
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new Exception($"Erreur lors du changement de port vers '{targetPortName}'. Cause: {ex.Message}");
+                            }
+
+                            printer.Get();
+                            string newPort = printer["PortName"]?.ToString() ?? "";
+
+                            if (!newPort.Equals(targetPortName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new Exception($"Le port n'a pas changé. Actuel: '{newPort}', Voulu: '{targetPortName}'. Vérifiez s'il y a des documents en attente.");
+                            }
+                        }
+                    }
                 }
 
                 await SetDirectPrintingMode(nomActuel, enableDirectMode);
             }
-            catch (Exception ex) { throw new Exception($"Erreur modif: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur modif '{nomActuel}': {ex.Message}");
+            }
         }
-
 
         private Task SetDirectPrintingMode(string printerName, bool enableDirect)
         {
@@ -259,15 +312,45 @@ namespace Autoprint.Server.Services
 
         public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
         {
-            try
+            return Task.Run(() =>
             {
-                string portName = $"IP_{ipAddress}";
-                var query = new SelectQuery("Win32_Printer", $"PortName = '{portName}'");
-                using var searcher = new ManagementObjectSearcher(query);
-                foreach (ManagementObject printer in searcher.Get()) return Task.FromResult<string?>(printer["Name"]?.ToString());
-            }
-            catch { }
-            return Task.FromResult<string?>(null);
+                try
+                {
+                    string? realPortName = null;
+
+                    var portQuery = new SelectQuery("Win32_TCPIPPrinterPort", $"HostAddress = '{ipAddress}'");
+                    using var portSearcher = new ManagementObjectSearcher(portQuery);
+
+                    foreach (ManagementObject port in portSearcher.Get())
+                    {
+                        realPortName = port["Name"]?.ToString();
+                        break;
+                    }
+
+                    if (string.IsNullOrEmpty(realPortName))
+                    {
+                        realPortName = ipAddress;
+                    }
+
+                    using var printerSearcher = new ManagementObjectSearcher("SELECT Name, PortName FROM Win32_Printer");
+
+                    foreach (ManagementObject printer in printerSearcher.Get())
+                    {
+                        string pPort = printer["PortName"]?.ToString() ?? "";
+                        string pName = printer["Name"]?.ToString();
+
+                        if (string.IsNullOrEmpty(pPort)) continue;
+
+                        if (pPort.IndexOf(realPortName, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            pPort.IndexOf(ipAddress, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            return pName;
+                        }
+                    }
+                }
+                catch { }
+                return (string?)null;
+            });
         }
 
         public Task RenommerImprimante(string ancienNom, string nouveauNom)
@@ -338,6 +421,60 @@ namespace Autoprint.Server.Services
             catch (UnauthorizedAccessException) { throw new Exception("Accès refusé au serveur distant (Erreur WMI)."); }
             catch (Exception ex) { throw new Exception($"Erreur WMI ({targetHost}): {ex.Message}"); }
             return Task.FromResult(results);
+        }
+
+        public Task<ServerAuditSnapshot> GetServerSnapshotAsync()
+        {
+            return Task.Run(() =>
+            {
+                var snapshot = new ServerAuditSnapshot();
+
+                try
+                {
+                    using var searcherPorts = new ManagementObjectSearcher("SELECT Name, HostAddress FROM Win32_TCPIPPrinterPort");
+                    foreach (ManagementObject port in searcherPorts.Get())
+                    {
+                        string ip = port["HostAddress"]?.ToString()?.Trim() ?? "";
+                        string name = port["Name"]?.ToString()?.Trim() ?? "";
+
+                        if (!string.IsNullOrEmpty(ip) && !snapshot.PortsByIp.ContainsKey(ip))
+                        {
+                            snapshot.PortsByIp[ip] = name;
+                        }
+                    }
+
+                    using var searcherPrinters = new ManagementObjectSearcher("SELECT Name, PortName, Attributes FROM Win32_Printer");
+                    foreach (ManagementObject printer in searcherPrinters.Get())
+                    {
+                        string pName = printer["Name"]?.ToString() ?? "";
+                        string pPort = printer["PortName"]?.ToString() ?? "";
+                        uint attributes = (uint)(printer["Attributes"] ?? 0);
+
+                        bool isDirect = (attributes & 2) == 2;
+
+                        var ports = pPort.Split(',');
+                        foreach (var port in ports)
+                        {
+                            string cleanPort = port.Trim();
+                            if (!string.IsNullOrEmpty(cleanPort) && !snapshot.PrintersByPort.ContainsKey(cleanPort))
+                            {
+                                snapshot.PrintersByPort[cleanPort] = new WinPrinterInfo
+                                {
+                                    Name = pName,
+                                    IsDirect = isDirect,
+                                    PortName = pPort
+                                };
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Erreur Snapshot: " + ex.Message);
+                }
+
+                return snapshot;
+            });
         }
 
         public Task<List<Pilote>> GetInstalledDriversAsync()

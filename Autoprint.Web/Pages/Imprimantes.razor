@@ -108,7 +108,25 @@
 }
 else
 {
-    <RadzenDataGrid @ref="grid" Data="@imprimantes" TItem="Imprimante"
+    <div style="position: relative; min-height: 200px;">
+    @if (isSyncing || isAuditing)
+    {
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                                background-color: rgba(255, 255, 255, 0.8); z-index: 1000;
+                                display: flex; flex-direction: column; align-items: center; justify-content: center;">
+
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" />
+
+                <RadzenText TextStyle="TextStyle.H6" Style="margin-top: 20px; color: var(--rz-primary);">
+                    @(isAuditing ? "Audit du serveur en cours..." : "Synchronisation et application des correctifs...")
+                </RadzenText>
+
+                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">
+                    Veuillez patienter, cette opération peut prendre quelques instants.
+                </RadzenText>
+            </div>
+    }
+        <RadzenDataGrid @ref="grid" Data="@imprimantes" TItem="Imprimante"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true"
@@ -276,6 +294,7 @@ else
             </RadzenDataGridColumn>
         </Columns>
     </RadzenDataGrid>
+    </div>
 }
 
 @code {
