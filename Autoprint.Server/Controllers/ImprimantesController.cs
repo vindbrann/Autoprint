@@ -166,41 +166,75 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_SYNC")]
         public async Task<IActionResult> AuditConfiguration()
         {
+            var snapshot = await _spooler.GetServerSnapshotAsync();
+
             var printers = await _context.Imprimantes.ToListAsync();
             int errorsFound = 0;
             int corrections = 0;
 
             foreach (var imp in printers)
             {
-                if (imp.Status == PrinterStatus.PendingCreation || imp.Status == PrinterStatus.PendingDelete) continue;
-                var windowsName = await _spooler.RecupererNomImprimanteParIp(imp.AdresseIp);
+                if (imp.Status == PrinterStatus.PendingDelete) continue;
 
-                if (string.IsNullOrEmpty(windowsName))
+                string? windowsName = null;
+                WinPrinterInfo? winInfo = null;
+
+                if (!string.IsNullOrEmpty(imp.AdresseIp) && snapshot.PortsByIp.TryGetValue(imp.AdresseIp, out string? portName))
+                {
+                    if (snapshot.PrintersByPort.TryGetValue(portName, out winInfo))
+                    {
+                        windowsName = winInfo.Name;
+                    }
+                }
+                if (windowsName == null && snapshot.PrintersByPort.TryGetValue(imp.AdresseIp, out winInfo))
+                {
+                    windowsName = winInfo.Name;
+                }
+
+                if (imp.Status == PrinterStatus.PendingCreation)
+                {
+                    if (windowsName != null)
+                    {
+                        imp.Status = PrinterStatus.Synchronized;
+                        imp.Commentaire = windowsName != imp.NomAffiche
+                            ? $"[AUTO-MERGE] Nom Windows '{windowsName}' détecté."
+                            : null;
+                        corrections++;
+                    }
+                    continue;
+                }
+
+                if (windowsName == null)
                 {
                     if (imp.Status != PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.SyncError;
-                        imp.Commentaire = "[AUDIT] Imprimante introuvable sur le serveur Windows (IP non mappée).";
+                        imp.Commentaire = "[AUDIT] Introuvable sur Windows (IP non mappée).";
                         errorsFound++;
                     }
                     continue;
                 }
 
-                bool isDirectActive = await _spooler.VerifierModeDirect(windowsName, true);
-                bool configMatch = (isDirectActive == imp.IsDirectPrintingEnabled);
+                string portAttendu = $"IP_{imp.AdresseIp}";
+                string portReel = winInfo!.PortName ?? "";
 
-                if (!configMatch)
+                if (!portReel.Equals(portAttendu, StringComparison.OrdinalIgnoreCase))
                 {
                     imp.Status = PrinterStatus.SyncError;
-                    string etatWin = isDirectActive ? "ACTIF" : "INACTIF";
-                    string etatDb = imp.IsDirectPrintingEnabled ? "ACTIF" : "INACTIF";
-                    imp.Commentaire = $"[AUDIT] Incohérence Mode Direct. Windows: {etatWin} / Base: {etatDb}.";
+                    imp.Commentaire = $"[AUDIT] Nom de port non standard : '{portReel}' (Attendu : '{portAttendu}').";
+                    errorsFound++;
+                }
+
+                else if (winInfo.IsDirect != imp.IsDirectPrintingEnabled)
+                {
+                    imp.Status = PrinterStatus.SyncError;
+                    imp.Commentaire = $"[AUDIT] Mode Direct incorrect (Win: {winInfo.IsDirect}).";
                     errorsFound++;
                 }
                 else if (windowsName != imp.NomAffiche)
                 {
                     imp.Status = PrinterStatus.SyncError;
-                    imp.Commentaire = $"[AUDIT] Nom incorrect sur Windows : '{windowsName}'.";
+                    imp.Commentaire = $"[AUDIT] Nom incorrect: '{windowsName}'.";
                     errorsFound++;
                 }
                 else
@@ -214,12 +248,9 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            if (errorsFound > 0 || corrections > 0)
-            {
-                await _context.SaveChangesAsync();
-            }
+            if (errorsFound > 0 || corrections > 0) await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"Audit terminé. {errorsFound} erreurs détectées, {corrections} corrections de statut." });
+            return Ok(new { message = $"Audit terminé. {errorsFound} erreurs, {corrections} corrections." });
         }
 
         [HttpPost("ForceDirectMode")]
