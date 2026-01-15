@@ -88,7 +88,7 @@ namespace Autoprint.Client.ViewModels
                         if (isNetwork)
                         {
                             bool isFav = favoritePrinters.Contains(queue.Name.ToLower().Trim());
-                            InstalledPrinters.Add(new InstalledPrinterUiItem(queue.Name, queue.FullName, isFav, OnDeleteRequested));
+                            InstalledPrinters.Add(new InstalledPrinterUiItem(queue.Name, queue.FullName, isFav, OnDeleteRequested, OnToggleFavoriteRequested));
                         }
                     }
                 }
@@ -128,6 +128,33 @@ namespace Autoprint.Client.ViewModels
                 StatusMessage = "";
                 UpdateState();
             }
+        }
+
+        private void OnToggleFavoriteRequested(InstalledPrinterUiItem item)
+        {
+            if (item.IsFavorite)
+            {
+                RemoveFromPreferences(item.Name);
+            }
+            else
+            {
+                if (Application.Current is App myApp)
+                {
+                    bool success = myApp.SetDefaultPrinterSafe(item.Name);
+
+                    if (success)
+                    {
+                        _prefService.SetPreferredPrinter("Manual", item.Name);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Impossible de définir cette imprimante par défaut.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                }
+            }
+
+            RefreshPrinters();
         }
 
         private void RemoveFromPreferences(string printerName)
@@ -251,13 +278,15 @@ namespace Autoprint.Client.ViewModels
         public double IconOpacity => IsFavorite ? 1.0 : 0.5;
 
         public ICommand DeleteCommand { get; }
+        public ICommand ToggleFavoriteCommand { get; }
 
-        public InstalledPrinterUiItem(string name, string fullName, bool isFavorite, Action<InstalledPrinterUiItem> deleteCallback)
+        public InstalledPrinterUiItem(string name, string fullName, bool isFavorite, Action<InstalledPrinterUiItem> deleteCallback, Action<InstalledPrinterUiItem> toggleCallback)
         {
             Name = name;
             FullName = fullName;
             IsFavorite = isFavorite;
             DeleteCommand = new RelayCommand(_ => deleteCallback(this));
+            ToggleFavoriteCommand = new RelayCommand(_ => toggleCallback(this));
         }
     }
 }
