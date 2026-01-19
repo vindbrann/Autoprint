@@ -88,7 +88,7 @@ namespace Autoprint.Server.Controllers
 
             imprimante.Modele = null!;
             imprimante.Emplacement = null!;
-
+            imprimante.ModifiePar = User.Identity?.Name ?? "Système";
             _context.Imprimantes.Add(imprimante);
             _auditService.LogAction("PRINTER_CREATE", $"Ajout : {imprimante.NomAffiche}", User.Identity?.Name, resourceName: imprimante.NomAffiche);
             await _context.SaveChangesAsync();
@@ -126,6 +126,8 @@ namespace Autoprint.Server.Controllers
             dbImprimante.IsDirectPrintingEnabled = inputImprimante.IsDirectPrintingEnabled;
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
+            dbImprimante.DateModification = DateTime.UtcNow;
+            dbImprimante.ModifiePar = User.Identity?.Name ?? "Système";
 
             var snapModele = await _context.Modeles.AsNoTracking().Include(m => m.Marque).Include(m => m.Pilote).FirstOrDefaultAsync(m => m.Id == inputImprimante.ModeleId);
             var snapEmplacement = await _context.Emplacements.AsNoTracking().FirstOrDefaultAsync(e => e.Id == inputImprimante.EmplacementId);
@@ -287,6 +289,9 @@ namespace Autoprint.Server.Controllers
             else
             {
                 imprimante.Status = PrinterStatus.PendingDelete;
+                imprimante.ModifiePar = User.Identity?.Name ?? "Système";
+                imprimante.DateModification = DateTime.UtcNow;
+
                 _auditService.LogAction("PRINTER_UPDATE", $"Marquage suppression: {imprimante.NomAffiche}", User.Identity?.Name, "INFO", imprimante.NomAffiche);
             }
 

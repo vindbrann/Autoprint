@@ -20,10 +20,21 @@
             </RadzenColumn>
         </RadzenRow>
 
-        <div>
+<div>
             <RadzenLabel Text="Plage IP (CIDR)" Component="Cidr" />
             <RadzenTextBox Name="Cidr" @bind-Value="@lieuEdit.CidrIpv4" Style="width: 100%;" Placeholder="Ex: 192.168.10.0/24" />
-            <RadzenRequiredValidator Component="Cidr" Text="Le CIDR est requis pour la détection" Popup="true" />
+            
+            <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1 rz-mb-0" Style="color: var(--rz-text-tertiary-color);">
+                Format requis : x.x.x.x/xx (Ex: 192.168.1.0/24)
+            </RadzenText>
+
+            <RadzenRequiredValidator Component="Cidr" Text="CIDR requis" Popup="false" Style="display: block; margin-top: 5px;" />
+            
+            <RadzenRegexValidator Component="Cidr" 
+                                  Text="Format IP/Masque invalide" 
+                                  Pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[12]?[0-9]|[0-9])$" 
+                                  Popup="false" 
+                                  Style="display: block; margin-top: 5px;" />
         </div>
 
         <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
@@ -91,7 +102,7 @@
             Nom = LieuToEdit.Nom,
             Code = LieuToEdit.Code,
             CidrIpv4 = LieuToEdit.CidrIpv4,
-            Status = LieuToEdit.Status 
+            Status = LieuToEdit.Status
         };
     }
 
@@ -99,6 +110,10 @@
     {
         try
         {
+            lieuEdit.Nom = lieuEdit.Nom?.Trim();
+            lieuEdit.Code = lieuEdit.Code?.Trim().ToUpper();
+            lieuEdit.CidrIpv4 = lieuEdit.CidrIpv4?.Trim();
+
             if (lieuEdit.Id == 0)
             {
                 await Http.PostAsJsonAsync("api/Emplacements", lieuEdit);

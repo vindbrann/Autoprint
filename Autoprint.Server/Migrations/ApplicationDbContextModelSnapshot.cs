@@ -523,6 +523,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("LastRunResult")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -576,6 +580,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -594,7 +602,7 @@ namespace Autoprint.Server.Migrations
                             Id = 1,
                             CidrIpv4 = "0.0.0.0/0",
                             Code = "ND",
-                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(5150),
+                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(6673),
                             EstSupprime = false,
                             Nom = "NON DÉFINI",
                             Status = 0
@@ -643,6 +651,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<int>("ModeleId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("NomAffiche")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -677,6 +689,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -690,7 +706,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(4337),
+                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(6074),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -717,6 +733,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<int>("MarqueId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -737,7 +757,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2025, 12, 24, 14, 33, 8, 235, DateTimeKind.Utc).AddTicks(5871),
+                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(7272),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -760,6 +780,10 @@ namespace Autoprint.Server.Migrations
 
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Nom")
                         .IsRequired()
@@ -949,6 +973,10 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Source")
                         .IsRequired()
