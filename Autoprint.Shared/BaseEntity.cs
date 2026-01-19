@@ -8,7 +8,8 @@ namespace Autoprint.Shared
         public int Id { get; set; }
 
         public DateTime DateModification { get; set; } = DateTime.UtcNow;
-
+        [MaxLength(100)]
+        public string? ModifiePar { get; set; }
         public bool EstSupprime { get; set; } = false;
     }
 }

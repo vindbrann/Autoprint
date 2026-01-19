@@ -45,7 +45,7 @@ namespace Autoprint.Server.Services
                     NomImprimante = i.NomAffiche,
                     Status = i.Status,
                     DateModification = i.DateModification,
-                    ModifiePar = "Admin",
+                    ModifiePar = i.ModifiePar,
                     Action = i.Status == PrinterStatus.PendingCreation ? "Création" :
                              i.Status == PrinterStatus.PendingDelete ? "Suppression" :
                              i.Status == PrinterStatus.SyncError ? "Correction (Retry)" : "Mise à jour",

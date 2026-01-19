@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autoprint.Server.Services;
+using Microsoft.AspNetCore.SignalR;
+using Autoprint.Server.Hubs;
 
 namespace Autoprint.Server.Controllers
 {
@@ -14,11 +16,16 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
+        private readonly IHubContext<EventsHub> _hubContext;
 
-        public EmplacementsController(ApplicationDbContext context, AuditService auditService)
+        public EmplacementsController(
+            ApplicationDbContext context,
+            AuditService auditService,
+            IHubContext<EventsHub> hubContext)
         {
             _context = context;
             _auditService = auditService;
+            _hubContext = hubContext;
         }
 
         [HttpGet]
@@ -82,6 +89,8 @@ namespace Autoprint.Server.Controllers
                     User.Identity?.Name);
 
                 await _context.SaveChangesAsync();
+
+                await _hubContext.Clients.All.SendAsync("RefreshPrinters");
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -105,6 +114,9 @@ namespace Autoprint.Server.Controllers
             );
 
             await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+
             return CreatedAtAction("GetEmplacement", new { id = emplacement.Id }, emplacement);
         }
 
@@ -125,6 +137,9 @@ namespace Autoprint.Server.Controllers
 
             _context.Emplacements.Remove(emplacement);
             await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+
             return NoContent();
         }
 
