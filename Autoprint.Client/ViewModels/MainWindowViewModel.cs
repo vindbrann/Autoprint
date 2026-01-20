@@ -21,6 +21,7 @@ namespace Autoprint.Client.ViewModels
     {
         private readonly UserPreferencesService? _prefService;
         private readonly IpcService? _ipcService;
+        private readonly ConfigurationService? _configService; // Ajouté pour lire le registre
 
         private string _appVersion = "v1.0";
         public string AppVersion
@@ -76,10 +77,12 @@ namespace Autoprint.Client.ViewModels
 
         public MainWindowViewModel() { }
 
-        public MainWindowViewModel(UserPreferencesService prefService, IpcService ipcService)
+        // Constructeur mis à jour pour accepter ConfigurationService
+        public MainWindowViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
         {
             _prefService = prefService;
             _ipcService = ipcService;
+            _configService = configService;
         }
 
         public void ChargerDonnees(string nomLieu, string codeLieu, List<Imprimante> toutesLesImprimantes, string ipLocale, bool isOffline)
@@ -91,12 +94,14 @@ namespace Autoprint.Client.ViewModels
                 IsOffline = isOffline;
                 TitreLieu = nomLieu;
 
-                if (!isOffline && _prefService?.Current.PrintServerName != null)
+                // Récupération du serveur depuis le ConfigService (Registre)
+                string serverName = _configService?.PrintServerName ?? "";
+
+                if (!isOffline && !string.IsNullOrEmpty(serverName))
                 {
-                    _ = CheckSmbAccessAsync(_prefService.Current.PrintServerName);
+                    _ = CheckSmbAccessAsync(serverName);
                 }
 
-                // Versioning
                 var assembly = System.Reflection.Assembly.GetEntryAssembly();
                 var infoAttr = assembly?.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).FirstOrDefault() as System.Reflection.AssemblyInformationalVersionAttribute;
 
@@ -126,7 +131,7 @@ namespace Autoprint.Client.ViewModels
                     {
                         Debug.WriteLine($"[Cleanup] Le favori '{favoriActuel}' n'existe plus pour ce lieu. Suppression silencieuse.");
                         _prefService?.RemovePreferredPrinter(codeLieu);
-                        favoriActuel = null; 
+                        favoriActuel = null;
                     }
                 }
 
@@ -138,7 +143,6 @@ namespace Autoprint.Client.ViewModels
                     string nomApp = imp.NomAffiche;
 
                     if (IsPrinterInstalled(nomApp, installedMap)) item.IsInstalled = true;
-
                     if (favoriActuel != null && imp.NomAffiche == favoriActuel) item.IsFavorite = true;
 
                     Imprimantes.Add(item);
@@ -263,49 +267,51 @@ namespace Autoprint.Client.ViewModels
 
         private async void OnInstallStatusChanged(ImprimanteUiItem item, bool install)
         {
+            if (item.IsInstalling) return;
+
             if (install && !CanInstall)
             {
                 MessageBox.Show("Le serveur d'impression est inaccessible (SMB).\nVérifiez votre connexion.", "Erreur Réseau", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (_ipcService == null || _prefService == null) return;
+            if (_ipcService == null || _configService == null) return;
 
             string printerName = item.Data.NomAffiche;
             string driverName = item.Data.Modele?.Pilote?.Nom ?? "INCONNU";
+            string? rawServer = _configService.PrintServerName;
 
-            string? rawServer = _prefService.Current.PrintServerName;
-            string serverName = CleanServerName(rawServer);
-
-            if (string.IsNullOrWhiteSpace(serverName)) return;
-
-            string uncPath = $@"\\{serverName}\{printerName}";
+            if (string.IsNullOrWhiteSpace(rawServer))
+            {
+                MessageBox.Show("Erreur critique : Le nom du serveur d'impression est vide...", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
             if (install)
             {
-                var request = new IpcRequest
+                try
                 {
-                    Action = "INSTALL_DRIVER",
-                    PrinterName = printerName,
-                    DriverModelName = driverName,
-                    UncPath = uncPath
-                };
-                await _ipcService.SendRequestAsync(request);
+                    item.IsInstalling = true;
 
-                bool mapSuccess = await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /in /n \"{uncPath}\""));
+                    await Task.Delay(50);
 
-                if (mapSuccess)
-                {
-                    item.IsInstalled = true;
-                    Application.Current.Dispatcher.Invoke(RafraichirEtatInstallation);
+                    bool success = await InstallerImprimanteDirectementAsync(printerName, driverName, rawServer);
+
+                    if (success)
+                    {
+                        item.IsInstalled = true;
+                    }
                 }
-                else
+                finally
                 {
-                    MessageBox.Show("Échec de la connexion à l'imprimante.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    item.IsInstalling = false;
                 }
             }
             else
             {
+                string serverName = CleanServerName(rawServer);
+                string uncPath = $@"\\{serverName}\{printerName}";
+
                 if (await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /dn /q /n \"{uncPath}\"")))
                 {
                     item.IsInstalled = false;
@@ -324,6 +330,39 @@ namespace Autoprint.Client.ViewModels
                     Application.Current.Dispatcher.Invoke(RafraichirEtatInstallation);
                 }
             }
+        }
+
+        public async Task<bool> InstallerImprimanteDirectementAsync(string printerName, string driverModel, string serverUrl)
+        {
+            if (_ipcService == null) return false;
+
+            string cleanServer = CleanServerName(serverUrl);
+            if (string.IsNullOrWhiteSpace(cleanServer)) return false;
+
+            string uncPath = $@"\\{cleanServer}\{printerName}";
+
+            var request = new IpcRequest
+            {
+                Action = "INSTALL_DRIVER",
+                PrinterName = printerName,
+                DriverModelName = driverModel,
+                UncPath = uncPath
+            };
+
+            try { await _ipcService.SendRequestAsync(request); } catch { }
+
+            bool mapSuccess = await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /in /n \"{uncPath}\""));
+
+            if (!mapSuccess)
+            {
+                MessageBox.Show($"Echec connexion Windows à :\n{uncPath}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(RafraichirEtatInstallation);
+            }
+
+            return mapSuccess;
         }
 
         private bool RunUserCommand(string arguments)
@@ -370,6 +409,21 @@ namespace Autoprint.Client.ViewModels
             set { if (_isInstalled != value) { _isInstalled = value; OnPropertyChanged(); } }
         }
 
+        private bool _isInstalling;
+        public bool IsInstalling
+        {
+            get => _isInstalling;
+            set
+            {
+                if (_isInstalling != value)
+                {
+                    _isInstalling = value;
+                    OnPropertyChanged();
+                    Application.Current.Dispatcher.Invoke(CommandManager.InvalidateRequerySuggested);
+                }
+            }
+        }
+
         public ICommand InstallCommand { get; }
         public ICommand UninstallCommand { get; }
 
@@ -380,7 +434,11 @@ namespace Autoprint.Client.ViewModels
             _onFavoriChanged = onFav;
             _onInstallStatusChanged = onInst;
 
-            InstallCommand = new RelayCommand(_ => _onInstallStatusChanged?.Invoke(this, true), _ => _parent.CanInstall);
+            InstallCommand = new RelayCommand(
+                            _ => _onInstallStatusChanged?.Invoke(this, true),
+                            _ => _parent.CanInstall
+                        );
+
             UninstallCommand = new RelayCommand(_ => _onInstallStatusChanged?.Invoke(this, false));
         }
 

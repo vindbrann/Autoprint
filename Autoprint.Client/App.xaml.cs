@@ -62,11 +62,11 @@ namespace Autoprint.Client
             }
             catch { }
 
-            _mainViewModel = new MainWindowViewModel(_prefService, _ipcService);
+            _mainViewModel = new MainWindowViewModel(_prefService, _ipcService, _configService);
             _mainWindow = new MainWindow();
             _mainWindow.DataContext = _mainViewModel;
 
-            _optionsViewModel = new OptionsViewModel(_prefService);
+            _optionsViewModel = new OptionsViewModel(_prefService, _ipcService, _configService);
             _manageViewModel = new ManagePrintersViewModel(_prefService);
 
             try
@@ -212,16 +212,73 @@ namespace Autoprint.Client
 
                 if (_prefService.Current.PreferredPrinters.TryGetValue(meilleurLieu.Code, out string? favoritePrinterName))
                 {
-                    bool favoriExisteSurServeur = _toutesLesImprimantes.Any(p => p.NomAffiche == favoritePrinterName);
+                    var imprimanteCible = _toutesLesImprimantes.FirstOrDefault(p => p.NomAffiche == favoritePrinterName);
 
-                    if (!favoriExisteSurServeur)
+                    if (imprimanteCible == null)
                     {
                         Debug.WriteLine($"[Startup] Le favori '{favoritePrinterName}' n'existe plus sur le serveur. Suppression.");
                         _prefService.RemovePreferredPrinter(meilleurLieu.Code);
                     }
                     else
                     {
-                        if (_prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
+
+                        bool estInstalleeLocalement = false;
+                        
+                        try
+                        {
+                            using (var ps = new LocalPrintServer())
+                            {
+                                var queues = ps.GetPrintQueues(new[] { EnumeratedPrintQueueTypes.Local, EnumeratedPrintQueueTypes.Connections });
+                                estInstalleeLocalement = queues.Any(q => q.Name.Equals(favoritePrinterName, StringComparison.OrdinalIgnoreCase) ||
+                                                                         q.FullName.EndsWith($"\\{favoritePrinterName}", StringComparison.OrdinalIgnoreCase));
+                            }
+                        }
+                        catch { estInstalleeLocalement = false; }
+
+                        if (!estInstalleeLocalement)
+                        {
+                            await Dispatcher.InvokeAsync(async () =>
+                            {
+                                var dialog = new MissingPrinterDialog(favoritePrinterName);
+                                dialog.ShowDialog();
+
+                                if (dialog.UserChoice == MissingPrinterAction.Forget)
+                                {
+                                    _prefService.RemovePreferredPrinter(meilleurLieu.Code);
+                                }
+                                else if (dialog.UserChoice == MissingPrinterAction.Reinstall)
+                                {
+                                    if (_mainViewModel != null)
+                                    {
+                                        string driver = imprimanteCible.Modele?.Pilote?.Nom ?? "";
+                                        string srv = _configService.PrintServerName ?? "";
+
+                                        if (string.IsNullOrWhiteSpace(srv))
+                                        {
+                                            MessageBox.Show($"Erreur Critique :\nServeur vide !\nConfigService.PrintServerName = '{_configService.PrintServerName}'",
+                                                "Debug", MessageBoxButton.OK, MessageBoxImage.Error);
+                                            return;
+                                        }
+
+                                        var notif = (TaskbarIcon)FindResource("MainNotifyIcon");
+                                        notif?.ShowBalloonTip("Installation", $"Réinstallation de {favoritePrinterName}...", BalloonIcon.Info);
+
+                                        bool succes = await _mainViewModel.InstallerImprimanteDirectementAsync(favoritePrinterName, driver, srv);
+
+                                        if (succes)
+                                        {
+                                            if (_prefService.Current.AutoSwitchDefaultPrinter)
+                                                SetDefaultPrinterSafe(favoritePrinterName);
+                                        }
+                                        else
+                                        {
+                                            MessageBox.Show("L'installation a échoué.\nVérifiez que le serveur est accessible.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                        else if (estInstalleeLocalement && _prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
                         {
                             if (SetDefaultPrinterSafe(favoritePrinterName))
                                 messageSwitch = $"\n✅ {favoritePrinterName} par défaut.";
@@ -289,7 +346,7 @@ namespace Autoprint.Client
         {
             try
             {
-                string? serverName = _prefService.Current.PrintServerName;
+                string? serverName = _configService.PrintServerName;
 
                 if (string.IsNullOrEmpty(serverName)) return false;
 
@@ -356,8 +413,7 @@ namespace Autoprint.Client
         {
             if (_optionsWindow == null || !_optionsWindow.IsLoaded)
             {
-                _optionsWindow = new Autoprint.Client.OptionsWindow(_prefService);
-                _optionsWindow.DataContext = _optionsViewModel;
+                _optionsWindow = new Autoprint.Client.OptionsWindow(_prefService, _ipcService, _configService);
             }
             _optionsWindow.Show();
             _optionsWindow.Activate();

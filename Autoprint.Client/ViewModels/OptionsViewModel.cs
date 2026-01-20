@@ -1,4 +1,5 @@
 ﻿using Autoprint.Client.Services;
+using Autoprint.Shared.IPC;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -14,18 +15,22 @@ namespace Autoprint.Client.ViewModels
     public class OptionsViewModel : INotifyPropertyChanged
     {
         private readonly UserPreferencesService _prefService;
+        private readonly IpcService _ipcService;
         private int _secretClickCount = 0;
+        private readonly ConfigurationService _configService;
 
-        public OptionsViewModel(UserPreferencesService prefService)
+        public OptionsViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
         {
             _prefService = prefService;
+            _ipcService = ipcService;
+            _configService = configService;
 
-            AdminServerUrl = _prefService.Current.PrintServerName ?? "";
-            AdminApiKey = _prefService.Current.AgentApiKey ?? "";
+            AdminServerUrl = _configService.PrintServerName ?? "";
+            AdminApiKey = _configService.ApiKey ?? "";
 
             var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             var infoAttr = assembly.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
-                                   .FirstOrDefault() as AssemblyInformationalVersionAttribute;
+                                    .FirstOrDefault() as AssemblyInformationalVersionAttribute;
 
             if (infoAttr != null)
             {
@@ -40,10 +45,8 @@ namespace Autoprint.Client.ViewModels
             }
 
             VersionClickCommand = new RelayCommand(param => OnVersionClicked());
-
             TestAndSaveCommand = new RelayCommand(async param => await TestAndSaveAsync());
         }
-
 
         public bool EnableNotifications
         {
@@ -85,7 +88,6 @@ namespace Autoprint.Client.ViewModels
                 }
             }
         }
-
 
         public string VersionText { get; }
 
@@ -138,10 +140,8 @@ namespace Autoprint.Client.ViewModels
             set { _testStatusColor = value; OnPropertyChanged(); }
         }
 
-
         public ICommand VersionClickCommand { get; }
         public ICommand TestAndSaveCommand { get; }
-
 
         private void OnVersionClicked()
         {
@@ -183,26 +183,39 @@ namespace Autoprint.Client.ViewModels
             }
 
             IsTesting = true;
-            SetStatus("Test de connexion en cours...", Brushes.Orange);
+            SetStatus("Test de connexion API...", Brushes.Orange);
 
             try
             {
                 var tempApiService = new ApiService(urlNettoyee, AdminApiKey);
                 await tempApiService.GetLieuxAsync();
 
-                IsTesting = false;
+                SetStatus("Connexion OK. Sauvegarde système...", Brushes.Blue);
 
-                SetStatus("✅ VALIDÉ ! Sauvegarde effectuée.", Brushes.Green);
+                var request = new IpcRequest
+                {
+                    Action = "UPDATE_CONFIG",
+                    ConfigServerUrl = urlNettoyee,
+                    ConfigApiKey = AdminApiKey
+                };
 
-                _prefService.Current.PrintServerName = urlNettoyee;
-                _prefService.Current.AgentApiKey = AdminApiKey;
-                _prefService.Save();
+                bool ipcSuccess = await _ipcService.SendRequestAsync(request);
 
-                await Task.Delay(1500);
+                if (ipcSuccess)
+                {
+                    SetStatus("✅ Sauvegarde Système (HKLM) réussie !", Brushes.Green);
 
-                IsAdminPanelVisible = false;
-                SetStatus("", Brushes.Black);
-                _secretClickCount = 0;
+                    _prefService.Save();
+
+                    await Task.Delay(2000);
+                    IsAdminPanelVisible = false;
+                    SetStatus("", Brushes.Black);
+                    _secretClickCount = 0;
+                }
+                else
+                {
+                    SetStatus("⚠️ Erreur : Le Service n'a pas confirmé la sauvegarde.", Brushes.Red);
+                }
             }
             catch (Exception ex)
             {
