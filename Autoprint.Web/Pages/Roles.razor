@@ -61,19 +61,23 @@ else
                 <Template Context="role">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
 
-                        <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
-                                      Click="@(() => OpenAdModal(role.Id, role.Name))"
-                                      Tooltip="Gérer la liaison Active Directory" />
+                        <AuthorizeView Policy="ROLE_WRITE">
+                            <Authorized Context="authAd">
+                                <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                              Click="@(() => OpenAdModal(role.Id, role.Name))"
+                                              Tooltip="Gérer la liaison Active Directory" />
+                            </Authorized>
+                        </AuthorizeView>
 
                         @if (role.Name != "SuperAdmin")
                         {
                             <AuthorizeView Policy="ROLE_WRITE">
-                                <Authorized Context="auth">
+                                <Authorized Context="authEdit">
                                     <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
                                 </Authorized>
                             </AuthorizeView>
                             <AuthorizeView Policy="ROLE_DELETE">
-                                <Authorized Context="auth">
+                                <Authorized Context="authDelete">
                                     <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
                                 </Authorized>
                             </AuthorizeView>

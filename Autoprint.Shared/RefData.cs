@@ -9,6 +9,8 @@ namespace Autoprint.Shared
         [Required]
         [MaxLength(100)]
         public string Nom { get; set; } = string.Empty;
+        [NotMapped]
+        public int PrinterCount { get; set; }
     }
 
     public class Modele : BaseEntity
@@ -23,6 +25,9 @@ namespace Autoprint.Shared
         public Marque? Marque { get; set; }
         public int? PiloteId { get; set; }
         public Pilote? Pilote { get; set; }
+        [NotMapped]
+        public int PrinterCount { get; set; }
+
     }
 
     public class Emplacement : BaseEntity

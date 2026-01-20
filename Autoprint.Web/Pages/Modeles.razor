@@ -89,6 +89,19 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
+            <RadzenDataGridColumn TItem="Modele" Property="PrinterCount" Title="Imprimantes" Width="120px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    @if (m.PrinterCount > 0)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@m.PrinterCount.ToString()" IsPill="true" />
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.9em;">0</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
             <RadzenDataGridColumn TItem="Modele" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
                 <Template Context="m">
                     <AuthorizeView Policy="MODEL_WRITE">
@@ -160,7 +173,7 @@ else
         if (resultat == true)
         {
             await ChargerListe();
-            await AlertService.RefreshState(); 
+            await AlertService.RefreshState();
         }
     }
 
@@ -168,14 +181,14 @@ else
     {
         if (modeles == null || !modeles.Any()) return;
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom du Modele;Marque;Pilote");
+        csvBuilder.AppendLine("Id;Nom du Modele;Marque;Pilote;NombreImprimantes");
 
         foreach (var m in modeles)
         {
             var nomClean = m.Nom?.Replace(";", ",") ?? "";
             var marqueClean = m.Marque?.Nom?.Replace(";", ",") ?? "";
             var piloteClean = m.Pilote?.Nom?.Replace(";", ",") ?? "";
-            csvBuilder.AppendLine($"{m.Id};{nomClean};{marqueClean};{piloteClean}");
+            csvBuilder.AppendLine($"{m.Id};{nomClean};{marqueClean};{piloteClean};{m.PrinterCount}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
