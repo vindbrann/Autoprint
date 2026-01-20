@@ -1,5 +1,7 @@
 ﻿using Autoprint.Client.Models;
+using Microsoft.Win32;
 using System;
+using System.Diagnostics;
 
 namespace Autoprint.Client.Services
 {
@@ -10,31 +12,45 @@ namespace Autoprint.Client.Services
 
         public void Initialize(string[] args, UserPreferencesService prefService)
         {
-            ApiKey = prefService.Current.AgentApiKey ?? string.Empty;
-            PrintServerName = prefService.Current.PrintServerName ?? string.Empty;
-
-            bool modificationDetectee = false;
+            LoadFromRegistry();
 
             string? argKey = GetArgValue(args, "--api-key");
             string? argServer = GetArgValue(args, "--print-server");
 
-            if (!string.IsNullOrEmpty(argKey) && argKey != ApiKey)
+            if (!string.IsNullOrEmpty(argKey))
             {
                 ApiKey = argKey;
-                prefService.Current.AgentApiKey = ApiKey;
-                modificationDetectee = true;
+                Debug.WriteLine($"[Config] Surcharge API Key via arguments : {ApiKey}");
             }
 
-            if (!string.IsNullOrEmpty(argServer) && argServer != PrintServerName)
+            if (!string.IsNullOrEmpty(argServer))
             {
                 PrintServerName = argServer;
-                prefService.Current.PrintServerName = PrintServerName;
-                modificationDetectee = true;
+                Debug.WriteLine($"[Config] Surcharge Serveur via arguments : {PrintServerName}");
             }
 
-            if (modificationDetectee)
+        }
+
+        private void LoadFromRegistry()
+        {
+            try
             {
-                prefService.Save();
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Autoprint");
+
+                if (key != null)
+                {
+                    PrintServerName = key.GetValue("PRINTSERVER") as string ?? string.Empty;
+                    ApiKey = key.GetValue("APIKEY") as string ?? string.Empty;
+                    Debug.WriteLine($"[Config] Chargé depuis Registre : Serveur={PrintServerName}");
+                }
+                else
+                {
+                    Debug.WriteLine("[Config] Aucune clé HKLM trouvée (Première installation ?)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Config] Erreur lecture Registre : {ex.Message}");
             }
         }
 

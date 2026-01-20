@@ -47,22 +47,7 @@ namespace Autoprint.Client.Services
                 catch { return new UserPreferences(); }
             }
 
-            var registryPrefs = new UserPreferences();
-            try
-            {
-                using (RegistryKey? key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Autoprint"))
-                {
-                    if (key != null)
-                    {
-                        object? server = key.GetValue("PRINTSERVER");
-                        object? apiKey = key.GetValue("APIKEY");
-                        if (server != null) registryPrefs.PrintServerName = server.ToString();
-                        if (apiKey != null) registryPrefs.AgentApiKey = apiKey.ToString();
-                    }
-                }
-            }
-            catch { }
-            return registryPrefs;
+            return new UserPreferences();
         }
 
         public void Save()
@@ -103,7 +88,7 @@ namespace Autoprint.Client.Services
                     if (key.GetValue(APP_NAME) != null) key.DeleteValue(APP_NAME);
                 }
             }
-            catch {  }
+            catch { }
         }
 
         public void SetPreferredPrinter(string locationCode, string printerName)

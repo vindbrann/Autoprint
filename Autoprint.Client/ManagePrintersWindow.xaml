@@ -9,7 +9,7 @@
         Title="Gestion Imprimantes" Width="450" Height="600"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ShowInTaskbar="False"
+        Icon="pack://application:,,,/Autoprint.ico"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         FontFamily="{DynamicResource MaterialDesignFont}">
 
@@ -113,7 +113,6 @@
                     <Button HorizontalAlignment="Right" 
                             Style="{StaticResource MaterialDesignOutlinedButton}"
                             Command="{Binding CleanCommand}"
-                            Visibility="{Binding CanClean, Converter={StaticResource BoolToVis}}"
                             ToolTip="Supprimer toutes les imprimantes NON favorites">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Broom" Margin="0,0,8,0"/>

@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Autoprint.Client.ViewModels"
+        xmlns:converters="clr-namespace:Autoprint.Client.Converters"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Autoprint" Height="600" Width="550"
@@ -15,12 +16,30 @@
         FontFamily="{DynamicResource MaterialDesignFont}"
         Icon="Autoprint.ico">
 
+    <Window.Resources>
+        <converters:InvertBooleanToVisibilityConverter x:Key="InvertBoolToVisConverter" />
+
+        <DataTemplate x:Key="BusyTemplate">
+            <StackPanel Orientation="Horizontal">
+                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             Value="0" IsIndeterminate="True"
+                             Width="16" Height="16" Margin="0,0,8,0"
+                             Foreground="White"/>
+                <TextBlock Text="Installation..." Foreground="White"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="NormalTemplate">
+            <TextBlock Text="Installer"/>
+        </DataTemplate>
+    </Window.Resources>
+
     <Window.DataContext>
         <vm:MainWindowViewModel />
     </Window.DataContext>
 
     <Border CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" Opacity="0.98">
-        
+
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -40,7 +59,6 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal">
-
                         <Image Source="pack://application:,,,/Autoprint.ico" 
                                Width="24" Height="24" 
                                VerticalAlignment="Center" 
@@ -116,18 +134,10 @@
                                             <Run Text="{Binding Data.Modele.Nom, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>
+
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
 
                                         <StackPanel.Resources>
-                                            <Style x:Key="BtnInstallStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-
                                             <Style x:Key="PanelActionsStyle" TargetType="StackPanel">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
@@ -138,23 +148,32 @@
                                             </Style>
                                         </StackPanel.Resources>
 
-                                        <Button Style="{StaticResource BtnInstallStyle}" 
-            Command="{Binding InstallCommand}"
-            Content="INSTALLER" 
-            Height="32" 
-            FontSize="11" 
-            Padding="15,0"
-            BorderBrush="{DynamicResource MaterialDesignBody}"
-            Foreground="{DynamicResource MaterialDesignBody}"/>
+                                        <Button Command="{Binding InstallCommand}"
+                                                Visibility="{Binding IsInstalled, Converter={StaticResource InvertBoolToVisConverter}}">
+
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+
+                                                    <Setter Property="ContentTemplate" Value="{StaticResource NormalTemplate}"/>
+
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsInstalling}" Value="True">
+                                                            <Setter Property="ContentTemplate" Value="{StaticResource BusyTemplate}"/>
+                                                            <Setter Property="Cursor" Value="Wait"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
 
                                         <StackPanel Orientation="Horizontal" Style="{StaticResource PanelActionsStyle}">
 
                                             <ToggleButton 
-            Style="{StaticResource MaterialDesignActionToggleButton}" 
-            IsChecked="{Binding IsFavorite, Mode=TwoWay}"
-            ToolTip="Définir comme imprimante par défaut" 
-            Margin="0,0,5,0" 
-            Width="32" Height="32">
+                                                Style="{StaticResource MaterialDesignActionToggleButton}" 
+                                                IsChecked="{Binding IsFavorite, Mode=TwoWay}"
+                                                ToolTip="Définir comme imprimante par défaut" 
+                                                Margin="0,0,5,0" 
+                                                Width="32" Height="32">
                                                 <materialDesign:PackIcon Kind="StarOutline" Opacity="0.3" />
                                                 <materialDesign:ToggleButtonAssist.OnContent>
                                                     <materialDesign:PackIcon Kind="Star" Foreground="Gold"/>
@@ -162,10 +181,10 @@
                                             </ToggleButton>
 
                                             <Button Style="{StaticResource MaterialDesignIconButton}" 
-                Command="{Binding UninstallCommand}"
-                ToolTip="Retirer cette imprimante"
-                Width="32" Height="32"
-                Foreground="{DynamicResource MaterialDesignErrorBrush}">
+                                                    Command="{Binding UninstallCommand}"
+                                                    ToolTip="Retirer cette imprimante"
+                                                    Width="32" Height="32"
+                                                    Foreground="{DynamicResource MaterialDesignErrorBrush}">
                                                 <materialDesign:PackIcon Kind="DeleteOutline" />
                                             </Button>
                                         </StackPanel>
@@ -186,11 +205,11 @@
                     </StackPanel>
 
                     <Button Style="{StaticResource MaterialDesignFlatButton}" 
-        HorizontalAlignment="Right" 
-        Height="30" 
-        Padding="10,0" 
-        Foreground="{DynamicResource MaterialDesignBody}"
-        Click="BtnActualiser_Click">
+                            HorizontalAlignment="Right" 
+                            Height="30" 
+                            Padding="10,0" 
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Click="BtnActualiser_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             <TextBlock Text="ACTUALISER" FontSize="11" VerticalAlignment="Center"/>

@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using Microsoft.Win32;
+using System.Runtime.Versioning;
 
 namespace Autoprint.Service.Services
 {
@@ -74,6 +76,38 @@ namespace Autoprint.Service.Services
                                         {
                                             result = _engine.InstallDriverOnly(request.DriverModelName, request.UncPath);
                                             msg = result ? "Pilote installé (ou déjà présent)." : "Échec installation pilote (Check SMB/Intune).";
+                                        }
+                                        break;
+
+                                    case "UPDATE_CONFIG":
+                                        try
+                                        {
+                                            using var key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Autoprint", writable: true);
+
+                                            if (key != null)
+                                            {
+                                                if (!string.IsNullOrWhiteSpace(request.ConfigServerUrl))
+                                                    key.SetValue("PRINTSERVER", request.ConfigServerUrl);
+
+                                                if (!string.IsNullOrWhiteSpace(request.ConfigApiKey))
+                                                    key.SetValue("APIKEY", request.ConfigApiKey);
+
+                                                result = true;
+                                                msg = "Configuration système mise à jour avec succès.";
+                                                _logger.LogInformation("📝 Config mise à jour via IPC : Serveur={Srv}", request.ConfigServerUrl);
+                                            }
+                                            else
+                                            {
+                                                result = false;
+                                                msg = "Erreur critique : Accès HKLM refusé.";
+                                                _logger.LogError("❌ Impossible d'ouvrir la clé HKLM en écriture.");
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            result = false;
+                                            msg = $"Erreur système : {ex.Message}";
+                                            _logger.LogError(ex, "❌ Exception lors de l'écriture Registre.");
                                         }
                                         break;
 

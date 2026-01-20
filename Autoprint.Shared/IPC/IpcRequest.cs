@@ -6,6 +6,8 @@
         public string PrinterName { get; set; } = string.Empty;
         public string UncPath { get; set; } = string.Empty;
         public string DriverModelName { get; set; } = string.Empty;
+        public string? ConfigServerUrl { get; set; }
+        public string? ConfigApiKey { get; set; }
     }
 
     public class IpcResponse
