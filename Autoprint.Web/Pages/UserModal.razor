@@ -23,7 +23,7 @@ else
                                    Disabled="@editMode" Placeholder="ex: jdupont" />
                     @if (!editMode)
                     {
-                        <RadzenRequiredValidator Component="Username" Text="L'identifiant est requis" Popup="true" />
+                        <RadzenRequiredValidator Component="Username" Text="L'identifiant est requis" Popup="false" Style="display: block; margin-top: 5px;" />
                     }
                 </RadzenColumn>
 
@@ -31,8 +31,9 @@ else
                     <RadzenLabel Text="Rôle / Groupe" Component="Role" />
                     <RadzenDropDown Name="Role" @bind-Value="@formData.RoleId"
                                     Data="@availableRoles" TextProperty="Name" ValueProperty="Id"
-                                    Style="width: 100%;" />
-                    <RadzenRequiredValidator Component="Role" Text="Le rôle est requis" Popup="true" DefaultValue="0" />
+                                    Style="width: 100%;" Placeholder="Sélectionner un rôle..." />
+
+                    <RadzenRequiredValidator Component="Role" Text="Le rôle est requis" Popup="false" DefaultValue="0" Style="display: block; margin-top: 5px;" />
                 </RadzenColumn>
             </RadzenRow>
 
@@ -47,6 +48,10 @@ else
                             <RadzenIcon Icon="info" Style="font-size: 0.8rem" /> Géré par Active Directory
                         </RadzenText>
                     }
+                    else
+                    {
+                        <RadzenRequiredValidator Component="DisplayName" Text="Le nom est requis" Popup="false" Style="display: block; margin-top: 5px;" />
+                    }
                 </RadzenColumn>
 
                 <RadzenColumn Size="12" SizeMD="6">
@@ -55,7 +60,8 @@ else
                                    Disabled="@isAdUser" Placeholder="jean.dupont@entreprise.com" />
                     @if (!isAdUser)
                     {
-                        <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="true" />
+                        <RadzenRequiredValidator Component="Email" Text="L'email est requis" Popup="false" Style="display: block; margin-top: 5px;" />
+                        <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="false" Style="display: block; margin-top: 5px;" />
                     }
                 </RadzenColumn>
             </RadzenRow>
@@ -75,7 +81,7 @@ else
 
                     @if (!editMode && !isAdUser)
                     {
-                        <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="true" />
+                        <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="false" Style="display: block; margin-top: 5px;" />
                     }
                 </RadzenColumn>
 

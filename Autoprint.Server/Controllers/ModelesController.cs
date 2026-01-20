@@ -24,13 +24,44 @@ namespace Autoprint.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Modele>>> GetModeles()
         {
-            return await _context.Modeles.Include(m => m.Marque).Include(m => m.Pilote).ToListAsync();
+            return await _context.Modeles
+                .Include(m => m.Marque)
+                .Include(m => m.Pilote)
+                .Select(m => new Modele
+                {
+                    Id = m.Id,
+                    Nom = m.Nom,
+                    Code = m.Code,
+                    MarqueId = m.MarqueId,
+                    PiloteId = m.PiloteId,
+                    Marque = m.Marque,
+                    Pilote = m.Pilote,
+
+                    PrinterCount = _context.Imprimantes.Count(i => i.ModeleId == m.Id)
+                })
+                .ToListAsync();
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Modele>> GetModele(int id)
         {
-            var modele = await _context.Modeles.Include(m => m.Marque).Include(m => m.Pilote).FirstOrDefaultAsync(m => m.Id == id);
+            var modele = await _context.Modeles
+                            .Include(m => m.Marque)
+                            .Include(m => m.Pilote)
+                            .Where(m => m.Id == id)
+                            .Select(m => new Modele
+                            {
+                                Id = m.Id,
+                                Nom = m.Nom,
+                                Code = m.Code,
+                                MarqueId = m.MarqueId,
+                                PiloteId = m.PiloteId,
+                                Marque = m.Marque,
+                                Pilote = m.Pilote,
+                                PrinterCount = _context.Imprimantes.Count(i => i.ModeleId == m.Id)
+                            })
+                            .FirstOrDefaultAsync();
+
             return modele == null ? NotFound() : modele;
         }
 

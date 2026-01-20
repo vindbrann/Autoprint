@@ -41,6 +41,19 @@ else
         <Columns>
             <RadzenDataGridColumn TItem="Marque" Property="Nom" Title="Nom de la Marque" Sortable="true" Filterable="true" />
 
+            <RadzenDataGridColumn TItem="Marque" Property="PrinterCount" Title="Imprimantes" Width="120px" TextAlign="TextAlign.Center">
+                <Template Context="m">
+                    @if (m.PrinterCount > 0)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@m.PrinterCount.ToString()" IsPill="true" />
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-size: 0.9em;">0</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
             <RadzenDataGridColumn TItem="Marque" Title="Actions" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center">
                 <Template Context="m">
                     <AuthorizeView Policy="BRAND_WRITE">
@@ -102,12 +115,12 @@ else
         if (marques == null || !marques.Any()) return;
 
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom de la Marque");
+        csvBuilder.AppendLine("Id;Nom de la Marque;NombreImprimantes");
 
         foreach (var m in marques)
         {
             var nomEsthetique = m.Nom?.Replace(";", ",");
-            csvBuilder.AppendLine($"{m.Id};{nomEsthetique}");
+            csvBuilder.AppendLine($"{m.Id};{nomEsthetique};{m.PrinterCount}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();

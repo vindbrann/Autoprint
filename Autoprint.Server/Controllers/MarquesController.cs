@@ -22,12 +22,33 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Marque>>> GetMarques() => await _context.Marques.ToListAsync();
+        public async Task<ActionResult<IEnumerable<Marque>>> GetMarques()
+        {
+            return await _context.Marques
+                .AsNoTracking()
+                .Select(m => new Marque
+                {
+                    Id = m.Id,
+                    Nom = m.Nom,
+                    PrinterCount = _context.Imprimantes.Count(i => i.Modele.MarqueId == m.Id)
+                })
+                .ToListAsync();
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Marque>> GetMarque(int id)
         {
-            var marque = await _context.Marques.FindAsync(id);
+            var marque = await _context.Marques
+                .AsNoTracking()
+                .Where(m => m.Id == id)
+                .Select(m => new Marque
+                {
+                    Id = m.Id,
+                    Nom = m.Nom,
+                    PrinterCount = _context.Imprimantes.Count(i => i.Modele.MarqueId == m.Id)
+                })
+                .FirstOrDefaultAsync();
+
             return marque == null ? NotFound() : marque;
         }
 
@@ -36,6 +57,7 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> PutMarque(int id, Marque marque)
         {
             if (id != marque.Id) return BadRequest();
+
             _context.Entry(marque).State = EntityState.Modified;
 
             try

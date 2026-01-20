@@ -20,7 +20,12 @@
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
         <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
-        <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+
+        <AuthorizeView Policy="SETTINGS_MANAGE">
+            <Authorized>
+                <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+            </Authorized>
+        </AuthorizeView>
     </RadzenStack>
 </RadzenStack>
 
@@ -52,15 +57,12 @@
                         <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ERR" />
                         break;
                     case "WARNING":
-
                         <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="WARN" />
                         break;
                     case "INFO":
-
                         <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="INFO" />
                         break;
                     default:
-
                         <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@log.Niveau" />
                         break;
                 }

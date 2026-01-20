@@ -9,7 +9,7 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "SETTINGS_MANAGE")]
+    [Authorize]
     public class NamingController : ControllerBase
     {
         private readonly INamingService _namingService;
@@ -22,6 +22,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("Preview")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public ActionResult<string> Preview([FromBody] NamingPreviewDto dto)
         {
             var fakeImp = new Imprimante
@@ -37,6 +38,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("ApplyToNames")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<ActionResult> ApplyToNames()
         {
             var imprimantes = await _context.Imprimantes
@@ -60,12 +62,13 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("ApplyToShares")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<ActionResult> ApplyToShares()
         {
             var imprimantes = await _context.Imprimantes
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)
-                .Where(i => i.EstPartagee) 
+                .Where(i => i.EstPartagee)
                 .ToListAsync();
 
             int count = 0;
