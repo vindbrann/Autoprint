@@ -78,12 +78,13 @@ namespace Autoprint.Client.ViewModels
 
         public bool StartWithWindows
         {
-            get => _prefService.IsWindowsStartupEnabled();
+            get => _prefService.Current.RunAtStartup;
+
             set
             {
-                if (_prefService.IsWindowsStartupEnabled() != value)
+                if (_prefService.Current.RunAtStartup != value)
                 {
-                    _prefService.SetWindowsStartup(value);
+                    _prefService.ToggleStartup(value);
                     OnPropertyChanged();
                 }
             }

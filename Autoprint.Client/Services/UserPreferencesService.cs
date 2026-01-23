@@ -10,7 +10,9 @@ namespace Autoprint.Client.Services
     public class UserPreferencesService
     {
         private readonly string _configPath;
+        private readonly string _sentinelPath;
         private UserPreferences _currentPreferences;
+
         private const string REGISTRY_RUN_KEY = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
         private const string APP_NAME = "AutoprintClient";
 
@@ -19,18 +21,43 @@ namespace Autoprint.Client.Services
         public UserPreferencesService()
         {
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string appFolder = Path.Combine(documentsPath, "Autoprint");
+            string appRoamingFolder = Path.Combine(documentsPath, "Autoprint");
 
-            if (!Directory.Exists(appFolder)) Directory.CreateDirectory(appFolder);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string appLocalFolder = Path.Combine(localAppData, "Autoprint");
 
-            _configPath = Path.Combine(appFolder, "user-settings.json");
+            if (!Directory.Exists(appRoamingFolder)) Directory.CreateDirectory(appRoamingFolder);
+            if (!Directory.Exists(appLocalFolder)) Directory.CreateDirectory(appLocalFolder);
+
+            _configPath = Path.Combine(appRoamingFolder, "user-settings.json");
+            _sentinelPath = Path.Combine(appLocalFolder, ".install-token");
+
             _currentPreferences = LoadPreferences();
 
-            if (!_currentPreferences.HasInitializedStartup)
+            InitializeStartupLogic();
+        }
+
+        private void InitializeStartupLogic()
+        {
+            bool isMachineFirstRun = !File.Exists(_sentinelPath);
+
+            if (isMachineFirstRun)
             {
+                Debug.WriteLine("[Startup] Nouvelle machine détectée. Activation du démarrage auto.");
+
+                _currentPreferences.RunAtStartup = true;
+
                 SetWindowsStartup(true);
-                _currentPreferences.HasInitializedStartup = true;
+
+                try { File.Create(_sentinelPath).Close(); } catch { }
+
                 Save();
+            }
+            else
+            {
+
+                Debug.WriteLine($"[Startup] Machine connue. Sync Registre selon JSON : {_currentPreferences.RunAtStartup}");
+                SetWindowsStartup(_currentPreferences.RunAtStartup);
             }
         }
 
@@ -46,7 +73,6 @@ namespace Autoprint.Client.Services
                 }
                 catch { return new UserPreferences(); }
             }
-
             return new UserPreferences();
         }
 
@@ -58,20 +84,20 @@ namespace Autoprint.Client.Services
                 string json = JsonSerializer.Serialize(_currentPreferences, options);
                 File.WriteAllText(_configPath, json);
             }
-            catch { }
-        }
-
-        public bool IsWindowsStartupEnabled()
-        {
-            try
+            catch (Exception ex)
             {
-                using var key = Registry.CurrentUser.OpenSubKey(REGISTRY_RUN_KEY, false);
-                return key?.GetValue(APP_NAME) != null;
+                Debug.WriteLine($"[Config] Erreur sauvegarde : {ex.Message}");
             }
-            catch { return false; }
         }
 
-        public void SetWindowsStartup(bool enable)
+        public void ToggleStartup(bool enable)
+        {
+            _currentPreferences.RunAtStartup = enable;
+            SetWindowsStartup(enable);
+            Save();
+        }
+
+        private void SetWindowsStartup(bool enable)
         {
             try
             {
@@ -81,14 +107,21 @@ namespace Autoprint.Client.Services
                 if (enable)
                 {
                     string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                    if (exePath != null) key.SetValue(APP_NAME, $"\"{exePath}\"");
+                    if (exePath != null)
+                    {
+                        key.SetValue(APP_NAME, $"\"{exePath}\"");
+                    }
                 }
                 else
                 {
-                    if (key.GetValue(APP_NAME) != null) key.DeleteValue(APP_NAME);
+                    if (key.GetValue(APP_NAME) != null)
+                        key.DeleteValue(APP_NAME);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Registry] Erreur accès HKCU : {ex.Message}");
+            }
         }
 
         public void SetPreferredPrinter(string locationCode, string printerName)

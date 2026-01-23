@@ -49,7 +49,14 @@
                     </RadzenRow>
                 </RadzenCard>
 
-                <RadzenDataGrid @ref="networksGrid" Data="@secondaryNetworks" TItem="EmplacementNetwork" Density="Density.Compact" AllowSorting="false" Class="rz-mt-2" Style="height: 150px; border: 1px solid var(--rz-border-color);">
+                <RadzenDataGrid @ref="networksGrid"
+                                Data="@secondaryNetworks"
+                                TItem="EmplacementNetwork"
+                                Density="Density.Compact"
+                                AllowSorting="false"
+                                Class="rz-mt-2"
+                                Style="min-height: 150px; border: 1px solid var(--rz-border-color);"
+                                EmptyText="Aucun réseau secondaire.">
                     <Columns>
                         <RadzenDataGridColumn TItem="EmplacementNetwork" Property="CidrIpv4" Title="Réseau" Width="140px">
                             <Template Context="n">
@@ -88,7 +95,6 @@
             }
             else
             {
-
                 <div></div>
             }
 
@@ -108,9 +114,9 @@
 
     private string primaryCidr = "";
     private int primaryId = 0;
+
     private RadzenDataGrid<EmplacementNetwork>? networksGrid;
     private List<EmplacementNetwork> secondaryNetworks = new();
-
     private string tempSecCidr = "";
     private string tempSecDesc = "";
 
@@ -131,26 +137,27 @@
             Networks = new List<EmplacementNetwork>()
         };
 
-        if (LieuToEdit.Networks != null)
+        if (LieuToEdit.Networks != null && LieuToEdit.Networks.Any())
         {
             var mainNet = LieuToEdit.Networks.FirstOrDefault(n => n.IsPrimary);
+
             if (mainNet != null)
             {
                 primaryCidr = mainNet.CidrIpv4;
                 primaryId = mainNet.Id;
             }
 
-            foreach (var net in LieuToEdit.Networks.Where(n => !n.IsPrimary))
-            {
-                secondaryNetworks.Add(new EmplacementNetwork
+            secondaryNetworks = LieuToEdit.Networks
+                .Where(n => !n.IsPrimary)
+                .Select(n => new EmplacementNetwork
                 {
-                    Id = net.Id,
-                    CidrIpv4 = net.CidrIpv4,
-                    Description = net.Description,
+                    Id = n.Id,
+                    CidrIpv4 = n.CidrIpv4,
+                    Description = n.Description,
                     IsPrimary = false,
-                    EmplacementId = net.EmplacementId
-                });
-            }
+                    EmplacementId = n.EmplacementId
+                })
+                .ToList();
         }
     }
 
@@ -171,12 +178,14 @@
             return;
         }
 
-        secondaryNetworks.Add(new EmplacementNetwork
+        var nouveauReseau = new EmplacementNetwork
         {
             CidrIpv4 = tempSecCidr,
             Description = string.IsNullOrWhiteSpace(tempSecDesc) ? "Réseau Secondaire" : tempSecDesc,
             IsPrimary = false
-        });
+        };
+
+        secondaryNetworks = new List<EmplacementNetwork>(secondaryNetworks) { nouveauReseau };
 
         tempSecCidr = "";
         tempSecDesc = "";
@@ -186,7 +195,7 @@
 
     private async Task SupprimerSecondaire(EmplacementNetwork net)
     {
-        secondaryNetworks.Remove(net);
+        secondaryNetworks = secondaryNetworks.Where(n => n != net).ToList();
 
         if (networksGrid != null) await networksGrid.Reload();
     }
@@ -199,18 +208,28 @@
 
             if (!string.IsNullOrWhiteSpace(primaryCidr))
             {
-                lieuEdit.Networks.Add(new EmplacementNetwork
+                var reseauPrincipal = new EmplacementNetwork
                 {
                     Id = primaryId,
                     CidrIpv4 = primaryCidr,
                     Description = "Réseau Principal",
+                    EmplacementId = lieuEdit.Id,
                     IsPrimary = true
-                });
+                };
+                lieuEdit.Networks.Add(reseauPrincipal);
             }
 
-            foreach (var sec in secondaryNetworks)
+            foreach (var item in secondaryNetworks)
             {
-                lieuEdit.Networks.Add(sec);
+                var reseauSecondaire = new EmplacementNetwork
+                {
+                    Id = item.Id,
+                    CidrIpv4 = item.CidrIpv4,
+                    Description = item.Description,
+                    EmplacementId = lieuEdit.Id,
+                    IsPrimary = false
+                };
+                lieuEdit.Networks.Add(reseauSecondaire);
             }
 
             lieuEdit.Nom = lieuEdit.Nom?.Trim();

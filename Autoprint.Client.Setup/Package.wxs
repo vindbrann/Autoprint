@@ -4,7 +4,7 @@
 
 	<Package Name="Autoprint Client"
 			 Manufacturer="Vind"
-			 Version="1.0.0.0"
+			 Version="1.1.1.0"
 			 UpgradeCode="{5F72F6F4-EAFD-4118-9E6F-D96A89869684}"
 			 Scope="perMachine"
 			 Compressed="yes"
@@ -71,7 +71,13 @@
 					<Shortcut Id="ApplicationStartMenuShortcut" Directory="ApplicationProgramsFolder" Name="Autoprint" WorkingDirectory="ClientDir" Icon="AppIcon.ico" Advertise="yes" />
 				</File>
 				<RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
-				<RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="AutoprintClient" Value="[#AutoprintClientExe]" Type="string" />
+				<RegistryKey Root="HKLM"
+							 Key="Software\Microsoft\Active Setup\Installed Components\[ProductCode]"
+							 ForceDeleteOnUninstall="yes">
+					<RegistryValue Name="StubPath" Value="[#AutoprintClientExe]" Type="string" />
+					<RegistryValue Name="Version" Value="[ProductVersion]" Type="string" />
+					<RegistryValue Name="IsInstalled" Value="1" Type="integer" />
+				</RegistryKey>
 			</Component>
 
 			<Component Id="ServiceExecutable" Guid="{9917DB95-5118-4547-BB7A-BEC6DE23E9B2}" Directory="ServiceDir">
