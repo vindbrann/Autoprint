@@ -44,7 +44,7 @@ namespace Autoprint.Shared
 
         [MaxLength(100)]
         public string? Description { get; set; }
-        public bool IsPrimary { get; set; } = true;
+        public bool IsPrimary { get; set; }
     }
 
     public class Emplacement : BaseEntity
