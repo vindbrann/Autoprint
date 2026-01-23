@@ -48,9 +48,15 @@
                                         AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
                             <Template Context="l">
                                 @((l as Emplacement).Nom)
-                                @if (!string.IsNullOrEmpty((l as Emplacement).CidrIpv4))
-                                {
-                                    <span style="color: var(--rz-text-tertiary-color); font-size: 0.8em; margin-left: 5px;">(@((l as Emplacement).CidrIpv4))</span>
+                                @{
+                                    var lieu = l as Emplacement;
+                                    if (lieu.Networks != null && lieu.Networks.Any())
+                                    {
+                                        var mainNet = lieu.Networks.First();
+                                        <span style="color: var(--rz-text-tertiary-color); font-size: 0.8em; margin-left: 5px;">
+                                            (@mainNet.CidrIpv4 @(lieu.Networks.Count > 1 ? $" +{lieu.Networks.Count - 1}" : ""))
+                                        </span>
+                                    }
                                 }
                             </Template>
                         </RadzenDropDown>
@@ -75,7 +81,7 @@
                                        value="@ipSuffix" @onchange="OnSuffixChanged" placeholder="Ex: 50" />
                             </div>
                             <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                Masque imposé par le lieu. Saisissez la fin de l'IP.
+                                Masque imposé par le réseau principal du lieu.
                             </RadzenText>
                         }
                         else
@@ -255,7 +261,7 @@
     {
         selectedMarqueId = (int)value;
         FilterModeles();
-        imprimanteEdit.ModeleId = 0; 
+        imprimanteEdit.ModeleId = 0;
         GenerateNameIfEnabled();
     }
 
@@ -276,11 +282,14 @@
     {
         prefixeReseau = "";
         var lieu = listeEmplacements?.FirstOrDefault(e => e.Id == emplacementId);
-        if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
+
+        var mainNetwork = lieu?.Networks?.FirstOrDefault();
+
+        if (mainNetwork != null && !string.IsNullOrEmpty(mainNetwork.CidrIpv4) && mainNetwork.CidrIpv4.Contains("/"))
         {
             try
             {
-                var parts = lieu.CidrIpv4.Split('/');
+                var parts = mainNetwork.CidrIpv4.Split('/');
                 var ipParts = parts[0].Split('.');
                 if (parts.Length > 1 && int.TryParse(parts[1], out int cidr))
                 {

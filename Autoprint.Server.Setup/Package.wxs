@@ -1,5 +1,5 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-	<Package Name="Autoprint Server" Manufacturer="Autoprint" Version="1.0.0.0" UpgradeCode="a6f8f87a-9c9d-4e9f-8b8a-1234567890ab">
+	<Package Name="Autoprint Server" Manufacturer="Autoprint" Version="1.1.0.0" UpgradeCode="a6f8f87a-9c9d-4e9f-8b8a-1234567890ab">
 		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." />
 
 		<MediaTemplate EmbedCab="yes" />

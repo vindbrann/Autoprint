@@ -8,7 +8,6 @@ namespace Autoprint.Shared.DTOs
         public DateTime CreatedAt { get; set; }
         public string CreatedBy { get; set; } = "";
 
-        // Les données
         public List<BackupMarqueDto> Marques { get; set; } = new();
         public List<BackupModeleDto> Modeles { get; set; } = new();
         public List<BackupLieuDto> Lieux { get; set; } = new();
@@ -20,9 +19,15 @@ namespace Autoprint.Shared.DTOs
         public List<BackupAdMappingDto> AdMappings { get; set; } = new();
     }
 
+    public class BackupNetworkDto
+    {
+        public string Cidr { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
     public class BackupMarqueDto { public int Id { get; set; } public string Nom { get; set; } = ""; }
     public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } }
-    public class BackupLieuDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Code { get; set; } = ""; public string Cidr { get; set; } = ""; }
+    public class BackupLieuDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Code { get; set; } = ""; public List<BackupNetworkDto> Networks { get; set; } = new(); }
     public class BackupPiloteDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Version { get; set; } = ""; public bool EstInstalle { get; set; } }
 
     public class BackupImprimanteDto

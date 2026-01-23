@@ -45,9 +45,21 @@
                                         Style="width: 100%;">
                             <Template Context="lieu">
                                 @((lieu as Emplacement).Nom)
-                                <span style="color:var(--rz-text-tertiary-color); font-size:0.8em; margin-left:5px;">
-                                    (@((lieu as Emplacement).CidrIpv4))
-                                </span>
+                                @{
+                                    var l = lieu as Emplacement;
+                                    if (l.Networks != null && l.Networks.Any())
+                                    {
+                                        var mainNet = l.Networks.First();
+                                        <span style="color:var(--rz-text-tertiary-color); font-size:0.8em; margin-left:5px;">
+                                            Scan : @mainNet.CidrIpv4
+                                            @(l.Networks.Count > 1 ? $" (+{l.Networks.Count - 1} autres)" : "")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:var(--rz-warning); font-size:0.8em; margin-left:5px;">(Aucun réseau)</span>
+                                    }
+                                }
                             </Template>
                         </RadzenDropDown>
                     </RadzenStack>
@@ -279,26 +291,27 @@
     {
         if (scanLieuId == 0) return;
         var lieu = listeLieux.FirstOrDefault(l => l.Id == scanLieuId);
-        if (lieu == null || string.IsNullOrEmpty(lieu.CidrIpv4))
+
+        var primaryNetwork = lieu?.Networks?.FirstOrDefault();
+
+        if (lieu == null || primaryNetwork == null || string.IsNullOrEmpty(primaryNetwork.CidrIpv4))
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Attention", "Ce lieu n'a pas de plage IP (CIDR) définie.");
+            NotificationService.Notify(NotificationSeverity.Warning, "Impossible de scanner", "Ce lieu n'a aucun réseau configuré.");
             return;
         }
 
         scanEnCours = true;
-        resultats = null;
+        resultats = new List<ImportPrinterViewModel>();
 
         try
         {
-            var scanResults = await ScannerService.ScanNetworkForImportAsync(lieu.CidrIpv4);
+            var scanResults = await ScannerService.ScanNetworkForImportAsync(primaryNetwork.CidrIpv4);
 
             resultats = scanResults.Select(r => new ImportPrinterViewModel
             {
                 PortName = r.IpAddress,
                 Name = string.IsNullOrEmpty(r.Hostname) ? r.IpAddress : r.Hostname,
-
                 DriverName = r.SnmpModel,
-
                 ExistsInDb = r.IsRegistered,
                 SelectedLieuId = scanLieuId,
                 SelectedForImport = !r.IsRegistered,
@@ -309,7 +322,7 @@
 
             if (resultats.Any())
             {
-                NotificationService.Notify(NotificationSeverity.Success, "Scan terminé", $"{resultats.Count} imprimantes trouvées.");
+                NotificationService.Notify(NotificationSeverity.Success, "Scan terminé", $"{resultats.Count} imprimantes trouvées sur {primaryNetwork.CidrIpv4}.");
             }
         }
         catch (Exception ex)
@@ -346,15 +359,22 @@
 
     private void CheckIpConsistency(ImportPrinterViewModel p)
     {
+
         p.IpMismatchWarning = false;
         if (p.SelectedLieuId == 0 || string.IsNullOrEmpty(p.PortName)) return;
 
         var lieu = listeLieux.FirstOrDefault(l => l.Id == p.SelectedLieuId);
-        if (lieu != null && !string.IsNullOrEmpty(lieu.CidrIpv4) && lieu.CidrIpv4.Contains("/"))
+        if (lieu == null || lieu.Networks == null) return;
+
+        bool matchFound = false;
+
+        foreach (var network in lieu.Networks)
         {
+            if (string.IsNullOrEmpty(network.CidrIpv4) || !network.CidrIpv4.Contains("/")) continue;
+
             try
             {
-                var parts = lieu.CidrIpv4.Split('/');
+                var parts = network.CidrIpv4.Split('/');
                 var ipParts = parts[0].Split('.');
                 if (int.TryParse(parts[1], out int cidr))
                 {
@@ -362,13 +382,19 @@
                     if (cidr >= 24) prefixToCheck = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.";
                     else if (cidr >= 16) prefixToCheck = $"{ipParts[0]}.{ipParts[1]}.";
 
-                    if (!string.IsNullOrEmpty(prefixToCheck) && !p.PortName.StartsWith(prefixToCheck))
+                    if (!string.IsNullOrEmpty(prefixToCheck) && p.PortName.StartsWith(prefixToCheck))
                     {
-                        p.IpMismatchWarning = true;
+                        matchFound = true;
+                        break;
                     }
                 }
             }
             catch { }
+        }
+
+        if (!matchFound)
+        {
+            p.IpMismatchWarning = true;
         }
     }
 

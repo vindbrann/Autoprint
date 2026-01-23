@@ -23,6 +23,8 @@ namespace Autoprint.Installer.Server.UI
         private int _currentStep = 1;
         private readonly PrerequisiteService _prereqService;
         private bool _prereqsValidated = false;
+        private bool _isUpgrade = false;
+        private int _existingPort = 0;
 
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
 
@@ -34,6 +36,8 @@ namespace Autoprint.Installer.Server.UI
         public MainWindow()
         {
             InitializeComponent();
+            DetectExistingConfiguration();
+            UpdateUiForUpgrade();
             _prereqService = new PrerequisiteService();
             LoadLicenseResource();
             UpdateView();
@@ -65,6 +69,14 @@ namespace Autoprint.Installer.Server.UI
         {
             if (!ValidateCurrentStep()) return;
 
+            if (_currentStep == 3 && _isUpgrade)
+            {
+                _currentStep = 6;
+                UpdateView();
+                _ = RunInstallationSequence();
+                return;
+            }
+
             if (_currentStep == 5)
             {
                 _currentStep = 6;
@@ -73,6 +85,7 @@ namespace Autoprint.Installer.Server.UI
                 return;
             }
 
+            // Fin
             if (_currentStep == 7)
             {
                 System.Windows.Application.Current.Shutdown();
@@ -254,41 +267,110 @@ namespace Autoprint.Installer.Server.UI
         {
             try
             {
+                TxtInstallLog.Text = "Arrêt du service IIS...";
+                await Task.Run(() => StopIISPool());
+
                 TxtInstallLog.Text = "Extraction des fichiers...";
                 string msi = Path.Combine(Path.GetTempPath(), "AutoprintSetup.msi");
                 await ExtractResource(MsiResourceName, msi);
 
-                TxtInstallLog.Text = "Installation des composants (MSI)...";
+                string? oldJsonContent = null;
+                string configPath = Path.Combine(InstallPath, "appsettings.json");
+
+                if (_isUpgrade && File.Exists(configPath))
+                {
+                    TxtInstallLog.Text = "Lecture de la configuration actuelle...";
+                    try
+                    {
+                        oldJsonContent = await File.ReadAllTextAsync(configPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        TxtInstallLog.Text += $"\n[Warn] Lecture config échouée : {ex.Message}";
+                    }
+                }
+
+                TxtInstallLog.Text = _isUpgrade ? "Mise à jour (Ecrasement des fichiers)..." : "Installation...";
+
                 await RunProcess("msiexec.exe", $"/i \"{msi}\" /qn /norestart");
 
                 TxtInstallLog.Text = "Configuration des droits (NTFS)...";
                 await Task.Run(() => ConfigureNtfsPermissions());
 
-                if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                if (_isUpgrade && !string.IsNullOrEmpty(oldJsonContent) && File.Exists(configPath))
                 {
-                    TxtInstallLog.Text = "Configuration droits SQL (LocalSystem)...";
-                    string adminString = GetSqlConnectionString(60);
-                    await GrantAccessToLocalSystem(adminString);
+                    TxtInstallLog.Text = "Fusion de la configuration...";
+                    try
+                    {
+                        var oldNode = JsonNode.Parse(oldJsonContent)?.AsObject();
+                        string newJsonContent = await File.ReadAllTextAsync(configPath);
+                        var newNode = JsonNode.Parse(newJsonContent)?.AsObject();
+
+                        if (oldNode != null && newNode != null)
+                        {
+                            MergeJsonNodes(newNode, oldNode);
+                            var options = new JsonSerializerOptions { WriteIndented = true };
+                            await File.WriteAllTextAsync(configPath, newNode.ToJsonString(options));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        TxtInstallLog.Text += $"\n[Erreur] Echec de la fusion : {ex.Message}";
+                        await File.WriteAllTextAsync(configPath, oldJsonContent);
+                    }
+                }
+                else if (!_isUpgrade)
+                {
+                    if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                    {
+                        TxtInstallLog.Text = "Configuration droits SQL...";
+                        string adminString = GetSqlConnectionString(60);
+                        await GrantAccessToLocalSystem(adminString);
+                    }
+
+                    TxtInstallLog.Text = "Génération configuration (JSON)...";
+                    await ConfigureAppSettings();
                 }
 
-                TxtInstallLog.Text = "Configuration Application (JSON)...";
-                await ConfigureAppSettings();
+                TxtInstallLog.Text = "Migration de la base de données...";
+                await RunMigrationProcess();
 
-                TxtInstallLog.Text = "Configuration IIS...";
-                ConfigureIIS();
+                if (!_isUpgrade)
+                {
+                    TxtInstallLog.Text = "Configuration finale IIS...";
+                    ConfigureIIS();
+                }
 
                 _currentStep = 7;
                 UpdateView();
+
+                if (_isUpgrade)
+                {
+                    BtnOpenIis.Visibility = Visibility.Collapsed;
+                    if (FindName("TxtFinishTitle") is TextBlock txtTitle) txtTitle.Text = "Mise à jour terminée";
+                }
+                else
+                {
+                    BtnOpenIis.Visibility = Visibility.Visible;
+                }
             }
             catch (Exception ex)
             {
-                TxtInstallLog.Text = "ERREUR : " + ex.Message;
+                TxtInstallLog.Text = "ERREUR CRITIQUE : " + ex.Message;
                 TxtInstallLog.Foreground = Brushes.Red;
                 PrgInstall.IsIndeterminate = false;
+
                 BtnNext.Visibility = Visibility.Visible;
-                BtnNext.Content = "Quitter";
+                BtnNext.Content = "Fermer";
                 BtnNext.IsEnabled = true;
-                BtnNext.Click += (s, e) => Close();
+
+                BtnNext.Click -= BtnNext_Click;
+                BtnNext.Click += (s, args) => Close();
+            }
+            finally
+            {
+                TxtInstallLog.Text += "\nRedémarrage du site...";
+                RestartIISSite();
             }
         }
 
@@ -410,6 +492,90 @@ namespace Autoprint.Installer.Server.UI
             await File.WriteAllTextAsync(path, jsonString);
         }
 
+        private async Task RunMigrationProcess()
+        {
+            TxtInstallLog.Text = "Migration de la base de données...";
+            string exePath = Path.Combine(InstallPath, "Autoprint.Server.exe");
+
+            if (!File.Exists(exePath)) return;
+
+            await Task.Run(() =>
+            {
+                var info = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = "--migrate-only",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = InstallPath
+                };
+
+                using var proc = Process.Start(info);
+                if (proc == null) return;
+                proc.WaitForExit();
+                if (proc.ExitCode != 0) throw new Exception("Erreur lors de la migration.");
+            });
+        }
+
+        private void RestartIISSite()
+        {
+            try
+            {
+                using var mgr = new ServerManager();
+                var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+                if (pool != null) pool.Recycle();
+
+                var site = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint");
+                if (site != null && site.State == ObjectState.Started)
+                {
+                    site.Stop();
+                    System.Threading.Thread.Sleep(1000);
+                    site.Start();
+                }
+            }
+            catch { }
+        }
+
+        private void DetectExistingConfiguration()
+        {
+            string configPath = Path.Combine(InstallPath, "appsettings.json");
+
+            if (File.Exists(configPath))
+            {
+                _isUpgrade = true;
+                try
+                {
+                    string json = File.ReadAllText(configPath);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
+                    {
+                        string url = urlElement.GetString() ?? "";
+                        var parts = url.Split(':');
+                        if (parts.Length > 0 && int.TryParse(parts.Last(), out int port))
+                        {
+                            _existingPort = port;
+                        }
+                    }
+                }
+                catch {  }
+            }
+            else
+            {
+                _isUpgrade = false;
+            }
+        }
+
+        private void UpdateUiForUpgrade()
+        {
+            if (_isUpgrade)
+            {
+                TxtWelcomeTitle.Text = "Mise à jour détectée";
+                TxtWelcomeDesc.Text = "Une version existante a été trouvée. L'assistant va mettre à jour le serveur en conservant vos données.";
+                this.Title = "Mise à jour Autoprint Server";
+            }
+        }
+
         private void ConfigureNtfsPermissions()
         {
             try
@@ -470,6 +636,42 @@ namespace Autoprint.Installer.Server.UI
             catch (Exception ex)
             {
                 MessageBox.Show("Erreur : " + ex.Message);
+            }
+        }
+
+        private void MergeJsonNodes(JsonObject target, JsonObject source)
+        {
+            foreach (var property in source)
+            {
+                var key = property.Key;
+                var sourceValue = property.Value;
+
+                if (target.ContainsKey(key) && target[key] is JsonObject targetObj && sourceValue is JsonObject sourceObj)
+                {
+                    MergeJsonNodes(targetObj, sourceObj);
+                }
+                else
+                {
+                    target[key] = sourceValue?.DeepClone();
+                }
+            }
+        }
+        private void StopIISPool()
+        {
+            try
+            {
+                using var mgr = new ServerManager();
+                var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+
+                if (pool != null && (pool.State == ObjectState.Started || pool.State == ObjectState.Starting))
+                {
+                    pool.Stop();
+                    System.Threading.Thread.Sleep(3000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Impossible d'arrêter le pool (ou inexistant) : " + ex.Message);
             }
         }
     }

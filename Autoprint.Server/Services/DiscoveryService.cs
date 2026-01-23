@@ -94,7 +94,7 @@ namespace Autoprint.Server.Services
             var exclusions = (profile.ExcludedRanges ?? "").Split(separators, StringSplitOptions.RemoveEmptyEntries).ToList();
 
             var knownSubnets = profile.SkipKnownSubnets
-                ? await db.Emplacements.Select(e => e.CidrIpv4).ToListAsync()
+                ? await db.EmplacementNetworks.Select(n => n.CidrIpv4).ToListAsync()
                 : new List<string>();
 
             var subnetsToScan = new List<string>();
@@ -133,13 +133,20 @@ namespace Autoprint.Server.Services
             {
                 foreach (var detected in detectedSubnets)
                 {
-                    if (!await db.Emplacements.AnyAsync(e => e.CidrIpv4 == detected))
+                    if (!await db.EmplacementNetworks.AnyAsync(n => n.CidrIpv4 == detected))
                     {
                         db.Emplacements.Add(new Emplacement
                         {
                             Nom = $"Nouveau Réseau ({detected})",
-                            CidrIpv4 = detected,
-                            Status = LieuStatus.Detected
+                            Status = LieuStatus.Detected,
+                            Networks = new List<EmplacementNetwork>
+                            {
+                                new EmplacementNetwork
+                                {
+                                    CidrIpv4 = detected,
+                                    Description = "Découverte Automatique"
+                                }
+                            }
                         });
                         newNetworks.Add(detected);
                         _logger.LogInformation($"[Discovery] Nouveau réseau détecté : {detected}");

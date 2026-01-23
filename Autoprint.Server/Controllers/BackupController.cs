@@ -32,7 +32,21 @@ namespace Autoprint.Server.Controllers
                 CreatedBy = User.Identity?.Name ?? "System",
 
                 Marques = await _context.Marques.Select(x => new BackupMarqueDto { Id = x.Id, Nom = x.Nom }).ToListAsync(),
-                Lieux = await _context.Emplacements.Select(x => new BackupLieuDto { Id = x.Id, Nom = x.Nom, Code = x.Code, Cidr = x.CidrIpv4 }).ToListAsync(),
+
+                Lieux = await _context.Emplacements
+                    .Include(e => e.Networks)
+                    .Select(x => new BackupLieuDto
+                    {
+                        Id = x.Id,
+                        Nom = x.Nom,
+                        Code = x.Code,
+                        Networks = x.Networks.Select(n => new BackupNetworkDto
+                        {
+                            Cidr = n.CidrIpv4,
+                            Description = n.Description
+                        }).ToList()
+                    }).ToListAsync(),
+
                 Pilotes = await _context.Pilotes.Select(x => new BackupPiloteDto { Id = x.Id, Nom = x.Nom, Version = x.Version, EstInstalle = x.EstInstalle }).ToListAsync(),
                 Modeles = await _context.Modeles.Select(x => new BackupModeleDto { Id = x.Id, Nom = x.Nom, MarqueId = x.MarqueId, PiloteId = x.PiloteId }).ToListAsync(),
 
@@ -95,12 +109,12 @@ namespace Autoprint.Server.Controllers
                 _context.Modeles.RemoveRange(_context.Modeles);
                 _context.Marques.RemoveRange(_context.Marques);
                 _context.Pilotes.RemoveRange(_context.Pilotes);
+
                 _context.Emplacements.RemoveRange(_context.Emplacements);
 
                 _context.ServerSettings.RemoveRange(_context.ServerSettings);
 
                 await _context.SaveChangesAsync();
-
 
                 await EnableIdentityInsert("Marques");
                 _context.Marques.AddRange(backup.Marques.Select(x => new Marque { Id = x.Id, Nom = x.Nom }));
@@ -113,7 +127,18 @@ namespace Autoprint.Server.Controllers
                 await DisableIdentityInsert("Pilotes");
 
                 await EnableIdentityInsert("Emplacements");
-                _context.Emplacements.AddRange(backup.Lieux.Select(x => new Emplacement { Id = x.Id, Nom = x.Nom, Code = x.Code, CidrIpv4 = x.Cidr }));
+                var lieuxToRestore = backup.Lieux.Select(x => new Emplacement
+                {
+                    Id = x.Id,
+                    Nom = x.Nom,
+                    Code = x.Code,
+                    Networks = x.Networks.Select(n => new EmplacementNetwork
+                    {
+                        CidrIpv4 = n.Cidr,
+                        Description = n.Description
+                    }).ToList()
+                });
+                _context.Emplacements.AddRange(lieuxToRestore);
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Emplacements");
 
@@ -173,7 +198,7 @@ namespace Autoprint.Server.Controllers
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _context.AuditLogs.Add(new AuditLog { Action = "SYSTEM_RESTORE", Details = $"Restauration complète (v{backup.Version}).", Utilisateur = User.Identity?.Name ?? "System", Niveau = "WARNING", DateAction = DateTime.UtcNow });
+                _context.AuditLogs.Add(new AuditLog { Action = "SYSTEM_RESTORE", Details = $"Restauration complète.", Utilisateur = User.Identity?.Name ?? "System", Niveau = "WARNING", DateAction = DateTime.UtcNow });
                 await _context.SaveChangesAsync();
 
                 return Ok(new { Message = "Restauration terminée avec succès." });

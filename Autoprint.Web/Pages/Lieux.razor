@@ -68,9 +68,28 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Emplacement" Property="CidrIpv4" Title="Réseau (CIDR)" Sortable="true" Filterable="true" Width="180px">
+            <RadzenDataGridColumn TItem="Emplacement" Property="NetworkSummary" Title="Réseaux" Sortable="false" Filterable="false" Width="250px">
                 <Template Context="l">
-                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@l.CidrIpv4" />
+                    @if (l.Networks != null && l.Networks.Any())
+                    {
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="0.2rem">
+                            @foreach (var net in l.Networks.Take(2))
+                            {
+                                <div style="font-size: 0.85em;">
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@net.CidrIpv4" />
+                                    <span class="text-muted" style="margin-left:5px">@net.Description</span>
+                                </div>
+                            }
+                            @if (l.Networks.Count > 2)
+                            {
+                                <span style="font-size: 0.8em; color: var(--rz-text-tertiary-color);">+ @(l.Networks.Count - 2) autre(s)...</span>
+                            }
+                        </RadzenStack>
+                    }
+                    else
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Aucun réseau" />
+                    }
                 </Template>
             </RadzenDataGridColumn>
 
@@ -153,13 +172,16 @@ else
         if (lieux == null || !lieux.Any()) return;
 
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom;Code;CIDR;Statut");
+        csvBuilder.AppendLine("Id;Nom;Code;Réseaux;Statut");
 
         foreach (var l in lieux)
         {
             var nomClean = l.Nom?.Replace(";", ",") ?? "";
             var codeClean = l.Code?.Replace(";", ",") ?? "";
-            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{l.CidrIpv4};{l.Status}");
+
+            var networksClean = l.NetworkSummary?.Replace(";", ",") ?? "";
+
+            csvBuilder.AppendLine($"{l.Id};{nomClean};{codeClean};{networksClean};{l.Status}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
