@@ -37,7 +37,7 @@ namespace Autoprint.Server.Controllers
                 Id = e.Id,
                 Nom = e.Nom,
                 Code = e.Code,
-                CidrIpv4 = e.CidrIpv4,
+                Networks = e.Networks,
                 Status = e.Status,
                 PrinterCount = _context.Imprimantes.Count(p => p.EmplacementId == e.Id)
             });
@@ -69,7 +69,9 @@ namespace Autoprint.Server.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Emplacement>> GetEmplacement(int id)
         {
-            var emplacement = await _context.Emplacements.FindAsync(id);
+            var emplacement = await _context.Emplacements
+                .Include(e => e.Networks)
+                .FirstOrDefaultAsync(e => e.Id == id);
             return emplacement == null ? NotFound() : emplacement;
         }
 
@@ -78,13 +80,54 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> PutEmplacement(int id, Emplacement emplacement)
         {
             if (id != emplacement.Id) return BadRequest();
-            _context.Entry(emplacement).State = EntityState.Modified;
+
+            var existingLieu = await _context.Emplacements
+                .Include(e => e.Networks)
+                .FirstOrDefaultAsync(e => e.Id == id);
+
+            if (existingLieu == null) return NotFound();
+
+            existingLieu.Nom = emplacement.Nom;
+            existingLieu.Code = emplacement.Code;
+            existingLieu.Status = emplacement.Status;
+            existingLieu.DateModification = DateTime.UtcNow;
+            // existingLieu.ModifiePar = ... (Si tu gères l'utilisateur)
+
+            var networkIdsToSend = emplacement.Networks.Select(n => n.Id).Where(i => i != 0).ToList();
+            var networksToDelete = existingLieu.Networks.Where(n => !networkIdsToSend.Contains(n.Id)).ToList();
+
+            foreach (var net in networksToDelete)
+            {
+                _context.EmplacementNetworks.Remove(net);
+            }
+
+            foreach (var netDto in emplacement.Networks)
+            {
+                if (netDto.Id == 0)
+                {
+                    existingLieu.Networks.Add(new EmplacementNetwork
+                    {
+                        CidrIpv4 = netDto.CidrIpv4,
+                        Description = netDto.Description
+                    });
+                }
+                else
+                {
+                    var existingNet = existingLieu.Networks.FirstOrDefault(n => n.Id == netDto.Id);
+                    if (existingNet != null)
+                    {
+                        existingNet.CidrIpv4 = netDto.CidrIpv4;
+                        existingNet.Description = netDto.Description;
+                    }
+                }
+            }
 
             try
             {
                 await _auditService.LogUpdateAsync(
                     id,
                     emplacement,
+                    "LOCATION_UPDATE",
                     "LOCATION_UPDATE",
                     User.Identity?.Name);
 
@@ -144,5 +187,14 @@ namespace Autoprint.Server.Controllers
         }
 
         private bool EmplacementExists(int id) => _context.Emplacements.Any(e => e.Id == id);
+
+        [HttpGet("CheckCidr")]
+        public async Task<ActionResult<bool>> CheckCidrAvailability(string cidr, int excludeLieuId = 0)
+        {
+            var exists = await _context.EmplacementNetworks
+                .AnyAsync(n => n.CidrIpv4 == cidr && n.EmplacementId != excludeLieuId);
+
+            return !exists;
+        }
     }
 }

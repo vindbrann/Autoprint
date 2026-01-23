@@ -7,7 +7,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 var dbProvider = builder.Configuration["Database:Provider"] ?? "SqlServer";
 var connectionStrings = builder.Configuration.GetSection("Database:ConnectionStrings");
@@ -119,6 +123,32 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+if (args.Contains("--migrate-only"))
+{
+    Console.WriteLine("[MIGRATION_START]");
+    using (var scope = app.Services.CreateScope())
+    {
+        try
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            context.Database.Migrate();
+
+            Console.WriteLine("[MIGRATION_SUCCESS]");
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MIGRATION_ERROR] {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[INTERNAL_ERROR] {ex.InnerException.Message}");
+            }
+            Environment.Exit(1);
+        }
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseWebAssemblyDebugging();
@@ -151,14 +181,7 @@ using (var scope = app.Services.CreateScope())
         var config = services.GetRequiredService<IConfiguration>();
         var currentProvider = config["Database:Provider"];
 
-        if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-        {
-            context.Database.EnsureCreated();
-        }
-        else
-        {
-            context.Database.Migrate();
-        }
+        context.Database.Migrate();
 
         DbInitializer.Initialize(context);
     }

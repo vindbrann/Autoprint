@@ -15,6 +15,7 @@ namespace Autoprint.Server.Data
         public DbSet<Marque> Marques { get; set; }
         public DbSet<Modele> Modeles { get; set; }
         public DbSet<Emplacement> Emplacements { get; set; }
+        public DbSet<EmplacementNetwork> EmplacementNetworks { get; set; }
         public DbSet<Pilote> Pilotes { get; set; }
         public DbSet<Imprimante> Imprimantes { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
@@ -125,7 +126,7 @@ namespace Autoprint.Server.Data
             );
 
             modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI" });
-            modelBuilder.Entity<Emplacement>().HasData(new Emplacement { Id = 1, Nom = "NON DÉFINI", Code = "ND", CidrIpv4 = "0.0.0.0/0" });
+
             modelBuilder.Entity<Modele>().HasData(new Modele { Id = 1, Nom = "GÉNÉRIQUE", MarqueId = 1 });
         }
     }

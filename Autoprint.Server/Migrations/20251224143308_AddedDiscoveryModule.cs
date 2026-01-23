@@ -12,32 +12,47 @@ namespace Autoprint.Server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<int>(
-                name: "Status",
-                table: "Emplacements",
-                type: "int",
-                nullable: false,
-                defaultValue: 0);
+               name: "Status",
+               table: "Emplacements",
+               type: "int",
+               nullable: false,
+               defaultValue: 0);
 
             migrationBuilder.CreateTable(
                 name: "DiscoveryProfiles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    TargetRanges = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ExcludedRanges = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ProbeTargets = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    SkipKnownSubnets = table.Column<bool>(type: "bit", nullable: false),
-                    ScheduleHour = table.Column<int>(type: "int", nullable: false),
-                    ScheduleDays = table.Column<int>(type: "int", nullable: false),
-                    IsEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    LastRunDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    LastRunResult = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    SendEmailReport = table.Column<bool>(type: "bit", nullable: false),
-                    EmailRecipients = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DateModification = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EstSupprime = table.Column<bool>(type: "bit", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1")
+                        .Annotation("Sqlite:Autoincrement", true),
+
+                    Name = table.Column<string>(maxLength: 100, nullable: false),
+
+                    TargetRanges = table.Column<string>(nullable: false),
+
+                    ExcludedRanges = table.Column<string>(nullable: true),
+
+                    ProbeTargets = table.Column<string>(nullable: false),
+
+                    SkipKnownSubnets = table.Column<bool>(nullable: false),
+
+                    ScheduleHour = table.Column<int>(nullable: false),
+
+                    ScheduleDays = table.Column<int>(nullable: false),
+
+                    IsEnabled = table.Column<bool>(nullable: false),
+
+                    LastRunDate = table.Column<DateTime>(nullable: true),
+
+                    LastRunResult = table.Column<string>(nullable: true),
+
+                    SendEmailReport = table.Column<bool>(nullable: false),
+
+                    EmailRecipients = table.Column<string>(nullable: true),
+
+                    DateModification = table.Column<DateTime>(nullable: false),
+
+                    EstSupprime = table.Column<bool>(nullable: false)
                 },
                 constraints: table =>
                 {

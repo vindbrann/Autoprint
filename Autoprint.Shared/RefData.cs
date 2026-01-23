@@ -30,6 +30,23 @@ namespace Autoprint.Shared
 
     }
 
+    public class EmplacementNetwork : BaseEntity
+    {
+        [Required]
+        public int EmplacementId { get; set; }
+
+        [JsonIgnore]
+        public Emplacement? Emplacement { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string CidrIpv4 { get; set; } = string.Empty;
+
+        [MaxLength(100)]
+        public string? Description { get; set; }
+        public bool IsPrimary { get; set; } = true;
+    }
+
     public class Emplacement : BaseEntity
     {
         [Required]
@@ -38,13 +55,15 @@ namespace Autoprint.Shared
 
         [MaxLength(50)]
         public string? Code { get; set; }
-
-        [Required]
-        [MaxLength(50)]
-        public string CidrIpv4 { get; set; } = string.Empty;
+        public List<EmplacementNetwork> Networks { get; set; } = new();
         public LieuStatus Status { get; set; } = LieuStatus.Active;
 
         [NotMapped]
         public int PrinterCount { get; set; }
+
+        [NotMapped]
+        public string NetworkSummary => Networks != null && Networks.Any()
+            ? string.Join(", ", Networks.Select(n => n.CidrIpv4))
+            : "Aucun réseau";
     }
 }

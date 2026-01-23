@@ -565,11 +565,6 @@ namespace Autoprint.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CidrIpv4")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<string>("Code")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -595,18 +590,46 @@ namespace Autoprint.Server.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Emplacements");
+                });
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CidrIpv4 = "0.0.0.0/0",
-                            Code = "ND",
-                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(6673),
-                            EstSupprime = false,
-                            Nom = "NON DÉFINI",
-                            Status = 0
-                        });
+            modelBuilder.Entity("Autoprint.Shared.EmplacementNetwork", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CidrIpv4")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("EmplacementId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmplacementId");
+
+                    b.ToTable("EmplacementNetworks");
                 });
 
             modelBuilder.Entity("Autoprint.Shared.Imprimante", b =>
@@ -706,7 +729,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(6074),
+                            DateModification = new DateTime(2026, 1, 22, 17, 14, 53, 761, DateTimeKind.Utc).AddTicks(1993),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -757,7 +780,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 1, 16, 15, 57, 30, 398, DateTimeKind.Utc).AddTicks(7272),
+                            DateModification = new DateTime(2026, 1, 22, 17, 14, 53, 761, DateTimeKind.Utc).AddTicks(2560),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -1040,6 +1063,17 @@ namespace Autoprint.Server.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.EmplacementNetwork", b =>
+                {
+                    b.HasOne("Autoprint.Shared.Emplacement", "Emplacement")
+                        .WithMany("Networks")
+                        .HasForeignKey("EmplacementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Emplacement");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.Imprimante", b =>
                 {
                     b.HasOne("Autoprint.Shared.Emplacement", "Emplacement")
@@ -1091,6 +1125,11 @@ namespace Autoprint.Server.Migrations
             modelBuilder.Entity("Autoprint.Server.Models.Security.User", b =>
                 {
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.Emplacement", b =>
+                {
+                    b.Navigation("Networks");
                 });
 #pragma warning restore 612, 618
         }

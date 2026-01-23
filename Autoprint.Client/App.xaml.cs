@@ -100,7 +100,7 @@ namespace Autoprint.Client
                     onStatusChanged: (isOnline) =>
                     {
                         _estHorsLigne = !isOnline;
-                        MettreAJourInterface(_estHorsLigne);
+                        MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
                     }
                 );
 
@@ -118,8 +118,8 @@ namespace Autoprint.Client
 
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
         {
-            var mesIps = _networkService.GetAllLocalIpAddresses();
-            _ipActuelle = mesIps.FirstOrDefault() ?? "Non connecté";
+            string targetServer = _configService.PrintServerName ?? "localhost";
+            _ipActuelle = _networkService.GetActiveLocalIpAddress(targetServer);
 
             List<Emplacement> lieux = new List<Emplacement>();
 
@@ -135,7 +135,6 @@ namespace Autoprint.Client
                     _toutesLesImprimantes = taskImprimantes.Result;
 
                     if (lieux.Count == 0) throw new Exception("API vide");
-
                     if (_dataService != null) await _dataService.UpdateCacheAsync(lieux, _toutesLesImprimantes);
                 }
             }
@@ -154,192 +153,129 @@ namespace Autoprint.Client
                                     .Where(i => i.Status == PrinterStatus.Synchronized)
                                     .ToList();
 
-            Emplacement? meilleurLieu = null;
-            string meilleureIp = _ipActuelle;
-            int meilleurScoreCidr = -1;
 
-            if (lieux.Count > 0 && mesIps.Count > 0)
+            List<Emplacement> lieuxAffiches = new List<Emplacement>();
+            List<Emplacement> tousLesLieuxCompatibles = new List<Emplacement>();
+
+            if (lieux.Count > 0 && !string.IsNullOrEmpty(_ipActuelle) && _ipActuelle != "127.0.0.1")
             {
-                foreach (var ip in mesIps)
+                foreach (var lieu in lieux)
                 {
-                    foreach (var lieu in lieux)
+                    if (lieu.Networks == null) continue;
+                    if (lieu.Networks.Any(net => IpHelper.IsIpInCidr(_ipActuelle, net.CidrIpv4)))
                     {
-                        if (IpHelper.IsIpInCidr(ip, lieu.CidrIpv4))
-                        {
-                            int score = 0;
-                            if (lieu.CidrIpv4 != null && lieu.CidrIpv4.Contains("/"))
-                                int.TryParse(lieu.CidrIpv4.Split('/')[1], out score);
-
-                            if (score > meilleurScoreCidr)
-                            {
-                                meilleurScoreCidr = score;
-                                meilleurLieu = lieu;
-                                meilleureIp = ip;
-                            }
-                        }
+                        tousLesLieuxCompatibles.Add(lieu);
                     }
                 }
             }
+
+            var lieuPrincipalTrouve = tousLesLieuxCompatibles.FirstOrDefault(l =>
+                l.Networks.Any(n => n.IsPrimary && IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4)));
+
+            if (lieuPrincipalTrouve != null)
+            {
+                lieuxAffiches.Add(lieuPrincipalTrouve);
+                _lieuActuel = lieuPrincipalTrouve;
+            }
+            else
+            {
+                lieuxAffiches = tousLesLieuxCompatibles;
+                _lieuActuel = lieuxAffiches.FirstOrDefault();
+            }
+
 
             string titreNotif = "Autoprint";
             string messageNotif = "Mise à jour...";
             BalloonIcon iconeNotif = BalloonIcon.None;
-            bool lieuAChange = false;
-
             if (_estHorsLigne) iconeNotif = BalloonIcon.Warning;
 
-            if (meilleurLieu != null)
+            if (lieuxAffiches.Any())
             {
-                _ipActuelle = meilleureIp;
-
-                if (_lieuActuel?.Code != meilleurLieu.Code) lieuAChange = true;
-
-                _lieuActuel = meilleurLieu;
-
-                if (_prefService.Current.LastDetectedLocationCode != meilleurLieu.Code)
+                if (_lieuActuel != null && _prefService.Current.LastDetectedLocationCode != _lieuActuel.Code)
                 {
-                    _prefService.Current.LastDetectedLocationCode = meilleurLieu.Code;
+                    _prefService.Current.LastDetectedLocationCode = _lieuActuel.Code;
                     _prefService.Save();
                 }
 
-                int nbImprimantesZone = _toutesLesImprimantes.Count(i =>
-                    i.EmplacementId == meilleurLieu.Id ||
-                    (i.Emplacement != null && i.Emplacement.Id == meilleurLieu.Id));
+                var ids = lieuxAffiches.Select(l => l.Id).ToList();
+                int nbImprimantes = _toutesLesImprimantes.Count(i => ids.Contains(i.EmplacementId));
 
-                titreNotif = $"📍 Lieu : {meilleurLieu.Nom}";
+                if (lieuxAffiches.Count == 1)
+                    titreNotif = $"📍 {lieuxAffiches[0].Nom}";
+                else
+                    titreNotif = $"📍 Zone Partagée ({lieuxAffiches.Count} lieux)";
+
+                messageNotif = $"{nbImprimantes} imprimante(s) disponible(s).";
 
                 string messageSwitch = "";
-
-                if (_prefService.Current.PreferredPrinters.TryGetValue(meilleurLieu.Code, out string? favoritePrinterName))
+                foreach (var lieu in lieuxAffiches)
                 {
-                    var imprimanteCible = _toutesLesImprimantes.FirstOrDefault(p => p.NomAffiche == favoritePrinterName);
-
-                    if (imprimanteCible == null)
+                    if (_prefService.Current.PreferredPrinters.TryGetValue(lieu.Code ?? "", out string? fav))
                     {
-                        Debug.WriteLine($"[Startup] Le favori '{favoritePrinterName}' n'existe plus sur le serveur. Suppression.");
-                        _prefService.RemovePreferredPrinter(meilleurLieu.Code);
-                    }
-                    else
-                    {
-
-                        bool estInstalleeLocalement = false;
-                        
-                        try
+                        if (SetDefaultPrinterSafe(fav))
                         {
-                            using (var ps = new LocalPrintServer())
-                            {
-                                var queues = ps.GetPrintQueues(new[] { EnumeratedPrintQueueTypes.Local, EnumeratedPrintQueueTypes.Connections });
-                                estInstalleeLocalement = queues.Any(q => q.Name.Equals(favoritePrinterName, StringComparison.OrdinalIgnoreCase) ||
-                                                                         q.FullName.EndsWith($"\\{favoritePrinterName}", StringComparison.OrdinalIgnoreCase));
-                            }
-                        }
-                        catch { estInstalleeLocalement = false; }
-
-                        if (!estInstalleeLocalement)
-                        {
-                            await Dispatcher.InvokeAsync(async () =>
-                            {
-                                var dialog = new MissingPrinterDialog(favoritePrinterName);
-                                dialog.ShowDialog();
-
-                                if (dialog.UserChoice == MissingPrinterAction.Forget)
-                                {
-                                    _prefService.RemovePreferredPrinter(meilleurLieu.Code);
-                                }
-                                else if (dialog.UserChoice == MissingPrinterAction.Reinstall)
-                                {
-                                    if (_mainViewModel != null)
-                                    {
-                                        string driver = imprimanteCible.Modele?.Pilote?.Nom ?? "";
-                                        string srv = _configService.PrintServerName ?? "";
-
-                                        if (string.IsNullOrWhiteSpace(srv))
-                                        {
-                                            MessageBox.Show($"Erreur Critique :\nServeur vide !\nConfigService.PrintServerName = '{_configService.PrintServerName}'",
-                                                "Debug", MessageBoxButton.OK, MessageBoxImage.Error);
-                                            return;
-                                        }
-
-                                        var notif = (TaskbarIcon)FindResource("MainNotifyIcon");
-                                        notif?.ShowBalloonTip("Installation", $"Réinstallation de {favoritePrinterName}...", BalloonIcon.Info);
-
-                                        bool succes = await _mainViewModel.InstallerImprimanteDirectementAsync(favoritePrinterName, driver, srv);
-
-                                        if (succes)
-                                        {
-                                            if (_prefService.Current.AutoSwitchDefaultPrinter)
-                                                SetDefaultPrinterSafe(favoritePrinterName);
-                                        }
-                                        else
-                                        {
-                                            MessageBox.Show("L'installation a échoué.\nVérifiez que le serveur est accessible.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                        else if (estInstalleeLocalement && _prefService.Current.AutoSwitchDefaultPrinter && (lieuAChange || estDemarrage))
-                        {
-                            if (SetDefaultPrinterSafe(favoritePrinterName))
-                                messageSwitch = $"\n✅ {favoritePrinterName} par défaut.";
+                            messageSwitch = $"\n✅ {fav} par défaut.";
+                            break;
                         }
                     }
                 }
-
-                if (!string.IsNullOrEmpty(messageSwitch))
-                    messageNotif = $"Bienvenue à {meilleurLieu.Nom}{messageSwitch}";
-                else if (nbImprimantesZone > 0)
-                    messageNotif = $"{nbImprimantesZone} imprimante(s) disponible(s).";
-                else
-                    messageNotif = "Aucune imprimante pour cette zone.";
+                if (!string.IsNullOrEmpty(messageSwitch)) messageNotif += messageSwitch;
             }
             else
             {
-                if (_lieuActuel != null) lieuAChange = true;
                 _lieuActuel = null;
                 titreNotif = "⛔ Lieu Inconnu";
-                messageNotif = $"IPs: {string.Join(", ", mesIps)}\n(Lieu non reconnu)";
+                messageNotif = $"IP: {_ipActuelle}\nAucun lieu ne correspond.";
                 iconeNotif = BalloonIcon.Warning;
             }
 
-            MettreAJourInterface(_estHorsLigne);
+            MettreAJourInterfaceMulti(lieuxAffiches, _estHorsLigne);
 
             if (_notifyIcon != null && _prefService.Current.EnableNotifications)
             {
-                if (estDemarrage || lieuAChange)
+                if (estDemarrage || lieuxAffiches.Any())
                 {
                     _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
                 }
             }
         }
 
-        private void MettreAJourInterface(bool isOffline)
+        private void MettreAJourInterfaceMulti(List<Emplacement> lieux, bool isOffline)
         {
             if (_mainViewModel == null) return;
 
-            string nomLieu = _lieuActuel?.Nom ?? "Lieu Inconnu";
-            string codeLieu = _lieuActuel?.Code ?? "";
+            string nomAffiche;
+            string codeAffiche;
+            List<Imprimante> imprimantesFinales = new List<Imprimante>();
 
-            List<Imprimante> imprimantesDuLieu;
+            if (lieux.Any())
+            {
+                if (lieux.Count == 1)
+                {
+                    nomAffiche = lieux[0].Nom;
+                    codeAffiche = lieux[0].Code ?? "";
+                }
+                else
+                {
+                    nomAffiche = string.Join(" + ", lieux.Select(l => l.Nom));
+                    codeAffiche = "MULTI";
+                }
 
-            if (_lieuActuel != null)
-                imprimantesDuLieu = _toutesLesImprimantes.Where(i => i.EmplacementId == _lieuActuel.Id).ToList();
+                var ids = lieux.Select(l => l.Id).ToList();
+                imprimantesFinales = _toutesLesImprimantes
+.Where(i => ids.Contains(i.EmplacementId))
+    .ToList();
+            }
             else
-                imprimantesDuLieu = new List<Imprimante>();
+            {
+                nomAffiche = "Lieu Inconnu";
+                codeAffiche = "";
+            }
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                _mainViewModel.ChargerDonnees(nomLieu, codeLieu, imprimantesDuLieu, _ipActuelle, isOffline);
+                _mainViewModel.ChargerDonnees(nomAffiche, codeAffiche, imprimantesFinales, _ipActuelle, isOffline);
             });
-        }
-
-        private void UpdateTheme()
-        {
-            var paletteHelper = new PaletteHelper();
-            var theme = paletteHelper.GetTheme();
-            var systemTheme = Theme.GetSystemTheme() ?? BaseTheme.Light;
-            theme.SetBaseTheme(systemTheme);
-            paletteHelper.SetTheme(theme);
         }
 
         public bool SetDefaultPrinterSafe(string printerShortName)
@@ -389,18 +325,7 @@ namespace Autoprint.Client
                 }
 
                 bool result = SetDefaultPrinter(targetUncName);
-
-                if (result)
-                {
-                    Debug.WriteLine($"[Switch] Succès : '{targetUncName}' est maintenant par défaut.");
-                    return true;
-                }
-                else
-                {
-                    int errorCode = Marshal.GetLastWin32Error();
-                    Debug.WriteLine($"[Switch] Échec API SetDefaultPrinter. Code: {errorCode}");
-                    return false;
-                }
+                return result;
             }
             catch (Exception ex)
             {
@@ -453,7 +378,10 @@ namespace Autoprint.Client
         private void AfficherFenetre()
         {
             if (_mainWindow == null) return;
-            MettreAJourInterface(_estHorsLigne);
+            MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
+
+            _ = RafraichirDonneesAsync(false);
+
             _mainViewModel?.RafraichirEtatInstallation();
 
             if (_mainWindow.Visibility == Visibility.Visible)
@@ -466,6 +394,15 @@ namespace Autoprint.Client
         {
             await Task.Delay(3000);
             await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync());
+        }
+
+        private void UpdateTheme()
+        {
+            var paletteHelper = new PaletteHelper();
+            var theme = paletteHelper.GetTheme();
+            var systemTheme = Theme.GetSystemTheme() ?? BaseTheme.Light;
+            theme.SetBaseTheme(systemTheme);
+            paletteHelper.SetTheme(theme);
         }
 
         private void MenuExit_Click(object sender, RoutedEventArgs e) { Shutdown(); }

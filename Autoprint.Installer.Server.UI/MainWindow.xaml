@@ -22,9 +22,11 @@
         <Grid Grid.Row="1" Margin="30,20">
 
             <StackPanel x:Name="View1_Welcome">
-                <TextBlock Text="Bienvenue" FontSize="24" FontWeight="Light" Margin="0,0,0,20"/>
-                <TextBlock Text="Vous êtes sur le point d'installer Autoprint Server sur cet ordinateur." 
+                <TextBlock x:Name="TxtWelcomeTitle" Text="Bienvenue" FontSize="24" FontWeight="Light" Margin="0,0,0,20"/>
+
+                <TextBlock x:Name="TxtWelcomeDesc" Text="Vous êtes sur le point d'installer Autoprint Server sur cet ordinateur." 
                            FontSize="16" Margin="0,0,0,20"/>
+
                 <TextBlock Text="Cet assistant va configurer :" FontWeight="Bold" Margin="0,10,0,5"/>
                 <StackPanel Margin="20,0,0,0">
                     <TextBlock Text="• Le service Backend et l'API" Margin="0,2"/>
@@ -192,7 +194,8 @@
             </StackPanel>
 
             <StackPanel x:Name="View7_Finish" Visibility="Collapsed">
-                <TextBlock Text="Installation Terminée" FontSize="24" Foreground="#2E7D32" Margin="0,0,0,20"/>
+                <TextBlock x:Name="TxtFinishTitle" Text="Installation Terminée" FontSize="24" Foreground="#2E7D32" Margin="0,0,0,20"/>
+
                 <TextBlock Text="Autoprint Server a été installé et configuré avec succès." FontSize="14"/>
 
                 <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
