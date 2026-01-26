@@ -3,8 +3,8 @@
      xmlns:firewall="http://wixtoolset.org/schemas/v4/wxs/firewall">
 
 	<Package Name="Autoprint Client"
-			 Manufacturer="Vind"
-			 Version="1.1.1.0"
+			 Manufacturer="Nicolas CARUANA"
+			 Version="1.1.2.0"
 			 UpgradeCode="{5F72F6F4-EAFD-4118-9E6F-D96A89869684}"
 			 Scope="perMachine"
 			 Compressed="yes"
