@@ -54,6 +54,11 @@ namespace Autoprint.Client
 
             base.OnStartup(e);
 
+            if (e.Args.Contains("--firstrun"))
+            {
+                SetupAutoStart();
+            }
+
             try
             {
                 _notifyIcon = (TaskbarIcon)FindResource("MainNotifyIcon");
@@ -237,6 +242,27 @@ namespace Autoprint.Client
                 {
                     _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
                 }
+            }
+        }
+
+        private void SetupAutoStart()
+        {
+            try
+            {
+                string exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exePath)) return;
+
+                using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+                if (key != null)
+                {
+                    key.SetValue("AutoprintClient", $"\"{exePath}\"");
+
+                    Debug.WriteLine("[FirstRun] Inscription démarrage auto réussie.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FirstRun] Erreur registre : {ex.Message}");
             }
         }
 

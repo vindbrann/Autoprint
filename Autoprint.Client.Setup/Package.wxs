@@ -74,7 +74,9 @@
 				<RegistryKey Root="HKLM"
 							 Key="Software\Microsoft\Active Setup\Installed Components\[ProductCode]"
 							 ForceDeleteOnUninstall="yes">
-					<RegistryValue Name="StubPath" Value="[#AutoprintClientExe]" Type="string" />
+					<RegistryValue Name="StubPath"
+               Value="cmd.exe /C start &quot;Autoprint&quot; &quot;[#AutoprintClientExe]&quot; --firstrun"
+               Type="string" />
 					<RegistryValue Name="Version" Value="[ProductVersion]" Type="string" />
 					<RegistryValue Name="IsInstalled" Value="1" Type="integer" />
 				</RegistryKey>
