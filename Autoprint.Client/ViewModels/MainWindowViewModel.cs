@@ -21,7 +21,7 @@ namespace Autoprint.Client.ViewModels
     {
         private readonly UserPreferencesService? _prefService;
         private readonly IpcService? _ipcService;
-        private readonly ConfigurationService? _configService; // Ajouté pour lire le registre
+        private readonly ConfigurationService? _configService;
 
         private string _appVersion = "v1.0";
         public string AppVersion
@@ -77,7 +77,6 @@ namespace Autoprint.Client.ViewModels
 
         public MainWindowViewModel() { }
 
-        // Constructeur mis à jour pour accepter ConfigurationService
         public MainWindowViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
         {
             _prefService = prefService;
@@ -94,7 +93,6 @@ namespace Autoprint.Client.ViewModels
                 IsOffline = isOffline;
                 TitreLieu = nomLieu;
 
-                // Récupération du serveur depuis le ConfigService (Registre)
                 string serverName = _configService?.PrintServerName ?? "";
 
                 if (!isOffline && !string.IsNullOrEmpty(serverName))

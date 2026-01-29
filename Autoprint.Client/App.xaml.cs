@@ -6,7 +6,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Printing;
 using System.Runtime.InteropServices;
-using System.Threading; // <--- Nécessaire pour SemaphoreSlim
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using Autoprint.Client.Models;
@@ -46,12 +46,9 @@ namespace Autoprint.Client
         private string _ipActuelle = "Inconnue";
         private bool _estHorsLigne = false;
 
-        // Variables Anti-Spam (Mémoire)
         private string _lastLocationCode = string.Empty;
         private string _lastPrinterSignature = string.Empty;
 
-        // 🔒 LE VERROU (SEMAPHORE)
-        // Permet d'assurer qu'une seule mise à jour se fait à la fois
         private readonly SemaphoreSlim _verrouRafraichissement = new SemaphoreSlim(1, 1);
 
         protected override async void OnStartup(StartupEventArgs e)
@@ -108,7 +105,6 @@ namespace Autoprint.Client
                     onStatusChanged: (isOnline) =>
                     {
                         _estHorsLigne = !isOnline;
-                        // On lance une maj d'interface, mais attention aux threads, on passe par Rafraichir pour la sécurité
                         _ = RafraichirDonneesAsync(false);
                     }
                 );
@@ -127,8 +123,6 @@ namespace Autoprint.Client
 
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
         {
-            // 🔒 ENTREE DU SAS DE SÉCURITÉ
-            // Si une mise à jour est déjà en cours, on attend qu'elle finisse.
             await _verrouRafraichissement.WaitAsync();
 
             try
@@ -138,7 +132,6 @@ namespace Autoprint.Client
 
                 List<Emplacement> lieux = new List<Emplacement>();
 
-                // --- 1. RÉCUPÉRATION DES DONNÉES ---
                 try
                 {
                     if (_apiService != null)
@@ -164,13 +157,11 @@ namespace Autoprint.Client
                     }
                 }
 
-                // Filtrage global
                 lieux = lieux.Where(l => l.Status == LieuStatus.Active).ToList();
                 _toutesLesImprimantes = _toutesLesImprimantes
                                         .Where(i => i.Status == PrinterStatus.Synchronized)
                                         .ToList();
 
-                // --- 2. CALCUL DU LIEU ACTUEL ---
                 List<Emplacement> lieuxAffiches = new List<Emplacement>();
                 List<Emplacement> tousLesLieuxCompatibles = new List<Emplacement>();
 
@@ -186,46 +177,42 @@ namespace Autoprint.Client
                     }
                 }
 
-                var lieuPrincipalTrouve = tousLesLieuxCompatibles.FirstOrDefault(l =>
-                    l.Networks.Any(n => n.IsPrimary && IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4)));
+                var principaux = tousLesLieuxCompatibles
+                    .Where(l => l.Networks.Any(n => n.IsPrimary && IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4)))
+                    .ToList();
 
-                if (lieuPrincipalTrouve != null)
+                if (principaux.Any())
                 {
-                    lieuxAffiches.Add(lieuPrincipalTrouve);
-                    _lieuActuel = lieuPrincipalTrouve;
+                    lieuxAffiches = principaux;
+                    _lieuActuel = principaux.First();
                 }
                 else
                 {
                     lieuxAffiches = tousLesLieuxCompatibles;
-                    _lieuActuel = lieuxAffiches.FirstOrDefault();
+                    _lieuActuel = tousLesLieuxCompatibles.FirstOrDefault();
                 }
 
-                // --- 3. DÉTECTION DE CHANGEMENT (ANTI-SPAM) ---
 
                 var idsLieux = lieuxAffiches.Select(l => l.Id).ToList();
                 var imprimantesPourCeLieu = _toutesLesImprimantes
                                             .Where(i => idsLieux.Contains(i.EmplacementId))
+                                            .DistinctBy(i => i.Id)
                                             .ToList();
 
-                // Signature unique du contexte actuel
-                string newLocationCode = lieuxAffiches.FirstOrDefault()?.Code ?? "UNKNOWN";
-                // On trie par ID pour que l'ordre ne fausse pas la signature
+                string newLocationCode = _lieuActuel?.Code ?? "UNKNOWN";
                 string newPrinterSignature = string.Join(",", imprimantesPourCeLieu
                                                               .OrderBy(p => p.Id)
                                                               .Select(p => p.Id));
 
                 bool changementDetecte = false;
 
-                // Comparaison avec la mémoire
                 if (newLocationCode != _lastLocationCode) changementDetecte = true;
                 if (newPrinterSignature != _lastPrinterSignature) changementDetecte = true;
 
-                // Mise à jour de la mémoire pour le prochain passage
                 _lastLocationCode = newLocationCode;
                 _lastPrinterSignature = newPrinterSignature;
 
 
-                // --- 4. PRÉPARATION DE LA NOTIFICATION ---
                 string titreNotif = "Autoprint";
                 string messageNotif = "Mise à jour...";
                 BalloonIcon iconeNotif = BalloonIcon.None;
@@ -253,7 +240,6 @@ namespace Autoprint.Client
                     {
                         if (_prefService.Current.PreferredPrinters.TryGetValue(lieu.Code ?? "", out string? fav))
                         {
-                            // On tente le switch d'imprimante par défaut uniquement si changement réel ou démarrage
                             if (estDemarrage || changementDetecte)
                             {
                                 if (SetDefaultPrinterSafe(fav))
@@ -268,7 +254,6 @@ namespace Autoprint.Client
                 }
                 else
                 {
-                    // Cas "Lieu Inconnu"
                     if (estDemarrage || changementDetecte)
                     {
                         _lieuActuel = null;
@@ -278,18 +263,12 @@ namespace Autoprint.Client
                     }
                 }
 
-                // Mise à jour de l'interface (WPF gère son propre thread UI, donc c'est safe)
                 MettreAJourInterfaceMulti(lieuxAffiches, _estHorsLigne);
 
-                // --- 5. AFFICHAGE DE LA NOTIF (FILTRÉE) ---
                 if (_notifyIcon != null && _prefService.Current.EnableNotifications)
                 {
-                    // LE FILTRE EST ICI :
-                    // Si ce n'est pas le démarrage ET que rien n'a changé => On ne fait RIEN.
-                    // Si une autre tâche parallèle arrive ici, 'changementDetecte' sera false car la mémoire a été mise à jour plus haut.
                     if (estDemarrage || changementDetecte)
                     {
-                        // Petite sécurité pour ne pas afficher une bulle vide
                         if (!string.IsNullOrEmpty(messageNotif))
                         {
                             _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
@@ -303,7 +282,6 @@ namespace Autoprint.Client
             }
             finally
             {
-                // 🔓 SORTIE DU SAS : On libère la place pour la prochaine demande (s'il y en a une)
                 _verrouRafraichissement.Release();
             }
         }
