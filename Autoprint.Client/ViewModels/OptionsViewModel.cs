@@ -22,6 +22,9 @@ namespace Autoprint.Client.ViewModels
         public OptionsViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
         {
             _prefService = prefService;
+            OnPropertyChanged(nameof(AutoSwitchDefaultPrinter));
+            OnPropertyChanged(nameof(EnableNotifications));
+            OnPropertyChanged(nameof(StartWithWindows));
             _ipcService = ipcService;
             _configService = configService;
 
