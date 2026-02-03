@@ -67,7 +67,7 @@
                         <TextBlock Text="Gestion Intelligente" FontWeight="SemiBold"/>
                         <TextBlock Text="Changer l'imprimante par défaut automatiquement selon mes favoris" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
-                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoSwitchDefaultPrinter}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                    <ToggleButton Grid.Column="1" IsChecked="{Binding AutoSwitchDefaultPrinter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
                 </Grid>
 
                 <Separator Margin="0,0,0,20"/>
