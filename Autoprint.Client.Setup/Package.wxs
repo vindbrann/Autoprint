@@ -4,17 +4,20 @@
 
 	<Package Name="Autoprint Client"
 			 Manufacturer="Nicolas CARUANA"
-			 Version="1.1.2.0"
+			 Version="1.1.3.0"
 			 UpgradeCode="{5F72F6F4-EAFD-4118-9E6F-D96A89869684}"
 			 Scope="perMachine"
 			 Compressed="yes"
-			 InstallerVersion="200"
-			 ProductCode="{D279B759-1DCB-4071-942D-132AD72ED673}">
+			 InstallerVersion="200">
 		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." />
 		<MediaTemplate EmbedCab="yes" />
 
-		<Property Id="APIKEY" Secure="yes" />
-		<Property Id="PRINTSERVER" Secure="yes" />
+		<Property Id="APIKEY" Secure="yes">
+			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\Autoprint" Name="APIKEY" Type="raw" />
+		</Property>
+		<Property Id="PRINTSERVER" Secure="yes">
+			<RegistrySearch Id="SearchPrintServer" Root="HKLM" Key="SOFTWARE\Autoprint" Name="PRINTSERVER" Type="raw" />
+		</Property>
 
 		<ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
 		<WixVariable Id="WixUILicenseRtf" Value="Resources\License.rtf" />
@@ -58,6 +61,8 @@
 			<Directory Id="ApplicationProgramsFolder" Name="Autoprint" />
 		</StandardDirectory>
 
+		<StandardDirectory Id="DesktopFolder" />
+
 		<ComponentGroup Id="ManualComponents">
 			<Component Id="RegistryConfig" Guid="{6EBBC4AC-3A75-488B-8414-5679EB4D10C2}" Directory="INSTALLFOLDER">
 				<RegistryKey Root="HKLM" Key="SOFTWARE\Autoprint">
@@ -67,19 +72,24 @@
 			</Component>
 
 			<Component Id="ClientExecutable" Guid="{287CF2AF-2A22-456C-B5CC-D5EA4B64DA7D}" Directory="ClientDir">
-				<File Id="AutoprintClientExe" Source="..\Executables\Autoprint.Client.exe" KeyPath="yes">
-					<Shortcut Id="ApplicationStartMenuShortcut" Directory="ApplicationProgramsFolder" Name="Autoprint" WorkingDirectory="ClientDir" Icon="AppIcon.ico" Advertise="yes" />
-				</File>
-				<RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+				<File Id="AutoprintClientExe" Source="..\Executables\Autoprint.Client.exe" KeyPath="yes" />
+
 				<RegistryKey Root="HKLM"
 							 Key="Software\Microsoft\Active Setup\Installed Components\[ProductCode]"
 							 ForceDeleteOnUninstall="yes">
-					<RegistryValue Name="StubPath"
-               Value="cmd.exe /C start &quot;Autoprint&quot; &quot;[#AutoprintClientExe]&quot; --firstrun"
-               Type="string" />
+					<RegistryValue Name="StubPath" Value="cmd.exe /C start &quot;Autoprint&quot; &quot;[#AutoprintClientExe]&quot; --firstrun" Type="string" />
 					<RegistryValue Name="Version" Value="[ProductVersion]" Type="string" />
 					<RegistryValue Name="IsInstalled" Value="1" Type="integer" />
 				</RegistryKey>
+			</Component>
+
+			<Component Id="ClientShortcutComponent" Guid="{F11E81D5-3B1A-4C4D-9903-82BC7F763114}" Directory="ApplicationProgramsFolder">
+				<Shortcut Id="ApplicationStartMenuShortcut" Name="Autoprint" Target="[#AutoprintClientExe]" WorkingDirectory="ClientDir" Icon="AppIcon.ico" />
+
+				<Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Autoprint" Target="[#AutoprintClientExe]" WorkingDirectory="ClientDir" Icon="AppIcon.ico" />
+
+				<RemoveFolder Id="CleanUpShortCut" On="uninstall" />
+				<RegistryValue Root="HKCU" Key="Software\Autoprint\Shortcut" Name="installed" Type="integer" Value="1" KeyPath="yes" />
 			</Component>
 
 			<Component Id="ServiceExecutable" Guid="{9917DB95-5118-4547-BB7A-BEC6DE23E9B2}" Directory="ServiceDir">

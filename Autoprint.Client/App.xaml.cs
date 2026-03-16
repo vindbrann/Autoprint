@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Printing;
@@ -22,6 +23,8 @@ namespace Autoprint.Client
 {
     public partial class App : Application
     {
+        private static Mutex? _instanceMutex;
+        private readonly string _pipeName = $"AutoprintClient_WakeUp_{Environment.UserName}";
         [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern bool SetDefaultPrinter(string Name);
 
@@ -53,6 +56,21 @@ namespace Autoprint.Client
 
         protected override async void OnStartup(StartupEventArgs e)
         {
+            bool createdNew;
+            _instanceMutex = new Mutex(true, $@"Local\AutoprintClient_Mutex_{Environment.UserName}", out createdNew);
+
+            if (!createdNew)
+            {
+                bool isSilentStart = e.Args.Contains("--firstrun") || e.Args.Contains("--silent");
+
+                if (!isSilentStart) await SendWakeUpSignalAsync();
+
+                Application.Current.Shutdown();
+                return;
+            }
+
+            _ = ListenForWakeUpSignalsAsync();
+
             SystemEvents.UserPreferenceChanged += (s, args) =>
             {
                 if (args.Category == UserPreferenceCategory.General) UpdateTheme();
@@ -60,11 +78,6 @@ namespace Autoprint.Client
             UpdateTheme();
 
             base.OnStartup(e);
-
-            if (e.Args.Contains("--firstrun"))
-            {
-                SetupAutoStart();
-            }
 
             try
             {
@@ -286,26 +299,6 @@ namespace Autoprint.Client
             }
         }
 
-        private void SetupAutoStart()
-        {
-            try
-            {
-                string exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                if (string.IsNullOrEmpty(exePath)) return;
-
-                using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-                if (key != null)
-                {
-                    key.SetValue("AutoprintClient", $"\"{exePath}\"");
-                    Debug.WriteLine("[FirstRun] Inscription démarrage auto réussie.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[FirstRun] Erreur registre : {ex.Message}");
-            }
-        }
-
         private void MettreAJourInterfaceMulti(List<Emplacement> lieux, bool isOffline)
         {
             if (_mainViewModel == null) return;
@@ -423,12 +416,25 @@ namespace Autoprint.Client
         private void AfficherFenetre()
         {
             if (_mainWindow == null) return;
+
             MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
             _ = RafraichirDonneesAsync(false);
             _mainViewModel?.RafraichirEtatInstallation();
 
-            if (_mainWindow.Visibility == Visibility.Visible) _mainWindow.Activate();
-            else _mainWindow.Show();
+            if (_mainWindow.Visibility != Visibility.Visible)
+            {
+                _mainWindow.Show();
+            }
+
+            if (_mainWindow.WindowState == WindowState.Minimized)
+            {
+                _mainWindow.WindowState = WindowState.Normal;
+            }
+
+            _mainWindow.Activate();
+            _mainWindow.Topmost = true;
+            _mainWindow.Topmost = false;
+            _mainWindow.Focus();
         }
 
         private async Task OnReseauChangeAsync()
@@ -455,6 +461,42 @@ namespace Autoprint.Client
         {
             _notifyIcon?.Dispose();
             base.OnExit(e);
+        }
+
+        private async Task SendWakeUpSignalAsync()
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.Out);
+                await client.ConnectAsync(1000);
+                using var writer = new System.IO.StreamWriter(client);
+                await writer.WriteAsync("WAKE_UP");
+            }
+            catch {  }
+        }
+
+        private async Task ListenForWakeUpSignalsAsync()
+        {
+            while (true)
+            {
+                try
+                {
+                    using var server = new NamedPipeServerStream(_pipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    await server.WaitForConnectionAsync();
+
+                    using var reader = new System.IO.StreamReader(server);
+                    var msg = await reader.ReadToEndAsync();
+
+                    if (msg == "WAKE_UP")
+                    {
+                        Dispatcher.Invoke(() => AfficherFenetre());
+                    }
+                }
+                catch
+                {
+                    await Task.Delay(1000);
+                }
+            }
         }
     }
 }

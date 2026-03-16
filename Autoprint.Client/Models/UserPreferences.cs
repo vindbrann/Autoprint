@@ -10,5 +10,6 @@ namespace Autoprint.Client.Models
         public string? LastDetectedLocationCode { get; set; }
         public bool RunAtStartup { get; set; } = true;
         public Dictionary<string, string> PreferredPrinters { get; set; } = new Dictionary<string, string>();
+        public bool HasCreatedDesktopShortcut { get; set; } = false;
     }
 }
