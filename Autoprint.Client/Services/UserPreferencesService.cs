@@ -18,11 +18,12 @@ namespace Autoprint.Client.Services
 
         public UserPreferences Current => _currentPreferences;
 
+        public bool RunAtStartup => IsWindowsStartupEnabled();
+
         public UserPreferencesService()
         {
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             string appRoamingFolder = Path.Combine(documentsPath, "Autoprint");
-
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string appLocalFolder = Path.Combine(localAppData, "Autoprint");
 
@@ -43,21 +44,16 @@ namespace Autoprint.Client.Services
 
             if (isMachineFirstRun)
             {
-                Debug.WriteLine("[Startup] Nouvelle machine détectée. Activation du démarrage auto.");
-
-                _currentPreferences.RunAtStartup = true;
-
                 SetWindowsStartup(true);
-
                 try { File.Create(_sentinelPath).Close(); } catch { }
-
                 Save();
             }
-            else
-            {
 
-                Debug.WriteLine($"[Startup] Machine connue. Sync Registre selon JSON : {_currentPreferences.RunAtStartup}");
-                SetWindowsStartup(_currentPreferences.RunAtStartup);
+            if (!_currentPreferences.HasCreatedDesktopShortcut)
+            {
+                CreateDesktopShortcut();
+                _currentPreferences.HasCreatedDesktopShortcut = true;
+                Save();
             }
         }
 
@@ -84,17 +80,19 @@ namespace Autoprint.Client.Services
                 string json = JsonSerializer.Serialize(_currentPreferences, options);
                 File.WriteAllText(_configPath, json);
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Config] Erreur sauvegarde : {ex.Message}");
-            }
+            catch { }
         }
 
-        public void ToggleStartup(bool enable)
+        public void ToggleStartup(bool enable) => SetWindowsStartup(enable);
+
+        private bool IsWindowsStartupEnabled()
         {
-            _currentPreferences.RunAtStartup = enable;
-            SetWindowsStartup(enable);
-            Save();
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(REGISTRY_RUN_KEY, false);
+                return key?.GetValue(APP_NAME) != null;
+            }
+            catch { return false; }
         }
 
         private void SetWindowsStartup(bool enable)
@@ -107,21 +105,42 @@ namespace Autoprint.Client.Services
                 if (enable)
                 {
                     string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                    if (exePath != null)
-                    {
-                        key.SetValue(APP_NAME, $"\"{exePath}\"");
-                    }
+                    if (exePath != null) key.SetValue(APP_NAME, $"\"{exePath}\"");
                 }
                 else
                 {
-                    if (key.GetValue(APP_NAME) != null)
-                        key.DeleteValue(APP_NAME);
+                    if (key.GetValue(APP_NAME) != null) key.DeleteValue(APP_NAME);
                 }
             }
-            catch (Exception ex)
+            catch { }
+        }
+
+        private void CreateDesktopShortcut()
+        {
+            try
             {
-                Debug.WriteLine($"[Registry] Erreur accès HKCU : {ex.Message}");
+                string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                string shortcutLocation = Path.Combine(desktopPath, "Autoprint.lnk");
+                string? exePath = Process.GetCurrentProcess().MainModule?.FileName;
+
+                if (string.IsNullOrEmpty(exePath) || File.Exists(shortcutLocation)) return;
+
+                Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+                if (shellType != null)
+                {
+                    dynamic? shell = Activator.CreateInstance(shellType);
+                    if (shell != null)
+                    {
+                        dynamic shortcut = shell.CreateShortcut(shortcutLocation);
+                        shortcut.TargetPath = exePath;
+                        shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
+                        shortcut.Description = "Gestionnaire d'impression Autoprint";
+                        shortcut.IconLocation = $"{exePath},0"; // Pointera vers l'ApplicationIcon du csproj !
+                        shortcut.Save();
+                    }
+                }
             }
+            catch { }
         }
 
         public void SetPreferredPrinter(string locationCode, string printerName)
@@ -141,5 +160,6 @@ namespace Autoprint.Client.Services
                 Save();
             }
         }
+
     }
 }
