@@ -11,7 +11,6 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "ADMIN_ACCESS")]
     public class ImportController : ControllerBase
     {
         private readonly IPrintSpoolerService _spoolerService;
@@ -24,6 +23,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("Scan/Printers")]
+        [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<List<DiscoveredPrinterDto>>> ScanPrinters([FromBody] RemoteScanRequestDto request)
         {
             try
@@ -53,6 +53,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("Import/Printers")]
+        [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<IActionResult> ImportPrinters([FromBody] List<ImportPrinterSelectionDto> selection)
         {
             int count = 0;
@@ -103,6 +104,7 @@ namespace Autoprint.Server.Controllers
 
 
         [HttpGet("Scan/Drivers")]
+        [Authorize(Policy = "DRIVER_SCAN")]
         public async Task<ActionResult<List<DiscoveredDriverDto>>> ScanDrivers()
         {
             var pilotesInstalles = await _spoolerService.GetInstalledDriversAsync();
@@ -144,6 +146,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("Import/Drivers")]
+        [Authorize(Policy = "DRIVER_SCAN")] 
         public async Task<IActionResult> ImportDrivers([FromBody] List<string> driverNamesToImport)
         {
             var pilotesInstalles = await _spoolerService.GetInstalledDriversAsync();

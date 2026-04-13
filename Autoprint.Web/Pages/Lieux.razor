@@ -68,7 +68,14 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Emplacement" Property="NetworkSummary" Title="Réseaux" Sortable="false" Filterable="false" Width="250px">
+            <RadzenDataGridColumn TItem="Emplacement"
+                                  Property="NetworkSummary"
+                                  SortProperty="PrimaryCidr"
+                                  FilterProperty="PrimaryCidr"
+                                  Title="Réseaux"
+                                  Sortable="true"
+                                  Filterable="true"
+                                  Width="250px">
                 <Template Context="l">
                     @if (l.Networks != null && l.Networks.Any())
                     {
@@ -76,7 +83,7 @@ else
                             @foreach (var net in l.Networks.Take(2))
                             {
                                 <div style="font-size: 0.85em;">
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@net.CidrIpv4" />
+                                    <RadzenBadge BadgeStyle="@(net.IsPrimary? BadgeStyle.Success: BadgeStyle.Info)" IsPill="true" Text="@net.CidrIpv4" />
                                     <span class="text-muted" style="margin-left:5px">@net.Description</span>
                                 </div>
                             }

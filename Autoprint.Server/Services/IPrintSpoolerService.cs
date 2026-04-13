@@ -8,7 +8,7 @@ namespace Autoprint.Server.Services
         Task CreerPortTcp(string ipAddress);
         Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableDirectMode);
         Task SupprimerImprimante(string nom);
-        Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? forcePortIp = null);
+        Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? shareName, bool isShared, string? forcePortIp = null);
         Task<string?> RecupererNomImprimanteParIp(string ipAddress);
         Task RenommerImprimante(string ancienNom, string nouveauNom);
         Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password);
