@@ -7,7 +7,7 @@
 		</ComponentGroup>
 
 		<ComponentGroup Id="ConfigFiles" Directory="INSTALLFOLDER">
-			<Component Id="AppSettingsComp" Guid="{59DF8E04-34C9-4EE7-AFE6-31395DD0D386}" KeyPath="yes">
+			<Component Id="AppSettingsComp" Guid="{59DF8E04-34C9-4EE7-AFE6-31395DD0D386}" KeyPath="yes" NeverOverwrite="yes">
 				<File Id="AppSettingsJson" Source="$(var.SolutionDir)Autoprint.Server\bin\Release\net10.0\publish\appsettings.json" />
 			</Component>
 		</ComponentGroup>
