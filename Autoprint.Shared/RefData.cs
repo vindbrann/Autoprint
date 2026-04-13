@@ -65,5 +65,10 @@ namespace Autoprint.Shared
         public string NetworkSummary => Networks != null && Networks.Any()
             ? string.Join(", ", Networks.Select(n => n.CidrIpv4))
             : "Aucun réseau";
+
+        [NotMapped]
+        public string PrimaryCidr => Networks != null && Networks.Any()
+            ? (Networks.FirstOrDefault(n => n.IsPrimary)?.CidrIpv4 ?? string.Empty)
+            : string.Empty;
     }
 }

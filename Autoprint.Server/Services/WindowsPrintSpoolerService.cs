@@ -16,6 +16,7 @@ namespace Autoprint.Server.Services
         private const int STANDARD_RIGHTS_REQUIRED = 0x000F0000;
         private const int PRINTER_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | PRINTER_ACCESS_ADMINISTER | PRINTER_ACCESS_USE);
         private const int PRINTER_ENUM_LOCAL = 0x00000002;
+        private const uint PRINTER_ATTRIBUTE_SHARED = 0x00000008;
 
         private const uint REG_DWORD = 4;
         private const int ERROR_SUCCESS = 0;
@@ -95,7 +96,7 @@ namespace Autoprint.Server.Services
             });
         }
 
-        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? forcePortIp = null)
+        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? shareName, bool isShared, string? forcePortIp = null)
         {
             IntPtr hPrinter = IntPtr.Zero;
             IntPtr pPrinterInfo = IntPtr.Zero;
@@ -111,7 +112,7 @@ namespace Autoprint.Server.Services
 
                 if (!OpenPrinter(nomActuel, out hPrinter, ref defaults))
                 {
-                    throw new Exception($"Impossible d'ouvrir l'imprimante '{nomActuel}' pour modification (Droits ou Inexistante). Code: {Marshal.GetLastWin32Error()}");
+                    throw new Exception($"Impossible d'ouvrir l'imprimante '{nomActuel}' pour modification. Code: {Marshal.GetLastWin32Error()}");
                 }
 
                 GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
@@ -141,6 +142,29 @@ namespace Autoprint.Server.Services
                     changed = true;
                 }
 
+                if (shareName != null && info.pShareName != shareName)
+                {
+                    info.pShareName = shareName;
+                    changed = true;
+                }
+
+                if (isShared)
+                {
+                    if ((info.Attributes & PRINTER_ATTRIBUTE_SHARED) != PRINTER_ATTRIBUTE_SHARED)
+                    {
+                        info.Attributes |= PRINTER_ATTRIBUTE_SHARED;
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    if ((info.Attributes & PRINTER_ATTRIBUTE_SHARED) == PRINTER_ATTRIBUTE_SHARED)
+                    {
+                        info.Attributes &= ~PRINTER_ATTRIBUTE_SHARED;
+                        changed = true;
+                    }
+                }
+
                 if (!string.IsNullOrEmpty(forcePortIp))
                 {
                     string targetPort = $"IP_{forcePortIp.Trim()}";
@@ -161,7 +185,6 @@ namespace Autoprint.Server.Services
                 }
 
                 await SetDirectPrintingMode(nomActuel, enableDirectMode);
-
             }
             finally
             {
@@ -169,7 +192,6 @@ namespace Autoprint.Server.Services
                 if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter);
             }
         }
-
 
         private List<PRINTER_INFO_2> GetAllPrintersNative()
         {
@@ -210,7 +232,6 @@ namespace Autoprint.Server.Services
 
             return results;
         }
-
 
         public Task CreerPortTcp(string ipAddress)
         {

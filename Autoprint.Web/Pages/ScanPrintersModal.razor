@@ -189,6 +189,15 @@
                                 }
                             </Template>
                         </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ImportPrinterViewModel" Title="Action" Width="100px" TextAlign="TextAlign.Center">
+                            <Template Context="p">
+                                @if (!p.ExistsInDb)
+                                {
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium"
+                                                  Click="@(() => OpenEditModal(p))" Tooltip="Configurer avant import" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
 
                     </Columns>
                 </RadzenDataGrid>
@@ -395,6 +404,44 @@
         if (!matchFound)
         {
             p.IpMismatchWarning = true;
+        }
+    }
+
+    private async Task OpenEditModal(ImportPrinterViewModel p)
+    {
+        var tempImp = new Imprimante
+        {
+            NomAffiche = p.Name ?? "",
+            AdresseIp = p.PortName ?? "",
+            NomPartage = p.ShareName ?? "",
+            EstPartagee = p.IsShared,
+            ModeleId = p.SelectedModeleId,
+            EmplacementId = p.SelectedLieuId == 0 ? scanLieuId : p.SelectedLieuId,
+            IsDirectPrintingEnabled = p.IsDirectPrintingEnabled
+        };
+
+        var result = await DialogService.OpenAsync<ImprimanteModal>("Configurer l'imprimante avant import",
+            new Dictionary<string, object> { 
+                { "ImprimanteToEdit", tempImp },
+                { "IsStagingMode", true }
+            },
+            new DialogOptions() { Width = "700px", CloseDialogOnOverlayClick = true }
+        );
+
+        if (result is Imprimante updatedImp)
+        {
+            p.Name = updatedImp.NomAffiche;
+            p.PortName = updatedImp.AdresseIp;
+            p.ShareName = updatedImp.NomPartage;
+            p.IsShared = updatedImp.EstPartagee;
+            p.SelectedModeleId = updatedImp.ModeleId;
+            p.SelectedLieuId = updatedImp.EmplacementId;
+            p.IsDirectPrintingEnabled = updatedImp.IsDirectPrintingEnabled;
+            
+            p.SelectedForImport = true;
+            CheckIpConsistency(p);
+            
+            StateHasChanged();
         }
     }
 

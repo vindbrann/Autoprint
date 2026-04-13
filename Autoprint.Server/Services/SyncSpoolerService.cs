@@ -99,7 +99,7 @@ namespace Autoprint.Server.Services
 
                         await spooler.CreerPortTcp(imp.AdresseIp);
                         await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
-                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.AdresseIp);
+                        await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.NomPartage, imp.EstPartagee, imp.AdresseIp);
 
                         bool configOk = await spooler.VerifierModeDirect(imp.NomAffiche, imp.IsDirectPrintingEnabled);
                         if (configOk)
@@ -129,7 +129,7 @@ namespace Autoprint.Server.Services
                             }
 
                             await spooler.CreerPortTcp(imp.AdresseIp);
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.NomPartage, imp.EstPartagee);
                             result.Messages.Add($"[UPDATE] {imp.NomAffiche} mise à jour.");
                         }
                         else
@@ -139,7 +139,7 @@ namespace Autoprint.Server.Services
 
                             await spooler.CreerPortTcp(imp.AdresseIp);
                             await spooler.CreerImprimante(imp.NomAffiche, imp.Modele.Pilote.Nom, imp.AdresseIp, imp.IsDirectPrintingEnabled);
-                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.AdresseIp);
+                            await spooler.ModifierImprimante(imp.NomAffiche, winComment, winLocation, imp.IsDirectPrintingEnabled, imp.NomPartage, imp.EstPartagee, imp.AdresseIp);
 
                             result.Messages.Add($"[REPAIR] {imp.NomAffiche} recréée.");
                         }

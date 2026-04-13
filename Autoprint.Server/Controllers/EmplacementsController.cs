@@ -1,11 +1,12 @@
 ﻿using Autoprint.Server.Data;
+using Autoprint.Server.Hubs;
+using Autoprint.Server.Services;
 using Autoprint.Shared;
+using Autoprint.Shared.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Autoprint.Server.Services;
 using Microsoft.AspNetCore.SignalR;
-using Autoprint.Server.Hubs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Autoprint.Server.Controllers
 {
@@ -170,20 +171,47 @@ namespace Autoprint.Server.Controllers
             var emplacement = await _context.Emplacements.FindAsync(id);
             if (emplacement == null) return NotFound();
 
-            _auditService.LogAction(
-                "LOCATION_DELETE",
-                $"Suppression lieu : {emplacement.Nom}",
-                User.Identity?.Name,
-                "WARNING",
-                resourceName: emplacement.Nom
-            );
+            var imprimantes = await _context.Imprimantes.Where(i => i.EmplacementId == id).ToListAsync();
+            bool requiresSync = false;
 
-            _context.Emplacements.Remove(emplacement);
-            await _context.SaveChangesAsync();
+            foreach (var imp in imprimantes)
+            {
+                if (imp.Status == PrinterStatus.PendingCreation || imp.Status == PrinterStatus.ImportedNeedsFix)
+                {
+                    _context.Imprimantes.Remove(imp);
+                }
+                else
+                {
+                    imp.Status = PrinterStatus.PendingDelete;
+                    imp.DateModification = DateTime.UtcNow;
+                    imp.ModifiePar = User.Identity?.Name ?? "Système";
+                    requiresSync = true;
+                }
+            }
 
-            await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+            if (requiresSync)
+            {
+                emplacement.Status = LieuStatus.Inactive;
+                emplacement.DateModification = DateTime.UtcNow;
 
-            return NoContent();
+                _auditService.LogAction("LOCATION_UPDATE", $"Lieu Inactif (attente nettoyage Spouleur) : {emplacement.Nom}", User.Identity?.Name, "WARNING", resourceName: emplacement.Nom);
+
+                await _context.SaveChangesAsync();
+                await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+
+                return BadRequest("Ce lieu contient des imprimantes actives sur Windows. Elles ont été marquées 'À supprimer'. Le lieu a été passé en INACTIF. Veuillez lancer une Synchronisation pour nettoyer Windows, puis vous pourrez supprimer ce lieu définitivement.");
+            }
+            else
+            {
+                _auditService.LogAction("LOCATION_DELETE", $"Suppression lieu : {emplacement.Nom}", User.Identity?.Name, "WARNING", resourceName: emplacement.Nom);
+
+                _context.Emplacements.Remove(emplacement);
+                await _context.SaveChangesAsync();
+
+                await _hubContext.Clients.All.SendAsync("RefreshPrinters");
+
+                return NoContent();
+            }
         }
 
         private bool EmplacementExists(int id) => _context.Emplacements.Any(e => e.Id == id);

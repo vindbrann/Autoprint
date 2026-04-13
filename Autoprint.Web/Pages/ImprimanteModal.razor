@@ -176,6 +176,7 @@
 
 @code {
     [Parameter] public Imprimante ImprimanteToEdit { get; set; } = new();
+    [Parameter] public bool IsStagingMode { get; set; } = false;
 
     private Imprimante imprimanteEdit = new();
     private List<Emplacement>? listeEmplacements;
@@ -375,6 +376,12 @@
         if (imprimanteEdit.EmplacementId == 0 || imprimanteEdit.ModeleId == 0)
         {
             NotificationService.Notify(NotificationSeverity.Warning, "Incomplet", "Lieu et Modèle sont requis.");
+            return;
+        }
+
+        if (IsStagingMode)
+        {
+            DialogService.Close(imprimanteEdit);
             return;
         }
 
