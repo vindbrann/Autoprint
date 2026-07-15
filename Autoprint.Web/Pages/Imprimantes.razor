@@ -102,6 +102,13 @@
     </RadzenAlert>
 }
 
+<RadzenSelectBar TValue="int" Value="@selectedTab" ValueChanged="@OnTabChanged" Class="rz-mb-4" Size="ButtonSize.Medium" Style="display: inline-flex;">
+    <Items>
+        <RadzenSelectBarItem Value="0" Text="Parc Actif" Icon="print" />
+        <RadzenSelectBarItem Value="1" Text="Archives (Inactives >30j)" Icon="archive" />
+    </Items>
+</RadzenSelectBar>
+
 @if (isLoading)
 {
     <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
@@ -126,7 +133,7 @@ else
                 </RadzenText>
             </div>
     }
-        <RadzenDataGrid @ref="grid" Data="@imprimantes" TItem="Imprimante"
+        <RadzenDataGrid @ref="grid" Data="@GetFilteredPrinters()" TItem="Imprimante"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true"
@@ -288,7 +295,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Imprimante" Title="" Width="120px" Sortable="false" Filterable="false"
+            <RadzenDataGridColumn TItem="Imprimante" Title="" Width="150px" Sortable="false" Filterable="false"
                                   TextAlign="TextAlign.Center"
                                   Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
                 <Template Context="imp">
@@ -297,6 +304,14 @@ else
                         <AuthorizeView Policy="PRINTER_WRITE">
                             <Authorized Context="auth">
                                 <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" Tooltip="Modifier" />
+                                @if (imp.IsArchived)
+                                {
+                                    <RadzenButton Icon="unarchive" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Restaurer" />
+                                }
+                                else
+                                {
+                                    <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Archiver" />
+                                }
                             </Authorized>
                         </AuthorizeView>
                     </RadzenStack>
@@ -312,6 +327,7 @@ else
     DataGridSettings gridSettings;
 
     private List<Imprimante>? imprimantes;
+    private int selectedTab = 0;
     private bool isLoading = true;
     private bool isSyncing = false;
     private bool isAuditing = false;
@@ -375,9 +391,65 @@ else
     private async Task ChargerListe()
     {
         isLoading = true;
-        try { imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes"); }
+        try 
+        { 
+            string url = selectedTab == 1 ? "api/Imprimantes?includeArchived=true" : "api/Imprimantes";
+            imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>(url); 
+        }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
         finally { isLoading = false; }
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        selectedTab = index;
+        await ChargerListe();
+    }
+
+    private IEnumerable<Imprimante> GetFilteredPrinters()
+    {
+        if (imprimantes == null) return Enumerable.Empty<Imprimante>();
+        if (selectedTab == 0)
+        {
+            return imprimantes.Where(i => !i.IsArchived);
+        }
+        else
+        {
+            return imprimantes.Where(i => i.IsArchived);
+        }
+    }
+
+    private async Task ToggleArchive(Imprimante imp)
+    {
+        var confirmMsg = imp.IsArchived ? "Désarchiver cette imprimante ?" : "Archiver cette imprimante ?";
+        var confirm = await DialogService.Confirm(confirmMsg, "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
+        if (confirm == true)
+        {
+            try
+            {
+                imp.IsArchived = !imp.IsArchived;
+                if (!imp.IsArchived)
+                {
+                    imp.MonitoringStatus = "Inconnu";
+                }
+
+                var response = await Http.PutAsJsonAsync($"api/Imprimantes/{imp.Id}", imp);
+                if (response.IsSuccessStatusCode)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Succès", imp.IsArchived ? "Imprimante archivée." : "Imprimante restaurée.");
+                    await ChargerListe();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", error);
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
     }
 
     private async Task ApplyChanges()

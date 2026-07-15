@@ -29,23 +29,28 @@ namespace Autoprint.Server.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes()
+        public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes([FromQuery] bool includeArchived = false)
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
-                return await GetImprimantesListWithIncludes();
+                return await GetImprimantesListWithIncludes(includeArchived);
 
             if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
             {
                 var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
                 if (setting != null && receivedSecret == setting.Value)
-                    return await GetImprimantesListWithIncludes();
+                    return await GetImprimantesListWithIncludes(includeArchived);
             }
             return Unauthorized(new { message = "Accès refusé." });
         }
 
-        private async Task<List<Imprimante>> GetImprimantesListWithIncludes()
+        private async Task<List<Imprimante>> GetImprimantesListWithIncludes(bool includeArchived)
         {
-            return await _context.Imprimantes
+            var query = _context.Imprimantes.AsQueryable();
+            if (!includeArchived)
+            {
+                query = query.Where(i => !i.IsArchived);
+            }
+            return await query
                 .AsNoTracking()
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)

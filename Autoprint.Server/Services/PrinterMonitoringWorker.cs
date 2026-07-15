@@ -16,6 +16,7 @@ namespace Autoprint.Server.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PrinterMonitoringWorker> _logger;
+        private DateTime? _lastArchivingSweep;
 
         public PrinterMonitoringWorker(IServiceProvider serviceProvider, ILogger<PrinterMonitoringWorker> logger)
         {
@@ -94,6 +95,12 @@ namespace Autoprint.Server.Services
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var snmpService = scope.ServiceProvider.GetRequiredService<ISnmpService>();
+
+            if (_lastArchivingSweep == null || DateTime.UtcNow.Date > _lastArchivingSweep.Value.Date)
+            {
+                await ExecuterNettoyageAutoAsync(context, stoppingToken);
+                _lastArchivingSweep = DateTime.UtcNow;
+            }
 
             var activePrinters = await context.Imprimantes
                 .Include(i => i.Modele)
@@ -184,6 +191,33 @@ namespace Autoprint.Server.Services
 
             await context.SaveChangesAsync(stoppingToken);
             _logger.LogInformation("--> Fin du scan de supervision. Statuts sauvegardés en base.");
+        }
+
+        private async Task ExecuterNettoyageAutoAsync(ApplicationDbContext context, CancellationToken stoppingToken)
+        {
+            try
+            {
+                _logger.LogInformation("--> Exécution de la tâche d'archivage automatique...");
+                var limitDate = DateTime.UtcNow.AddDays(-30);
+
+                var printersToArchive = await context.Imprimantes
+                    .Where(i => !i.IsArchived && i.LastSeen != null && i.LastSeen < limitDate)
+                    .ToListAsync(stoppingToken);
+
+                if (printersToArchive.Any())
+                {
+                    foreach (var printer in printersToArchive)
+                    {
+                        printer.IsArchived = true;
+                        _logger.LogInformation($"Archivage automatique de l'imprimante : {printer.NomAffiche} (Dernière présence : {printer.LastSeen})");
+                    }
+                    await context.SaveChangesAsync(stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de l'archivage automatique des imprimantes inactives.");
+            }
         }
     }
 }
