@@ -1,5 +1,4 @@
-﻿using Autoprint.Client.Services;
-using Autoprint.Shared.IPC;
+using Autoprint.Client.Services;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -15,17 +14,15 @@ namespace Autoprint.Client.ViewModels
     public class OptionsViewModel : INotifyPropertyChanged
     {
         private readonly UserPreferencesService _prefService;
-        private readonly IpcService _ipcService;
         private int _secretClickCount = 0;
         private readonly ConfigurationService _configService;
 
-        public OptionsViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
+        public OptionsViewModel(UserPreferencesService prefService, ConfigurationService configService)
         {
             _prefService = prefService;
             OnPropertyChanged(nameof(AutoSwitchDefaultPrinter));
             OnPropertyChanged(nameof(EnableNotifications));
             OnPropertyChanged(nameof(StartWithWindows));
-            _ipcService = ipcService;
             _configService = configService;
 
             AdminServerUrl = _configService.PrintServerName ?? "";
@@ -48,7 +45,7 @@ namespace Autoprint.Client.ViewModels
             }
 
             VersionClickCommand = new RelayCommand(param => OnVersionClicked());
-            TestAndSaveCommand = new RelayCommand(async param => await TestAndSaveAsync());
+            TestConnectionCommand = new RelayCommand(async param => await TestConnectionAsync());
         }
 
         public bool EnableNotifications
@@ -145,7 +142,7 @@ namespace Autoprint.Client.ViewModels
         }
 
         public ICommand VersionClickCommand { get; }
-        public ICommand TestAndSaveCommand { get; }
+        public ICommand TestConnectionCommand { get; }
 
         private void OnVersionClicked()
         {
@@ -161,7 +158,7 @@ namespace Autoprint.Client.ViewModels
             }
         }
 
-        private async Task TestAndSaveAsync()
+        private async Task TestConnectionAsync()
         {
             if (IsTesting) return;
 
@@ -194,32 +191,7 @@ namespace Autoprint.Client.ViewModels
                 var tempApiService = new ApiService(urlNettoyee, AdminApiKey);
                 await tempApiService.GetLieuxAsync();
 
-                SetStatus("Connexion OK. Sauvegarde système...", Brushes.Blue);
-
-                var request = new IpcRequest
-                {
-                    Action = "UPDATE_CONFIG",
-                    ConfigServerUrl = urlNettoyee,
-                    ConfigApiKey = AdminApiKey
-                };
-
-                bool ipcSuccess = await _ipcService.SendRequestAsync(request);
-
-                if (ipcSuccess)
-                {
-                    SetStatus("✅ Sauvegarde Système (HKLM) réussie !", Brushes.Green);
-
-                    _prefService.Save();
-
-                    await Task.Delay(2000);
-                    IsAdminPanelVisible = false;
-                    SetStatus("", Brushes.Black);
-                    _secretClickCount = 0;
-                }
-                else
-                {
-                    SetStatus("⚠️ Erreur : Le Service n'a pas confirmé la sauvegarde.", Brushes.Red);
-                }
+                SetStatus("✅ Connexion réussie !", Brushes.Green);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:firewall="http://wixtoolset.org/schemas/v4/wxs/firewall">
 
@@ -53,7 +53,6 @@
 		<StandardDirectory Id="ProgramFiles64Folder">
 			<Directory Id="INSTALLFOLDER" Name="Autoprint Client">
 				<Directory Id="ClientDir" Name="Client" />
-				<Directory Id="ServiceDir" Name="Service" />
 			</Directory>
 		</StandardDirectory>
 
@@ -91,20 +90,11 @@
 				<RemoveFolder Id="CleanUpShortCut" On="uninstall" />
 				<RegistryValue Root="HKCU" Key="Software\Autoprint\Shortcut" Name="installed" Type="integer" Value="1" KeyPath="yes" />
 			</Component>
-
-			<Component Id="ServiceExecutable" Guid="{9917DB95-5118-4547-BB7A-BEC6DE23E9B2}" Directory="ServiceDir">
-				<File Id="AutoprintServiceExe" Source="..\Executables\Autoprint.Service.exe" KeyPath="yes">
-					<firewall:FirewallException Id="FW_Service" Name="Autoprint Service" Scope="any" IgnoreFailure="yes" Profile="all" />
-				</File>
-				<ServiceInstall Id="ServiceInstaller" Type="ownProcess" Name="AutoprintWorker" DisplayName="Autoprint Agent Service" Description="Gère l'installation des pilotes d'impression." Start="auto" Account="LocalSystem" ErrorControl="normal" />
-				<ServiceControl Id="StartService" Name="AutoprintWorker" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
-			</Component>
 		</ComponentGroup>
 
 		<Feature Id="Main">
 			<ComponentGroupRef Id="ManualComponents" />
 			<ComponentGroupRef Id="Autoprint.Client" />
-			<ComponentGroupRef Id="Autoprint.Service" />
 		</Feature>
 
 		<Icon Id="AppIcon.ico" SourceFile="..\Autoprint.Client\Autoprint.ico" />

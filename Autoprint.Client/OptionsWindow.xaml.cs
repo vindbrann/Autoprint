@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using Autoprint.Client.Services;
 using Autoprint.Client.ViewModels;
@@ -7,11 +7,11 @@ namespace Autoprint.Client
 {
     public partial class OptionsWindow : Window
     {
-        public OptionsWindow(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
+        public OptionsWindow(UserPreferencesService prefService, ConfigurationService configService)
         {
             InitializeComponent();
 
-            this.DataContext = new OptionsViewModel(prefService, ipcService, configService);
+            this.DataContext = new OptionsViewModel(prefService, configService);
         }
 
         private void Header_MouseDown(object sender, MouseButtonEventArgs e)

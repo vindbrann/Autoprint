@@ -1,4 +1,4 @@
-﻿using System.DirectoryServices.AccountManagement;
+using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -41,7 +41,15 @@ namespace Autoprint.Server.Services
 
             if (localUser != null && !localUser.IsAdUser)
             {
-                if (localUser.PasswordHash == SecurityHelper.ComputeSha256Hash(request.Password)) user = localUser;
+                if (SecurityHelper.VerifyPassword(localUser.PasswordHash ?? "", request.Password))
+                {
+                    user = localUser;
+
+                    if (SecurityHelper.IsRehashNeeded(localUser.PasswordHash ?? ""))
+                    {
+                        localUser.PasswordHash = SecurityHelper.HashPassword(request.Password);
+                    }
+                }
             }
             else if (OperatingSystem.IsWindows())
             {
@@ -66,7 +74,8 @@ namespace Autoprint.Server.Services
                             using var searchEntry = new System.DirectoryServices.DirectoryEntry(ldapPath, serviceUser, servicePass, AuthenticationTypes.Secure);
                             using var searcher = new System.DirectoryServices.DirectorySearcher(searchEntry);
 
-                            searcher.Filter = $"(&(objectClass=user)(|(mail={request.Username})(userPrincipalName={request.Username})))";
+                            string safeUsername = SecurityHelper.EscapeLdapFilter(request.Username);
+                            searcher.Filter = $"(&(objectClass=user)(|(mail={safeUsername})(userPrincipalName={safeUsername})))";
                             searcher.PropertiesToLoad.Add("sAMAccountName");
 
                             var result = searcher.FindOne();
@@ -187,8 +196,9 @@ namespace Autoprint.Server.Services
 
                     using var searcher = new System.DirectoryServices.DirectorySearcher(entry);
 
+                    string safeQuery = SecurityHelper.EscapeLdapFilter(query);
                     string classFilter = (type == AdMappingType.Group) ? "(objectClass=group)" : "(objectClass=user)";
-                    string queryFilter = $"(|(sAMAccountName=*{query}*)(name=*{query}*))";
+                    string queryFilter = $"(|(sAMAccountName=*{safeQuery}*)(name=*{safeQuery}*))";
                     string globalFilter = string.IsNullOrWhiteSpace(customFilter) ? "" : customFilter;
 
                     searcher.Filter = $"(&{classFilter}{queryFilter}{globalFilter})";
@@ -243,7 +253,8 @@ namespace Autoprint.Server.Services
                         );
 
                         using DirectorySearcher searcher = new DirectorySearcher(entry);
-                        searcher.Filter = $"(&(objectClass=user)(sAMAccountName={cleanUsername}))";
+                        string safeCleanUsername = SecurityHelper.EscapeLdapFilter(cleanUsername);
+                        searcher.Filter = $"(&(objectClass=user)(sAMAccountName={safeCleanUsername}))";
                         searcher.PropertiesToLoad.Add("displayName");
                         searcher.PropertiesToLoad.Add("mail");
                         searcher.PropertiesToLoad.Add("givenName");
@@ -319,7 +330,8 @@ namespace Autoprint.Server.Services
                 );
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
-                searcher.Filter = $"(&(objectClass=user)(sAMAccountName={user.Username}))";
+                string safeUsername = SecurityHelper.EscapeLdapFilter(user.Username);
+                searcher.Filter = $"(&(objectClass=user)(sAMAccountName={safeUsername}))";
                 searcher.PropertiesToLoad.Add("distinguishedName");
 
                 SearchResult? userResult = searcher.FindOne();

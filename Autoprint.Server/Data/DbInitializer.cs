@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Helpers;
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared;
 using System;
@@ -24,7 +24,7 @@ namespace Autoprint.Server.Data
                     DisplayName = "Administrateur",
                     IsAdUser = false,
                     IsActive = true,
-                    PasswordHash = SecurityHelper.ComputeSha256Hash("admin123"),
+                    PasswordHash = SecurityHelper.HashPassword("admin123"),
                     ForceChangePassword = true,
                     LastPasswordChangeDate = DateTime.UtcNow
                 };
