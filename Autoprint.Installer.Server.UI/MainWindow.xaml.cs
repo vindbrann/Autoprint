@@ -1,4 +1,4 @@
-﻿using Autoprint.Installer.Server.UI.Services;
+using Autoprint.Installer.Server.UI.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.Web.Administration;
 using System.Diagnostics;
@@ -68,14 +68,6 @@ namespace Autoprint.Installer.Server.UI
         private void BtnNext_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateCurrentStep()) return;
-
-            if (_currentStep == 3 && _isUpgrade)
-            {
-                _currentStep = 6;
-                UpdateView();
-                _ = RunInstallationSequence();
-                return;
-            }
 
             if (_currentStep == 5)
             {
@@ -302,13 +294,27 @@ namespace Autoprint.Installer.Server.UI
                     TxtInstallLog.Text = "Fusion de la configuration...";
                     try
                     {
-                        var oldNode = JsonNode.Parse(oldJsonContent)?.AsObject();
+                        var oldNode = System.Text.Json.Nodes.JsonNode.Parse(oldJsonContent)?.AsObject();
                         string newJsonContent = await File.ReadAllTextAsync(configPath);
-                        var newNode = JsonNode.Parse(newJsonContent)?.AsObject();
+                        var newNode = System.Text.Json.Nodes.JsonNode.Parse(newJsonContent)?.AsObject();
 
                         if (oldNode != null && newNode != null)
                         {
                             MergeJsonNodes(newNode, oldNode);
+                            
+                            var dbNode = newNode["Database"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
+                            dbNode["Provider"] = RadioSqlServer.IsChecked == true ? "SqlServer" : "Sqlite";
+                            
+                            var cnxStrings = dbNode["ConnectionStrings"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
+                            cnxStrings["SqlServer"] = RadioSqlServer.IsChecked == true ? GetSqlConnectionString() : "";
+                            cnxStrings["Sqlite"] = "Data Source=Autoprint.db";
+                            dbNode["ConnectionStrings"] = cnxStrings;
+                            newNode["Database"] = dbNode;
+
+                            var rootCnx = newNode["ConnectionStrings"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
+                            rootCnx["DefaultConnection"] = RadioSqlServer.IsChecked == true ? GetSqlConnectionString() : "Data Source=Autoprint.db";
+                            newNode["ConnectionStrings"] = rootCnx;
+
                             var options = new JsonSerializerOptions { WriteIndented = true };
                             await File.WriteAllTextAsync(configPath, newNode.ToJsonString(options));
                         }
@@ -507,14 +513,26 @@ namespace Autoprint.Installer.Server.UI
                     Arguments = "--migrate-only",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     CreateNoWindow = true,
                     WorkingDirectory = InstallPath
                 };
 
                 using var proc = Process.Start(info);
                 if (proc == null) return;
+
+                string output = proc.StandardOutput.ReadToEnd();
+                string error = proc.StandardError.ReadToEnd();
+
                 proc.WaitForExit();
-                if (proc.ExitCode != 0) throw new Exception("Erreur lors de la migration.");
+
+                if (proc.ExitCode != 0)
+                {
+                    string details = "";
+                    if (!string.IsNullOrEmpty(output)) details += "\n[MIGRATION-LOG] :\n" + output;
+                    if (!string.IsNullOrEmpty(error)) details += "\n[MIGRATION-ERR] :\n" + error;
+                    throw new Exception("Erreur lors de la migration." + details);
+                }
             });
         }
 
@@ -548,6 +566,7 @@ namespace Autoprint.Installer.Server.UI
                 {
                     string json = File.ReadAllText(configPath);
                     using var doc = JsonDocument.Parse(json);
+                    
                     if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
                     {
                         string url = urlElement.GetString() ?? "";
@@ -555,7 +574,60 @@ namespace Autoprint.Installer.Server.UI
                         if (parts.Length > 0 && int.TryParse(parts.Last(), out int port))
                         {
                             _existingPort = port;
+                            TxtWebPort.Text = port.ToString();
                         }
+                    }
+
+                    if (doc.RootElement.TryGetProperty("Database", out var databaseProp) &&
+                        databaseProp.TryGetProperty("Provider", out var providerProp))
+                    {
+                        string provider = providerProp.GetString() ?? "";
+                        if (provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+                        {
+                            RadioSqlite.IsChecked = true;
+                            RadioSqlServer.IsChecked = false;
+                        }
+                        else
+                        {
+                            RadioSqlServer.IsChecked = true;
+                            RadioSqlite.IsChecked = false;
+                        }
+                    }
+
+                    string connectionString = "";
+                    if (doc.RootElement.TryGetProperty("Database", out var dbProp) &&
+                        dbProp.TryGetProperty("ConnectionStrings", out var cnxProp) &&
+                        cnxProp.TryGetProperty("SqlServer", out var sqlCnxProp))
+                    {
+                        connectionString = sqlCnxProp.GetString() ?? "";
+                    }
+
+                    if (string.IsNullOrEmpty(connectionString) &&
+                        doc.RootElement.TryGetProperty("ConnectionStrings", out var defaultProp) &&
+                        defaultProp.TryGetProperty("DefaultConnection", out var defCnxProp))
+                    {
+                        connectionString = defCnxProp.GetString() ?? "";
+                    }
+
+                    if (!string.IsNullOrEmpty(connectionString))
+                    {
+                        try
+                        {
+                            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+                            TxtSqlServer.Text = builder.DataSource;
+                            TxtSqlDb.Text = builder.InitialCatalog;
+                            if (builder.IntegratedSecurity)
+                            {
+                                ComboAuth.SelectedIndex = 0;
+                            }
+                            else
+                            {
+                                ComboAuth.SelectedIndex = 1;
+                                TxtSqlUser.Text = builder.UserID;
+                                TxtSqlPass.Password = builder.Password;
+                            }
+                        }
+                        catch { }
                     }
                 }
                 catch {  }
