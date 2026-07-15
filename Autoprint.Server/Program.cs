@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
@@ -198,6 +198,11 @@ using (var scope = app.Services.CreateScope())
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Erreur critique lors de l'initialisation de la Base de Données.");
     }
+}
+
+if (args.Contains("--migrate-only"))
+{
+    return;
 }
 
 if (args.Contains("--reset-admin"))
