@@ -18,5 +18,6 @@ namespace Autoprint.Shared.DTOs
         public string Color { get; set; } = "Noir";
         public int CurrentLevel { get; set; }
         public int MaxCapacity { get; set; }
+        public int? EstimatedDaysRemaining { get; set; }
     }
 }

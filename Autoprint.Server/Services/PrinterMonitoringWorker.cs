@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Autoprint.Server.Data;
+using Autoprint.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -124,12 +125,32 @@ namespace Autoprint.Server.Services
                         bool tonerLow = false;
                         if (diagnostic.Toners != null)
                         {
+                            var todayUtc = DateTime.UtcNow.Date;
                             foreach (var toner in diagnostic.Toners)
                             {
-                                if (toner.CurrentLevel >= 0 && toner.CurrentLevel <= 10)
+                                if (toner.CurrentLevel >= 0)
                                 {
-                                    tonerLow = true;
-                                    break;
+                                    if (toner.CurrentLevel <= 10)
+                                    {
+                                        tonerLow = true;
+                                    }
+
+                                    bool alreadyLoggedToday = await context.TonerHistories
+                                        .AnyAsync(h => h.ImprimanteId == printer.Id 
+                                                       && h.ComponentColor == toner.Color 
+                                                       && h.RecordedAt >= todayUtc, 
+                                                  stoppingToken);
+
+                                    if (!alreadyLoggedToday)
+                                    {
+                                        context.TonerHistories.Add(new TonerHistory
+                                        {
+                                            ImprimanteId = printer.Id,
+                                            ComponentColor = toner.Color,
+                                            LevelPercent = toner.CurrentLevel,
+                                            RecordedAt = DateTime.UtcNow
+                                        });
+                                    }
                                 }
                             }
                         }

@@ -140,6 +140,25 @@
                                             @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel}%" : "Niveau inconnu")
                                         </span>
                                     </div>
+                                    @if (toner.EstimatedDaysRemaining.HasValue)
+                                    {
+                                        <div style="font-size: 0.75rem; color: var(--rz-text-tertiary-color); margin-top: 2px;">
+                                            @if (toner.EstimatedDaysRemaining.Value == -99)
+                                            {
+                                                <span>📊 Consommation stable / niveau constant</span>
+                                            }
+                                            else
+                                            {
+                                                <span>⏳ Épuisement estimé dans <b>@toner.EstimatedDaysRemaining.Value jours</b></span>
+                                            }
+                                        </div>
+                                    }
+                                    else if (toner.CurrentLevel >= 0)
+                                    {
+                                        <div style="font-size: 0.75rem; color: var(--rz-text-disabled-color); margin-top: 2px; font-style: italic;">
+                                            ⏳ Calcul de tendance en cours (besoin de relevés sur plusieurs jours)...
+                                        </div>
+                                    }
                                 </RadzenColumn>
                             </RadzenRow>
                         }
