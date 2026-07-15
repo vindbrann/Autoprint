@@ -189,7 +189,14 @@ using (var scope = app.Services.CreateScope())
         var config = services.GetRequiredService<IConfiguration>();
         var currentProvider = config["Database:Provider"];
 
-        context.Database.Migrate();
+        if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Database.EnsureCreated();
+        }
+        else
+        {
+            context.Database.Migrate();
+        }
 
         DbInitializer.Initialize(context);
     }
