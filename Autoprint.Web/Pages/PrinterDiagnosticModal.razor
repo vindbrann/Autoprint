@@ -1,0 +1,248 @@
+@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@inject HttpClient Http
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-2">
+    @if (loading)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Class="rz-py-12" Gap="1rem">
+            <RadzenProgressBar Circular="true" Value="100" ProgressValue="100" Mode="ProgressBarMode.Indeterminate" Style="width: 60px; height: 60px;" />
+            <RadzenText TextStyle="TextStyle.Body1">Interrogation de l'imprimante en cours (Ping &amp; SNMP)...</RadzenText>
+        </RadzenStack>
+    }
+    else if (diagnostic == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false">
+            Impossible de charger le diagnostic de cette imprimante.
+        </RadzenAlert>
+    }
+    else
+    {
+        <!-- Statut Réseau / Ping -->
+        <RadzenCard Variant="Variant.Outlined" Class="@(diagnostic.PingSuccess ? "ping-card-ok" : "ping-card-error")">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenIcon Icon="@(diagnostic.PingSuccess ? "wifi" : "wifi_off")" 
+                                IconColor="@(diagnostic.PingSuccess ? "var(--rz-success)" : "var(--rz-danger)")" 
+                                Style="font-size: 2.2rem;" />
+                    <RadzenStack Gap="0">
+                        <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; font-weight: bold;">
+                            @(diagnostic.PingSuccess ? "Machine Connectée" : "Machine Hors Ligne")
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                            IP : @Imprimante.AdresseIp
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+                
+                <RadzenBadge BadgeStyle="@(diagnostic.PingSuccess ? BadgeStyle.Success : BadgeStyle.Danger)" 
+                             Variant="Variant.Flat" 
+                             Class="rz-px-4 rz-py-2" 
+                             Style="font-size: 1.1em; font-weight: bold;">
+                    @(diagnostic.PingSuccess ? $"{diagnostic.PingRoundtripTimeMs} ms" : "INACCESSIBLE")
+                </RadzenBadge>
+            </RadzenStack>
+        </RadzenCard>
+
+        @if (diagnostic.PingSuccess)
+        {
+            <RadzenRow Gap="1rem">
+                <!-- Statut physique & Uptime -->
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenCard Style="height: 100%;">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase;">
+                            État Matériel
+                        </RadzenText>
+                        <RadzenStack Gap="0.75rem" Class="rz-mt-3">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="info" IconColor="var(--rz-info)" />
+                                <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: bold;">
+                                    Statut : @diagnostic.Status
+                                </RadzenText>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="query_builder" IconColor="var(--rz-warning)" />
+                                <RadzenText TextStyle="TextStyle.Body2">
+                                    Uptime : @FormatUptime(diagnostic.UptimeSeconds)
+                                </RadzenText>
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="tag" IconColor="var(--rz-secondary)" />
+                                <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold;">
+                                    Compteur Pages : @diagnostic.PageCounter.ToString("N0")
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+
+                <!-- Alertes actives sur l'écran -->
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenCard Style="height: 100%; background-color: var(--rz-base-50);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase;">
+                            Messages Imprimante (Écran)
+                        </RadzenText>
+                        <RadzenStack Gap="0.5rem" Class="rz-mt-3">
+                            @if (diagnostic.Alerts == null || !diagnostic.Alerts.Any())
+                            {
+                                <RadzenText TextStyle="TextStyle.Body2" Style="font-style: italic; color: var(--rz-text-tertiary-color);">
+                                    Aucune alerte ou message affiché.
+                                </RadzenText>
+                            }
+                            else
+                            {
+                                @foreach (var alert in diagnostic.Alerts)
+                                {
+                                    <div class="alert-item">
+                                        <RadzenIcon Icon="warning" IconColor="var(--rz-warning)" Style="font-size: 1.1rem; margin-right: 5px;" />
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; display: inline;">
+                                            @alert
+                                        </RadzenText>
+                                    </div>
+                                }
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <!-- Consommables & Cartouches -->
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
+                    Niveaux des Consommables
+                </RadzenText>
+
+                @if (diagnostic.Toners == null || !diagnostic.Toners.Any())
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" AllowClose="false" Variant="Variant.Flat">
+                        Aucun consommable détecté ou SNMP supplies non supporté.
+                    </RadzenAlert>
+                }
+                else
+                {
+                    <RadzenStack Gap="1rem">
+                        @foreach (var toner in diagnostic.Toners)
+                        {
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="3">
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0;">
+                                        @toner.Color
+                                    </RadzenText>
+                                </RadzenColumn>
+                                <RadzenColumn Size="9">
+                                    <!-- Barre de progression customisée et magnifique -->
+                                    <div style="background-color: var(--rz-base-200); border-radius: 4px; height: 24px; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rz-base-300);">
+                                        <div style="width: @(toner.CurrentLevel >= 0 ? toner.CurrentLevel : 0)%; height: 100%; background-color: @(GetColorHex(toner.Color)); transition: width 0.5s ease-in-out;"></div>
+                                        <span style="position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 24px; font-weight: bold; color: @(GetTextColor(toner.Color)); font-size: 0.9em; text-shadow: @(GetTextShadow(toner.Color));">
+                                            @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel}%" : "Niveau inconnu")
+                                        </span>
+                                    </div>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        }
+                    </RadzenStack>
+                }
+            </RadzenCard>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" Variant="Variant.Flat" Class="rz-p-4">
+                <RadzenText TextStyle="TextStyle.Subtitle1" Style="font-weight: bold; margin-bottom: 0.5rem;">Conseils de dépannage :</RadzenText>
+                <ul>
+                    <li>Vérifiez si l'imprimante est allumée physiquement.</li>
+                    <li>Vérifiez que le câble réseau Ethernet ou la connexion Wi-Fi de la machine est fonctionnel.</li>
+                    <li>Assurez-vous qu'aucun pare-feu réseau ne bloque les requêtes de diagnostic (Ping ICMP et port SNMP 161).</li>
+                </ul>
+            </RadzenAlert>
+        }
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Class="rz-mt-2">
+        <RadzenButton Text="Fermer" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Light" Style="width: 120px;" />
+    </RadzenStack>
+</RadzenStack>
+
+<style>
+    .ping-card-ok {
+        border-color: rgba(40, 167, 69, 0.3) !important;
+        background-color: rgba(40, 167, 69, 0.03) !important;
+    }
+    .ping-card-error {
+        border-color: rgba(220, 53, 69, 0.3) !important;
+        background-color: rgba(220, 53, 69, 0.03) !important;
+    }
+    .alert-item {
+        background-color: var(--rz-base-100);
+        border-radius: 4px;
+        padding: 0.5rem;
+        border-left: 3px solid var(--rz-warning);
+        display: flex;
+        align-items: center;
+    }
+</style>
+
+@code {
+    [Parameter] public Imprimante Imprimante { get; set; } = new();
+
+    private bool loading = true;
+    private PrinterDiagnosticResult? diagnostic;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            loading = true;
+            diagnostic = await Http.GetFromJsonAsync<PrinterDiagnosticResult>($"api/Imprimantes/{Imprimante.Id}/diagnostic");
+        }
+        catch (Exception)
+        {
+            diagnostic = null;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string FormatUptime(long totalSeconds)
+    {
+        if (totalSeconds <= 0) return "Indisponible";
+        var t = TimeSpan.FromSeconds(totalSeconds);
+        if (t.Days > 0) return $"{t.Days} jours, {t.Hours} heures et {t.Minutes} minutes";
+        if (t.Hours > 0) return $"{t.Hours} heures et {t.Minutes} minutes";
+        return $"{t.Minutes} minutes";
+    }
+
+    private string GetColorHex(string colorName)
+    {
+        return colorName.ToLower() switch
+        {
+            "noir" => "#212529",
+            "cyan" => "#17a2b8",
+            "magenta" => "#e83e8c",
+            "jaune" => "#ffc107",
+            _ => "#6c757d"
+        };
+    }
+
+    private string GetTextColor(string colorName)
+    {
+        return colorName.ToLower() switch
+        {
+            "jaune" => "#212529", // texte sombre sur fond jaune pour le contraste
+            _ => "#ffffff"       // texte blanc pour le noir, cyan, magenta et gris
+        };
+    }
+
+    private string GetTextShadow(string colorName)
+    {
+        return colorName.ToLower() switch
+        {
+            "jaune" => "none",
+            _ => "1px 1px 2px rgba(0,0,0,0.8)"
+        };
+    }
+}

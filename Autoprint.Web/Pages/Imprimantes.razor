@@ -1,4 +1,4 @@
-﻿@page "/imprimantes"
+@page "/imprimantes"
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Shared.Enums
@@ -281,15 +281,18 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Imprimante" Title="" Width="70px" Sortable="false" Filterable="false"
+            <RadzenDataGridColumn TItem="Imprimante" Title="" Width="120px" Sortable="false" Filterable="false"
                                   TextAlign="TextAlign.Center"
                                   Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
                 <Template Context="imp">
-                    <AuthorizeView Policy="PRINTER_WRITE">
-                        <Authorized Context="auth">
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" />
-                        </Authorized>
-                    </AuthorizeView>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.25rem">
+                        <RadzenButton Icon="health_and_safety" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirDiagnosticModal(imp))" Tooltip="Diagnostic en Temps Réel" />
+                        <AuthorizeView Policy="PRINTER_WRITE">
+                            <Authorized Context="auth">
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" Tooltip="Modifier" />
+                            </Authorized>
+                        </AuthorizeView>
+                    </RadzenStack>
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
@@ -459,7 +462,10 @@ else
             ModeleId = imp.ModeleId,
             EmplacementId = imp.EmplacementId,
             Status = imp.Status,
-            IsDirectPrintingEnabled = imp.IsDirectPrintingEnabled
+            IsDirectPrintingEnabled = imp.IsDirectPrintingEnabled,
+            SnmpPort = imp.SnmpPort,
+            SnmpCommunity = imp.SnmpCommunity,
+            SnmpVersion = imp.SnmpVersion
         };
 
         var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
@@ -471,6 +477,14 @@ else
         {
             await ChargerListe();
         }
+    }
+
+    private async Task OuvrirDiagnosticModal(Imprimante imp)
+    {
+        await DialogService.OpenAsync<PrinterDiagnosticModal>($"🩺 Diagnostic en Temps Réel : {imp.NomAffiche}",
+            new Dictionary<string, object> { { "Imprimante", imp } },
+            new DialogOptions() { Width = "750px", CloseDialogOnOverlayClick = true }
+        );
     }
 
     private async Task ExporterEnCsv()

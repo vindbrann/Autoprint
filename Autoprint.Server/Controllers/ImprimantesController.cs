@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -15,12 +15,14 @@ namespace Autoprint.Server.Controllers
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
         private readonly IPrintSpoolerService _spooler;
+        private readonly ISnmpService _snmpService;
 
-        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler)
+        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService)
         {
             _context = context;
             _auditService = auditService;
             _spooler = spooler;
+            _snmpService = snmpService;
         }
 
         [HttpGet]
@@ -297,6 +299,22 @@ namespace Autoprint.Server.Controllers
 
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        [HttpGet("{id}/diagnostic")]
+        [Authorize(Policy = "PRINTER_READ")]
+        public async Task<ActionResult<Autoprint.Shared.DTOs.PrinterDiagnosticResult>> GetImprimanteDiagnostic(int id)
+        {
+            var printer = await _context.Imprimantes.FindAsync(id);
+            if (printer == null) return NotFound();
+
+            var result = await _snmpService.GetPrinterDiagnosticAsync(
+                printer.AdresseIp, 
+                printer.SnmpPort, 
+                printer.SnmpCommunity ?? "public", 
+                printer.SnmpVersion);
+
+            return Ok(result);
         }
 
         private bool ImprimanteExists(int id) => _context.Imprimantes.Any(e => e.Id == id);
