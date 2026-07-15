@@ -1,4 +1,4 @@
-﻿@using Autoprint.Shared
+@using Autoprint.Shared
 @using Autoprint.Web.Services
 @using System.Text.Json
 @using Radzen
@@ -151,6 +151,25 @@
             }
         </RadzenCard>
 
+        <RadzenFieldset Text="Supervision &amp; Diagnostic (SNMP)">
+            <RadzenRow>
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Port SNMP" Component="SnmpPort" />
+                    <RadzenNumeric Name="SnmpPort" TValue="int" @bind-Value="@imprimanteEdit.SnmpPort" Style="width: 100%;" Min="1" Max="65535" />
+                </RadzenColumn>
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Communauté SNMP" Component="SnmpCommunity" />
+                    <RadzenTextBox Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" />
+                </RadzenColumn>
+                <RadzenColumn Size="4">
+                    <RadzenLabel Text="Version SNMP" Component="SnmpVersion" />
+                    <RadzenDropDown Name="SnmpVersion" TValue="int" @bind-Value="@imprimanteEdit.SnmpVersion" Style="width: 100%;"
+                                    Data="@(new[] { new { Text = "v1", Value = 1 }, new { Text = "v2c", Value = 2 } })"
+                                    TextProperty="Text" ValueProperty="Value" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenFieldset>
+
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
             @if (imprimanteEdit.Id != 0)
             {
@@ -208,7 +227,10 @@
             IsDirectPrintingEnabled = ImprimanteToEdit.IsDirectPrintingEnabled,
             ModeleId = ImprimanteToEdit.ModeleId,
             EmplacementId = ImprimanteToEdit.EmplacementId,
-            Status = ImprimanteToEdit.Status
+            Status = ImprimanteToEdit.Status,
+            SnmpPort = ImprimanteToEdit.SnmpPort,
+            SnmpCommunity = ImprimanteToEdit.SnmpCommunity ?? "public",
+            SnmpVersion = ImprimanteToEdit.SnmpVersion == 0 ? 2 : ImprimanteToEdit.SnmpVersion
         };
 
         CanReadEmplacements = await AuthProvider.HasPermission("Permission", "LOCATION_READ");

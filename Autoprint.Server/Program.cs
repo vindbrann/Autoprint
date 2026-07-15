@@ -39,6 +39,7 @@ builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
+builder.Services.AddScoped<Autoprint.Server.Services.ISnmpService, Autoprint.Server.Services.SnmpService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();

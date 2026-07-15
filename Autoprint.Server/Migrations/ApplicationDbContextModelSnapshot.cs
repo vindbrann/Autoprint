@@ -686,6 +686,17 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("NomPartage")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SnmpCommunity")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SnmpPort")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SnmpVersion")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -729,7 +740,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 1, 22, 17, 14, 53, 761, DateTimeKind.Utc).AddTicks(1993),
+                            DateModification = new DateTime(2026, 7, 15, 14, 37, 55, 534, DateTimeKind.Utc).AddTicks(4925),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -780,7 +791,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 1, 22, 17, 14, 53, 761, DateTimeKind.Utc).AddTicks(2560),
+                            DateModification = new DateTime(2026, 7, 15, 14, 37, 55, 534, DateTimeKind.Utc).AddTicks(6713),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

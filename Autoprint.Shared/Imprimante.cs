@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Autoprint.Shared.Enums;
 
@@ -25,5 +25,10 @@ namespace Autoprint.Shared
         public int ModeleId { get; set; }
         public Modele? Modele { get; set; }
         public PrinterStatus Status { get; set; } = PrinterStatus.PendingCreation;
+
+        public int SnmpPort { get; set; } = 161;
+        [MaxLength(100)]
+        public string SnmpCommunity { get; set; } = "public";
+        public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c
     }
 }
