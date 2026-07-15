@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Models.Security;
+using Autoprint.Server.Models.Security;
 using Autoprint.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -28,6 +28,7 @@ namespace Autoprint.Server.Data
         public DbSet<RolePermission> RolePermissions { get; set; }
         public DbSet<AdRoleMapping> AdRoleMappings { get; set; }
         public DbSet<DiscoveryProfile> DiscoveryProfiles { get; set; }
+        public DbSet<TonerHistory> TonerHistories { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.ConfigureWarnings(warnings =>
@@ -46,6 +47,18 @@ namespace Autoprint.Server.Data
                 ((BaseEntity)entityEntry.Entity).DateModification = DateTime.UtcNow;
             }
             return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var entries = ChangeTracker.Entries()
+                .Where(e => e.Entity is BaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
+
+            foreach (var entityEntry in entries)
+            {
+                ((BaseEntity)entityEntry.Entity).DateModification = DateTime.UtcNow;
+            }
+            return base.SaveChangesAsync(cancellationToken);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -16,13 +16,15 @@ namespace Autoprint.Server.Controllers
         private readonly AuditService _auditService;
         private readonly IPrintSpoolerService _spooler;
         private readonly ISnmpService _snmpService;
+        private readonly IPredictiveService _predictiveService;
 
-        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService)
+        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService, IPredictiveService predictiveService)
         {
             _context = context;
             _auditService = auditService;
             _spooler = spooler;
             _snmpService = snmpService;
+            _predictiveService = predictiveService;
         }
 
         [HttpGet]
@@ -313,6 +315,23 @@ namespace Autoprint.Server.Controllers
                 printer.SnmpPort, 
                 printer.SnmpCommunity ?? "public", 
                 printer.SnmpVersion);
+
+            var history = await _context.TonerHistories
+                .Where(h => h.ImprimanteId == id)
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (result.PingSuccess && result.Toners != null && result.Toners.Any())
+            {
+                foreach (var toner in result.Toners)
+                {
+                    var tonerHistory = history
+                        .Where(h => h.ComponentColor.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
+                }
+            }
 
             return Ok(result);
         }

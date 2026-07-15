@@ -751,7 +751,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 43, 26, 927, DateTimeKind.Utc).AddTicks(7937),
+                            DateModification = new DateTime(2026, 7, 15, 14, 47, 19, 423, DateTimeKind.Utc).AddTicks(4678),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -802,7 +802,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 43, 26, 927, DateTimeKind.Utc).AddTicks(9135),
+                            DateModification = new DateTime(2026, 7, 15, 14, 47, 19, 423, DateTimeKind.Utc).AddTicks(6245),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -1036,6 +1036,45 @@ namespace Autoprint.Server.Migrations
                     b.ToTable("SystemErrors");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.TonerHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ComponentColor")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ImprimanteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LevelPercent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImprimanteId");
+
+                    b.ToTable("TonerHistories");
+                });
+
             modelBuilder.Entity("Autoprint.Server.Models.Security.AdRoleMapping", b =>
                 {
                     b.HasOne("Autoprint.Server.Models.Security.Role", "Role")
@@ -1130,6 +1169,17 @@ namespace Autoprint.Server.Migrations
                     b.Navigation("Marque");
 
                     b.Navigation("Pilote");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.TonerHistory", b =>
+                {
+                    b.HasOne("Autoprint.Shared.Imprimante", "Imprimante")
+                        .WithMany()
+                        .HasForeignKey("ImprimanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Imprimante");
                 });
 
             modelBuilder.Entity("Autoprint.Server.Models.Security.Permission", b =>
