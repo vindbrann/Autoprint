@@ -1,0 +1,153 @@
+@page "/reports"
+@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
+
+<PageTitle>Rapports d'Activité</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+        📊 Rapports & Planification
+    </RadzenText>
+    <RadzenButton Icon="add_circle" Text="Planifier un Rapport" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new ReportSchedule()))" />
+</RadzenStack>
+
+<RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);" Class="rz-mb-4">
+    Configurez des rapports réguliers contenant les métriques de votre choix (compteur de pages, niveaux de toner, taux de disponibilité, etc.) envoyés automatiquement par courriel à vos équipes au format PDF ou CSV.
+</RadzenText>
+
+@if (schedules == null)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else if (!schedules.Any())
+{
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+        Aucun rapport planifié. Cliquez sur "Planifier un Rapport" ci-dessus pour démarrer.
+    </RadzenAlert>
+}
+else
+{
+    <RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
+        <Columns>
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="ReportName" Title="Nom du Rapport" />
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="Frequency" Title="Fréquence" Width="130px" />
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center">
+                <Template Context="s">
+                    <RadzenBadge BadgeStyle="@(s.Format == "PDF" ? BadgeStyle.Danger : BadgeStyle.Success)" Text="@s.Format" />
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="EmailRecipients" Title="Destinataires" />
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="LastRunAt" Title="Dernier envoi" Width="150px">
+                <Template Context="s">
+                    @(s.LastRunAt.HasValue ? s.LastRunAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="NextRunAt" Title="Prochain envoi" Width="150px">
+                <Template Context="s">
+                    @(s.NextRunAt.HasValue ? s.NextRunAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center">
+                <Template Context="s">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
+                        <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" />
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(s))" Tooltip="Modifier" />
+                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => Supprimer(s))" Tooltip="Supprimer" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<ReportSchedule>? schedules;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChargerSchedules();
+    }
+
+    private async Task ChargerSchedules()
+    {
+        try
+        {
+            schedules = await Http.GetFromJsonAsync<List<ReportSchedule>>("api/ReportSchedules");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Chargement des rapports : " + ex.Message);
+        }
+    }
+
+    private async Task OuvrirModal(ReportSchedule s)
+    {
+        var result = await DialogService.OpenAsync<ReportScheduleModal>(
+            s.Id > 0 ? "Modifier la planification" : "Créer un rapport planifié",
+            new Dictionary<string, object> { { "ScheduleToEdit", s } },
+            new DialogOptions { Width = "750px" }
+        );
+
+        if (result == true)
+        {
+            await ChargerSchedules();
+        }
+    }
+
+    private async Task TesterEnvoi(ReportSchedule s)
+    {
+        NotificationService.Notify(NotificationSeverity.Info, "Envoi en cours", "Génération et envoi du rapport...");
+        try
+        {
+            var response = await Http.PostAsync($"api/ReportSchedules/{s.Id}/send", null);
+            if (response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Envoyé", "Le rapport a été généré et expédié par courriel.");
+                await ChargerSchedules();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur lors de l'envoi", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private async Task Supprimer(ReportSchedule s)
+    {
+        var confirm = await DialogService.Confirm($"Supprimer le rapport planifié '{s.ReportName}' ?", "Confirmation",
+            new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"api/ReportSchedules/{s.Id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Le rapport planifié a été supprimé.");
+                    await ChargerSchedules();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", error);
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
+        }
+    }
+}
