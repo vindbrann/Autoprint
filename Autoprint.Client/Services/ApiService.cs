@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -16,12 +16,7 @@ namespace Autoprint.Client.Services
 
         public ApiService(string baseUrl, string apiKey)
         {
-            var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
-            };
-
-            _httpClient = new HttpClient(handler)
+            _httpClient = new HttpClient()
             {
                 BaseAddress = new Uri(baseUrl),
                 Timeout = TimeSpan.FromSeconds(10)

@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
@@ -80,7 +80,7 @@ namespace Autoprint.Server.Controllers
             };
 
             if (!string.IsNullOrEmpty(request.Password))
-                newUser.PasswordHash = SecurityHelper.ComputeSha256Hash(request.Password);
+                newUser.PasswordHash = SecurityHelper.HashPassword(request.Password);
 
             _context.Users.Add(newUser);
 
@@ -134,7 +134,7 @@ namespace Autoprint.Server.Controllers
 
             if (isPasswordReset)
             {
-                user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
+                user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword);
                 user.LastPasswordChangeDate = DateTime.UtcNow;
             }
 
@@ -264,11 +264,10 @@ namespace Autoprint.Server.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null) return NotFound();
 
-            var oldHash = SecurityHelper.ComputeSha256Hash(request.CurrentPassword);
-            if (user.PasswordHash != oldHash)
+            if (!SecurityHelper.VerifyPassword(user.PasswordHash ?? "", request.CurrentPassword))
                 return BadRequest("Le mot de passe actuel est incorrect.");
 
-            user.PasswordHash = SecurityHelper.ComputeSha256Hash(request.NewPassword);
+            user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword);
             user.LastPasswordChangeDate = DateTime.UtcNow;
 
             user.ForceChangePassword = false;

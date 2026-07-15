@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -33,7 +33,6 @@ namespace Autoprint.Client
         private readonly NetworkService _networkService = new NetworkService();
         private readonly ConfigurationService _configService = new ConfigurationService();
         private readonly UserPreferencesService _prefService = new UserPreferencesService();
-        private readonly IpcService _ipcService = new IpcService();
         private ApiService? _apiService;
         private DataService? _dataService;
         private RealTimeService? _realTimeService;
@@ -87,11 +86,11 @@ namespace Autoprint.Client
             }
             catch { }
 
-            _mainViewModel = new MainWindowViewModel(_prefService, _ipcService, _configService);
+            _mainViewModel = new MainWindowViewModel(_prefService, _configService);
             _mainWindow = new MainWindow();
             _mainWindow.DataContext = _mainViewModel;
 
-            _optionsViewModel = new OptionsViewModel(_prefService, _ipcService, _configService);
+            _optionsViewModel = new OptionsViewModel(_prefService, _configService);
             _manageViewModel = new ManagePrintersViewModel(_prefService);
 
             try
@@ -385,7 +384,7 @@ namespace Autoprint.Client
         private void MenuOptions_Click(object sender, RoutedEventArgs e)
         {
             if (_optionsWindow == null || !_optionsWindow.IsLoaded)
-                _optionsWindow = new Autoprint.Client.OptionsWindow(_prefService, _ipcService, _configService);
+                _optionsWindow = new Autoprint.Client.OptionsWindow(_prefService, _configService);
 
             _optionsWindow.Show();
             _optionsWindow.Activate();

@@ -1,4 +1,4 @@
-﻿using Autoprint.Client.Models;
+using Autoprint.Client.Models;
 using Autoprint.Client.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.IPC;
@@ -20,7 +20,6 @@ namespace Autoprint.Client.ViewModels
     public class MainWindowViewModel : INotifyPropertyChanged
     {
         private readonly UserPreferencesService? _prefService;
-        private readonly IpcService? _ipcService;
         private readonly ConfigurationService? _configService;
 
         private string _appVersion = "v1.0";
@@ -77,10 +76,9 @@ namespace Autoprint.Client.ViewModels
 
         public MainWindowViewModel() { }
 
-        public MainWindowViewModel(UserPreferencesService prefService, IpcService ipcService, ConfigurationService configService)
+        public MainWindowViewModel(UserPreferencesService prefService, ConfigurationService configService)
         {
             _prefService = prefService;
-            _ipcService = ipcService;
             _configService = configService;
         }
 
@@ -273,7 +271,7 @@ namespace Autoprint.Client.ViewModels
                 return;
             }
 
-            if (_ipcService == null || _configService == null) return;
+            if (_configService == null) return;
 
             string printerName = item.Data.NomAffiche;
             string driverName = item.Data.Modele?.Pilote?.Nom ?? "INCONNU";
@@ -308,7 +306,8 @@ namespace Autoprint.Client.ViewModels
             else
             {
                 string serverName = CleanServerName(rawServer);
-                string uncPath = $@"\\{serverName}\{printerName}";
+                string safePrinterName = printerName.Replace("\"", "");
+                string uncPath = $@"\\{serverName}\{safePrinterName}";
 
                 if (await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /dn /q /n \"{uncPath}\"")))
                 {
@@ -332,22 +331,11 @@ namespace Autoprint.Client.ViewModels
 
         public async Task<bool> InstallerImprimanteDirectementAsync(string printerName, string driverModel, string serverUrl)
         {
-            if (_ipcService == null) return false;
-
             string cleanServer = CleanServerName(serverUrl);
             if (string.IsNullOrWhiteSpace(cleanServer)) return false;
 
-            string uncPath = $@"\\{cleanServer}\{printerName}";
-
-            var request = new IpcRequest
-            {
-                Action = "INSTALL_DRIVER",
-                PrinterName = printerName,
-                DriverModelName = driverModel,
-                UncPath = uncPath
-            };
-
-            try { await _ipcService.SendRequestAsync(request); } catch { }
+            string safePrinterName = printerName.Replace("\"", "");
+            string uncPath = $@"\\{cleanServer}\{safePrinterName}";
 
             bool mapSuccess = await Task.Run(() => RunUserCommand($"printui.dll,PrintUIEntry /in /n \"{uncPath}\""));
 

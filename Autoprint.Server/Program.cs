@@ -47,6 +47,10 @@ builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 builder.Services.AddHostedService<LogCleanupWorker>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
+if (jwtKey == "CeciEstUneCleSecreteTresLonguePourLaSecuriteDeAutoprint_ChangeMoi_En_Prod!" && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException("CRITICAL SECURITY ERROR: The default JWT development key cannot be used in production. The server installer must generate a random key, or it must be overridden via environment variables.");
+}
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
@@ -202,7 +206,7 @@ if (args.Contains("--reset-admin"))
         var admin = context.Users.FirstOrDefault(u => u.Username == "admin");
         if (admin != null)
         {
-            admin.PasswordHash = Autoprint.Server.Helpers.SecurityHelper.ComputeSha256Hash("admin123");
+            admin.PasswordHash = Autoprint.Server.Helpers.SecurityHelper.HashPassword("admin123");
             admin.ForceChangePassword = true;
             admin.IsActive = true;
             context.SaveChanges();
