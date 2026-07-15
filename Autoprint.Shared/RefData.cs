@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
@@ -28,6 +28,8 @@ namespace Autoprint.Shared
         [NotMapped]
         public int PrinterCount { get; set; }
 
+        public int? SnmpProfileId { get; set; }
+        public SnmpProfile? SnmpProfile { get; set; }
     }
 
     public class EmplacementNetwork : BaseEntity

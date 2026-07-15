@@ -751,7 +751,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 47, 19, 423, DateTimeKind.Utc).AddTicks(4678),
+                            DateModification = new DateTime(2026, 7, 15, 15, 5, 21, 50, DateTimeKind.Utc).AddTicks(2826),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -790,11 +790,16 @@ namespace Autoprint.Server.Migrations
                     b.Property<int?>("PiloteId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SnmpProfileId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("MarqueId");
 
                     b.HasIndex("PiloteId");
+
+                    b.HasIndex("SnmpProfileId");
 
                     b.ToTable("Modeles");
 
@@ -802,7 +807,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 47, 19, 423, DateTimeKind.Utc).AddTicks(6245),
+                            DateModification = new DateTime(2026, 7, 15, 15, 5, 21, 50, DateTimeKind.Utc).AddTicks(4499),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -998,6 +1003,54 @@ namespace Autoprint.Server.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.SnmpProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("OidPageCounter")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OidTonerBlack")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OidTonerCyan")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OidTonerMagenta")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OidTonerYellow")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SnmpProfiles");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.SystemError", b =>
                 {
                     b.Property<int>("Id")
@@ -1166,9 +1219,15 @@ namespace Autoprint.Server.Migrations
                         .WithMany()
                         .HasForeignKey("PiloteId");
 
+                    b.HasOne("Autoprint.Shared.SnmpProfile", "SnmpProfile")
+                        .WithMany()
+                        .HasForeignKey("SnmpProfileId");
+
                     b.Navigation("Marque");
 
                     b.Navigation("Pilote");
+
+                    b.Navigation("SnmpProfile");
                 });
 
             modelBuilder.Entity("Autoprint.Shared.TonerHistory", b =>

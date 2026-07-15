@@ -1,0 +1,174 @@
+@page "/snmp-profiles"
+@using Autoprint.Shared
+@using Autoprint.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<PageTitle>Profils SNMP</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
+            🔌 Profils SNMP
+        </RadzenText>
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+        <InputFile id="fileImport" OnChange="@ImporterFichierJson" style="display: none;" accept=".json" />
+        <RadzenButton Icon="file_upload" Text="Importer Profil" ButtonStyle="ButtonStyle.Secondary" Click="@TriggerFileInput" />
+        
+        <RadzenButton Icon="add_circle" Text="Nouveau Profil" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new SnmpProfile()))" />
+    </RadzenStack>
+</RadzenStack>
+
+@if (messageErreur != null)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Icon="lock" Variant="Variant.Flat" Shade="Shade.Lighter">
+        @messageErreur
+    </RadzenAlert>
+}
+else if (isLoading)
+{
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color); margin-bottom: 1.5rem;">
+        Gérez les profils d'OIDs SNMP spécifiques pour les modèles d'imprimantes particuliers qui ne répondent pas aux OIDs standards.
+    </RadzenText>
+
+    <RadzenDataGrid Data="@profiles" TItem="SnmpProfile"
+                    AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    AllowPaging="true" PageSize="10"
+                    AllowSorting="true" ColumnWidth="250px">
+        <Columns>
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="Name" Title="Nom du Profil" Width="200px" Sortable="true" Filterable="true" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidPageCounter" Title="OID Compteur" Width="180px" Sortable="false" Filterable="false" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerBlack" Title="Noir (K)" Width="150px" Sortable="false" Filterable="false" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerCyan" Title="Cyan (C)" Width="150px" Sortable="false" Filterable="false" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerMagenta" Title="Magenta (M)" Width="150px" Sortable="false" Filterable="false" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerYellow" Title="Jaune (Y)" Width="150px" Sortable="false" Filterable="false" />
+            
+            <RadzenDataGridColumn TItem="SnmpProfile" Title="Actions" Sortable="false" Filterable="false" Width="150px" TextAlign="TextAlign.Center">
+                <Template Context="p">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.Center">
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(p))" Tooltip="Modifier" />
+                        <RadzenButton Icon="file_download" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => ExporterProfil(p))" Tooltip="Exporter JSON" />
+                    </RadzenStack>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private List<SnmpProfile>? profiles;
+    private bool isLoading = true;
+    private string? messageErreur;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var canManage = await AuthProvider.HasPermission("Permission", "SETTINGS_MANAGE");
+        if (canManage)
+        {
+            await ChargerListe();
+        }
+        else
+        {
+            messageErreur = "Vous n'avez pas l'autorisation de gérer la configuration serveur.";
+            isLoading = false;
+        }
+    }
+
+    private async Task ChargerListe()
+    {
+        isLoading = true;
+        try
+        {
+            profiles = await Http.GetFromJsonAsync<List<SnmpProfile>>("api/SnmpProfiles");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OuvrirModal(SnmpProfile profile)
+    {
+        var title = profile.Id == 0 ? "Créer un Profil SNMP" : $"Modifier le Profil SNMP : {profile.Name}";
+        var r = await DialogService.OpenAsync<SnmpProfileModal>(title,
+            new Dictionary<string, object> { { "ProfileToEdit", profile } },
+            new DialogOptions { Width = "550px" });
+
+        if (r == true)
+        {
+            await ChargerListe();
+        }
+    }
+
+    private async Task TriggerFileInput()
+    {
+        await JS.InvokeVoidAsync("eval", "document.getElementById('fileImport').click()");
+    }
+
+    private async Task ImporterFichierJson(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                using var stream = file.OpenReadStream(1024 * 1024);
+                using var reader = new System.IO.StreamReader(stream);
+                var jsonContent = await reader.ReadToEndAsync();
+
+                var imported = System.Text.Json.JsonSerializer.Deserialize<SnmpProfileImportDto>(jsonContent, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (imported == null || string.IsNullOrWhiteSpace(imported.Name))
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Fichier JSON invalide ou nom manquant.");
+                    return;
+                }
+
+                var response = await Http.PostAsJsonAsync("api/SnmpProfiles/import", imported);
+                if (response.IsSuccessStatusCode)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Importé", $"Le profil '{imported.Name}' a été importé.");
+                    await ChargerListe();
+                }
+                else
+                {
+                    var err = await response.Content.ReadAsStringAsync();
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", err);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Erreur lecture : " + ex.Message);
+        }
+    }
+
+    private void ExporterProfil(SnmpProfile p)
+    {
+        var relativeUrl = $"api/SnmpProfiles/{p.Id}/export";
+        var absoluteUrl = Http.BaseAddress != null 
+            ? new Uri(Http.BaseAddress, relativeUrl).ToString() 
+            : relativeUrl;
+
+        NavManager.NavigateTo(absoluteUrl, forceLoad: true);
+    }
+}
