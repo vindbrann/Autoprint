@@ -720,6 +720,44 @@ namespace Autoprint.Server.Migrations
                     b.ToTable("Imprimantes");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.IntegrationToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IntegrationTokens");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.Marque", b =>
                 {
                     b.Property<int>("Id")
@@ -751,7 +789,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 5, 21, 50, DateTimeKind.Utc).AddTicks(2826),
+                            DateModification = new DateTime(2026, 7, 15, 15, 15, 40, 392, DateTimeKind.Utc).AddTicks(4994),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -807,7 +845,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 5, 21, 50, DateTimeKind.Utc).AddTicks(4499),
+                            DateModification = new DateTime(2026, 7, 15, 15, 15, 40, 392, DateTimeKind.Utc).AddTicks(6181),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

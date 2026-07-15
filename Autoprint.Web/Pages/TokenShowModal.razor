@@ -1,0 +1,47 @@
+@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject IJSRuntime JS
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-2">
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenIcon Icon="warning" Style="font-size: 2rem; color: var(--rz-warning);" />
+            <RadzenStack Gap="0" Style="flex: 1;">
+                <strong style="color: var(--rz-warning-darker);">Attention sécurité</strong>
+                <span style="font-size: 0.9rem;">Veuillez copier ce jeton maintenant. Pour des raisons de sécurité, il ne sera plus jamais affiché par la suite.</span>
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenAlert>
+
+    <div>
+        <RadzenLabel Text="Clé de jeton d'intégration générée :" Style="font-weight: bold;" />
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+            <RadzenTextBox Value="@RawToken" ReadOnly="true" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px; color: var(--rz-primary);" />
+            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Secondary" Click="@CopyToken" Tooltip="Copier dans le presse-papiers" />
+        </RadzenStack>
+    </div>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Class="rz-mt-4">
+        <RadzenButton Text="Fermer" ButtonStyle="ButtonStyle.Primary" Click="@(() => DialogService.Close(true))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public string RawToken { get; set; } = string.Empty;
+
+    private async Task CopyToken()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", RawToken);
+            NotificationService.Notify(NotificationSeverity.Success, "Copie réussie", "Le jeton a été copié.");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+}
