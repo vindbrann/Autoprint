@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Mail;
 using Autoprint.Server.Data;
 using Microsoft.EntityFrameworkCore;
@@ -93,6 +93,74 @@ namespace Autoprint.Server.Services
                 catch (Exception ex)
                 {
                     throw new Exception($"Erreur générale : {ex.Message}");
+                }
+            }
+        }
+
+        public async Task SendEmailWithAttachmentAsync(string to, string subject, string htmlMessage, byte[] fileBytes, string fileName, string contentType)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var settings = await context.ServerSettings.ToListAsync();
+
+                string host = GetVal(settings, "SmtpHost");
+                if (string.IsNullOrEmpty(host)) return;
+
+                int port = int.Parse(GetVal(settings, "SmtpPort", "25"));
+                string user = GetVal(settings, "SmtpUser");
+                string pass = GetVal(settings, "SmtpPass");
+                bool ssl = bool.Parse(GetVal(settings, "SmtpEnableSsl", "false"));
+                string from = GetVal(settings, "SmtpFromAddress", "noreply@autoprint.local");
+
+                await SendSmtpMailWithAttachment(host, port, user, pass, ssl, from, to, subject, htmlMessage, fileBytes, fileName, contentType);
+            }
+        }
+
+        private async Task SendSmtpMailWithAttachment(string host, int port, string user, string pass, bool ssl, string from, string to, string subject, string body, byte[] fileBytes, string fileName, string contentType)
+        {
+            using (var client = new SmtpClient())
+            {
+                client.Host = host;
+                client.Port = port;
+                client.EnableSsl = ssl;
+                client.DeliveryMethod = SmtpDeliveryMethod.Network;
+                client.Timeout = 30000;
+                client.UseDefaultCredentials = false;
+
+                if (!string.IsNullOrEmpty(user))
+                {
+                    client.Credentials = new NetworkCredential(user, pass);
+                }
+
+                var message = new MailMessage
+                {
+                    From = new MailAddress(from, "Autoprint"),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = true
+                };
+                message.To.Add(to);
+
+                using (var ms = new System.IO.MemoryStream(fileBytes))
+                {
+                    var attachment = new Attachment(ms, fileName, contentType);
+                    message.Attachments.Add(attachment);
+
+                    try
+                    {
+                        await client.SendMailAsync(message);
+                    }
+                    catch (SmtpException smtpEx)
+                    {
+                        string realError = smtpEx.Message;
+                        if (smtpEx.InnerException != null) realError += " | DÉTAIL: " + smtpEx.InnerException.Message;
+                        throw new Exception($"Erreur SMTP : {realError}");
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception($"Erreur générale : {ex.Message}");
+                    }
                 }
             }
         }

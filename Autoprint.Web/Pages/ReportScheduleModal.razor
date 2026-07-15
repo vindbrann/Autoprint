@@ -1,0 +1,231 @@
+@using Autoprint.Shared
+@using System.Text.Json
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="ReportSchedule" Data="@schedule" Submit="@OnSubmit">
+    <RadzenStack Gap="1.5rem" Class="rz-p-2">
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenLabel Text="Nom du Rapport" Component="ReportName" Style="font-weight: bold;" />
+                <RadzenTextBox Name="ReportName" @bind-Value="@schedule.ReportName" Style="width: 100%;" Placeholder="Ex: Rapport Hebdo HP" />
+                <RadzenRequiredValidator Component="ReportName" Text="Le nom est obligatoire" Popup="true" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenLabel Text="Format de Fichier" Component="Format" Style="font-weight: bold;" />
+                <RadzenDropDown Name="Format" @bind-Value="@schedule.Format" Data="@formats" Style="width: 100%;" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenLabel Text="Fréquence" Component="Frequency" Style="font-weight: bold;" />
+                <RadzenDropDown Name="Frequency" @bind-Value="@schedule.Frequency" Data="@frequencies" Style="width: 100%;" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenLabel Text="Destinataires (Séparés par ;)" Component="EmailRecipients" Style="font-weight: bold;" />
+                <RadzenTextBox Name="EmailRecipients" @bind-Value="@schedule.EmailRecipients" Style="width: 100%;" Placeholder="admin@corp.com; manager@corp.com" />
+                <RadzenRequiredValidator Component="EmailRecipients" Text="Au moins un destinataire est requis" Popup="true" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-background-color-panel);">
+            <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;" Class="rz-mb-2">📊 Métriques à inclure</RadzenText>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1.5rem" Wrap="FlexWrap.Wrap">
+                <div style="display: flex; align-items: center;">
+                    <RadzenCheckBox TValue="bool" @bind-Value="@includePages" Name="Pages" />
+                    <RadzenLabel Text="Compteur de pages" Component="Pages" Class="rz-ml-2" Style="cursor:pointer;" />
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <RadzenCheckBox TValue="bool" @bind-Value="@includeToner" Name="Toner" />
+                    <RadzenLabel Text="Niveaux des consommables (Toner)" Component="Toner" Class="rz-ml-2" Style="cursor:pointer;" />
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <RadzenCheckBox TValue="bool" @bind-Value="@includeAvailability" Name="Availability" />
+                    <RadzenLabel Text="Taux de disponibilité (Ping)" Component="Availability" Class="rz-ml-2" Style="cursor:pointer;" />
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <RadzenCheckBox TValue="bool" @bind-Value="@includeAlerts" Name="Alerts" />
+                    <RadzenLabel Text="Pannes & Alertes" Component="Alerts" Class="rz-ml-2" Style="cursor:pointer;" />
+                </div>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-background-color-panel);">
+            <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;" Class="rz-mb-2">🎯 Périmètre du Rapport (Scope)</RadzenText>
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenLabel Text="Lieu / Emplacement" Component="Location" />
+                    <RadzenDropDown Name="Location" TValue="int" @bind-Value="@scopeFilter.LocationId"
+                                    Data="@locations" TextProperty="Nom" ValueProperty="Id"
+                                    Placeholder="Tout le parc" Style="width: 100%;" AllowClear="true" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenLabel Text="Marque" Component="Brand" />
+                    <RadzenDropDown Name="Brand" TValue="int" @bind-Value="@scopeFilter.BrandId"
+                                    Data="@brands" TextProperty="Nom" ValueProperty="Id"
+                                    Placeholder="Toutes" Style="width: 100%;" AllowClear="true" Change="@OnBrandChanged" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenLabel Text="Modèle d'imprimante" Component="Model" />
+                    <RadzenDropDown Name="Model" TValue="int" @bind-Value="@scopeFilter.ModelId"
+                                    Data="@filteredModels" TextProperty="Nom" ValueProperty="Id"
+                                    Placeholder="Tous" Style="width: 100%;" AllowClear="true" Disabled="@(scopeFilter.BrandId == 0)" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-4">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public ReportSchedule ScheduleToEdit { get; set; } = null!;
+
+    private ReportSchedule schedule = new();
+    private List<string> formats = new() { "PDF", "CSV" };
+    private List<string> frequencies = new() { "Quotidien", "Hebdomadaire", "Mensuel" };
+
+    private bool includePages = true;
+    private bool includeToner = true;
+    private bool includeAvailability = true;
+    private bool includeAlerts = true;
+
+    private List<Emplacement> locations = new();
+    private List<Marque> brands = new();
+    private List<Modele> allModels = new();
+    private List<Modele> filteredModels = new();
+
+    private ScopeFilter scopeFilter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            locations = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements") ?? new();
+            brands = await Http.GetFromJsonAsync<List<Marque>>("api/Marques") ?? new();
+            allModels = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles") ?? new();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Chargement des référentiels : " + ex.Message);
+        }
+
+        if (ScheduleToEdit != null && ScheduleToEdit.Id > 0)
+        {
+            schedule = new ReportSchedule
+            {
+                Id = ScheduleToEdit.Id,
+                ReportName = ScheduleToEdit.ReportName,
+                Format = ScheduleToEdit.Format,
+                Frequency = ScheduleToEdit.Frequency,
+                EmailRecipients = ScheduleToEdit.EmailRecipients,
+                SelectedMetricsJson = ScheduleToEdit.SelectedMetricsJson,
+                ScopeFilterJson = ScheduleToEdit.ScopeFilterJson,
+                LastRunAt = ScheduleToEdit.LastRunAt,
+                NextRunAt = ScheduleToEdit.NextRunAt
+            };
+
+            try
+            {
+                var list = JsonSerializer.Deserialize<List<string>>(schedule.SelectedMetricsJson) ?? new();
+                includePages = list.Contains("Pages");
+                includeToner = list.Contains("Toner");
+                includeAvailability = list.Contains("Availability");
+                includeAlerts = list.Contains("Alerts");
+            }
+            catch { }
+
+            try
+            {
+                var parsedScope = JsonSerializer.Deserialize<ScopeFilter>(schedule.ScopeFilterJson);
+                if (parsedScope != null)
+                {
+                    scopeFilter = parsedScope;
+                }
+            }
+            catch { }
+        }
+        else
+        {
+            schedule = new ReportSchedule
+            {
+                Format = "PDF",
+                Frequency = "Hebdomadaire"
+            };
+        }
+
+        FilterModels();
+    }
+
+    private void OnBrandChanged()
+    {
+        scopeFilter.ModelId = 0;
+        FilterModels();
+    }
+
+    private void FilterModels()
+    {
+        if (scopeFilter.BrandId > 0)
+        {
+            filteredModels = allModels.Where(m => m.MarqueId == scopeFilter.BrandId).ToList();
+        }
+        else
+        {
+            filteredModels = new List<Modele>();
+        }
+    }
+
+    private async Task OnSubmit()
+    {
+        var metrics = new List<string>();
+        if (includePages) metrics.Add("Pages");
+        if (includeToner) metrics.Add("Toner");
+        if (includeAvailability) metrics.Add("Availability");
+        if (includeAlerts) metrics.Add("Alerts");
+
+        schedule.SelectedMetricsJson = JsonSerializer.Serialize(metrics);
+        schedule.ScopeFilterJson = JsonSerializer.Serialize(scopeFilter);
+
+        try
+        {
+            HttpResponseMessage response;
+            if (schedule.Id > 0)
+            {
+                response = await Http.PutAsJsonAsync($"api/ReportSchedules/{schedule.Id}", schedule);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("api/ReportSchedules", schedule);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Enregistré", "La planification du rapport a été enregistrée.");
+                DialogService.Close(true);
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+
+    private class ScopeFilter
+    {
+        public int BrandId { get; set; }
+        public int ModelId { get; set; }
+        public int LocationId { get; set; }
+    }
+}

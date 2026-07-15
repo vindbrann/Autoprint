@@ -1,4 +1,4 @@
-using System.Text;
+ï»¿using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
@@ -38,6 +38,7 @@ builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<Autoprint.Server.Services.IReportGeneratorService, Autoprint.Server.Services.ReportGeneratorService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
 builder.Services.AddScoped<Autoprint.Server.Services.ISnmpService, Autoprint.Server.Services.SnmpService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IPredictiveService, Autoprint.Server.Services.PredictiveService>();
@@ -49,7 +50,7 @@ builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 builder.Services.AddHostedService<LogCleanupWorker>();
 builder.Services.AddHostedService<Autoprint.Server.Services.PrinterMonitoringWorker>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("ClÃ© JWT introuvable !");
 if (jwtKey == "CeciEstUneCleSecreteTresLonguePourLaSecuriteDeAutoprint_ChangeMoi_En_Prod!" && !builder.Environment.IsDevelopment())
 {
     throw new InvalidOperationException("CRITICAL SECURITY ERROR: The default JWT development key cannot be used in production. The server installer must generate a random key, or it must be overridden via environment variables.");
@@ -195,7 +196,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Erreur critique lors de l'initialisation de la Base de Données.");
+        logger.LogError(ex, "Erreur critique lors de l'initialisation de la Base de DonnÃ©es.");
     }
 }
 
@@ -221,3 +222,4 @@ if (args.Contains("--reset-admin"))
 }
 
 app.Run();
+

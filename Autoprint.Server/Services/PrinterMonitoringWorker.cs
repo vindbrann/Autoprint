@@ -79,6 +79,9 @@ namespace Autoprint.Server.Services
                             {
                                 _logger.LogInformation("--> Scan en pause (Mode Nuit ou Hors Horaires de travail).");
                             }
+
+                            // Toujours exécuter la vérification des rapports planifiés
+                            await ExecuterRapportsPlanifiesAsync(scope, stoppingToken);
                         }
                     }
                 }
@@ -218,6 +221,106 @@ namespace Autoprint.Server.Services
             {
                 _logger.LogError(ex, "Erreur lors de l'archivage automatique des imprimantes inactives.");
             }
+        }
+
+        private async Task ExecuterRapportsPlanifiesAsync(IServiceScope scope, CancellationToken stoppingToken)
+        {
+            try
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var reportService = scope.ServiceProvider.GetRequiredService<IReportGeneratorService>();
+                var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+                var now = DateTime.UtcNow;
+                var dueSchedules = await context.ReportSchedules
+                    .Where(s => !s.EstSupprime && (s.NextRunAt == null || s.NextRunAt <= now))
+                    .ToListAsync(stoppingToken);
+
+                if (!dueSchedules.Any()) return;
+
+                _logger.LogInformation($"--> {dueSchedules.Count} rapport(s) planifié(s) à générer et envoyer.");
+
+                foreach (var schedule in dueSchedules)
+                {
+                    if (stoppingToken.IsCancellationRequested) break;
+
+                    try
+                    {
+                        _logger.LogInformation($"Génération du rapport : {schedule.ReportName} ({schedule.Format}) pour {schedule.EmailRecipients}...");
+
+                        byte[] fileBytes;
+                        string fileName;
+                        string contentType;
+
+                        if (schedule.Format.Equals("CSV", StringComparison.OrdinalIgnoreCase))
+                        {
+                            fileBytes = await reportService.GenerateCsvReportAsync(schedule);
+                            fileName = $"Rapport_{schedule.ReportName.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.csv";
+                            contentType = "text/csv";
+                        }
+                        else
+                        {
+                            fileBytes = await reportService.GeneratePdfReportAsync(schedule);
+                            fileName = $"Rapport_{schedule.ReportName.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf";
+                            contentType = "application/pdf";
+                        }
+
+                        var recipients = schedule.EmailRecipients.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var recipient in recipients)
+                        {
+                            var email = recipient.Trim();
+                            if (string.IsNullOrEmpty(email)) continue;
+
+                            await emailService.SendEmailWithAttachmentAsync(
+                                email,
+                                $"[Autoprint] Rapport planifié : {schedule.ReportName}",
+                                $"<p>Bonjour,</p><p>Veuillez trouver ci-joint le rapport d'activité planifié <strong>{schedule.ReportName}</strong> généré automatiquement le {DateTime.Now:dd/MM/yyyy à HH:mm}.</p><p>Cordialement,<br/>L'équipe Autoprint</p>",
+                                fileBytes,
+                                fileName,
+                                contentType
+                            );
+                        }
+
+                        schedule.LastRunAt = now;
+                        schedule.NextRunAt = CalculateNextRun(schedule.Frequency, now);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Erreur lors de la génération/envoi du rapport planifié '{schedule.ReportName}'");
+                    }
+                }
+
+                await context.SaveChangesAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur dans la tâche de vérification des rapports planifiés.");
+            }
+        }
+
+        private DateTime CalculateNextRun(string frequency, DateTime baseTime)
+        {
+            var localToday = DateTime.Today;
+            var targetHour = 6;
+
+            if (frequency.Equals("Quotidien", StringComparison.OrdinalIgnoreCase))
+            {
+                return localToday.AddDays(1).AddHours(targetHour).ToUniversalTime();
+            }
+            else if (frequency.Equals("Hebdomadaire", StringComparison.OrdinalIgnoreCase))
+            {
+                int daysToAdd = ((int)DayOfWeek.Monday - (int)localToday.DayOfWeek + 7) % 7;
+                if (daysToAdd == 0) daysToAdd = 7;
+                return localToday.AddDays(daysToAdd).AddHours(targetHour).ToUniversalTime();
+            }
+            else if (frequency.Equals("Mensuel", StringComparison.OrdinalIgnoreCase))
+            {
+                var nextMonth = localToday.AddMonths(1);
+                var firstDay = new DateTime(nextMonth.Year, nextMonth.Month, 1, targetHour, 0, 0);
+                return firstDay.ToUniversalTime();
+            }
+
+            return baseTime.AddDays(1);
         }
     }
 }

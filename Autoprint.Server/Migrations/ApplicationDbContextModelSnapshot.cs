@@ -789,7 +789,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 15, 40, 392, DateTimeKind.Utc).AddTicks(4994),
+                            DateModification = new DateTime(2026, 7, 15, 15, 26, 5, 697, DateTimeKind.Utc).AddTicks(6791),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -845,7 +845,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 15, 40, 392, DateTimeKind.Utc).AddTicks(6181),
+                            DateModification = new DateTime(2026, 7, 15, 15, 26, 5, 697, DateTimeKind.Utc).AddTicks(8120),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"
@@ -886,6 +886,63 @@ namespace Autoprint.Server.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Pilotes");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.ReportSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailRecipients")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("NextRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReportName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ScopeFilterJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SelectedMetricsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReportSchedules");
                 });
 
             modelBuilder.Entity("Autoprint.Shared.ServerSetting", b =>
