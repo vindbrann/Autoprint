@@ -1,0 +1,52 @@
+@using Autoprint.Shared
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="IntegrationTokenCreationDto" Data="@dto" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+        <div>
+            <RadzenLabel Text="Description / Usage" Component="Description" />
+            <RadzenTextBox Name="Description" @bind-Value="@dto.Description" Style="width: 100%;" Placeholder="Ex: Serveur de supervision Zabbix" />
+            <RadzenRequiredValidator Component="Description" Text="La description est obligatoire" Popup="true" />
+        </div>
+
+        <div>
+            <RadzenLabel Text="Date d'expiration (Optionnel)" Component="ExpiresAt" />
+            <RadzenDatePicker Name="ExpiresAt" @bind-Value="@dto.ExpiresAt" ShowTime="true" HourFormat="24" DateFormat="dd/MM/yyyy HH:mm" Placeholder="Aucune expiration" Style="width: 100%;" />
+        </div>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-4">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Générer" Icon="vpn_key" ButtonStyle="ButtonStyle.Primary" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    private IntegrationTokenCreationDto dto = new();
+
+    private async Task OnSubmit()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/IntegrationTokens", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<IntegrationTokenCreationResultDto>();
+                DialogService.Close(result);
+            }
+            else
+            {
+                var msg = await response.Content.ReadAsStringAsync();
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", msg);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+        }
+    }
+}

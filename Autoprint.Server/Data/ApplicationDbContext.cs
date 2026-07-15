@@ -30,6 +30,7 @@ namespace Autoprint.Server.Data
         public DbSet<DiscoveryProfile> DiscoveryProfiles { get; set; }
         public DbSet<TonerHistory> TonerHistories { get; set; }
         public DbSet<SnmpProfile> SnmpProfiles { get; set; }
+        public DbSet<IntegrationToken> IntegrationTokens { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.ConfigureWarnings(warnings =>

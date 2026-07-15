@@ -1,4 +1,4 @@
-﻿@page "/parametres"
+@page "/parametres"
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
@@ -525,6 +525,63 @@ else
                                 </RadzenColumn>
                             </RadzenRow>
                         </RadzenFieldset>
+
+                        <RadzenFieldset Text="Jetons d'Intégration (Zabbix, PRTG, Centreon...)" Icon="vpn_key">
+                            <RadzenStack Gap="1.5rem">
+                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+                                    Générez des jetons d'authentification pour permettre à des systèmes tiers d'extraire l'état de supervision des imprimantes via l'API <code>GET api/v1/monitoring/export</code>.
+                                </RadzenText>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="margin: 0; font-weight: bold;">Liste des Jetons Actifs</RadzenText>
+                                    <RadzenButton Icon="add_circle" Text="Générer un Jeton" ButtonStyle="ButtonStyle.Success" Click="@OuvrirGenerationToken" />
+                                </RadzenStack>
+
+                                @if (tokensList == null)
+                                {
+                                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                }
+                                else if (!tokensList.Any())
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small" AllowClose="false">
+                                        Aucun jeton d'intégration actif. Cliquez sur "Générer un Jeton" ci-dessus pour en créer un.
+                                    </RadzenAlert>
+                                }
+                                else
+                                {
+                                    <RadzenDataGrid Data="@tokensList" TItem="IntegrationToken" AllowPaging="true" PageSize="5" Style="width: 100%;">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="Description" Title="Usage / Description" />
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="CreatedAt" Title="Créé le" Width="150px">
+                                                <Template Context="t">
+                                                    @t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="ExpiresAt" Title="Expire le" Width="150px">
+                                                <Template Context="t">
+                                                    @if (t.ExpiresAt.HasValue)
+                                                    {
+                                                        <span style="@(t.ExpiresAt < DateTime.UtcNow ? "color: var(--rz-danger); font-weight: bold;" : "")">
+                                                            @t.ExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="color: var(--rz-text-disabled-color);">Jamais</span>
+                                                    }
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Title="Actions" Width="100px" TextAlign="TextAlign.Center">
+                                                <Template Context="t">
+                                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => SupprimerToken(t))" Tooltip="Révoquer" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                }
+                            </RadzenStack>
+                        </RadzenFieldset>
+
                     </RadzenStack>
                 </ChildContent>
             </RadzenTabsItem>
@@ -551,6 +608,7 @@ else
 
     private DiscoveryProfile scanConfig = new DiscoveryProfile();
     private bool isScanning = false;
+    private List<IntegrationToken>? tokensList;
 
     private class SettingsModel
     {
@@ -602,6 +660,7 @@ else
             model.AdAdminEmails = GV(s, "AdAdminEmails");
 
             await LoadScanProfile();
+            await LoadTokens();
         }
         catch { }
         finally { isLoading = false; }
@@ -847,6 +906,61 @@ else
         else
         {
             NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Le scan a échoué (Timeout ou Erreur serveur).");
+        }
+    }
+
+    private async Task LoadTokens()
+    {
+        try
+        {
+            tokensList = await Http.GetFromJsonAsync<List<IntegrationToken>>("api/IntegrationTokens");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Chargement des jetons : " + ex.Message);
+        }
+    }
+
+    private async Task OuvrirGenerationToken()
+    {
+        var result = await DialogService.OpenAsync<TokenCreateModal>("Générer un Jeton d'Intégration",
+            null,
+            new DialogOptions { Width = "500px" });
+
+        if (result is IntegrationTokenCreationResultDto creationResult)
+        {
+            await LoadTokens();
+            await DialogService.OpenAsync<TokenShowModal>("Jeton d'Intégration Généré",
+                new Dictionary<string, object> { { "RawToken", creationResult.RawToken } },
+                new DialogOptions { Width = "550px" });
+        }
+    }
+
+    private async Task SupprimerToken(IntegrationToken t)
+    {
+        var confirm = await DialogService.Confirm($"Révoquer le jeton '{t.Description}' ? Cette action est irréversible et bloquera toute supervision externe utilisant ce jeton.", "Confirmation de Révocation",
+            new ConfirmOptions { OkButtonText = "Oui, révoquer", CancelButtonText = "Annuler" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"api/IntegrationTokens/{t.Id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Jeton révoqué", "Le jeton d'intégration a été révoqué.");
+                    await LoadTokens();
+                }
+                else
+                {
+                    var msg = await response.Content.ReadAsStringAsync();
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            }
         }
     }
 }
