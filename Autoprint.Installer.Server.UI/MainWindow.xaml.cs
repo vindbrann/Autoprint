@@ -69,6 +69,14 @@ namespace Autoprint.Installer.Server.UI
         {
             if (!ValidateCurrentStep()) return;
 
+            if (_currentStep == 3 && _isUpgrade)
+            {
+                _currentStep = 6;
+                UpdateView();
+                _ = RunInstallationSequence();
+                return;
+            }
+
             if (_currentStep == 5)
             {
                 _currentStep = 6;
@@ -301,20 +309,6 @@ namespace Autoprint.Installer.Server.UI
                         if (oldNode != null && newNode != null)
                         {
                             MergeJsonNodes(newNode, oldNode);
-                            
-                            var dbNode = newNode["Database"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
-                            dbNode["Provider"] = RadioSqlServer.IsChecked == true ? "SqlServer" : "Sqlite";
-                            
-                            var cnxStrings = dbNode["ConnectionStrings"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
-                            cnxStrings["SqlServer"] = RadioSqlServer.IsChecked == true ? GetSqlConnectionString() : "";
-                            cnxStrings["Sqlite"] = "Data Source=Autoprint.db";
-                            dbNode["ConnectionStrings"] = cnxStrings;
-                            newNode["Database"] = dbNode;
-
-                            var rootCnx = newNode["ConnectionStrings"]?.AsObject() ?? new System.Text.Json.Nodes.JsonObject();
-                            rootCnx["DefaultConnection"] = RadioSqlServer.IsChecked == true ? GetSqlConnectionString() : "Data Source=Autoprint.db";
-                            newNode["ConnectionStrings"] = rootCnx;
-
                             var options = new JsonSerializerOptions { WriteIndented = true };
                             await File.WriteAllTextAsync(configPath, newNode.ToJsonString(options));
                         }
@@ -365,6 +359,46 @@ namespace Autoprint.Installer.Server.UI
                 TxtInstallLog.Text = "ERREUR CRITIQUE : " + ex.Message;
                 TxtInstallLog.Foreground = Brushes.Red;
                 PrgInstall.IsIndeterminate = false;
+
+                if (!_isUpgrade)
+                {
+                    var result = MessageBox.Show(
+                        "L'installation a échoué.\n\nVoulez-vous supprimer les fichiers et configurations créés lors de cette installation ?",
+                        "Échec de l'installation",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        TxtInstallLog.Text += "\nNettoyage en cours...";
+                        try
+                        {
+                            string msi = Path.Combine(Path.GetTempPath(), "AutoprintSetup.msi");
+                            if (File.Exists(msi))
+                            {
+                                TxtInstallLog.Text += "\nDésinstallation du package MSI...";
+                                await RunProcess("msiexec.exe", $"/x \"{msi}\" /qn");
+                            }
+
+                            TxtInstallLog.Text += "\nSuppression du site IIS...";
+                            await Task.Run(() => CleanupIIS());
+
+                            if (Directory.Exists(InstallPath))
+                            {
+                                TxtInstallLog.Text += "\nSuppression du répertoire d'installation...";
+                                await Task.Run(() =>
+                                {
+                                    try { Directory.Delete(InstallPath, true); } catch { }
+                                });
+                            }
+                            TxtInstallLog.Text += "\nNettoyage terminé.";
+                        }
+                        catch (Exception cleanEx)
+                        {
+                            TxtInstallLog.Text += $"\n[Erreur Nettoyage] {cleanEx.Message}";
+                        }
+                    }
+                }
 
                 BtnNext.Visibility = Visibility.Visible;
                 BtnNext.Content = "Fermer";
@@ -555,6 +589,22 @@ namespace Autoprint.Installer.Server.UI
             catch { }
         }
 
+        private void CleanupIIS()
+        {
+            try
+            {
+                using var mgr = new ServerManager();
+                var site = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint");
+                if (site != null) mgr.Sites.Remove(site);
+
+                var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+                if (pool != null) mgr.ApplicationPools.Remove(pool);
+
+                mgr.CommitChanges();
+            }
+            catch { }
+        }
+
         private void DetectExistingConfiguration()
         {
             string configPath = Path.Combine(InstallPath, "appsettings.json");
@@ -566,7 +616,6 @@ namespace Autoprint.Installer.Server.UI
                 {
                     string json = File.ReadAllText(configPath);
                     using var doc = JsonDocument.Parse(json);
-                    
                     if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
                     {
                         string url = urlElement.GetString() ?? "";
@@ -574,60 +623,7 @@ namespace Autoprint.Installer.Server.UI
                         if (parts.Length > 0 && int.TryParse(parts.Last(), out int port))
                         {
                             _existingPort = port;
-                            TxtWebPort.Text = port.ToString();
                         }
-                    }
-
-                    if (doc.RootElement.TryGetProperty("Database", out var databaseProp) &&
-                        databaseProp.TryGetProperty("Provider", out var providerProp))
-                    {
-                        string provider = providerProp.GetString() ?? "";
-                        if (provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-                        {
-                            RadioSqlite.IsChecked = true;
-                            RadioSqlServer.IsChecked = false;
-                        }
-                        else
-                        {
-                            RadioSqlServer.IsChecked = true;
-                            RadioSqlite.IsChecked = false;
-                        }
-                    }
-
-                    string connectionString = "";
-                    if (doc.RootElement.TryGetProperty("Database", out var dbProp) &&
-                        dbProp.TryGetProperty("ConnectionStrings", out var cnxProp) &&
-                        cnxProp.TryGetProperty("SqlServer", out var sqlCnxProp))
-                    {
-                        connectionString = sqlCnxProp.GetString() ?? "";
-                    }
-
-                    if (string.IsNullOrEmpty(connectionString) &&
-                        doc.RootElement.TryGetProperty("ConnectionStrings", out var defaultProp) &&
-                        defaultProp.TryGetProperty("DefaultConnection", out var defCnxProp))
-                    {
-                        connectionString = defCnxProp.GetString() ?? "";
-                    }
-
-                    if (!string.IsNullOrEmpty(connectionString))
-                    {
-                        try
-                        {
-                            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
-                            TxtSqlServer.Text = builder.DataSource;
-                            TxtSqlDb.Text = builder.InitialCatalog;
-                            if (builder.IntegratedSecurity)
-                            {
-                                ComboAuth.SelectedIndex = 0;
-                            }
-                            else
-                            {
-                                ComboAuth.SelectedIndex = 1;
-                                TxtSqlUser.Text = builder.UserID;
-                                TxtSqlPass.Password = builder.Password;
-                            }
-                        }
-                        catch { }
                     }
                 }
                 catch {  }
