@@ -139,8 +139,17 @@ if (args.Contains("--migrate-only"))
         try
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var currentProvider = config["Database:Provider"];
 
-            context.Database.Migrate();
+            if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Database.EnsureCreated();
+            }
+            else
+            {
+                context.Database.Migrate();
+            }
 
             Console.WriteLine("[MIGRATION_SUCCESS]");
             Environment.Exit(0);
