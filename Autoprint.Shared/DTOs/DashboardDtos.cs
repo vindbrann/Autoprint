@@ -1,4 +1,4 @@
-﻿namespace Autoprint.Shared.DTOs
+namespace Autoprint.Shared.DTOs
 {
     public class ChartDataDto
     {
@@ -16,5 +16,7 @@
         public bool IsSpoolerRunning { get; set; }
         public int SyncErrorCount { get; set; }
         public string ServerVersion { get; set; } = "1.0.0";
+        public int OfflinePrintersCount { get; set; }
+        public int AlertPrintersCount { get; set; }
     }
 }

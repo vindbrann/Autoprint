@@ -30,5 +30,10 @@ namespace Autoprint.Shared
         [MaxLength(100)]
         public string SnmpCommunity { get; set; } = "public";
         public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c
+
+        [MaxLength(20)]
+        public string MonitoringStatus { get; set; } = "Inconnu";
+        public DateTime? LastSeen { get; set; }
+        public bool IsArchived { get; set; } = false;
     }
 }

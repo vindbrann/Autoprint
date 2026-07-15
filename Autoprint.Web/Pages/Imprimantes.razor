@@ -171,9 +171,16 @@ else
             <RadzenDataGridColumn TItem="Imprimante" Property="NomAffiche" Title="Nom" Sortable="true" Filterable="true"
                                   Width="250px" MinWidth="100px">
                 <Template Context="imp">
-                    <div style="white-space: normal; word-wrap: break-word; font-weight: bold; font-size: 1.05em;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; white-space: normal; word-wrap: break-word; font-weight: bold; font-size: 1.05em;">
+                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: @ObtenirCouleurSupervision(imp.MonitoringStatus);" title="@("Supervision: " + imp.MonitoringStatus)" />
                         @imp.NomAffiche
                     </div>
+                    @if (imp.LastSeen.HasValue)
+                    {
+                        <div style="color: var(--rz-text-tertiary-color); font-size: 0.75rem; margin-top: 2px;">
+                            Vu : @imp.LastSeen.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                    }
                     @if (imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
                     {
                         <div style="color: var(--rz-danger); font-size: 0.8rem; font-style: italic; white-space: normal;">
@@ -518,5 +525,17 @@ else
         if (imp.EmplacementId == 0) manquants.Add("Emplacement");
         if (string.IsNullOrWhiteSpace(imp.AdresseIp)) manquants.Add("Adresse IP");
         return manquants.Any() ? "Action requise : Sélectionnez " + string.Join(", ", manquants) : "Données incomplètes";
+    }
+
+    private string ObtenirCouleurSupervision(string status)
+    {
+        return status switch
+        {
+            "Ok" => "#28a745",
+            "Warning" => "#ffc107",
+            "Critical" => "#dc3545",
+            "Offline" => "#bd2130",
+            _ => "#6c757d"
+        };
     }
 }
