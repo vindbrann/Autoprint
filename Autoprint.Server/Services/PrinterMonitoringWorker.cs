@@ -96,6 +96,8 @@ namespace Autoprint.Server.Services
             var snmpService = scope.ServiceProvider.GetRequiredService<ISnmpService>();
 
             var activePrinters = await context.Imprimantes
+                .Include(i => i.Modele)
+                .ThenInclude(m => m.SnmpProfile)
                 .Where(i => !i.IsArchived)
                 .ToListAsync(stoppingToken);
 
@@ -111,7 +113,8 @@ namespace Autoprint.Server.Services
                         printer.AdresseIp,
                         printer.SnmpPort,
                         printer.SnmpCommunity ?? "public",
-                        printer.SnmpVersion
+                        printer.SnmpVersion,
+                        printer.Modele?.SnmpProfile
                     );
 
                     if (!diagnostic.PingSuccess)

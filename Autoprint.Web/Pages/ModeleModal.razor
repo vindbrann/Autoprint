@@ -1,4 +1,4 @@
-﻿@using Autoprint.Shared
+@using Autoprint.Shared
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
@@ -66,6 +66,18 @@
             }
         </div>
 
+        <div>
+            <RadzenLabel Text="Profil SNMP (Optionnel)" Component="SnmpProfile" />
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
+                Permet d'utiliser des OIDs personnalisés pour les consommables et compteurs.
+            </RadzenText>
+            <RadzenDropDown Name="SnmpProfile" @bind-Value="@modeleEdit.SnmpProfileId"
+                            Data="@listeProfiles" TextProperty="Name" ValueProperty="Id"
+                            AllowClear="true" Placeholder="Sélectionner un profil SNMP..."
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                            Style="width: 100%;" />
+        </div>
+
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
 
             @if (modeleEdit.Id != 0)
@@ -96,6 +108,7 @@
     private Modele modeleEdit = new();
     private List<Marque> listeMarques = new();
     private List<Pilote> listePilotesFiltrée = new(); // Liste filtrée pour l'affichage
+    private List<SnmpProfile> listeProfiles = new();
 
     private bool canReadMarques = false;
     private bool canReadPilotes = false;
@@ -107,7 +120,8 @@
             Id = ModeleToEdit.Id,
             Nom = ModeleToEdit.Nom,
             MarqueId = ModeleToEdit.MarqueId,
-            PiloteId = ModeleToEdit.PiloteId
+            PiloteId = ModeleToEdit.PiloteId,
+            SnmpProfileId = ModeleToEdit.SnmpProfileId
         };
 
         canReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
@@ -116,8 +130,18 @@
         var tasks = new List<Task>();
         if (canReadMarques) tasks.Add(LoadMarques());
         if (canReadPilotes) tasks.Add(LoadPilotes());
+        tasks.Add(LoadSnmpProfiles());
 
         if (tasks.Any()) await Task.WhenAll(tasks);
+    }
+
+    private async Task LoadSnmpProfiles()
+    {
+        try
+        {
+            listeProfiles = await Http.GetFromJsonAsync<List<SnmpProfile>>("api/SnmpProfiles") ?? new();
+        }
+        catch { }
     }
 
     private async Task LoadMarques()

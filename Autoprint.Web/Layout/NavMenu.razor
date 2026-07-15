@@ -1,4 +1,4 @@
-﻿@using Autoprint.Web.Services
+@using Autoprint.Web.Services
 @using Blazored.LocalStorage
 @implements IDisposable
 @inject IAuthService AuthService
@@ -81,6 +81,7 @@
                     <RadzenPanelMenu>
                         <AuthorizeView Policy="SETTINGS_MANAGE">
                             <RadzenPanelMenuItem Text="Paramètres" Path="parametres" Icon="settings" />
+                            <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="settings_ethernet" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="USER_READ">

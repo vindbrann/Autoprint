@@ -307,14 +307,18 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<Autoprint.Shared.DTOs.PrinterDiagnosticResult>> GetImprimanteDiagnostic(int id)
         {
-            var printer = await _context.Imprimantes.FindAsync(id);
+            var printer = await _context.Imprimantes
+                .Include(i => i.Modele)
+                .ThenInclude(m => m.SnmpProfile)
+                .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();
 
             var result = await _snmpService.GetPrinterDiagnosticAsync(
                 printer.AdresseIp, 
                 printer.SnmpPort, 
                 printer.SnmpCommunity ?? "public", 
-                printer.SnmpVersion);
+                printer.SnmpVersion,
+                printer.Modele?.SnmpProfile);
 
             var history = await _context.TonerHistories
                 .Where(h => h.ImprimanteId == id)
