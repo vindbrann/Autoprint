@@ -46,6 +46,7 @@ builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();
 builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 
 builder.Services.AddHostedService<LogCleanupWorker>();
+builder.Services.AddHostedService<Autoprint.Server.Services.PrinterMonitoringWorker>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
 if (jwtKey == "CeciEstUneCleSecreteTresLonguePourLaSecuriteDeAutoprint_ChangeMoi_En_Prod!" && !builder.Environment.IsDevelopment())

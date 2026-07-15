@@ -664,8 +664,14 @@ namespace Autoprint.Server.Migrations
                     b.Property<bool>("EstSupprime")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDirectPrintingEnabled")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastSeen")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Localisation")
                         .HasMaxLength(100)
@@ -677,6 +683,11 @@ namespace Autoprint.Server.Migrations
                     b.Property<string>("ModifiePar")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MonitoringStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("NomAffiche")
                         .IsRequired()
@@ -740,7 +751,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 37, 55, 534, DateTimeKind.Utc).AddTicks(4925),
+                            DateModification = new DateTime(2026, 7, 15, 14, 43, 26, 927, DateTimeKind.Utc).AddTicks(7937),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -791,7 +802,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 14, 37, 55, 534, DateTimeKind.Utc).AddTicks(6713),
+                            DateModification = new DateTime(2026, 7, 15, 14, 43, 26, 927, DateTimeKind.Utc).AddTicks(9135),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

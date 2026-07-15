@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
 using System.ServiceProcess;
 using Autoprint.Server.Data;
@@ -27,11 +27,12 @@ namespace Autoprint.Server.Controllers
         {
             var stats = new DashboardStatsDto();
 
-            stats.TotalImprimantes = await _context.Imprimantes.CountAsync();
+            stats.TotalImprimantes = await _context.Imprimantes.CountAsync(i => !i.IsArchived);
             stats.TotalPilotes = await _context.Pilotes.CountAsync();
             stats.TotalLieux = await _context.Emplacements.CountAsync();
 
             var rawData = await _context.Imprimantes
+                .Where(i => !i.IsArchived)
                 .Include(i => i.Modele)
                 .GroupBy(i => i.Modele != null ? i.Modele.Nom : "Inconnu")
                 .Select(g => new { Modele = g.Key, Count = g.Count() })
@@ -53,7 +54,13 @@ namespace Autoprint.Server.Controllers
 
 
             stats.SyncErrorCount = await _context.Imprimantes
-                .CountAsync(i => i.Status == PrinterStatus.SyncError);
+                .CountAsync(i => !i.IsArchived && i.Status == PrinterStatus.SyncError);
+
+            stats.OfflinePrintersCount = await _context.Imprimantes
+                .CountAsync(i => !i.IsArchived && i.MonitoringStatus == "Offline");
+
+            stats.AlertPrintersCount = await _context.Imprimantes
+                .CountAsync(i => !i.IsArchived && (i.MonitoringStatus == "Warning" || i.MonitoringStatus == "Critical"));
 
             try
             {

@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using Autoprint.Shared.DTOs
 @using Autoprint.Shared
 @using Autoprint.Web.Services
@@ -75,6 +75,35 @@ else if (stats != null)
                         </RadzenText>
                     </RadzenStack>
                     <RadzenIcon Icon="place" Style="font-size: 2.5rem; opacity: 0.2; color: var(--rz-text-color);" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow Class="rz-mb-4" Gap="1.5rem">
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-danger); background-color: var(--rz-base-50); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                    <RadzenStack Gap="0">
+                        <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-danger" Style="font-weight: bold;">IMPRIMANTES HORS LIGNE</RadzenText>
+                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+                            <b>@stats.OfflinePrintersCount</b>
+                        </RadzenText>
+                    </RadzenStack>
+                    <RadzenIcon Icon="wifi_off" Style="font-size: 2.5rem; color: var(--rz-danger); opacity: 0.6;" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-warning); background-color: var(--rz-base-50); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                    <RadzenStack Gap="0">
+                        <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-warning" Style="font-weight: bold;">ALERTES ACTIVES / TONER BAS</RadzenText>
+                        <RadzenText TextStyle="TextStyle.DisplayH4" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
+                            <b>@stats.AlertPrintersCount</b>
+                        </RadzenText>
+                    </RadzenStack>
+                    <RadzenIcon Icon="warning" Style="font-size: 2.5rem; color: var(--rz-warning); opacity: 0.6;" />
                 </RadzenStack>
             </RadzenCard>
         </RadzenColumn>
