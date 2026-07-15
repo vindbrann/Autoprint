@@ -609,7 +609,15 @@ namespace Autoprint.Installer.Server.UI
         {
             string configPath = Path.Combine(InstallPath, "appsettings.json");
 
-            if (File.Exists(configPath))
+            bool iisSiteExists = false;
+            try
+            {
+                using var mgr = new ServerManager();
+                iisSiteExists = mgr.Sites.Any(s => s.Name == "Autoprint");
+            }
+            catch { }
+
+            if (File.Exists(configPath) && iisSiteExists)
             {
                 _isUpgrade = true;
                 try
