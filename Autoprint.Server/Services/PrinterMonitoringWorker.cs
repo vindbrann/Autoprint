@@ -233,7 +233,7 @@ namespace Autoprint.Server.Services
 
                 var now = DateTime.UtcNow;
                 var dueSchedules = await context.ReportSchedules
-                    .Where(s => !s.EstSupprime && (s.NextRunAt == null || s.NextRunAt <= now))
+                    .Where(s => !s.EstSupprime && s.IsActive && (s.NextRunAt == null || s.NextRunAt <= now))
                     .ToListAsync(stoppingToken);
 
                 if (!dueSchedules.Any()) return;
