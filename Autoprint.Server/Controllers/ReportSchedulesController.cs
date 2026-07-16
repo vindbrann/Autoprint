@@ -53,7 +53,7 @@ namespace Autoprint.Server.Controllers
         [HttpPost]
         public async Task<ActionResult<ReportSchedule>> PostReportSchedule(ReportSchedule schedule)
         {
-            schedule.NextRunAt = CalculateNextRun(schedule.Frequency, DateTime.UtcNow);
+            schedule.NextRunAt = CalculateNextRun(schedule, DateTime.UtcNow);
 
             _context.ReportSchedules.Add(schedule);
             await _context.SaveChangesAsync();
@@ -75,11 +75,6 @@ namespace Autoprint.Server.Controllers
             var existing = await _context.ReportSchedules.FindAsync(id);
             if (existing == null || existing.EstSupprime) return NotFound();
 
-            if (existing.Frequency != schedule.Frequency)
-            {
-                existing.NextRunAt = CalculateNextRun(schedule.Frequency, DateTime.UtcNow);
-            }
-
             existing.ReportName = schedule.ReportName;
             existing.SelectedMetricsJson = schedule.SelectedMetricsJson;
             existing.ScopeFilterJson = schedule.ScopeFilterJson;
@@ -88,6 +83,14 @@ namespace Autoprint.Server.Controllers
             existing.Format = schedule.Format;
             existing.IsActive = schedule.IsActive;
             existing.PredictionThresholdDays = schedule.PredictionThresholdDays;
+            
+            existing.RunHour = schedule.RunHour;
+            existing.RunMinute = schedule.RunMinute;
+            existing.RunDayOfWeek = schedule.RunDayOfWeek;
+            existing.RunDayOfMonth = schedule.RunDayOfMonth;
+
+            // Recalculer la prochaine exécution
+            existing.NextRunAt = CalculateNextRun(existing, DateTime.UtcNow);
             existing.DateModification = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -176,26 +179,61 @@ namespace Autoprint.Server.Controllers
             }
         }
 
-        private DateTime CalculateNextRun(string frequency, DateTime baseTime)
+        private DateTime CalculateNextRun(ReportSchedule schedule, DateTime baseTime)
         {
             var localToday = DateTime.Today;
-            var targetHour = 6;
+            var targetHour = schedule.RunHour;
+            var targetMinute = schedule.RunMinute;
 
-            if (frequency.Equals("Quotidien", StringComparison.OrdinalIgnoreCase))
+            if (targetHour < 0 || targetHour > 23) targetHour = 6;
+            if (targetMinute < 0 || targetMinute > 59) targetMinute = 0;
+
+            var localNow = baseTime.ToLocalTime();
+
+            if (schedule.Frequency.Equals("Quotidien", StringComparison.OrdinalIgnoreCase))
             {
-                return localToday.AddDays(1).AddHours(targetHour).ToUniversalTime();
+                var nextRun = localToday.AddHours(targetHour).AddMinutes(targetMinute);
+                if (nextRun <= localNow)
+                {
+                    nextRun = nextRun.AddDays(1);
+                }
+                return nextRun.ToUniversalTime();
             }
-            else if (frequency.Equals("Hebdomadaire", StringComparison.OrdinalIgnoreCase))
+            else if (schedule.Frequency.Equals("Hebdomadaire", StringComparison.OrdinalIgnoreCase))
             {
-                int daysToAdd = ((int)DayOfWeek.Monday - (int)localToday.DayOfWeek + 7) % 7;
-                if (daysToAdd == 0) daysToAdd = 7;
-                return localToday.AddDays(daysToAdd).AddHours(targetHour).ToUniversalTime();
+                var targetDayOfWeek = schedule.RunDayOfWeek.HasValue ? (DayOfWeek)schedule.RunDayOfWeek.Value : DayOfWeek.Monday;
+                
+                var nextRun = localToday.AddHours(targetHour).AddMinutes(targetMinute);
+                int daysToAdd = ((int)targetDayOfWeek - (int)localToday.DayOfWeek + 7) % 7;
+                nextRun = nextRun.AddDays(daysToAdd);
+                
+                if (nextRun <= localNow)
+                {
+                    nextRun = nextRun.AddDays(7);
+                }
+                return nextRun.ToUniversalTime();
             }
-            else if (frequency.Equals("Mensuel", StringComparison.OrdinalIgnoreCase))
+            else if (schedule.Frequency.Equals("Mensuel", StringComparison.OrdinalIgnoreCase))
             {
-                var nextMonth = localToday.AddMonths(1);
-                var firstDay = new DateTime(nextMonth.Year, nextMonth.Month, 1, targetHour, 0, 0);
-                return firstDay.ToUniversalTime();
+                var targetDayOfMonth = schedule.RunDayOfMonth.HasValue ? schedule.RunDayOfMonth.Value : 1;
+                if (targetDayOfMonth < 1 || targetDayOfMonth > 31) targetDayOfMonth = 1;
+
+                var currentYear = localToday.Year;
+                var currentMonth = localToday.Month;
+                
+                int daysInMonth = DateTime.DaysInMonth(currentYear, currentMonth);
+                int actualDay = Math.Min(targetDayOfMonth, daysInMonth);
+
+                var nextRun = new DateTime(currentYear, currentMonth, actualDay, targetHour, targetMinute, 0);
+
+                if (nextRun <= localNow)
+                {
+                    var nextMonthDate = localToday.AddMonths(1);
+                    int daysInNextMonth = DateTime.DaysInMonth(nextMonthDate.Year, nextMonthDate.Month);
+                    actualDay = Math.Min(targetDayOfMonth, daysInNextMonth);
+                    nextRun = new DateTime(nextMonthDate.Year, nextMonthDate.Month, actualDay, targetHour, targetMinute, 0);
+                }
+                return nextRun.ToUniversalTime();
             }
 
             return baseTime.AddDays(1);

@@ -998,6 +998,21 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("PredictionThresholdDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RunHour")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RunMinute")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RunDayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RunDayOfMonth")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.ToTable("ReportSchedules");

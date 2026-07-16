@@ -77,9 +77,9 @@
                         <RadzenLabel Text="Fréquence d'envoi" Component="Frequency" Style="font-weight: 500; font-size: 0.9rem;" />
                         <RadzenDropDown Name="Frequency" @bind-Value="@schedule.Frequency" Data="@frequencies" Style="width: 100%; border-radius: 6px;" />
                         <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem; font-style: italic;">
-                            @if (schedule.Frequency == "Quotidien") { <span>Généré chaque jour à minuit.</span> }
-                            else if (schedule.Frequency == "Hebdomadaire") { <span>Généré chaque lundi à minuit.</span> }
-                            else if (schedule.Frequency == "Mensuel") { <span>Généré le 1er de chaque mois à minuit.</span> }
+                            @if (schedule.Frequency == "Quotidien") { <span>Généré chaque jour à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
+                            else if (schedule.Frequency == "Hebdomadaire") { <span>Généré chaque @ObtenirNomJour(schedule.RunDayOfWeek) à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
+                            else if (schedule.Frequency == "Mensuel") { <span>Généré le @(schedule.RunDayOfMonth ?? 1) de chaque mois à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
                         </span>
                     </RadzenColumn>
                     
@@ -96,6 +96,40 @@
                         <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">
                             Séparez les adresses par un point-virgule (<code>;</code>).
                         </span>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <!-- PLANIFICATION DÉTAILLÉE -->
+                <RadzenRow Gap="1.25rem" Class="rz-mt-4" Style="border-top: 1px dashed var(--rz-border-color); padding-top: 1.25rem;">
+                    @if (schedule.Frequency == "Hebdomadaire")
+                    {
+                        <RadzenColumn Size="12" SizeMD="4" Style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <RadzenLabel Text="Jour d'envoi" Component="RunDayOfWeek" Style="font-weight: 500; font-size: 0.9rem;" />
+                            <RadzenDropDown Name="RunDayOfWeek" @bind-Value="@schedule.RunDayOfWeek" 
+                                            Data="@joursSemaine" TextProperty="Label" ValueProperty="Value" 
+                                            Style="width: 100%; border-radius: 6px;" />
+                        </RadzenColumn>
+                    }
+                    else if (schedule.Frequency == "Mensuel")
+                    {
+                        <RadzenColumn Size="12" SizeMD="4" Style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <RadzenLabel Text="Jour du mois" Component="RunDayOfMonth" Style="font-weight: 500; font-size: 0.9rem;" />
+                            <RadzenDropDown Name="RunDayOfMonth" @bind-Value="@schedule.RunDayOfMonth" 
+                                            Data="@joursMois" 
+                                            Style="width: 100%; border-radius: 6px;" />
+                        </RadzenColumn>
+                    }
+                    
+                    <RadzenColumn Size="12" SizeMD="@(schedule.Frequency == "Quotidien" ? 6 : 4)" Style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <RadzenLabel Text="Heure d'exécution" Component="RunHour" Style="font-weight: 500; font-size: 0.9rem;" />
+                        <RadzenDropDown Name="RunHour" @bind-Value="@schedule.RunHour" Data="@heures" 
+                                        Format="00" Style="width: 100%; border-radius: 6px;" />
+                    </RadzenColumn>
+                    
+                    <RadzenColumn Size="12" SizeMD="@(schedule.Frequency == "Quotidien" ? 6 : 4)" Style="display: flex; flex-direction: column; gap: 0.25rem;">
+                        <RadzenLabel Text="Minute" Component="RunMinute" Style="font-weight: 500; font-size: 0.9rem;" />
+                        <RadzenDropDown Name="RunMinute" @bind-Value="@schedule.RunMinute" Data="@minutes" 
+                                        Format="00" Style="width: 100%; border-radius: 6px;" />
                     </RadzenColumn>
                 </RadzenRow>
             </RadzenCard>
@@ -355,6 +389,35 @@
     private List<string> formats = new() { "PDF", "CSV" };
     private List<string> frequencies = new() { "Quotidien", "Hebdomadaire", "Mensuel" };
 
+    private List<int> heures = Enumerable.Range(0, 24).ToList();
+    private List<int> minutes = Enumerable.Range(0, 60).ToList();
+    
+    private class JourSemaineOption { public int Value { get; set; } public string Label { get; set; } = ""; }
+    private List<JourSemaineOption> joursSemaine = new()
+    {
+        new JourSemaineOption { Value = 1, Label = "Lundi" },
+        new JourSemaineOption { Value = 2, Label = "Mardi" },
+        new JourSemaineOption { Value = 3, Label = "Mercredi" },
+        new JourSemaineOption { Value = 4, Label = "Jeudi" },
+        new JourSemaineOption { Value = 5, Label = "Vendredi" },
+        new JourSemaineOption { Value = 6, Label = "Samedi" },
+        new JourSemaineOption { Value = 0, Label = "Dimanche" }
+    };
+    
+    private List<int> joursMois = Enumerable.Range(1, 31).ToList();
+
+    private string FormatHeure(int hour, int minute)
+    {
+        return $"{hour:D2}h{minute:D2}";
+    }
+
+    private string ObtenirNomJour(int? runDayOfWeek)
+    {
+        if (!runDayOfWeek.HasValue) return "lundi";
+        var jour = joursSemaine.FirstOrDefault(j => j.Value == runDayOfWeek.Value);
+        return jour != null ? jour.Label.ToLower() : "lundi";
+    }
+
     private bool includePages = true;
     private bool includeToner = true;
     private bool includeAvailability = true;
@@ -406,7 +469,11 @@
                 LastRunAt = ScheduleToEdit.LastRunAt,
                 NextRunAt = ScheduleToEdit.NextRunAt,
                 IsActive = ScheduleToEdit.IsActive,
-                PredictionThresholdDays = ScheduleToEdit.PredictionThresholdDays
+                PredictionThresholdDays = ScheduleToEdit.PredictionThresholdDays,
+                RunHour = ScheduleToEdit.RunHour,
+                RunMinute = ScheduleToEdit.RunMinute,
+                RunDayOfWeek = ScheduleToEdit.RunDayOfWeek,
+                RunDayOfMonth = ScheduleToEdit.RunDayOfMonth
             };
 
             try
@@ -473,7 +540,11 @@
                 Format = "PDF",
                 Frequency = "Hebdomadaire",
                 IsActive = true,
-                PredictionThresholdDays = 14
+                PredictionThresholdDays = 14,
+                RunHour = 8,
+                RunMinute = 0,
+                RunDayOfWeek = 1, // Lundi
+                RunDayOfMonth = 1
             };
         }
 

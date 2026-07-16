@@ -36,7 +36,26 @@ else
     <RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
         <Columns>
             <RadzenDataGridColumn TItem="ReportSchedule" Property="ReportName" Title="Nom du Rapport" />
-            <RadzenDataGridColumn TItem="ReportSchedule" Property="Frequency" Title="Fréquence" Width="130px" />
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px">
+                <Template Context="s">
+                    @if (s.Frequency == "Quotidien")
+                    {
+                        <span>Chaque jour à @(s.RunHour.ToString("D2"))h@(s.RunMinute.ToString("D2"))</span>
+                    }
+                    else if (s.Frequency == "Hebdomadaire")
+                    {
+                        <span>Chaque @(ObtenirNomJour(s.RunDayOfWeek)) à @(s.RunHour.ToString("D2"))h@(s.RunMinute.ToString("D2"))</span>
+                    }
+                    else if (s.Frequency == "Mensuel")
+                    {
+                        <span>Le @(s.RunDayOfMonth ?? 1) du mois à @(s.RunHour.ToString("D2"))h@(s.RunMinute.ToString("D2"))</span>
+                    }
+                    else
+                    {
+                        <span>@s.Frequency</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
             <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center">
                 <Template Context="s">
                     <RadzenBadge BadgeStyle="@(s.Format == "PDF" ? BadgeStyle.Danger : BadgeStyle.Success)" Text="@s.Format" />
@@ -178,6 +197,21 @@ else
             {
                 NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
             }
+        }
+    }
+
+    private string ObtenirNomJour(int? runDayOfWeek)
+    {
+        switch (runDayOfWeek)
+        {
+            case 0: return "dimanche";
+            case 1: return "lundi";
+            case 2: return "mardi";
+            case 3: return "mercredi";
+            case 4: return "jeudi";
+            case 5: return "vendredi";
+            case 6: return "samedi";
+            default: return "lundi";
         }
     }
 }
