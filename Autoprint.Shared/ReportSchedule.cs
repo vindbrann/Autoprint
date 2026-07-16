@@ -29,5 +29,6 @@ namespace Autoprint.Shared
 
         public DateTime? LastRunAt { get; set; }
         public DateTime? NextRunAt { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }
