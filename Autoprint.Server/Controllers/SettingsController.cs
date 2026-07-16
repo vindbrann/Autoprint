@@ -84,6 +84,10 @@ namespace Autoprint.Server.Controllers
             Check("Monitoring_StartHour", dto.Monitoring_StartHour.ToString(), "Heure de début du scan", "Supervision");
             Check("Monitoring_EndHour", dto.Monitoring_EndHour.ToString(), "Heure de fin du scan", "Supervision");
             Check("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString(), "Scan le week-end", "Supervision");
+            Check("Monitoring_IncludeOffline", dto.Monitoring_IncludeOffline.ToString(), "Inclure Offline dans export API", "Monitoring");
+            Check("Monitoring_IncludeWarning", dto.Monitoring_IncludeWarning.ToString(), "Inclure Warning dans export API", "Monitoring");
+            Check("Monitoring_IncludeCritical", dto.Monitoring_IncludeCritical.ToString(), "Inclure Critical dans export API", "Monitoring");
+            Check("Monitoring_IncludeArchived", dto.Monitoring_IncludeArchived.ToString(), "Inclure Archivées dans export API", "Monitoring");
 
             if (dto.LogRetentionDays > 0) await UpdateSetting("LogRetentionDays", dto.LogRetentionDays.ToString());
 
@@ -112,6 +116,10 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("Monitoring_StartHour", dto.Monitoring_StartHour.ToString());
             await UpdateSetting("Monitoring_EndHour", dto.Monitoring_EndHour.ToString());
             await UpdateSetting("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString());
+            await UpdateSetting("Monitoring_IncludeOffline", dto.Monitoring_IncludeOffline.ToString());
+            await UpdateSetting("Monitoring_IncludeWarning", dto.Monitoring_IncludeWarning.ToString());
+            await UpdateSetting("Monitoring_IncludeCritical", dto.Monitoring_IncludeCritical.ToString());
+            await UpdateSetting("Monitoring_IncludeArchived", dto.Monitoring_IncludeArchived.ToString());
 
 
             if (modifiedCategories.Any())
@@ -260,6 +268,10 @@ namespace Autoprint.Server.Controllers
         public int Monitoring_StartHour { get; set; } = 8;
         public int Monitoring_EndHour { get; set; } = 18;
         public bool Monitoring_ScanOnWeekends { get; set; } = true;
+        public bool Monitoring_IncludeOffline { get; set; } = true;
+        public bool Monitoring_IncludeWarning { get; set; } = true;
+        public bool Monitoring_IncludeCritical { get; set; } = true;
+        public bool Monitoring_IncludeArchived { get; set; } = false;
     }
 
     public class TestEmailDto { public string Host { get; set; } = ""; public int Port { get; set; } public string User { get; set; } = ""; public string Password { get; set; } = ""; public bool Ssl { get; set; } public string From { get; set; } = ""; public string To { get; set; } = ""; }
