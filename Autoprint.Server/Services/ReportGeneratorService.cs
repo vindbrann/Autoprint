@@ -23,11 +23,13 @@ namespace Autoprint.Server.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ISnmpService _snmpService;
+        private readonly IPredictiveService _predictiveService;
 
-        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService)
+        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService, IPredictiveService predictiveService)
         {
             _context = context;
             _snmpService = snmpService;
+            _predictiveService = predictiveService;
         }
 
         private async Task<List<PrinterReportItem>> FetchReportDataAsync(ReportSchedule schedule)
@@ -136,10 +138,17 @@ namespace Autoprint.Server.Services
             catch { }
 
             var printers = await query.ToListAsync();
+            var printerIds = printers.Select(p => p.Id).ToList();
+
+            // Load toner history for all target printers in a single batch query
+            var histories = await _context.TonerHistories
+                .Where(h => printerIds.Contains(h.ImprimanteId))
+                .ToListAsync();
 
             // Run SNMP diagnostic query in parallel for all selected printers
             var tasks = printers.Select(async printer =>
             {
+                var printerHistory = histories.Where(h => h.ImprimanteId == printer.Id).ToList();
                 try
                 {
                     var diagnostic = await _snmpService.GetPrinterDiagnosticAsync(
@@ -149,6 +158,16 @@ namespace Autoprint.Server.Services
                         printer.SnmpVersion,
                         printer.Modele?.SnmpProfile
                     );
+
+                    var toners = diagnostic.Toners ?? new List<Autoprint.Shared.DTOs.TonerLevelResult>();
+                    foreach (var toner in toners)
+                    {
+                        var tonerHistory = printerHistory
+                            .Where(h => h.Color.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
+                    }
+
                     return new PrinterReportItem
                     {
                         Printer = printer,
@@ -156,7 +175,7 @@ namespace Autoprint.Server.Services
                         PageCounter = diagnostic.PageCounter,
                         Status = diagnostic.Status,
                         Alerts = diagnostic.Alerts,
-                        Toners = diagnostic.Toners ?? new List<Autoprint.Shared.DTOs.TonerLevelResult>()
+                        Toners = toners
                     };
                 }
                 catch
@@ -191,6 +210,7 @@ namespace Autoprint.Server.Services
             if (metrics.Contains("Toner")) headers.Add("Niveaux de Toners");
             if (metrics.Contains("Availability")) headers.Add("Disponibilité");
             if (metrics.Contains("Alerts")) headers.Add("Pannes / Alertes");
+            if (metrics.Contains("Predictions")) headers.Add("Prévision d'épuisement");
 
             sb.AppendLine(string.Join(";", headers.Select(EscapeCsv)));
 
@@ -227,6 +247,24 @@ namespace Autoprint.Server.Services
                 if (metrics.Contains("Alerts"))
                 {
                     row.Add(item.Alerts.Any() ? string.Join(" , ", item.Alerts) : "Aucune panne");
+                }
+                if (metrics.Contains("Predictions"))
+                {
+                    if (item.PingSuccess && item.Toners.Any())
+                    {
+                        var predictionParts = item.Toners.Select(t =>
+                        {
+                            var days = t.EstimatedDaysRemaining;
+                            if (days == null) return $"{t.Color}: Inconnu";
+                            if (days == -99) return $"{t.Color}: Stable / Faible usage";
+                            return $"{t.Color}: {days} jours";
+                        });
+                        row.Add(string.Join(" | ", predictionParts));
+                    }
+                    else
+                    {
+                        row.Add(item.PingSuccess ? "Aucune donnée de prévision" : "Hors ligne");
+                    }
                 }
 
                 sb.AppendLine(string.Join(";", row.Select(EscapeCsv)));
@@ -269,8 +307,19 @@ namespace Autoprint.Server.Services
                 int onlineCount = data.Count(d => d.PingSuccess);
                 int offlineCount = totalCount - onlineCount;
                 int alertCount = data.Count(d => d.Alerts.Any());
+                int predictionThreshold = schedule.PredictionThresholdDays;
+                int nearExhaustionCount = 0;
+                if (metrics.Contains("Predictions"))
+                {
+                    nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
+                }
 
-                gfx.DrawString($"Total Imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}", fontBold, XBrushes.DarkSlateGray, 20, 155);
+                string summaryText = $"Total Imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}";
+                if (metrics.Contains("Predictions"))
+                {
+                    summaryText += $"  |  Épuisement proche (<={predictionThreshold}j) : {nearExhaustionCount}";
+                }
+                gfx.DrawString(summaryText, fontBold, XBrushes.DarkSlateGray, 20, 155);
 
                 // 3. Draw Table Headers
                 int y = 180;
@@ -291,12 +340,12 @@ namespace Autoprint.Server.Services
                 gfx.DrawString("Statut", fontBold, XBrushes.Black, colStatus, y);
 
                 // Metric Headers
-                string mHeader1 = metrics.Contains("Pages") ? "Compteur" : (metrics.Contains("Toner") ? "Toners" : "");
+                string mHeader1 = "";
                 string mHeader2 = "";
-                if (string.IsNullOrEmpty(mHeader1))
-                 mHeader1 = metrics.Contains("Availability") ? "Disponibilité" : (metrics.Contains("Alerts") ? "Pannes" : "");
-                else
-                 mHeader2 = metrics.Contains("Toner") && !mHeader1.Equals("Toners") ? "Toners" : (metrics.Contains("Alerts") ? "Pannes" : (metrics.Contains("Availability") ? "Dispo" : ""));
+
+                var activeMetrics = metrics.Where(m => m == "Pages" || m == "Toner" || m == "Availability" || m == "Alerts" || m == "Predictions").ToList();
+                if (activeMetrics.Count > 0) mHeader1 = MapMetricHeader(activeMetrics[0]);
+                if (activeMetrics.Count > 1) mHeader2 = MapMetricHeader(activeMetrics[1]);
 
                 if (!string.IsNullOrEmpty(mHeader1)) gfx.DrawString(mHeader1, fontBold, XBrushes.Black, colMetric1, y);
                 if (!string.IsNullOrEmpty(mHeader2)) gfx.DrawString(mHeader2, fontBold, XBrushes.Black, colMetric2, y);
@@ -365,6 +414,23 @@ namespace Autoprint.Server.Services
                         string val = item.Alerts.Any() ? $"{item.Alerts.Count} alerte(s)" : "Aucune";
                         DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
                     }
+                    if (metrics.Contains("Predictions"))
+                    {
+                        string val = "-";
+                        if (item.PingSuccess && item.Toners.Any())
+                        {
+                            var list = item.Toners
+                                .Where(t => t.EstimatedDaysRemaining.HasValue)
+                                .Select(t =>
+                                {
+                                    var days = t.EstimatedDaysRemaining!.Value;
+                                    if (days == -99) return $"{t.Color.Substring(0,1)}:Stab";
+                                    return $"{t.Color.Substring(0,1)}:{days}j";
+                                });
+                            if (list.Any()) val = string.Join(" ", list);
+                        }
+                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
+                    }
                 }
 
                 using (var ms = new MemoryStream())
@@ -373,6 +439,19 @@ namespace Autoprint.Server.Services
                     return ms.ToArray();
                 }
             }
+        }
+
+        private string MapMetricHeader(string metric)
+        {
+            return metric switch
+            {
+                "Pages" => "Compteur",
+                "Toner" => "Toners",
+                "Availability" => "Dispo",
+                "Alerts" => "Pannes",
+                "Predictions" => "Prévision",
+                _ => ""
+            };
         }
 
         private void DrawMetricValue(XGraphics gfx, string val, XFont font, ref int printedMetrics, int col1, int col2, int y)

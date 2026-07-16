@@ -166,7 +166,37 @@
                         </div>
                         <RadzenSwitch @bind-Value="@includeAlerts" Name="Alerts" />
                     </div>
+
+                    <!-- Prévisions d'épuisement -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
+                            <span style="font-size: 1.5rem; line-height: 1;">⏳</span>
+                            <div>
+                                <RadzenLabel Text="Prévision d'épuisement (Toner)" Component="Predictions" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Estimation de panne d'encre basée sur l'historique d'usage.</span>
+                            </div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@includePredictions" Name="Predictions" />
+                    </div>
                 </div>
+
+                @if (includePredictions)
+                {
+                    <RadzenCard Variant="Variant.Flat" Style="border: 1px dashed var(--rz-primary); margin-top: 1rem; border-radius: 8px; background: rgba(67, 95, 222, 0.03);">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="1.5rem">
+                            <RadzenStack Gap="0" Style="flex: 1;">
+                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="font-weight: bold; color: var(--rz-primary);">Plage d'alerte anticipée</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-secondary-color); margin: 0;">
+                                    Recevez un avertissement si l'épuisement estimé est inférieur ou égal au seuil choisi.
+                                </RadzenText>
+                            </RadzenStack>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenDropDown TValue="int" @bind-Value="@schedule.PredictionThresholdDays" Data="@thresholdOptions"
+                                                TextProperty="Label" ValueProperty="Value" Style="width: 140px; border-radius: 6px;" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
+                }
             </RadzenCard>
         }
         else if (currentStep == 3)
@@ -345,6 +375,18 @@
     private bool includeToner = true;
     private bool includeAvailability = true;
     private bool includeAlerts = true;
+    private bool includePredictions = false;
+
+    private class ThresholdOption { public int Value { get; set; } public string Label { get; set; } = ""; }
+    private List<ThresholdOption> thresholdOptions = new()
+    {
+        new ThresholdOption { Value = 3, Label = "3 jours" },
+        new ThresholdOption { Value = 5, Label = "5 jours" },
+        new ThresholdOption { Value = 7, Label = "7 jours" },
+        new ThresholdOption { Value = 10, Label = "10 jours" },
+        new ThresholdOption { Value = 14, Label = "14 jours" },
+        new ThresholdOption { Value = 30, Label = "30 jours" }
+    };
 
     private List<Emplacement> locations = new();
     private List<Marque> brands = new();
@@ -379,7 +421,8 @@
                 ScopeFilterJson = ScheduleToEdit.ScopeFilterJson,
                 LastRunAt = ScheduleToEdit.LastRunAt,
                 NextRunAt = ScheduleToEdit.NextRunAt,
-                IsActive = ScheduleToEdit.IsActive
+                IsActive = ScheduleToEdit.IsActive,
+                PredictionThresholdDays = ScheduleToEdit.PredictionThresholdDays
             };
 
             try
@@ -389,6 +432,7 @@
                 includeToner = list.Contains("Toner");
                 includeAvailability = list.Contains("Availability");
                 includeAlerts = list.Contains("Alerts");
+                includePredictions = list.Contains("Predictions");
             }
             catch { }
 
@@ -444,7 +488,8 @@
             {
                 Format = "PDF",
                 Frequency = "Hebdomadaire",
-                IsActive = true
+                IsActive = true,
+                PredictionThresholdDays = 14
             };
         }
 
@@ -551,6 +596,7 @@
         if (includeToner) metrics.Add("Toner");
         if (includeAvailability) metrics.Add("Availability");
         if (includeAlerts) metrics.Add("Alerts");
+        if (includePredictions) metrics.Add("Predictions");
 
         schedule.SelectedMetricsJson = JsonSerializer.Serialize(metrics);
 
