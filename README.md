@@ -1,71 +1,115 @@
-#  Autoprint
+# üñ®Ô∏è Autoprint V2
 
-**Autoprint** est une solution hybride de gestion d'impression pour environnements Windows, conÁue pour rÈsoudre les problÈmatiques de mobilitÈ et de sÈcuritÈ (Point & Print) sous Windows 11.
+[![.NET](https://img.shields.io/badge/.NET-10.0-blue.svg?logo=dotnet)](https://dotnet.microsoft.com/)
+[![Blazor](https://img.shields.io/badge/Blazor-WASM-purple.svg?logo=blazor)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
+[![WPF](https://img.shields.io/badge/Client-WPF-blue.svg)](https://github.com/dotnet/wpf)
+[![Database](https://img.shields.io/badge/Database-SQL%20Server%20%7C%20SQLite-lightgrey.svg?logo=microsoft-sql-server)](https://www.microsoft.com/sql-server)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-BasÈe sur une architecture **.NET 10**, elle combine une administration centralisÈe avec une intelligence locale sur les postes clients ("Location Awareness").
-
----
-
-##  Architecture Hybride
-
-La solution repose sur une architecture distribuÈe conÁue pour la rÈsilience (Offline-First) :
-
-###  PÙle SERVEUR (Back-Office)
-* **API REST (.NET 10)** : Cúur du systËme, gËre le rÈfÈrentiel et la sÈcuritÈ via JWT.
-* **Admin UI (Blazor WASM + Radzen)** : Interface riche pour les techniciens (Matrice de droits RBAC, Dashboard, Logs).
-* **Moteur WMI** : Synchronisation avec le Spouleur Windows Server (Source de vÈritÈ) et nettoyage intelligent des pilotes.
-
-###  PÙle CLIENT (Poste Utilisateur)
-Architecture scindÈe pour contourner les limitations de sÈcuritÈ (UAC/Intune):
-1.  **Service Windows (LocalSystem)** : Le "Worker". Il injecte les pilotes dans le Driver Store avec les privilËges ÈlevÈs (Admin).
-2.  **App WPF (Session Utilisateur)** : L'interface. Elle dÈtecte le rÈseau (CIDR), gËre les prÈfÈrences et mappe les imprimantes dans la session de l'utilisateur.
-3.  **Cache Local (SQLite)** : Permet au client de fonctionner mÍme si le serveur est injoignable (Mode Hors-Ligne).
+**Autoprint** est une solution moderne de gestion d'impression et de supervision de parc d'imprimantes pour environnements Windows. Con√ßue pour r√©soudre les probl√©matiques de mobilit√© (roaming) et simplifier le d√©ploiement de files d'attente d'impression (Zero-Trust/Intune), elle int√®gre d√©sormais dans sa version **V2** un moteur de supervision r√©seau proactif et intelligent.
 
 ---
 
-##  FonctionnalitÈs ClÈs
+## üåü Fonctionnalit√©s Cl√©s
 
-###  SÈcuritÈ & ConformitÈ
-* **Authentification Hybride** : Supporte Active Directory et les comptes locaux.
-* **RBAC Granulaire** : Gestion fine des droits (Lecture, …criture, Sync, Scan).
-* **Protection M2M** : Les clients s'authentifient via une clÈ d'API unique (`X-Agent-Secret`).
+### üéõÔ∏è Gestion et D√©ploiement Agile
+* **Location Awareness (D√©tection de Lieu)** : L'agent utilisateur d√©termine automatiquement son emplacement physique en analysant les plages d'adresses IP (CIDR) et propose les imprimantes disponibles √† proximit√©.
+* **Mode Filiale (Direct IP)** : Option de contournement du serveur d'impression (Direct Branch Office Printing) pour les sites distants √† faible bande passante, en configurant les files d'impression directement vers les imprimantes r√©seau.
+* **Synchronisation Staging** : Dissociation entre les configurations en base de donn√©es et l'√©tat r√©el du spouleur d'impression Windows. Les administrateurs pr√©visualisent et appliquent les modifications de fa√ßon centralis√©e.
 
-###  Intelligence Client
-* **Location Awareness** : DÈtection automatique du "Lieu" en fonction de l'IP et du sous-rÈseau (CIDR).
-* **Smart Sync** : Installation "ZÈro-Touche" des pilotes sans droits admin pour l'utilisateur.
-* **Mode Filiale (Direct IP)** : CapacitÈ de configurer des ports RAW directs pour contourner le serveur d'impression en cas de panne WAN.
+### üì° Supervision et Intelligence (Nouveaut√©s V2)
+* **Diagnostics R√©seau & SNMP en Direct** : Test de connectivit√© (Ping) et interrogation d'√©tat √† la demande des imprimantes.
+* **Scan Automatique d'Arri√®re-plan** : Collecte p√©riodique et autonome de l'√©tat de sant√© du parc d'impression.
+* **Pr√©diction d'√âpuisement de Toner** : Algorithme pr√©visionnel qui anticipe le nombre de jours restants avant rupture, √† partir de l'historique d'utilisation (`TonerHistory`).
+* **Profils SNMP par Marque** : Surcharge personnalis√©e des requ√™tes OIDs pour les imprimantes hors standards constructeurs.
+* **Rapports SMTP Planifi√©s** : Envoi de r√©sum√©s d'√©tat p√©riodiques (compteurs, consommables) par e-mail en PDF ou CSV.
+* **Jetons d'Int√©gration API** : Export des donn√©es de supervision vers des outils tiers (GLPI, PRTG, Zabbix) via des cl√©s s√©curis√©es (`X-Api-Token`).
+
+### üõ°Ô∏è S√©curit√© de Niveau Production (V2)
+* **Architecture Z√©ro-Privil√®ge** : Retrait du service Windows local pour √©liminer les risques d'√©l√©vation de privil√®ges (LPE). L'agent s'ex√©cute uniquement dans la session utilisateur.
+* **Chiffrement & Certificats** : Validation SSL/TLS stricte pour s√©curiser les √©changes entre les postes clients et le serveur.
+* **Hachage Moderne** : Protection des mots de passe locaux via l'algorithme PBKDF2 sal√© avec migration transparente.
+* **D√©sinfection des Entr√©es** : Protection contre les injections LDAP (annuaire AD) et les injections d'arguments syst√®me.
 
 ---
 
-##  DÈploiement & Installation
+## üèóÔ∏è Architecture Syst√®me (V2)
 
-### PrÈ-requis Serveur
-L'installation se fait via un **Launcher Intelligent (WPF)** qui vÈrifie et installe automatiquement les prÈ-requis (RÙles IIS, .NET 10, Print Services) via WMI.
+```mermaid
+graph TD
+    subgraph Client ["Poste Client (Utilisateur)"]
+        WPF["Autoprint.Client (WPF - Session User)"]
+        Cache["SQLite (Cache Local - Offline First)"]
+        WPF <--> Cache
+    end
 
-### DÈploiement Client (Mass Deployment)
-Le client est packagÈ sous forme de **MSI unique** compatible GPO/Intune/SCCM.
-Il supporte l'injection des paramËtres de connexion ‡ l'installation :
+    subgraph Server ["Serveur Autoprint (IIS)"]
+        API["ASP.NET Core Web API"]
+        WebUI["Console Web (Blazor WASM)"]
+        Worker["PrinterMonitoringWorker (Scan Arri√®re-plan)"]
+        Predictive["Service Pr√©dictif (Toner)"]
+        Spooler["SyncSpoolerService (Win32 Spouleur)"]
+    end
+
+    subgraph External ["Externe"]
+        AD["Active Directory (LDAP)"]
+        Printers["Parc d'Imprimantes (Ping/SNMP)"]
+        Mail["Serveur SMTP (Rapports)"]
+        Tiers["Supervision Tiers (X-Api-Token)"]
+    end
+
+    WPF -- "HTTPS / SignalR" --> API
+    API <--> SQL[(SQL Server / SQLite)]
+    Worker -- "Ping & SNMP" --> Printers
+    API -- "LDAP" --> AD
+    Spooler -- "P/Invoke" --> SpoolerLocal["Spouleur Windows Server (Local)"]
+    API -- "SMTP" --> Mail
+    Tiers -- "REST" --> API
+    Worker --> Predictive
+```
+
+---
+
+## üõ†Ô∏è Stack Technique
+
+* **Serveur Back-end** : ASP.NET Core API (.NET 10) & Entity Framework Core.
+* **Console d'Administration** : Blazor WebAssembly avec composants Radzen.
+* **Agent Utilisateur** : WPF (.NET 10) l√©ger & Base locale SQLite (Offline-First).
+* **Base de Donn√©es** : SQL Server (Production) / SQLite (D√©veloppement).
+* **Communication** : API REST HTTPS, WebSockets SignalR (Push-to-Pull) et API Win32 Native (`winspool.drv`).
+
+---
+
+## üìÇ Structure du D√©p√¥t
+
+* `Autoprint.Client` : Code source de l'agent de bureau WPF.
+* `Autoprint.Client.Setup` : Projet WiX Toolset pour la compilation du package d'installation MSI client.
+* `Autoprint.Server` : API Web ASP.NET Core et services d'arri√®re-plan (scan, pr√©diction, rapports).
+* `Autoprint.Server.Setup` : Projet WiX Toolset pour la cr√©ation du package MSI serveur.
+* `Autoprint.Installer.Server.UI` : Assistant d'installation WPF du serveur.
+* `Autoprint.Shared` : Mod√®les de donn√©es, DTOs et classes partag√©es.
+* `Autoprint.Web` : Application Blazor WASM (Console d'administration).
+* `Docs/` : Guides d'installation, manuels et documentation d'architecture technique.
+
+---
+
+## üöÄ Installation & D√©ploiement
+
+### D√©ploiement du Serveur
+L'installation est automatis√©e via un assistant WPF interactif (`Autoprint.Server.Setup.exe`) :
+1. Analyse des pr√©requis syst√®me (IIS, r√¥les d'impression, Runtime .NET 10).
+2. Configuration de la base de donn√©es (d√©tection SQL Server ou SQLite local).
+3. Provisionnement et d√©marrage du site dans IIS.
+
+### D√©ploiement Silencieux des Clients
+Le client s'installe via un package MSI standard, id√©al pour un d√©ploiement de masse (Intune, GPO ou SCCM) :
 
 ```cmd
-msiexec /i Autoprint.Client.msi /qn PRINTSERVER="srv-print.corp.local" APIKEY="votre-guid-unique"
-````
+msiexec /i AutoprintClient.msi PRINTSERVER="https://serveur-autoprint.corp" APIKEY="votre-cle-api-agent" /qn
+```
+* **PRINTSERVER** : URL HTTPS de votre serveur Autoprint.
+* **APIKEY** : Cl√© de s√©curit√© machine-to-machine g√©n√©r√©e sur la console web dans *Param√®tres > Cl√© d'API Agent*.
 
-  * **PRINTSERVER** : Nom DNS ou IP du serveur Autoprint.
-  * **APIKEY** : ClÈ d'authentification Agent gÈnÈrÈe lors de l'installation serveur.
+---
 
-> **Note** : La configuration est ensuite stockÈe de maniËre persistante dans le fichier `user-settings.json` du profil utilisateur.
-
------
-
-##  Stack Technique
-
-  * **Framework** : .NET 10 (DerniËre version).
-  * **Serveur** : ASP.NET Core Web API + Entity Framework Core (SQL Server).
-  * **Web UI** : Blazor WebAssembly + Composants **Radzen**[.
-  * **Client** : WPF (Desktop) + Windows Worker Service.
-  * **BDD Locale** : SQLite (Cache client).
-  * **Protocole** : SignalR (Notifications Temps RÈel "Push-to-Pull") + Named Pipes (IPC Local).
-
------
-
-*Autoprint - Solution de Gestion Dynamique d'Impression.*
+*Autoprint - Solution de Gestion Dynamique et Supervision d'Impression pour Entreprises.*

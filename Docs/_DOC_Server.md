@@ -1,19 +1,13 @@
-Tu as tout à fait raison. Mes excuses pour cette tonalité inadaptée. "Le cerveau" ou "les muscles", c'est bon pour une présentation marketing grand public, pas pour une documentation d'exploitation destinée à des professionnels de l'IT.
-
-Reprenons avec une approche purement technique, factuelle et orientée "Architecture Système", conforme à un standard de documentation technique d'entreprise.
-
-Voici la version révisée pour la partie **Serveur**.
-
----
-
 # 📘 Documentation Technique : Module Serveur (Autoprint.Server)
 
 ## 1. Présentation de l'Architecture
-Le module **Autoprint.Server** est une application **ASP.NET Core Web API** (.NET 10) agissant comme point central de configuration et d'orchestration. Il assure l'interface entre la base de données relationnelle, le sous-système d'impression Windows (Spouleur) et les agents clients déployés.
+Le module **Autoprint.Server** est une application **ASP.NET Core Web API** (.NET 10) agissant comme point central de configuration, de supervision et d'orchestration. Il assure l'interface entre la base de données relationnelle, le sous-système d'impression Windows (Spouleur), les agents clients déployés et les outils tiers de supervision.
 
-* **Rôle :** Contrôleur de domaine d'impression, API Rest, Interface d'administration.
+* **Rôle :** Contrôleur de domaine d'impression, API Rest, Console de supervision web, Interface d'administration.
 * **Hébergement :** IIS (Internet Information Services) sur Windows Server 2019/2022.
 * **Exécution :** Pool d'application en mode "No Managed Code" avec identité de service (`NetworkService`).
+
+---
 
 ## 2. Stack Technologique & Backend
 
@@ -35,8 +29,10 @@ Pour garantir la stabilité et contourner les limitations de WMI sur les pilotes
     * Création/Suppression de ports TCP/IP standards.
     * Gestion du partage SMB et des ACLs d'impression.
     * **Mode Filiale (Branch Office Direct Printing) :** Application hybride des paramètres pour compatibilité totale :
-        1.  Activation de l'attribut spouleur `PRINTER_ATTRIBUTE_RAW_ONLY` (Pilotes V4).
-        2.  Injection de la clé de registre `EnableBranchOfficePrinting` via `SetPrinterDataEx` (Pilotes V3 Legacy).
+        1. Activation de l'attribut spouleur `PRINTER_ATTRIBUTE_RAW_ONLY` (Pilotes V4).
+        2. Injection de la clé de registre `EnableBranchOfficePrinting` via `SetPrinterDataEx` (Pilotes V3 Legacy).
+
+---
 
 ## 3. Logique Métier et Synchronisation
 
@@ -56,28 +52,56 @@ L'application interdit la création manuelle de fiches pilotes pour garantir l'i
     * Pilote disparu + Inutilisé = Suppression physique de la base (Purge).
     * Pilote disparu + Utilisé par un modèle = Maintien en base avec statut "Introuvable" pour alerte administrative.
 
-## 4. Sécurité et Contrôle d'Accès
+---
 
-### 4.1 Authentification Hybride
+## 4. Module de Supervision et de Diagnostics (Nouveauté V2)
+
+La V2 d'Autoprint introduit un moteur complet de collecte d'informations et de reporting sur le parc d'impression :
+
+### 4.1 Collecte Automatique (`PrinterMonitoringWorker`)
+Un service d'arrière-plan hébergé (`IHostedService`) réalise des scans réguliers du parc réseau :
+* **Interrogation :** Ping réseau et requêtes SNMP.
+* **Plages Horaires :** Le scan s'exécute selon les réglages paramétrés (ex. entre 8h et 18h en semaine, désactivable le week-end).
+* **Historisation :** Enregistre périodiquement l'évolution des niveaux de toner pour l'analyse prédictive.
+
+### 4.2 Diagnostic Temps Réel (`SnmpService`)
+Permet de tester à la demande la connectivité d'une imprimante directement depuis l'interface web (Ping et récupération des OID SNMP génériques ou spécifiques).
+
+### 4.3 Algorithme Prédictif (`PredictiveService`)
+Analyse les enregistrements historiques (`TonerHistory`) pour extrapoler la courbe de consommation des toners de chaque imprimante et prédire le nombre de jours restants avant épuisement.
+
+### 4.4 Profils SNMP Personnalisés
+Permet d'ajouter des configurations d'OIDs personnalisés par marque/modèle pour surcharger les requêtes de supervision sur les imprimantes non conformes aux MIBs standards (RFC 3805).
+
+### 4.5 Rapports Planifiés (`ReportGeneratorService`)
+Génère et transmet automatiquement par e-mail (via SMTP) des rapports périodiques d'activité et de santé (au format PDF ou CSV) aux administrateurs réseau.
+
+---
+
+## 5. Sécurité et Contrôle d'Accès
+
+### 5.1 Authentification Hybride
 Le système supporte deux modes d'authentification simultanés :
-* **Comptes Locaux :** Stockage hashé (SHA-256 Hexadécimal) pour l'administration de secours.
-* **Active Directory :** Connecteur LDAP (`System.DirectoryServices`) avec mapping de groupes de sécurité AD vers des Rôles applicatifs.
+* **Comptes Locaux :** Stockage sécurisé via **PBKDF2 salé** (classe `PasswordHasher` d'ASP.NET Core). Lors de la première connexion réussie d'un compte héritant de l'ancienne version V1, sa signature SHA-256 brute est automatiquement et de manière transparente mise à jour vers le format PBKDF2.
+* **Active Directory :** Connecteur LDAP (`System.DirectoryServices`) avec mapping de groupes de sécurité AD vers des Rôles applicatifs. Les entrées utilisateurs sont systématiquement désinfectées via `SecurityHelper.EscapeLdapFilter` pour prévenir les injections de filtres LDAP.
 
-### 4.2 Protocole d'Échange
-* **Web UI :** Tokens JWT (JSON Web Tokens) avec injection des revendications (Claims) de rôles.
-* **Agents (M2M) :** Authentification par Clé d'API (`AgentApiKey`) transmise via l'en-tête HTTP `X-Agent-Secret`. Cette clé est générée cryptographiquement à l'installation.
+### 5.2 Protocole d'Échange
+* **Web UI (Blazor) :** Tokens JWT (JSON Web Tokens) avec injection des claims de rôles. Une vérification bloque le démarrage de l'application en production si la clé JWT par défaut est détectée.
+* **Agents (M2M) :** Authentification par clé d'API Agent (`AgentApiKey`) transmise via l'en-tête HTTP `X-Agent-Secret`.
+* **Intégrations Tiers :** Authentification par jetons d'intégration via le header HTTP `X-Api-Token` pour consommer les endpoints d'exportation des métriques de supervision.
 
-### 4.3 RBAC (Role-Based Access Control)
-La sécurité repose sur une matrice de droits stockée en base de données, distinguant les **Modules** (Imprimantes, Lieux, Système) des **Actions** (Lecture, Écriture, Suppression, Scan, Sync).
+### 5.3 RBAC (Role-Based Access Control)
+La matrice de droits distingue les entités gérées. La V2 a étendu ces droits avec des privilèges fins :
+* `REPORT_MANAGE` : Gestion et planification des rapports d'activité.
+* `SNMP_PROFILE_READ`, `SNMP_PROFILE_WRITE`, `SNMP_PROFILE_DELETE` : Gestion des profils SNMP personnalisés.
+* `PRINTER_ARCHIVE` : Droit d'archiver manuellement ou de restaurer des imprimantes archivées.
 
-## 5. Déploiement et Maintenance
+---
 
-### 5.1 Installeur Serveur
-Le déploiement est assuré par un exécutable "Self-Contained" (WPF .NET 10) agissant comme wrapper intelligent.
+## 6. Déploiement et Maintenance
 
-* **Vérification des Pré-requis :** Audit WMI strict des rôles serveur (IIS, Print Services) et du Runtime .NET avant installation.
-* **Configuration IIS :** Utilisation de `Microsoft.Web.Administration` pour la création du Site et du Pool, avec application des ACLs NTFS (`GenericWrite`) sur le dossier d'installation pour le compte de service.
-
-### 5.2 Disaster Recovery (PRA)
-* **Sauvegarde :** Export complet de la configuration (Metadatas) au format JSON. Les fichiers pilotes (binaires) sont exclus et relèvent de la sauvegarde infrastructure (VM).
-* **Restauration :** Moteur transactionnel effectuant un nettoyage de la base et une réinjection des données avec préservation des IDs.
+### 6.1 Installeur Serveur (WPF)
+Le déploiement automatise la configuration système :
+* **Vérification des Pré-requis :** Rôles serveur (IIS, Spouleur) et runtime .NET.
+* **Configuration IIS :** Utilisation de `Microsoft.Web.Administration` pour configurer le pool et le site Web.
+* **Migrations de base de données :** L'installateur invoque le serveur avec l'argument `--migrate-only` pour initialiser ou mettre à jour la structure de la base (SQL Server / SQLite) avant de démarrer le service IIS.

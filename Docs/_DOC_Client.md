@@ -1,94 +1,74 @@
 # Documentation Technique : Agent Client (Autoprint.Client)
 
 ## 1. Vue d'ensemble
-L'agent client est une solution hybride composée de deux exécutables distincts fonctionnant de concert pour contourner les limitations de sécurité de Windows (UAC, PrintNightmare) tout en préservant l'expérience utilisateur.
+L'agent client est une application Windows légère s'exécutant entièrement dans l'espace utilisateur. Elle a été simplifiée dans sa version V2 pour éliminer tout service d'arrière-plan à privilèges élevés afin de respecter les meilleures pratiques de sécurité système (retrait du risque d'élévation locale de privilèges - LPE).
 
 * **Cible :** Postes de travail Windows 10 / 11 (Domaine, Hors-Domaine/Intune).
-* **Technologie :** .NET 10 (WPF pour l'UI, Worker Service pour le système).
-* **Architecture :** Modèle de "Séparation des Privilèges" (Privilege Separation).
+* **Technologie :** .NET 10 (WPF).
+* **Architecture :** Processus unique en mode utilisateur standard.
 
 ---
 
 ## 2. Architecture Technique
 
-### 2.1 Composants et Contextes d'Exécution
-L'application est scindée en deux processus communiquant via IPC (Inter-Process Communication).
-
-1.  **Autoprint.Service.exe (Le Worker)**
-    * **Contexte :** `LocalSystem` (Privilèges administratifs élevés).
-    * **Responsabilité Unique :** Manipulation du *Driver Store* Windows. Il est le seul autorisé à injecter des fichiers pilotes dans le système `System32`.
-    * **Cycle de vie :** Service Windows à démarrage automatique.
-
-2.  **Autoprint.Client.exe (L'Interface)**
-    * **Contexte :** `User Session` (Privilèges utilisateur standard).
-    * **Responsabilité :** Interface graphique (TrayIcon), détection réseau, et mappage de l'imprimante dans la session utilisateur.
-    * **Cycle de vie :** Lancé à l'ouverture de session via la clé de registre `Run`.
-
-### 2.2 Communication Inter-Processus (IPC)
-* **Protocole :** Named Pipes (Tuyaux Nommés) asynchrones.
-* **Sécurité :** Le Pipe est sécurisé par des ACLs (Access Control Lists) restreignant l'accès aux utilisateurs authentifiés.
-* **Format :** Échange de messages JSON stricts (Contrat : `INSTALL_DRIVER` + `DriverModelName`).
+### 2.1 Contexte d'Exécution
+* **Processus unique :** `Autoprint.Client.exe`.
+* **Contexte :** `User Session` (Privilèges utilisateur standard).
+* **Responsabilités :** Interface graphique (TrayIcon), détection réseau, requête vers l'API du serveur d'impression, et mappage de l'imprimante dans la session de l'utilisateur connecté.
+* **Cycle de vie :** Lancé automatiquement à l'ouverture de session via l'Active Setup de Windows.
 
 ---
 
 ## 3. Logique Métier et Réseau
 
 ### 3.1 Découverte et Localisation (Location Awareness)
-L'agent ne dépend pas d'une affectation statique. Il détermine son environnement en temps réel :
-* **Détection IP :** Analyse des interfaces réseaux actives.
-* **Algorithme CIDR :** Comparaison de l'IP locale avec les plages déclarées en base (Cache SQLite) pour identifier le "Lieu" logique.
-* **Roaming :** Un écouteur d'événements réseau (`NetworkChange`) déclenche une réévaluation automatique lors d'un changement d'IP (ex: changement de WiFi ou connexion VPN).
+L'agent détermine son environnement réseau en temps réel :
+* **Détection IP :** Analyse des interfaces réseaux actives du poste de travail.
+* **Algorithme CIDR :** Comparaison de l'IP locale avec les plages déclarées en base (cache SQLite local) pour identifier le "Lieu" logique actuel.
+* **Roaming :** Un écouteur d'événements réseau (`NetworkChange`) déclenche une réévaluation automatique lors d'un changement d'IP (ex: passage du Wi-Fi au filaire, ou connexion à un VPN).
 
-### 3.2 Stratégie de Connexion Hybride
-* **Connectivité API :** REST via HTTPS pour le téléchargement de données. Authentification par Header `X-Agent-Secret` (Clé API M2M).
-* **Temps Réel :** Connexion persistante **SignalR** (WebSockets) pour recevoir les ordres de rafraîchissement ("Push-to-Pull").
+### 3.2 Stratégie de Connexion
+* **Connectivité API :** REST via HTTPS pour le téléchargement initial des données. Authentification par Header HTTP `X-Agent-Secret` contenant la clé API de l'agent.
+* **Temps Réel :** Connexion persistante **SignalR** (WebSockets) pour recevoir instantanément les ordres de rafraîchissement émis par le serveur ("Push-to-Pull").
 * **Résilience (Offline-First) :**
-    * Toutes les données (Lieux, Imprimantes) sont mises en cache dans une base **SQLite** locale (`%LocalAppData%`).
-    * En cas de coupure serveur, le client bascule instantanément sur le cache local et active un *Watchdog* pour tenter une reconnexion périodique.
+    * Toutes les données (Lieux, Imprimantes) sont mises en cache dans une base **SQLite** locale dans le répertoire `%LocalAppData%`.
+    * En cas de perte de connectivité avec le serveur, le client bascule instantanément sur le cache local.
+    * Un watchdog tente de rétablir la connexion périodiquement toutes les 30 secondes.
 
 ### 3.3 Diagnostic Préventif (SMB)
-Avant d'autoriser toute installation, l'UI teste l'accessibilité du partage administratif `\\Serveur\print$`. Si ce test échoue (problème DNS, VPN coupé), les fonctions d'installation sont verrouillées pour éviter les timeouts systèmes bloquants.
+Avant d'autoriser toute installation, l'interface graphique teste l'accessibilité du partage administratif du spouleur de destination (`\\Serveur\print$`). Si ce test échoue (problème DNS, VPN coupé, ou blocage pare-feu), les fonctions d'installation sont désactivées pour éviter les timeouts systèmes bloquants.
 
 ---
 
 ## 4. Workflow d'Installation (Moteur d'Impression)
 
-Le processus d'ajout d'imprimante utilise une stratégie séquentielle pour garantir la compatibilité avec les postes hors-domaine (BYOD/Intune) et l'authentification Kerberos/NTLM.
+Le processus d'ajout d'imprimante s'exécute entièrement dans le contexte utilisateur :
 
-1.  **Phase 1 : Injection du Pilote (Service / Admin)**
-    * L'UI envoie l'ordre au Service via IPC.
-    * Le Service exécute `rundll32 printui.dll /ia` (Install Admin) pour pré-installer le pilote dans le magasin de pilotes de la machine.
-    * *Note :* Cette étape nécessite les droits Admin, d'où l'utilisation du Service.
-
-2.  **Phase 2 : Mappage de la Queue (Client / User)**
-    * Une fois le pilote confirmé présent, l'UI reprend la main.
-    * L'UI exécute `rundll32 printui.dll /in` (Install Network) dans le contexte de l'utilisateur.
-    * **Avantage Critique :** En s'exécutant dans la session utilisateur, Windows peut afficher nativement la pop-up d'authentification réseau si le serveur d'impression le demande (cas des postes hors domaine), ce qui serait impossible depuis le contexte `LocalSystem`.
+* **Mappage de la Queue (Client / User) :**
+  L'application exécute la commande de mappage réseau via `printui.dll` :
+  `rundll32 printui.dll /in /n "\\serveur-impression\NomPartageImprimante"`
+  
+* **Pré-requis Pilotes (Driver Store) :**
+  N'ayant plus de service à hauts privilèges (`SYSTEM`) pour injecter des pilotes non signés ou inconnus du système, **le pilote requis doit être présent dans le Driver Store de la machine**. 
+  * *Déploiement moderne :* Dans un parc managé (Intune, SCCM, GPO), les pilotes d'impression requis doivent être pré-déployés sur les postes.
+  * *Avantage sécurité :* Protection complète contre les vulnérabilités de type PrintNightmare et le chargement de pilotes arbitraires malveillants.
+  * *Avantage réseau :* L'exécution dans la session utilisateur permet à Windows d'afficher nativement les pop-ups d'authentification réseau (Kerberos/NTLM) si le spouleur de destination l'exige (cas des postes hors-domaine).
 
 ---
 
 ## 5. Configuration et Déploiement
 
 ### 5.1 Gestion de la Configuration
-L'application privilégie la portabilité et l'indépendance vis-à-vis du registre système pour la configuration métier.
-
-* **Source de Vérité Unique :** Le fichier `user-settings.json`, situé dans le profil utilisateur (`%UserProfile%\Documents\Autoprint`), contient l'URL du serveur, la Clé API Agent et les préférences utilisateur.
-* **Mécanisme de Bootstrap :** Au démarrage, l'application détermine sa configuration selon l'ordre de priorité suivant :
-    1.  **Arguments CLI :** Les paramètres passés à l'exécutable (`--api-key`, `--print-server`) sont prioritaires et viennent écraser/initialiser le fichier JSON.
-    2.  **Fichier JSON existant :** Si aucun argument n'est fourni, l'application charge la configuration persistante.
-    3.  **Mode Technicien :** Si aucune configuration n'est trouvée (fichier absent et pas d'arguments), l'application attend une configuration manuelle via l'interface sécurisée.
+L'application stocke sa configuration métier de manière portable :
+* **Source de Vérité Unique :** Le fichier `user-settings.json`, situé dans le profil utilisateur (`%UserProfile%\Documents\Autoprint`), contient l'URL du serveur, la clé API de l'Agent et les préférences utilisateur (mode sombre, etc.).
+* **Mécanisme de Bootstrap :** Au démarrage, la configuration est lue selon les priorités suivantes :
+    1. **Arguments CLI :** Les paramètres passés à l'exécutable (`--api-key`, `--print-server`) écrasent temporairement/définissent le fichier JSON.
+    2. **Fichier JSON existant :** Chargé par défaut.
+    3. **Mode Technicien :** Si aucun paramètre n'est fourni et que le fichier JSON est absent, l'application attend une configuration manuelle via l'interface graphique de configuration.
 
 ### 5.2 Packaging (MSI)
-Le déploiement est assuré par un package MSI unique généré via WiX Toolset.
-
-* **Architecture de Fichiers :** Installation physique séparée des binaires Client (UI) et Service (Worker) pour éviter les conflits de dépendances .NET.
-* **Actions Système :**
-    * Installation et démarrage du Service Windows (`Autoprint.Service.exe`) sous le compte `LocalSystem`.
-    * Création des règles de Pare-feu Windows pour autoriser les communications SignalR et IPC.
-    * Inscription de l'application UI (`Autoprint.Client.exe`) dans la clé de registre `Run` (`HKLM\...\Run`) **uniquement** pour assurer le lancement automatique à l'ouverture de session.
-
-### 5.3 Paramètres d'Installation (Déploiement de Masse)
-L'installateur MSI supporte l'injection de paramètres pour l'initialisation silencieuse (via script de déploiement ou raccourci) :
-
-* **Commande CLI :** Les administrateurs peuvent déployer un raccourci ou un script de lancement passant les arguments requis lors du premier démarrage de l'exécutable client :
-    `Autoprint.Client.exe --print-server "https://srv-print" --api-key "abc-123"`.
+Le déploiement de l'agent est assuré par un package MSI généré via WiX Toolset.
+* **Active Setup :** Le MSI inscrit la commande de démarrage d'Autoprint dans la clé `HKLM\Software\Microsoft\Active Setup\Installed Components`. Cela permet d'assurer que pour chaque nouvel utilisateur se connectant sur le poste de travail, le client WPF démarre automatiquement à l'ouverture de sa session et initialise son profil utilisateur.
+* **Paramètres d'installation (MSI) :**
+  Le package supporte des variables d'installation silencieuse à passer en ligne de commande :
+  `msiexec /i AutoprintClient.msi PRINTSERVER="https://mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn`
