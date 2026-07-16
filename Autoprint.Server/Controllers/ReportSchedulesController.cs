@@ -87,6 +87,7 @@ namespace Autoprint.Server.Controllers
             existing.EmailRecipients = schedule.EmailRecipients;
             existing.Format = schedule.Format;
             existing.IsActive = schedule.IsActive;
+            existing.PredictionThresholdDays = schedule.PredictionThresholdDays;
             existing.DateModification = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
