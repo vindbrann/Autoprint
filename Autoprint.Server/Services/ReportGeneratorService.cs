@@ -163,7 +163,7 @@ namespace Autoprint.Server.Services
                     foreach (var toner in toners)
                     {
                         var tonerHistory = printerHistory
-                            .Where(h => h.Color.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
+                            .Where(h => h.ComponentColor.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
                             .ToList();
                         toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
                     }
