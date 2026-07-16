@@ -143,7 +143,11 @@ namespace Autoprint.Server.Data
                 new ServerSetting { Key = "AdUseServiceAccount", Value = "false", Description = "Utiliser un compte spécifique ?", Type = "BOOL" },
                 new ServerSetting { Key = "AdServiceUser", Value = "", Description = "Compte lecture AD", Type = "STRING" },
                 new ServerSetting { Key = "AdServicePassword", Value = "", Description = "Mot de passe AD", Type = "PASSWORD" },
-                new ServerSetting { Key = "AdAdminEmails", Value = "", Description = "Mails alerte panne AD (séparés par ;)", Type = "STRING" }
+                new ServerSetting { Key = "AdAdminEmails", Value = "", Description = "Mails alerte panne AD (séparés par ;)", Type = "STRING" },
+                new ServerSetting { Key = "Monitoring_IncludeOffline", Value = "true", Description = "Inclure les imprimantes hors lignes dans l'export API", Type = "BOOL" },
+                new ServerSetting { Key = "Monitoring_IncludeWarning", Value = "true", Description = "Inclure les alertes / avertissements dans l'export API", Type = "BOOL" },
+                new ServerSetting { Key = "Monitoring_IncludeCritical", Value = "true", Description = "Inclure les pannes critiques dans l'export API", Type = "BOOL" },
+                new ServerSetting { Key = "Monitoring_IncludeArchived", Value = "false", Description = "Inclure les imprimantes archivées dans l'export API", Type = "BOOL" }
             );
 
             modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI" });

@@ -410,6 +410,98 @@ else
                 </ChildContent>
             </RadzenTabsItem>
 
+            @* --- MONITORING --- *@
+            <RadzenTabsItem Text="Monitoring">
+                <Template><RadzenIcon Icon="analytics" /> Monitoring</Template>
+                <ChildContent>
+                    <RadzenStack Gap="2rem" Class="rz-p-2">
+                        <RadzenFieldset Text="Alertes à exporter (Filtres d'exportation)" Icon="filter_alt">
+                            <RadzenStack Gap="1.25rem">
+                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+                                    Choisissez les types d'alertes d'imprimantes qui seront retournés lors de l'appel à l'API d'intégration.
+                                </RadzenText>
+                                <RadzenRow Gap="1.5rem">
+                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeOffline" Name="IncOffline" />
+                                        <RadzenLabel Text="Inclure les imprimantes Hors Ligne (Offline)" Component="IncOffline" Style="cursor:pointer;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeWarning" Name="IncWarning" />
+                                        <RadzenLabel Text="Inclure les alertes & avertissements (Warning)" Component="IncWarning" Style="cursor:pointer;" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                                <RadzenRow Gap="1.5rem">
+                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeCritical" Name="IncCritical" />
+                                        <RadzenLabel Text="Inclure les pannes critiques (Critical)" Component="IncCritical" Style="cursor:pointer;" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeArchived" Name="IncArchived" />
+                                        <RadzenLabel Text="Inclure les imprimantes archivées" Component="IncArchived" Style="cursor:pointer;" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenStack>
+                        </RadzenFieldset>
+
+                        <RadzenFieldset Text="Jetons d'Intégration (Zabbix, PRTG, Centreon...)" Icon="vpn_key">
+                            <RadzenStack Gap="1.5rem">
+                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
+                                    Générez des jetons d'authentification pour permettre à des systèmes tiers d'extraire l'état de supervision des imprimantes via l'API <code>GET api/v1/monitoring/export</code>.
+                                </RadzenText>
+
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="margin: 0; font-weight: bold;">Liste des Jetons Actifs</RadzenText>
+                                    <RadzenButton Icon="add_circle" Text="Générer un Jeton" ButtonStyle="ButtonStyle.Success" Click="@OuvrirGenerationToken" />
+                                </RadzenStack>
+
+                                @if (tokensList == null)
+                                {
+                                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                }
+                                else if (!tokensList.Any())
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small" AllowClose="false">
+                                        Aucun jeton d'intégration actif. Cliquez sur "Générer un Jeton" ci-dessus pour en créer un.
+                                    </RadzenAlert>
+                                }
+                                else
+                                {
+                                    <RadzenDataGrid Data="@tokensList" TItem="IntegrationToken" AllowPaging="true" PageSize="5" Style="width: 100%;">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="Description" Title="Usage / Description" />
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="CreatedAt" Title="Créé le" Width="150px">
+                                                <Template Context="t">
+                                                    @t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="ExpiresAt" Title="Expire le" Width="150px">
+                                                <Template Context="t">
+                                                    @if (t.ExpiresAt.HasValue)
+                                                    {
+                                                        <span style="@(t.ExpiresAt < DateTime.UtcNow ? "color: var(--rz-danger); font-weight: bold;" : "")">
+                                                            @t.ExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="color: var(--rz-text-disabled-color);">Jamais</span>
+                                                    }
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Title="Actions" Width="100px" TextAlign="TextAlign.Center">
+                                                <Template Context="t">
+                                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => SupprimerToken(t))" Tooltip="Révoquer" title="Révoquer ce jeton" />
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                }
+                            </RadzenStack>
+                        </RadzenFieldset>
+                    </RadzenStack>
+                </ChildContent>
+            </RadzenTabsItem>
+
             @* --- SCANNER RÉSEAU --- *@
             <RadzenTabsItem Text="Scanner Réseau">
                 <Template><RadzenIcon Icon="radar" /> Scanner Réseau</Template>
@@ -579,61 +671,6 @@ else
                             </RadzenRow>
                         </RadzenFieldset>
 
-                        <RadzenFieldset Text="Jetons d'Intégration (Zabbix, PRTG, Centreon...)" Icon="vpn_key">
-                            <RadzenStack Gap="1.5rem">
-                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-                                    Générez des jetons d'authentification pour permettre à des systèmes tiers d'extraire l'état de supervision des imprimantes via l'API <code>GET api/v1/monitoring/export</code>.
-                                </RadzenText>
-
-                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="margin: 0; font-weight: bold;">Liste des Jetons Actifs</RadzenText>
-                                    <RadzenButton Icon="add_circle" Text="Générer un Jeton" ButtonStyle="ButtonStyle.Success" Click="@OuvrirGenerationToken" />
-                                </RadzenStack>
-
-                                @if (tokensList == null)
-                                {
-                                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                                }
-                                else if (!tokensList.Any())
-                                {
-                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small" AllowClose="false">
-                                        Aucun jeton d'intégration actif. Cliquez sur "Générer un Jeton" ci-dessus pour en créer un.
-                                    </RadzenAlert>
-                                }
-                                else
-                                {
-                                    <RadzenDataGrid Data="@tokensList" TItem="IntegrationToken" AllowPaging="true" PageSize="5" Style="width: 100%;">
-                                        <Columns>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="Description" Title="Usage / Description" />
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="CreatedAt" Title="Créé le" Width="150px">
-                                                <Template Context="t">
-                                                    @t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="ExpiresAt" Title="Expire le" Width="150px">
-                                                <Template Context="t">
-                                                    @if (t.ExpiresAt.HasValue)
-                                                    {
-                                                        <span style="@(t.ExpiresAt < DateTime.UtcNow ? "color: var(--rz-danger); font-weight: bold;" : "")">
-                                                            @t.ExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                                                        </span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span style="color: var(--rz-text-disabled-color);">Jamais</span>
-                                                    }
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Title="Actions" Width="100px" TextAlign="TextAlign.Center">
-                                                <Template Context="t">
-                                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => SupprimerToken(t))" Tooltip="Révoquer" />
-                                                </Template>
-                                            </RadzenDataGridColumn>
-                                        </Columns>
-                                    </RadzenDataGrid>
-                                }
-                            </RadzenStack>
-                        </RadzenFieldset>
 
                     </RadzenStack>
                 </ChildContent>
@@ -690,6 +727,10 @@ else
         public int Monitoring_StartHour { get; set; } = 8;
         public int Monitoring_EndHour { get; set; } = 18;
         public bool Monitoring_ScanOnWeekends { get; set; } = true;
+        public bool Monitoring_IncludeOffline { get; set; } = true;
+        public bool Monitoring_IncludeWarning { get; set; } = true;
+        public bool Monitoring_IncludeCritical { get; set; } = true;
+        public bool Monitoring_IncludeArchived { get; set; } = false;
     }
 
     protected override async Task OnInitializedAsync()
@@ -721,6 +762,10 @@ else
             model.Monitoring_StartHour = int.Parse(GV(s, "Monitoring_StartHour", "8"));
             model.Monitoring_EndHour = int.Parse(GV(s, "Monitoring_EndHour", "18"));
             model.Monitoring_ScanOnWeekends = bool.Parse(GV(s, "Monitoring_ScanOnWeekends", "true"));
+            model.Monitoring_IncludeOffline = bool.Parse(GV(s, "Monitoring_IncludeOffline", "true"));
+            model.Monitoring_IncludeWarning = bool.Parse(GV(s, "Monitoring_IncludeWarning", "true"));
+            model.Monitoring_IncludeCritical = bool.Parse(GV(s, "Monitoring_IncludeCritical", "true"));
+            model.Monitoring_IncludeArchived = bool.Parse(GV(s, "Monitoring_IncludeArchived", "false"));
 
             await LoadScanProfile();
             await LoadTokens();
