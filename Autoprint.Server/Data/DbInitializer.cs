@@ -1,6 +1,7 @@
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 
@@ -10,6 +11,39 @@ namespace Autoprint.Server.Data
     {
         public static void Initialize(ApplicationDbContext context)
         {
+            // Mise à jour de la structure pour SQLite lors des mises à jour (EnsureCreated ne gère pas les migrations)
+            if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN PredictionThresholdDays INTEGER NOT NULL DEFAULT 14;");
+                }
+                catch { }
+            }
+
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeOffline"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_IncludeOffline", Value = "true", Description = "Inclure les imprimantes hors lignes dans l'export API", Type = "BOOL" });
+            }
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeWarning"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_IncludeWarning", Value = "true", Description = "Inclure les alertes / avertissements dans l'export API", Type = "BOOL" });
+            }
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeCritical"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_IncludeCritical", Value = "true", Description = "Inclure les pannes critiques dans l'export API", Type = "BOOL" });
+            }
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeArchived"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_IncludeArchived", Value = "false", Description = "Inclure les imprimantes archivées dans l'export API", Type = "BOOL" });
+            }
+
             if (!context.ServerSettings.Any(s => s.Key == "AgentApiKey"))
             {
                 context.ServerSettings.Add(new ServerSetting { Key = "AgentApiKey", Value = Guid.NewGuid().ToString(), Description = "Clé API Agent", Type = "PASSWORD" });
