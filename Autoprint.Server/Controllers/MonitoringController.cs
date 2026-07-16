@@ -56,7 +56,7 @@ namespace Autoprint.Server.Controllers
 
             var alertPrinters = await query.ToListAsync();
 
-            var result = alertPrinters.Select(p => new
+            var printersResult = alertPrinters.Select(p => new
             {
                 p.Id,
                 p.NomAffiche,
@@ -67,7 +67,19 @@ namespace Autoprint.Server.Controllers
                 p.LastSeen
             });
 
-            return Ok(result);
+            var responsePayload = new
+            {
+                Settings = new
+                {
+                    IncludeOffline = includeOffline,
+                    IncludeWarning = includeWarning,
+                    IncludeCritical = includeCritical,
+                    IncludeArchived = includeArchived
+                },
+                Printers = printersResult
+            };
+
+            return Ok(responsePayload);
         }
     }
 }
