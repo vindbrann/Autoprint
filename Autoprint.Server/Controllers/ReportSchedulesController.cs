@@ -13,7 +13,7 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "SETTINGS_MANAGE")]
+    [Authorize(Policy = "REPORT_MANAGE")]
     public class ReportSchedulesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

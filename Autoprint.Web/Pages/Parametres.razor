@@ -357,6 +357,59 @@ else
                 </ChildContent>
             </RadzenTabsItem>
 
+            @* --- SUPERVISION --- *@
+            <RadzenTabsItem Text="Supervision">
+                <Template><RadzenIcon Icon="monitor_heart" /> Supervision</Template>
+                <ChildContent>
+                    <RadzenRow Class="rz-p-2" Gap="2rem">
+                        <RadzenColumn Size="12" SizeLG="8">
+                            <RadzenFieldset Text="Supervision d'Arrière-plan" Icon="settings_suggest">
+                                <RadzenStack Gap="1.5rem">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <RadzenCheckBox TValue="bool" @bind-Value="@model.Monitoring_Enabled" Name="MonEnabled" />
+                                        <RadzenLabel Text="Activer la supervision automatique" Component="MonEnabled" Style="cursor:pointer; font-weight: bold;" />
+                                    </div>
+                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -10px;">
+                                        Permet de scanner périodiquement les imprimantes actives par Ping et SNMP pour remonter les statuts et niveaux de toner.
+                                    </RadzenText>
+
+                                    <RadzenDivider />
+
+                                    <RadzenRow>
+                                        <RadzenColumn Size="12" SizeMD="6">
+                                            <RadzenLabel Text="Intervalle de scan (Minutes)" Component="MonInterval" Style="font-weight: bold;" />
+                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_IntervalMinutes" Min="1" Max="1440" Name="MonInterval" Style="width: 100%;" />
+                                            <span style="font-size: 0.8rem; color: var(--rz-text-tertiary-color);">Fréquence à laquelle le démon relance une interrogation globale.</span>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; margin-top: 15px;">
+                                            <RadzenCheckBox TValue="bool" @bind-Value="@model.Monitoring_ScanOnWeekends" Name="MonWeekend" />
+                                            <RadzenLabel Text="Scanner aussi le week-end" Component="MonWeekend" Style="cursor:pointer; margin-left: 0.5rem;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+
+                                    <RadzenDivider />
+
+                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;">Horaires de fonctionnement (Pause Nocturne)</RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -10px;">
+                                        Configurez la plage horaire de travail pour éviter d'interroger les équipements la nuit.
+                                    </RadzenText>
+                                    <RadzenRow>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Heure de début (0-23)" Component="MonStart" />
+                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_StartHour" Min="0" Max="23" Name="MonStart" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6">
+                                            <RadzenLabel Text="Heure de fin (0-23)" Component="MonEnd" />
+                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_EndHour" Min="0" Max="23" Name="MonEnd" Style="width: 100%;" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenStack>
+                            </RadzenFieldset>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </ChildContent>
+            </RadzenTabsItem>
+
             @* --- SCANNER RÉSEAU --- *@
             <RadzenTabsItem Text="Scanner Réseau">
                 <Template><RadzenIcon Icon="radar" /> Scanner Réseau</Template>
@@ -632,6 +685,11 @@ else
         public string AdServiceUser { get; set; } = "";
         public string AdServicePassword { get; set; } = "";
         public string AdAdminEmails { get; set; } = "";
+        public bool Monitoring_Enabled { get; set; } = true;
+        public int Monitoring_IntervalMinutes { get; set; } = 60;
+        public int Monitoring_StartHour { get; set; } = 8;
+        public int Monitoring_EndHour { get; set; } = 18;
+        public bool Monitoring_ScanOnWeekends { get; set; } = true;
     }
 
     protected override async Task OnInitializedAsync()
@@ -658,6 +716,11 @@ else
             model.AdUseServiceAccount = bool.Parse(GV(s, "AdUseServiceAccount", "false"));
             model.AdServiceUser = GV(s, "AdServiceUser");
             model.AdAdminEmails = GV(s, "AdAdminEmails");
+            model.Monitoring_Enabled = bool.Parse(GV(s, "Monitoring_Enabled", "true"));
+            model.Monitoring_IntervalMinutes = int.Parse(GV(s, "Monitoring_IntervalMinutes", "60"));
+            model.Monitoring_StartHour = int.Parse(GV(s, "Monitoring_StartHour", "8"));
+            model.Monitoring_EndHour = int.Parse(GV(s, "Monitoring_EndHour", "18"));
+            model.Monitoring_ScanOnWeekends = bool.Parse(GV(s, "Monitoring_ScanOnWeekends", "true"));
 
             await LoadScanProfile();
             await LoadTokens();

@@ -21,6 +21,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     if (dbProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
     {
         var connectionString = connectionStrings["Sqlite"] ?? "Data Source=Autoprint.db";
+        if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+        {
+            var dbFile = connectionString.Substring("Data Source=".Length).Trim();
+            if (!Path.IsPathRooted(dbFile))
+            {
+                connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, dbFile)}";
+            }
+        }
         options.UseSqlite(connectionString);
     }
     else
@@ -127,6 +135,11 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("ROLE_DELETE", policy => policy.RequireClaim("Permission", "ROLE_DELETE"));
     options.AddPolicy("SETTINGS_MANAGE", policy => policy.RequireClaim("Permission", "SETTINGS_MANAGE"));
     options.AddPolicy("AUDIT_READ", policy => policy.RequireClaim("Permission", "AUDIT_READ"));
+    options.AddPolicy("SNMP_PROFILE_READ", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_READ"));
+    options.AddPolicy("SNMP_PROFILE_WRITE", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_WRITE"));
+    options.AddPolicy("SNMP_PROFILE_DELETE", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_DELETE"));
+    options.AddPolicy("REPORT_MANAGE", policy => policy.RequireClaim("Permission", "REPORT_MANAGE"));
+    options.AddPolicy("PRINTER_ARCHIVE", policy => policy.RequireClaim("Permission", "PRINTER_ARCHIVE"));
 });
 
 var app = builder.Build();

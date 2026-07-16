@@ -300,17 +300,21 @@ else
                                   Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
                 <Template Context="imp">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.25rem">
-                        <RadzenButton Icon="health_and_safety" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirDiagnosticModal(imp))" Tooltip="Diagnostic en Temps Réel" />
+                        <RadzenButton Icon="health_and_safety" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirDiagnosticModal(imp))" Tooltip="Diagnostic en Temps Réel" title="Diagnostic en Temps Réel" />
                         <AuthorizeView Policy="PRINTER_WRITE">
                             <Authorized Context="auth">
-                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" Tooltip="Modifier" />
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" Tooltip="Modifier" title="Modifier" />
+                            </Authorized>
+                        </AuthorizeView>
+                        <AuthorizeView Policy="PRINTER_ARCHIVE">
+                            <Authorized Context="archiveAuth">
                                 @if (imp.IsArchived)
                                 {
-                                    <RadzenButton Icon="unarchive" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Restaurer" />
+                                    <RadzenButton Icon="unarchive" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Restaurer" title="Restaurer" />
                                 }
                                 else
                                 {
-                                    <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Archiver" />
+                                    <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))" Tooltip="Archiver" title="Archiver" />
                                 }
                             </Authorized>
                         </AuthorizeView>
@@ -397,7 +401,15 @@ else
             imprimantes = await Http.GetFromJsonAsync<List<Imprimante>>(url); 
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
-        finally { isLoading = false; }
+        finally 
+        { 
+            isLoading = false; 
+            if (grid != null)
+            {
+                await grid.Reload();
+            }
+            StateHasChanged();
+        }
     }
 
     private async Task OnTabChanged(int index)
@@ -564,6 +576,7 @@ else
             new Dictionary<string, object> { { "Imprimante", imp } },
             new DialogOptions() { Width = "750px", CloseDialogOnOverlayClick = true }
         );
+        await ChargerListe();
     }
 
     private async Task ExporterEnCsv()

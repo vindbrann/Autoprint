@@ -102,7 +102,12 @@ namespace Autoprint.Server.Data
                 new Permission { Id = 21, Code = "MODEL_READ", Description = "Voir les modèles" },
                 new Permission { Id = 22, Code = "MODEL_WRITE", Description = "Ajouter/Modifier des modèles" },
                 new Permission { Id = 23, Code = "MODEL_DELETE", Description = "Supprimer des modèles" },
-                new Permission { Id = 24, Code = "AUDIT_READ", Description = "Voir les logs d'audit" }
+                new Permission { Id = 24, Code = "AUDIT_READ", Description = "Voir les logs d'audit" },
+                new Permission { Id = 25, Code = "SNMP_PROFILE_READ", Description = "Voir les profils SNMP" },
+                new Permission { Id = 26, Code = "SNMP_PROFILE_WRITE", Description = "Créer/Modifier des profils SNMP" },
+                new Permission { Id = 27, Code = "SNMP_PROFILE_DELETE", Description = "Supprimer des profils SNMP" },
+                new Permission { Id = 28, Code = "REPORT_MANAGE", Description = "Gérer les rapports et la planification" },
+                new Permission { Id = 29, Code = "PRINTER_ARCHIVE", Description = "Archiver/Désarchiver des imprimantes" }
             };
 
             modelBuilder.Entity<Permission>().HasData(permissionsList);

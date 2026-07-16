@@ -55,27 +55,73 @@
         </RadzenCard>
 
         <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-background-color-panel);">
-            <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;" Class="rz-mb-2">🎯 Périmètre du Rapport (Scope)</RadzenText>
-            <RadzenRow>
-                <RadzenColumn Size="12" SizeMD="4">
-                    <RadzenLabel Text="Lieu / Emplacement" Component="Location" />
-                    <RadzenDropDown Name="Location" TValue="int" @bind-Value="@scopeFilter.LocationId"
-                                    Data="@locations" TextProperty="Nom" ValueProperty="Id"
-                                    Placeholder="Tout le parc" Style="width: 100%;" AllowClear="true" />
-                </RadzenColumn>
-                <RadzenColumn Size="12" SizeMD="4">
-                    <RadzenLabel Text="Marque" Component="Brand" />
-                    <RadzenDropDown Name="Brand" TValue="int" @bind-Value="@scopeFilter.BrandId"
-                                    Data="@brands" TextProperty="Nom" ValueProperty="Id"
-                                    Placeholder="Toutes" Style="width: 100%;" AllowClear="true" Change="@OnBrandChanged" />
-                </RadzenColumn>
-                <RadzenColumn Size="12" SizeMD="4">
-                    <RadzenLabel Text="Modèle d'imprimante" Component="Model" />
-                    <RadzenDropDown Name="Model" TValue="int" @bind-Value="@scopeFilter.ModelId"
-                                    Data="@filteredModels" TextProperty="Nom" ValueProperty="Id"
-                                    Placeholder="Tous" Style="width: 100%;" AllowClear="true" Disabled="@(scopeFilter.BrandId == 0)" />
-                </RadzenColumn>
-            </RadzenRow>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-3">
+                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;">🎯 Périmètre du Rapport (Filtres No-Code)</RadzenText>
+                <RadzenButton Icon="add" Text="Ajouter un filtre" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Click="@AjouterRegle" />
+            </RadzenStack>
+
+            @if (scopeFilter.Rules == null || scopeFilter.Rules.Count == 0)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+                    Aucun filtre défini. Le rapport s'appliquera sur l'ensemble du parc d'imprimantes.
+                </RadzenAlert>
+            }
+            else
+            {
+                <RadzenStack Gap="0.75rem">
+                    @foreach (var rule in scopeFilter.Rules)
+                    {
+                        <RadzenRow AlignItems="AlignItems.Center" Gap="0.5rem" Style="background: var(--rz-background-color-content); padding: 8px; border-radius: 4px; border: 1px solid var(--rz-border-color);">
+                            <RadzenColumn Size="12" SizeMD="3">
+                                <RadzenDropDown TValue="string" Value="@rule.Field" ValueChanged="@((val) => OnFieldChanged(rule, val))"
+                                                Data="@champsDisponibles" TextProperty="Label" ValueProperty="Value"
+                                                Style="width: 100%;" />
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="2">
+                                <RadzenDropDown TValue="string" @bind-Value="@rule.Operator"
+                                                Data="@ObtenirOperateurs(rule.Field)" TextProperty="Label" ValueProperty="Value"
+                                                Style="width: 100%;" />
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="6">
+                                @if (rule.Field == "LocationId")
+                                {
+                                    <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
+                                                    Data="@locations" TextProperty="Nom" ValueProperty="Id"
+                                                    Placeholder="Sélectionner les lieux..." Style="width: 100%;"
+                                                    Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
+                                                    SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
+                                }
+                                else if (rule.Field == "BrandId")
+                                {
+                                    <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
+                                                    Data="@brands" TextProperty="Nom" ValueProperty="Id"
+                                                    Placeholder="Sélectionner les marques..." Style="width: 100%;"
+                                                    Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
+                                                    SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
+                                }
+                                else if (rule.Field == "ModelId")
+                                {
+                                    <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
+                                                    Data="@allModels" TextProperty="Nom" ValueProperty="Id"
+                                                    Placeholder="Sélectionner les modèles..." Style="width: 100%;"
+                                                    Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
+                                                    SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
+                                }
+                                else
+                                {
+                                    <RadzenTextBox @bind-Value="@rule.Value" Placeholder="Entrez une valeur..." Style="width: 100%;" />
+                                }
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="12" SizeMD="1" Style="text-align: center;">
+                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => SupprimerRegle(rule))" Tooltip="Supprimer ce filtre" title="Supprimer ce filtre" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                    }
+                </RadzenStack>
+            }
         </RadzenCard>
 
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-4">
@@ -148,6 +194,42 @@
                 if (parsedScope != null)
                 {
                     scopeFilter = parsedScope;
+                    if (scopeFilter.Rules == null)
+                    {
+                        scopeFilter.Rules = new List<ReportRule>();
+                    }
+
+                    // Migrate legacy format to rule format for editing on the fly
+                    if (scopeFilter.Rules.Count == 0 && (scopeFilter.BrandId > 0 || scopeFilter.ModelId > 0 || scopeFilter.LocationId > 0))
+                    {
+                        if (scopeFilter.LocationId > 0)
+                        {
+                            scopeFilter.Rules.Add(new ReportRule
+                            {
+                                Field = "LocationId",
+                                Operator = "In",
+                                Values = new List<int> { scopeFilter.LocationId }
+                            });
+                        }
+                        if (scopeFilter.BrandId > 0)
+                        {
+                            scopeFilter.Rules.Add(new ReportRule
+                            {
+                                Field = "BrandId",
+                                Operator = "In",
+                                Values = new List<int> { scopeFilter.BrandId }
+                            });
+                        }
+                        if (scopeFilter.ModelId > 0)
+                        {
+                            scopeFilter.Rules.Add(new ReportRule
+                            {
+                                Field = "ModelId",
+                                Operator = "In",
+                                Values = new List<int> { scopeFilter.ModelId }
+                            });
+                        }
+                    }
                 }
             }
             catch { }
@@ -160,25 +242,67 @@
                 Frequency = "Hebdomadaire"
             };
         }
-
-        FilterModels();
     }
 
-    private void OnBrandChanged()
+    private List<ChampInfo> champsDisponibles = new()
     {
-        scopeFilter.ModelId = 0;
-        FilterModels();
-    }
+        new ChampInfo { Value = "LocationId", Label = "Lieu / Emplacement" },
+        new ChampInfo { Value = "BrandId", Label = "Marque" },
+        new ChampInfo { Value = "ModelId", Label = "Modèle" },
+        new ChampInfo { Value = "Nom", Label = "Nom de l'imprimante" },
+        new ChampInfo { Value = "AdresseIp", Label = "Adresse IP" },
+        new ChampInfo { Value = "Code", Label = "Code de l'imprimante" }
+    };
 
-    private void FilterModels()
+    private List<OperateurInfo> ObtenirOperateurs(string field)
     {
-        if (scopeFilter.BrandId > 0)
+        if (field == "LocationId" || field == "BrandId" || field == "ModelId")
         {
-            filteredModels = allModels.Where(m => m.MarqueId == scopeFilter.BrandId).ToList();
+            return new List<OperateurInfo>
+            {
+                new OperateurInfo { Value = "In", Label = "est l'un de" },
+                new OperateurInfo { Value = "NotIn", Label = "n'est pas l'un de" }
+            };
         }
         else
         {
-            filteredModels = new List<Modele>();
+            return new List<OperateurInfo>
+            {
+                new OperateurInfo { Value = "Contains", Label = "contient" },
+                new OperateurInfo { Value = "Equals", Label = "est égal à" },
+                new OperateurInfo { Value = "StartsWith", Label = "commence par" }
+            };
+        }
+    }
+
+    private void OnFieldChanged(ReportRule rule, string newField)
+    {
+        rule.Field = newField;
+        if (newField == "LocationId" || newField == "BrandId" || newField == "ModelId")
+        {
+            rule.Operator = "In";
+            rule.Values = new List<int>();
+            rule.Value = null;
+        }
+        else
+        {
+            rule.Operator = "Contains";
+            rule.Values = null;
+            rule.Value = "";
+        }
+    }
+
+    private void AjouterRegle()
+    {
+        if (scopeFilter.Rules == null) scopeFilter.Rules = new();
+        scopeFilter.Rules.Add(new ReportRule());
+    }
+
+    private void SupprimerRegle(ReportRule rule)
+    {
+        if (scopeFilter.Rules != null)
+        {
+            scopeFilter.Rules.Remove(rule);
         }
     }
 
@@ -191,6 +315,20 @@
         if (includeAlerts) metrics.Add("Alerts");
 
         schedule.SelectedMetricsJson = JsonSerializer.Serialize(metrics);
+
+        // Keep legacy fields consistent with the first rule (if any) for safety
+        if (scopeFilter.Rules != null && scopeFilter.Rules.Any())
+        {
+            var locRule = scopeFilter.Rules.FirstOrDefault(r => r.Field == "LocationId" && r.Operator == "In");
+            scopeFilter.LocationId = (locRule != null && locRule.Values != null && locRule.Values.Any()) ? locRule.Values.First() : 0;
+
+            var brandRule = scopeFilter.Rules.FirstOrDefault(r => r.Field == "BrandId" && r.Operator == "In");
+            scopeFilter.BrandId = (brandRule != null && brandRule.Values != null && brandRule.Values.Any()) ? brandRule.Values.First() : 0;
+
+            var modelRule = scopeFilter.Rules.FirstOrDefault(r => r.Field == "ModelId" && r.Operator == "In");
+            scopeFilter.ModelId = (modelRule != null && modelRule.Values != null && modelRule.Values.Any()) ? modelRule.Values.First() : 0;
+        }
+
         schedule.ScopeFilterJson = JsonSerializer.Serialize(scopeFilter);
 
         try
@@ -227,5 +365,26 @@
         public int BrandId { get; set; }
         public int ModelId { get; set; }
         public int LocationId { get; set; }
+        public List<ReportRule> Rules { get; set; } = new();
+    }
+
+    private class ReportRule
+    {
+        public string Field { get; set; } = "LocationId";
+        public string Operator { get; set; } = "In";
+        public List<int>? Values { get; set; } = new();
+        public string? Value { get; set; } = "";
+    }
+
+    private class ChampInfo
+    {
+        public string Value { get; set; } = "";
+        public string Label { get; set; } = "";
+    }
+
+    private class OperateurInfo
+    {
+        public string Value { get; set; } = "";
+        public string Label { get; set; } = "";
     }
 }

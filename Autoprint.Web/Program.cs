@@ -54,6 +54,11 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("ROLE_DELETE", policy => policy.RequireClaim("Permission", "ROLE_DELETE"));
     options.AddPolicy("SETTINGS_MANAGE", policy => policy.RequireClaim("Permission", "SETTINGS_MANAGE"));
     options.AddPolicy("AUDIT_READ", policy => policy.RequireClaim("Permission", "AUDIT_READ"));
+    options.AddPolicy("SNMP_PROFILE_READ", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_READ"));
+    options.AddPolicy("SNMP_PROFILE_WRITE", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_WRITE"));
+    options.AddPolicy("SNMP_PROFILE_DELETE", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_DELETE"));
+    options.AddPolicy("REPORT_MANAGE", policy => policy.RequireClaim("Permission", "REPORT_MANAGE"));
+    options.AddPolicy("PRINTER_ARCHIVE", policy => policy.RequireClaim("Permission", "PRINTER_ARCHIVE"));
 });
 
 await builder.Build().RunAsync();

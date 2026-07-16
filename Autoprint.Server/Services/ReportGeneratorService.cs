@@ -32,41 +32,108 @@ namespace Autoprint.Server.Services
 
         private async Task<List<PrinterReportItem>> FetchReportDataAsync(ReportSchedule schedule)
         {
-            // Parse Scope Filters
-            int? brandId = null;
-            int? modelId = null;
-            int? locationId = null;
-            try
-            {
-                var scope = JsonSerializer.Deserialize<ReportScopeFilter>(schedule.ScopeFilterJson);
-                if (scope != null)
-                {
-                    brandId = scope.BrandId > 0 ? scope.BrandId : null;
-                    modelId = scope.ModelId > 0 ? scope.ModelId : null;
-                    locationId = scope.LocationId > 0 ? scope.LocationId : null;
-                }
-            }
-            catch { }
-
-            // Query active printers
             var query = _context.Imprimantes
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .Include(i => i.Modele).ThenInclude(m => m!.SnmpProfile)
                 .Where(i => !i.IsArchived);
 
-            if (brandId.HasValue)
+            try
             {
-                query = query.Where(i => i.Modele != null && i.Modele.MarqueId == brandId.Value);
+                var scope = JsonSerializer.Deserialize<ReportScopeFilter>(schedule.ScopeFilterJson);
+                if (scope != null)
+                {
+                    if (scope.Rules != null && scope.Rules.Any())
+                    {
+                        foreach (var rule in scope.Rules)
+                        {
+                            if (rule.Field == "LocationId")
+                            {
+                                if (rule.Operator == "In" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => rule.Values.Contains(i.EmplacementId));
+                                }
+                                else if (rule.Operator == "NotIn" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => !rule.Values.Contains(i.EmplacementId));
+                                }
+                            }
+                            else if (rule.Field == "BrandId")
+                            {
+                                if (rule.Operator == "In" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => i.Modele != null && rule.Values.Contains(i.Modele.MarqueId));
+                                }
+                                else if (rule.Operator == "NotIn" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => i.Modele == null || !rule.Values.Contains(i.Modele.MarqueId));
+                                }
+                            }
+                            else if (rule.Field == "ModelId")
+                            {
+                                if (rule.Operator == "In" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => rule.Values.Contains(i.ModeleId));
+                                }
+                                else if (rule.Operator == "NotIn" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => !rule.Values.Contains(i.ModeleId));
+                                }
+                            }
+                            else if (rule.Field == "Nom")
+                            {
+                                if (rule.Operator == "Contains" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.NomAffiche != null && i.NomAffiche.ToLower().Contains(rule.Value.ToLower()));
+                                }
+                                else if (rule.Operator == "Equals" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.NomAffiche != null && i.NomAffiche.ToLower() == rule.Value.ToLower());
+                                }
+                            }
+                            else if (rule.Field == "AdresseIp")
+                            {
+                                if (rule.Operator == "Contains" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.AdresseIp != null && i.AdresseIp.Contains(rule.Value));
+                                }
+                                else if (rule.Operator == "StartsWith" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.AdresseIp != null && i.AdresseIp.StartsWith(rule.Value));
+                                }
+                            }
+                            else if (rule.Field == "Code")
+                            {
+                                if (rule.Operator == "Contains" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.Code != null && i.Code.ToLower().Contains(rule.Value.ToLower()));
+                                }
+                                else if (rule.Operator == "Equals" && !string.IsNullOrEmpty(rule.Value))
+                                {
+                                    query = query.Where(i => i.Code != null && i.Code.ToLower() == rule.Value.ToLower());
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Fallback to legacy singular format
+                        if (scope.BrandId > 0)
+                        {
+                            query = query.Where(i => i.Modele != null && i.Modele.MarqueId == scope.BrandId);
+                        }
+                        if (scope.ModelId > 0)
+                        {
+                            query = query.Where(i => i.ModeleId == scope.ModelId);
+                        }
+                        if (scope.LocationId > 0)
+                        {
+                            query = query.Where(i => i.EmplacementId == scope.LocationId);
+                        }
+                    }
+                }
             }
-            if (modelId.HasValue)
-            {
-                query = query.Where(i => i.ModeleId == modelId.Value);
-            }
-            if (locationId.HasValue)
-            {
-                query = query.Where(i => i.EmplacementId == locationId.Value);
-            }
+            catch { }
 
             var printers = await query.ToListAsync();
 
@@ -337,6 +404,16 @@ namespace Autoprint.Server.Services
             public int BrandId { get; set; }
             public int ModelId { get; set; }
             public int LocationId { get; set; }
+
+            public List<ReportRule>? Rules { get; set; }
+        }
+
+        private class ReportRule
+        {
+            public string Field { get; set; } = string.Empty;
+            public string Operator { get; set; } = string.Empty;
+            public List<int>? Values { get; set; }
+            public string? Value { get; set; }
         }
 
         private class PrinterReportItem

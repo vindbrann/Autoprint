@@ -1,4 +1,4 @@
-﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
@@ -141,7 +141,8 @@
         {
             ("PRINTER", "Imprimantes"), ("LOCATION", "Lieux"), ("BRAND", "Marques"),
             ("MODEL", "Modèles"), ("DRIVER", "Pilotes"), ("USER", "Utilisateurs"),
-            ("ROLE", "Rôles"), ("SETTINGS", "Système"), ("AUDIT", "Audit"), ("ADMIN", "Administration")
+            ("ROLE", "Rôles"), ("SETTINGS", "Système"), ("AUDIT", "Audit"),
+            ("SNMP_PROFILE", "Profils SNMP"), ("ADMIN", "Administration")
         };
         ModuleRows = new List<ModulePermissionRow>();
 
@@ -155,9 +156,36 @@
                 .Where(p => p.Code.StartsWith(g.Prefix + "_")
                             && !p.Code.EndsWith("_READ")
                             && !p.Code.EndsWith("_WRITE")
-                            && !p.Code.EndsWith("_DELETE"))
+                            && !p.Code.EndsWith("_DELETE")
+                            && p.Code != "PRINTER_ARCHIVE")
                 .ToList();
             ModuleRows.Add(row);
+        }
+
+        // Ligne dédiée à l'Archivage
+        var archivePerm = AllPermissions.FirstOrDefault(p => p.Code == "PRINTER_ARCHIVE");
+        if (archivePerm != null)
+        {
+            var archiveRow = new ModulePermissionRow 
+            { 
+                Title = "Archivage", 
+                Prefix = "PRINTER_ARCHIVE",
+                Others = new List<PermissionDto> { archivePerm }
+            };
+            ModuleRows.Add(archiveRow);
+        }
+
+        // Ligne dédiée aux Rapports & Planification
+        var reportPerm = AllPermissions.FirstOrDefault(p => p.Code == "REPORT_MANAGE");
+        if (reportPerm != null)
+        {
+            var reportRow = new ModulePermissionRow 
+            { 
+                Title = "Rapports & Plannif.", 
+                Prefix = "REPORT",
+                Others = new List<PermissionDto> { reportPerm }
+            };
+            ModuleRows.Add(reportRow);
         }
     }
 
