@@ -80,7 +80,7 @@ namespace Autoprint.Server.Services
                         }
                         else if (pageVar.Data is Counter32 pageCounter)
                         {
-                            result.PageCounter = (int)pageCounter.Value;
+                            result.PageCounter = pageCounter.ToUInt32();
                         }
 
                         // Parse uptime
