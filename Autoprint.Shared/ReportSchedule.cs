@@ -31,5 +31,10 @@ namespace Autoprint.Shared
         public DateTime? NextRunAt { get; set; }
         public bool IsActive { get; set; } = true;
         public int PredictionThresholdDays { get; set; } = 14;
+
+        public int RunHour { get; set; } = 6;
+        public int RunMinute { get; set; } = 0;
+        public int? RunDayOfWeek { get; set; } // 0 = Sunday, 1 = Monday ... 6 = Saturday (for weekly)
+        public int? RunDayOfMonth { get; set; } // 1 to 31 (for monthly)
     }
 }

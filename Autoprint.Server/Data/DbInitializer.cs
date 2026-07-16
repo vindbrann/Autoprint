@@ -25,6 +25,30 @@ namespace Autoprint.Server.Data
                     context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN PredictionThresholdDays INTEGER NOT NULL DEFAULT 14;");
                 }
                 catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunHour INTEGER NOT NULL DEFAULT 6;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunMinute INTEGER NOT NULL DEFAULT 0;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunDayOfWeek INTEGER NULL;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunDayOfMonth INTEGER NULL;");
+                }
+                catch { }
             }
 
             if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeOffline"))
