@@ -69,6 +69,14 @@
                                 </Template>
                             </RadzenPanelMenuItem>
                         </AuthorizeView>
+
+                        <AuthorizeView Policy="SNMP_PROFILE_READ">
+                            <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="settings_ethernet" />
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="REPORT_MANAGE">
+                            <RadzenPanelMenuItem Text="Rapports & Planification" Path="reports" Icon="assessment" />
+                        </AuthorizeView>
                     </RadzenPanelMenu>
                 }
 
@@ -81,12 +89,6 @@
                     <RadzenPanelMenu>
                         <AuthorizeView Policy="SETTINGS_MANAGE">
                             <RadzenPanelMenuItem Text="Paramètres" Path="parametres" Icon="settings" />
-                        </AuthorizeView>
-                        <AuthorizeView Policy="SNMP_PROFILE_READ">
-                            <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="settings_ethernet" />
-                        </AuthorizeView>
-                        <AuthorizeView Policy="REPORT_MANAGE">
-                            <RadzenPanelMenuItem Text="Rapports & Planification" Path="reports" Icon="assessment" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="USER_READ">
@@ -205,9 +207,7 @@
                              (c.Value == "SETTINGS_MANAGE" ||
                               c.Value == "USER_READ" ||
                               c.Value == "AUDIT_READ" ||
-                              c.Value == "ROLE_READ" ||
-                              c.Value == "SNMP_PROFILE_READ" ||
-                              c.Value == "REPORT_MANAGE"));
+                              c.Value == "ROLE_READ"));
     }
 
     private bool CanShowGestionSection(System.Security.Claims.ClaimsPrincipal user)
@@ -217,6 +217,8 @@
                               c.Value == "LOCATION_READ" ||
                               c.Value == "BRAND_READ" ||
                               c.Value == "MODEL_READ" ||
-                              c.Value == "DRIVER_READ"));
+                              c.Value == "DRIVER_READ" ||
+                              c.Value == "SNMP_PROFILE_READ" ||
+                              c.Value == "REPORT_MANAGE"));
     }
 }
