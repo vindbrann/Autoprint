@@ -54,7 +54,7 @@
         @if (currentStep == 1)
         {
             <!-- ÉTAPE 1 : CONFIGURATION GÉNÉRALE -->
-            <RadzenCard Variant="Variant.Flat" Class="rz-p-4" Style="background-color: var(--rz-background-color-panel); border-radius: 8px;">
+            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
                 <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
                     <RadzenIcon Icon="settings" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Configuration du Rapport
                 </RadzenText>
@@ -98,29 +98,17 @@
                         </span>
                     </RadzenColumn>
                 </RadzenRow>
-
-                <RadzenRow Gap="1.25rem" Class="rz-mt-4" Style="align-items: center;">
-                    <RadzenColumn Size="12" Style="display: flex; align-items: center; gap: 0.75rem;">
-                        <RadzenSwitch @bind-Value="@schedule.IsActive" Name="IsActive" />
-                        <div>
-                            <RadzenLabel Text="Planification active" Component="IsActive" Style="font-weight: bold; cursor: pointer;" />
-                            <span style="font-size: 0.8rem; color: var(--rz-text-secondary-color); display: block;">Désactivez pour mettre en pause l'envoi automatique de ce rapport.</span>
-                        </div>
-                    </RadzenColumn>
-                </RadzenRow>
-            </RadzenCard>
-        }
-        else if (currentStep == 2)
+            </Ra        else if (currentStep == 2)
         {
             <!-- ÉTAPE 2 : CHOIX DES MÉTRIQUES -->
-            <RadzenCard Variant="Variant.Flat" Class="rz-p-4" Style="background-color: var(--rz-background-color-panel); border-radius: 8px;">
+            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
                 <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
                     <RadzenIcon Icon="bar_chart" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Métriques à inclure dans le Rapport
                 </RadzenText>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
                     <!-- Compteur de pages -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
                             <span style="font-size: 1.5rem; line-height: 1;">📄</span>
                             <div>
@@ -129,10 +117,10 @@
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includePages" Name="Pages" />
-                    </div>
+                    </RadzenCard>
                     
                     <!-- Consommables -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
                             <span style="font-size: 1.5rem; line-height: 1;">🧪</span>
                             <div>
@@ -141,10 +129,10 @@
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeToner" Name="Toner" />
-                    </div>
+                    </RadzenCard>
                     
                     <!-- Disponibilité -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
                             <span style="font-size: 1.5rem; line-height: 1;">⚡</span>
                             <div>
@@ -153,10 +141,10 @@
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeAvailability" Name="Availability" />
-                    </div>
+                    </RadzenCard>
                     
                     <!-- Alertes -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
                             <span style="font-size: 1.5rem; line-height: 1;">⚠️</span>
                             <div>
@@ -165,10 +153,10 @@
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeAlerts" Name="Alerts" />
-                    </div>
-
+                    </RadzenCard>
+ 
                     <!-- Prévisions d'épuisement -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
                             <span style="font-size: 1.5rem; line-height: 1;">⏳</span>
                             <div>
@@ -177,12 +165,12 @@
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includePredictions" Name="Predictions" />
-                    </div>
+                    </RadzenCard>
                 </div>
-
+ 
                 @if (includePredictions)
                 {
-                    <RadzenCard Variant="Variant.Flat" Style="border: 1px dashed var(--rz-primary); margin-top: 1rem; border-radius: 8px; background: rgba(67, 95, 222, 0.03);">
+                    <RadzenCard Variant="Variant.Outlined" Style="border: 1px dashed var(--rz-primary); margin-top: 1rem; border-radius: 8px; background: rgba(67, 95, 222, 0.03);">
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="1.5rem">
                             <RadzenStack Gap="0" Style="flex: 1;">
                                 <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="font-weight: bold; color: var(--rz-primary);">Plage d'alerte anticipée</RadzenText>
@@ -202,7 +190,7 @@
         else if (currentStep == 3)
         {
             <!-- ÉTAPE 3 : PÉRIMÈTRE (FILTRES NO-CODE) -->
-            <RadzenCard Variant="Variant.Flat" Class="rz-p-4" Style="background-color: var(--rz-background-color-panel); border-radius: 8px;">
+            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
                 <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
                     <RadzenIcon Icon="track_changes" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Périmètre et Ciblage des Imprimantes
                 </RadzenText>
@@ -266,7 +254,7 @@
                                     </div>
                                 }
 
-                                <div style="position: relative; background: var(--rz-background-color-content); padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color); display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <RadzenCard Variant="Variant.Outlined" Style="position: relative; background: var(--rz-background-color-content); padding: 1.25rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                                     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--rz-border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                                             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--rz-info); color: white; font-size: 0.8rem; font-weight: bold;">@ruleIndex</span>
@@ -322,7 +310,7 @@
                                             }
                                         </div>
                                     </div>
-                                </div>
+                                </RadzenCard>
                             }
                         }
                     </RadzenStack>
