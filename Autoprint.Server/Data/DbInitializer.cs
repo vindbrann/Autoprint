@@ -55,6 +55,45 @@ namespace Autoprint.Server.Data
                 context.UserRoles.Add(new UserRole { UserId = adminUser.Id, RoleId = 1 });
             }
             context.SaveChanges();
+
+            // Programmatically seed granular permissions if they are missing (crucial for SQLite updates)
+            var permissionsList = new System.Collections.Generic.List<Permission>
+            {
+                new Permission { Code = "SNMP_PROFILE_READ", Description = "Voir les profils SNMP" },
+                new Permission { Code = "SNMP_PROFILE_WRITE", Description = "Créer/Modifier des profils SNMP" },
+                new Permission { Code = "SNMP_PROFILE_DELETE", Description = "Supprimer des profils SNMP" },
+                new Permission { Code = "REPORT_MANAGE", Description = "Gérer les rapports et la planification" },
+                new Permission { Code = "PRINTER_ARCHIVE", Description = "Archiver/Désarchiver des imprimantes" }
+            };
+
+            foreach (var perm in permissionsList)
+            {
+                var existingPerm = context.Permissions.FirstOrDefault(p => p.Code == perm.Code);
+                if (existingPerm == null)
+                {
+                    Console.WriteLine($"--> Seeding permission: {perm.Code}");
+                    var newPerm = new Permission
+                    {
+                        Code = perm.Code,
+                        Description = perm.Description
+                    };
+                    context.Permissions.Add(newPerm);
+                    context.SaveChanges();
+
+                    if (!context.RolePermissions.Any(rp => rp.RoleId == 1 && rp.PermissionId == newPerm.Id))
+                    {
+                        context.RolePermissions.Add(new RolePermission { RoleId = 1, PermissionId = newPerm.Id });
+                    }
+                }
+                else
+                {
+                    if (!context.RolePermissions.Any(rp => rp.RoleId == 1 && rp.PermissionId == existingPerm.Id))
+                    {
+                        context.RolePermissions.Add(new RolePermission { RoleId = 1, PermissionId = existingPerm.Id });
+                    }
+                }
+            }
+            context.SaveChanges();
         }
     }
 }

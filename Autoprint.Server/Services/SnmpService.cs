@@ -31,25 +31,25 @@ namespace Autoprint.Server.Services
 
             if (!result.PingSuccess)
             {
-                result.Status = "Éteint / Hors Ligne";
+                result.Status = "ï¿½teint / Hors Ligne";
                 return result;
             }
 
-            // 2. Requête SNMP
+            // 2. Requï¿½te SNMP
             try
             {
                 if (!IPAddress.TryParse(ipAddress, out var ip))
                 {
                     var addresses = await Dns.GetHostAddressesAsync(ipAddress);
                     if (addresses.Length > 0) ip = addresses[0];
-                    else throw new Exception("Impossible de résoudre le nom d'hôte");
+                    else throw new Exception("Impossible de rï¿½soudre le nom d'hï¿½te");
                 }
 
                 var endpoint = new IPEndPoint(ip, port);
                 var communityBytes = new OctetString(community);
                 var versionCode = version == 1 ? VersionCode.V1 : VersionCode.V2;
 
-                // Récupération des infos globales (Status, Page counter, Uptime, Ecran)
+                // Rï¿½cupï¿½ration des infos globales (Status, Page counter, Uptime, Ecran)
                 string oidPage = (profile != null && !string.IsNullOrEmpty(profile.OidPageCounter)) ? profile.OidPageCounter : "1.3.6.1.2.1.43.10.2.1.4.1.1";
                 var globalOids = new List<Variable>
                 {
@@ -94,19 +94,21 @@ namespace Autoprint.Server.Services
                         var line1Var = response[3];
                         var line2Var = response[4];
                         var consoleLines = new List<string>();
-                        if (line1Var.Data is OctetString line1Str && !string.IsNullOrWhiteSpace(line1Str.ToString()))
+                        if (line1Var.Data is OctetString line1Str)
                         {
-                            consoleLines.Add(line1Str.ToString().Trim());
+                            var line1Decoded = DecodeOctetString(line1Str);
+                            if (!string.IsNullOrWhiteSpace(line1Decoded)) consoleLines.Add(line1Decoded);
                         }
-                        if (line2Var.Data is OctetString line2Str && !string.IsNullOrWhiteSpace(line2Str.ToString()))
+                        if (line2Var.Data is OctetString line2Str)
                         {
-                            consoleLines.Add(line2Str.ToString().Trim());
+                            var line2Decoded = DecodeOctetString(line2Str);
+                            if (!string.IsNullOrWhiteSpace(line2Decoded)) consoleLines.Add(line2Decoded);
                         }
 
                         if (consoleLines.Count > 0)
                         {
                             string consoleText = string.Join(" | ", consoleLines);
-                            result.Alerts.Add($"Écran : {consoleText}");
+                            result.Alerts.Add($"ï¿½cran : {consoleText}");
                         }
                     }
                 }
@@ -115,7 +117,7 @@ namespace Autoprint.Server.Services
                     result.Status = "En Ligne (SNMP partiel)";
                 }
 
-                // Récupération des consommables
+                // Rï¿½cupï¿½ration des consommables
                 var customTonerOids = new Dictionary<string, string>();
                 if (profile != null)
                 {
@@ -176,7 +178,7 @@ namespace Autoprint.Server.Services
                             var index = GetOidIndex(v.Id);
                             if (!string.IsNullOrEmpty(index) && v.Data is OctetString descStr)
                             {
-                                var desc = descStr.ToString().ToLower();
+                                var desc = DecodeOctetString(descStr).ToLower();
                                 string friendlyColor = MapColorName(desc);
 
                                 tonersMap[index] = new TonerLevelResult
@@ -240,9 +242,9 @@ namespace Autoprint.Server.Services
             {
                 1 => "Autre / Alerte",
                 2 => "Inconnu",
-                3 => "PrÃªt",
+                3 => "Pr\u00eet",
                 4 => "Impression en cours",
-                5 => "PrÃ©chauffage",
+                5 => "Pr\u00e9chauffage",
                 _ => "Inconnu"
             };
         }
@@ -265,6 +267,32 @@ namespace Autoprint.Server.Services
             if (desc.Contains("yellow") || desc.Contains("jaune") || desc.Contains("y ")) return "Jaune";
 
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(desc);
+        }
+
+        private string DecodeOctetString(OctetString octetString)
+        {
+            if (octetString == null) return string.Empty;
+            var bytes = octetString.GetRaw();
+            if (bytes == null || bytes.Length == 0) return string.Empty;
+
+            try
+            {
+                // Strict UTF-8 decoding to throw on invalid sequences (e.g. ISO-8859-1)
+                var strictUtf8 = new System.Text.UTF8Encoding(false, true);
+                return strictUtf8.GetString(bytes).Trim();
+            }
+            catch
+            {
+                try
+                {
+                    // Fallback to ISO-8859-1 (Latin-1)
+                    return System.Text.Encoding.GetEncoding("ISO-8859-1").GetString(bytes).Trim();
+                }
+                catch
+                {
+                    return octetString.ToString().Trim();
+                }
+            }
         }
     }
 }

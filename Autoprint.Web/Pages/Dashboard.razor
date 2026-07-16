@@ -82,7 +82,7 @@ else if (stats != null)
 
     <RadzenRow Class="rz-mb-4" Gap="1.5rem">
         <RadzenColumn Size="12" SizeMD="6">
-            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-danger); background-color: var(--rz-base-50); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-danger); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
                     <RadzenStack Gap="0">
                         <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-danger" Style="font-weight: bold;">IMPRIMANTES HORS LIGNE</RadzenText>
@@ -95,7 +95,7 @@ else if (stats != null)
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="6">
-            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-warning); background-color: var(--rz-base-50); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
+            <RadzenCard Variant="Variant.Flat" Class="kpi-card" Style="border-left: 4px solid var(--rz-warning); cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
                     <RadzenStack Gap="0">
                         <RadzenText TextStyle="TextStyle.Overline" Class="rz-mb-0 rz-color-warning" Style="font-weight: bold;">ALERTES ACTIVES / TONER BAS</RadzenText>
@@ -185,28 +185,6 @@ else if (stats != null)
             <RadzenColumn Size="12" SizeLG="4">
                 <RadzenStack Gap="1.5rem" Style="height: 100%;">
 
-                    @if (canReadDrivers)
-                    {
-                        <RadzenCard Class="rz-p-3" Style="border-radius: 8px;">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-2">
-                                <RadzenIcon Icon="inventory_2" Style="color: var(--rz-secondary);" />
-                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="color: var(--rz-text-color);">Référentiel Pilotes</RadzenText>
-                            </RadzenStack>
-
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                <span class="rz-text-caption" style="color: var(--rz-text-color);">Taux d'utilisation</span>
-                                <span class="rz-text-caption" style="font-weight: bold; color: var(--rz-text-color);">@usagePercent%</span>
-                            </div>
-
-                            <RadzenProgressBar Value="@usagePercent" ShowValue="false" Style="height: 8px;" ProgressBarStyle="ProgressBarStyle.Info" />
-
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mt-2">
-                                <span class="rz-text-caption" style="color: var(--rz-text-tertiary-color);">@assignedDrivers assignés</span>
-                                <span class="rz-text-caption" style="color: var(--rz-text-tertiary-color);">@orphanedDrivers en réserve</span>
-                            </RadzenStack>
-                        </RadzenCard>
-                    }
-
                     @if (canReadAudit)
                     {
                         <RadzenCard Class="rz-p-0" Style="flex: 1; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
@@ -281,13 +259,8 @@ else if (stats != null)
     private List<AuditLogDto>? recentLogs;
     private bool isLoading = true;
     private bool canReadAudit = false;
-    private bool canReadDrivers = false;
-    private bool canReadModels = false;
-    private int orphanedDrivers = 0;
-    private int assignedDrivers = 0;
-    private double usagePercent = 0;
 
-    private bool ShowRightColumn => canReadAudit || canReadDrivers;
+    private bool ShowRightColumn => canReadAudit;
 
     protected override async Task OnInitializedAsync()
     {
@@ -300,38 +273,17 @@ else if (stats != null)
         try
         {
             canReadAudit = await AuthProvider.HasPermission("Permission", "AUDIT_READ");
-            canReadDrivers = await AuthProvider.HasPermission("Permission", "DRIVER_READ");
-            canReadModels = await AuthProvider.HasPermission("Permission", "MODEL_READ");
 
             var t1 = Http.GetFromJsonAsync<DashboardStatsDto>("api/Dashboard");
 
             Task<PaginatedList<AuditLogDto>>? t2 = null;
             if (canReadAudit) t2 = Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>("api/Audit?page=1&pageSize=5");
 
-            Task<List<Pilote>>? t3 = null;
-            Task<List<Modele>>? t4 = null;
-            if (canReadDrivers && canReadModels)
-            {
-                t3 = Http.GetFromJsonAsync<List<Pilote>>("api/Pilotes");
-                t4 = Http.GetFromJsonAsync<List<Modele>>("api/Modeles");
-            }
-
             await Task.WhenAll(t1);
             if (t2 != null) await t2;
-            if (t3 != null && t4 != null) await Task.WhenAll(t3, t4);
 
             stats = t1.Result;
             recentLogs = (t2 != null && t2.Result != null) ? t2.Result.Items : new List<AuditLogDto>();
-
-            if (t3 != null && t4 != null)
-            {
-                var pilotes = t3.Result ?? new();
-                var modeles = t4.Result ?? new();
-                var usedDriverIds = modeles.Select(m => m.PiloteId).Distinct().ToHashSet();
-                orphanedDrivers = pilotes.Count(p => !usedDriverIds.Contains(p.Id));
-                assignedDrivers = pilotes.Count - orphanedDrivers;
-                if (pilotes.Count > 0) usagePercent = Math.Round((double)assignedDrivers / pilotes.Count * 100);
-            }
         }
         catch (Exception ex)
         {

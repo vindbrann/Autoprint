@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
@@ -79,6 +79,11 @@ namespace Autoprint.Server.Controllers
             Check("AdServiceUser", dto.AdServiceUser, "AD User", "Active Directory");
             if (!string.IsNullOrEmpty(dto.AdServicePassword)) Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
             Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes", "Active Directory");
+            Check("Monitoring_Enabled", dto.Monitoring_Enabled.ToString(), "Supervision active", "Supervision");
+            Check("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString(), "Intervalle de scan (min)", "Supervision");
+            Check("Monitoring_StartHour", dto.Monitoring_StartHour.ToString(), "Heure de début du scan", "Supervision");
+            Check("Monitoring_EndHour", dto.Monitoring_EndHour.ToString(), "Heure de fin du scan", "Supervision");
+            Check("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString(), "Scan le week-end", "Supervision");
 
             if (dto.LogRetentionDays > 0) await UpdateSetting("LogRetentionDays", dto.LogRetentionDays.ToString());
 
@@ -102,6 +107,11 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("AdServiceUser", dto.AdServiceUser);
             if (!string.IsNullOrEmpty(dto.AdServicePassword)) await UpdateSetting("AdServicePassword", dto.AdServicePassword);
             await UpdateSetting("AdAdminEmails", dto.AdAdminEmails);
+            await UpdateSetting("Monitoring_Enabled", dto.Monitoring_Enabled.ToString());
+            await UpdateSetting("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString());
+            await UpdateSetting("Monitoring_StartHour", dto.Monitoring_StartHour.ToString());
+            await UpdateSetting("Monitoring_EndHour", dto.Monitoring_EndHour.ToString());
+            await UpdateSetting("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString());
 
 
             if (modifiedCategories.Any())
@@ -245,6 +255,11 @@ namespace Autoprint.Server.Controllers
         public string AdServiceUser { get; set; } = "";
         public string AdServicePassword { get; set; } = "";
         public string AdAdminEmails { get; set; } = "";
+        public bool Monitoring_Enabled { get; set; } = true;
+        public int Monitoring_IntervalMinutes { get; set; } = 60;
+        public int Monitoring_StartHour { get; set; } = 8;
+        public int Monitoring_EndHour { get; set; } = 18;
+        public bool Monitoring_ScanOnWeekends { get; set; } = true;
     }
 
     public class TestEmailDto { public string Host { get; set; } = ""; public int Port { get; set; } public string User { get; set; } = ""; public string Password { get; set; } = ""; public bool Ssl { get; set; } public string From { get; set; } = ""; public string To { get; set; } = ""; }

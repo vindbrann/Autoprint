@@ -111,15 +111,37 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "PRINTER_WRITE")]
+        [Authorize]
         public async Task<IActionResult> PutImprimante(int id, Imprimante inputImprimante)
         {
-            if (id != inputImprimante.Id) return BadRequest("ID incohérent.");
+            if (id != inputImprimante.Id) return BadRequest("ID incohÃ©rent.");
 
             var dbImprimante = await _context.Imprimantes.FindAsync(id);
             if (dbImprimante == null) return NotFound();
 
-            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("Modèle introuvable.");
+            bool isArchiving = dbImprimante.IsArchived != inputImprimante.IsArchived;
+
+            if (isArchiving)
+            {
+                if (!User.HasClaim(c => c.Type == "Permission" && c.Value == "PRINTER_ARCHIVE"))
+                {
+                    return Forbid();
+                }
+                dbImprimante.IsArchived = inputImprimante.IsArchived;
+                if (!dbImprimante.IsArchived)
+                {
+                    dbImprimante.MonitoringStatus = "Inconnu";
+                }
+            }
+            else
+            {
+                if (!User.HasClaim(c => c.Type == "Permission" && c.Value == "PRINTER_WRITE"))
+                {
+                    return Forbid();
+                }
+            }
+
+            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("ModÃ¨le introuvable.");
             if (!await _context.Emplacements.AnyAsync(e => e.Id == inputImprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
 
             if (dbImprimante.Status == PrinterStatus.Synchronized || dbImprimante.Status == PrinterStatus.SyncError)
@@ -324,6 +346,67 @@ namespace Autoprint.Server.Controllers
                 printer.SnmpCommunity ?? "public", 
                 printer.SnmpVersion,
                 printer.Modele?.SnmpProfile);
+
+            // Update database status based on diagnostic results
+            if (!result.PingSuccess)
+            {
+                printer.MonitoringStatus = "Offline";
+            }
+            else
+            {
+                printer.LastSeen = DateTime.UtcNow;
+
+                bool tonerLow = false;
+                if (result.Toners != null)
+                {
+                    var todayUtc = DateTime.UtcNow.Date;
+                    foreach (var toner in result.Toners)
+                    {
+                        if (toner.CurrentLevel >= 0)
+                        {
+                            if (toner.CurrentLevel <= 10)
+                            {
+                                tonerLow = true;
+                            }
+
+                            bool alreadyLoggedToday = await _context.TonerHistories
+                                .AnyAsync(h => h.ImprimanteId == printer.Id 
+                                               && h.ComponentColor == toner.Color 
+                                               && h.RecordedAt >= todayUtc);
+
+                            if (!alreadyLoggedToday)
+                            {
+                                _context.TonerHistories.Add(new TonerHistory
+                                {
+                                    ImprimanteId = printer.Id,
+                                    ComponentColor = toner.Color,
+                                    LevelPercent = toner.CurrentLevel,
+                                    RecordedAt = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (result.Status != null && (result.Status.Contains("Alerte") || result.Status.Contains("Inconnu")))
+                {
+                    printer.MonitoringStatus = "Warning";
+                }
+                else if (tonerLow)
+                {
+                    printer.MonitoringStatus = "Warning";
+                }
+                else if (result.Alerts != null && result.Alerts.Any(a => a.ToLower().Contains("erreur") || a.ToLower().Contains("bourrage") || a.ToLower().Contains("ouvert")))
+                {
+                    printer.MonitoringStatus = "Critical";
+                }
+                else
+                {
+                    printer.MonitoringStatus = "Ok";
+                }
+            }
+
+            await _context.SaveChangesAsync();
 
             var history = await _context.TonerHistories
                 .Where(h => h.ImprimanteId == id)

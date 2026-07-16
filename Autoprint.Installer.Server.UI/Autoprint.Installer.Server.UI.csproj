@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,7 +38,7 @@
 		</EmbeddedResource>
 	</ItemGroup>
 
-	<Target Name="BuildServerMsi" BeforeTargets="BeforeBuild">
+	<Target Name="BuildServerMsi" BeforeTargets="BeforeBuild" Condition="'$(SkipBuildServerMsi)' != 'true'">
 		<Message Text="📦 Génération automatique du MSI Serveur..." Importance="high" />
 		<MSBuild Projects="..\Autoprint.Server.Setup\Autoprint.Server.Setup.wixproj" Properties="Configuration=$(Configuration);Platform=x64" Targets="Build" />
 	</Target>

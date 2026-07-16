@@ -81,7 +81,11 @@
                     <RadzenPanelMenu>
                         <AuthorizeView Policy="SETTINGS_MANAGE">
                             <RadzenPanelMenuItem Text="Paramètres" Path="parametres" Icon="settings" />
+                        </AuthorizeView>
+                        <AuthorizeView Policy="SNMP_PROFILE_READ">
                             <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="settings_ethernet" />
+                        </AuthorizeView>
+                        <AuthorizeView Policy="REPORT_MANAGE">
                             <RadzenPanelMenuItem Text="Rapports & Planification" Path="reports" Icon="assessment" />
                         </AuthorizeView>
 
@@ -201,7 +205,9 @@
                              (c.Value == "SETTINGS_MANAGE" ||
                               c.Value == "USER_READ" ||
                               c.Value == "AUDIT_READ" ||
-                              c.Value == "ROLE_READ"));
+                              c.Value == "ROLE_READ" ||
+                              c.Value == "SNMP_PROFILE_READ" ||
+                              c.Value == "REPORT_MANAGE"));
     }
 
     private bool CanShowGestionSection(System.Security.Claims.ClaimsPrincipal user)

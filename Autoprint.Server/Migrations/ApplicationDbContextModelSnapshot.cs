@@ -217,6 +217,36 @@ namespace Autoprint.Server.Migrations
                             Id = 24,
                             Code = "AUDIT_READ",
                             Description = "Voir les logs d'audit"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Code = "SNMP_PROFILE_READ",
+                            Description = "Voir les profils SNMP"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Code = "SNMP_PROFILE_WRITE",
+                            Description = "Créer/Modifier des profils SNMP"
+                        },
+                        new
+                        {
+                            Id = 27,
+                            Code = "SNMP_PROFILE_DELETE",
+                            Description = "Supprimer des profils SNMP"
+                        },
+                        new
+                        {
+                            Id = 28,
+                            Code = "REPORT_MANAGE",
+                            Description = "Gérer les rapports et la planification"
+                        },
+                        new
+                        {
+                            Id = 29,
+                            Code = "PRINTER_ARCHIVE",
+                            Description = "Archiver/Désarchiver des imprimantes"
                         });
                 });
 
@@ -383,6 +413,31 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 24
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 25
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 26
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 27
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 28
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 29
                         });
                 });
 
@@ -789,7 +844,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 26, 5, 697, DateTimeKind.Utc).AddTicks(6791),
+                            DateModification = new DateTime(2026, 7, 15, 23, 8, 53, 563, DateTimeKind.Utc).AddTicks(9593),
                             EstSupprime = false,
                             Nom = "NON DÉFINI"
                         });
@@ -845,7 +900,7 @@ namespace Autoprint.Server.Migrations
                         new
                         {
                             Id = 1,
-                            DateModification = new DateTime(2026, 7, 15, 15, 26, 5, 697, DateTimeKind.Utc).AddTicks(8120),
+                            DateModification = new DateTime(2026, 7, 15, 23, 8, 53, 564, DateTimeKind.Utc).AddTicks(698),
                             EstSupprime = false,
                             MarqueId = 1,
                             Nom = "GÉNÉRIQUE"

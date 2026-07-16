@@ -15,7 +15,7 @@ namespace Autoprint.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "SETTINGS_MANAGE")]
+    [Authorize]
     public class SnmpProfilesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -28,6 +28,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<ActionResult<IEnumerable<SnmpProfile>>> GetSnmpProfiles()
         {
             return await _context.SnmpProfiles
@@ -36,6 +37,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<ActionResult<SnmpProfile>> GetSnmpProfile(int id)
         {
             var profile = await _context.SnmpProfiles.FindAsync(id);
@@ -44,6 +46,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<IActionResult> PutSnmpProfile(int id, SnmpProfile profile)
         {
             if (id != profile.Id) return BadRequest();
@@ -69,6 +72,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<SnmpProfile>> PostSnmpProfile(SnmpProfile profile)
         {
             _context.SnmpProfiles.Add(profile);
@@ -84,6 +88,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "SNMP_PROFILE_DELETE")]
         public async Task<IActionResult> DeleteSnmpProfile(int id)
         {
             var profile = await _context.SnmpProfiles.FindAsync(id);
@@ -108,6 +113,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet("{id}/export")]
+        [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<IActionResult> ExportProfile(int id)
         {
             var profile = await _context.SnmpProfiles.FindAsync(id);
@@ -129,6 +135,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("import")]
+        [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<SnmpProfile>> ImportProfile([FromBody] SnmpProfileImportDto importDto)
         {
             if (string.IsNullOrWhiteSpace(importDto.Name))
