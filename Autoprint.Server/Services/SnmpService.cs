@@ -31,25 +31,25 @@ namespace Autoprint.Server.Services
 
             if (!result.PingSuccess)
             {
-                result.Status = "�teint / Hors Ligne";
+                result.Status = "Éteint / Hors Ligne";
                 return result;
             }
 
-            // 2. Requ�te SNMP
+            // 2. Requête SNMP
             try
             {
                 if (!IPAddress.TryParse(ipAddress, out var ip))
                 {
                     var addresses = await Dns.GetHostAddressesAsync(ipAddress);
                     if (addresses.Length > 0) ip = addresses[0];
-                    else throw new Exception("Impossible de r�soudre le nom d'h�te");
+                    else throw new Exception("Impossible de résoudre le nom d'hôte");
                 }
 
                 var endpoint = new IPEndPoint(ip, port);
                 var communityBytes = new OctetString(community);
                 var versionCode = version == 1 ? VersionCode.V1 : VersionCode.V2;
 
-                // R�cup�ration des infos globales (Status, Page counter, Uptime, Ecran)
+                // Récupération des infos globales (Status, Page counter, Uptime, Écran)
                 string oidPage = (profile != null && !string.IsNullOrEmpty(profile.OidPageCounter)) ? profile.OidPageCounter : "1.3.6.1.2.1.43.10.2.1.4.1.1";
                 var globalOids = new List<Variable>
                 {
@@ -80,7 +80,7 @@ namespace Autoprint.Server.Services
                         }
                         else if (pageVar.Data is Counter32 pageCounter)
                         {
-                            result.PageCounter = pageCounter.ToUInt32();
+                            result.PageCounter = (int)pageCounter.Value;
                         }
 
                         // Parse uptime
@@ -108,7 +108,7 @@ namespace Autoprint.Server.Services
                         if (consoleLines.Count > 0)
                         {
                             string consoleText = string.Join(" | ", consoleLines);
-                            result.Alerts.Add($"�cran : {consoleText}");
+                            result.Alerts.Add($"Écran : {consoleText}");
                         }
                     }
                 }
@@ -117,7 +117,7 @@ namespace Autoprint.Server.Services
                     result.Status = "En Ligne (SNMP partiel)";
                 }
 
-                // R�cup�ration des consommables
+                // Récupération des consommables
                 var customTonerOids = new Dictionary<string, string>();
                 if (profile != null)
                 {
@@ -242,7 +242,7 @@ namespace Autoprint.Server.Services
             {
                 1 => "Autre / Alerte",
                 2 => "Inconnu",
-                3 => "Pr\u00eet",
+                3 => "Pr\u00eat",
                 4 => "Impression en cours",
                 5 => "Pr\u00e9chauffage",
                 _ => "Inconnu"
@@ -275,22 +275,44 @@ namespace Autoprint.Server.Services
             var bytes = octetString.GetRaw();
             if (bytes == null || bytes.Length == 0) return string.Empty;
 
+            // Find first null byte and truncate to ignore garbage trailing bytes
+            int len = 0;
+            while (len < bytes.Length && bytes[len] != 0)
+            {
+                len++;
+            }
+
+            if (len == 0) return string.Empty;
+
+            byte[] cleanBytes = bytes;
+            if (len < bytes.Length)
+            {
+                cleanBytes = new byte[len];
+                Array.Copy(bytes, cleanBytes, len);
+            }
+
             try
             {
-                // Strict UTF-8 decoding to throw on invalid sequences (e.g. ISO-8859-1)
+                // Strict UTF-8 decoding to throw on invalid sequences
                 var strictUtf8 = new System.Text.UTF8Encoding(false, true);
-                return strictUtf8.GetString(bytes).Trim();
+                return strictUtf8.GetString(cleanBytes).Trim();
             }
             catch
             {
                 try
                 {
                     // Fallback to ISO-8859-1 (Latin-1)
-                    return System.Text.Encoding.GetEncoding("ISO-8859-1").GetString(bytes).Trim();
+                    return System.Text.Encoding.GetEncoding("ISO-8859-1").GetString(cleanBytes).Trim();
                 }
                 catch
                 {
-                    return octetString.ToString().Trim();
+                    var decoded = octetString.ToString().Trim();
+                    int nullIdx = decoded.IndexOf('\0');
+                    if (nullIdx >= 0)
+                    {
+                        decoded = decoded.Substring(0, nullIdx);
+                    }
+                    return decoded.Trim();
                 }
             }
         }
