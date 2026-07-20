@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -16,7 +16,7 @@ public static class MsiHelper
     [DllImport("msi.dll", CharSet = CharSet.Unicode)]
     private static extern int MsiEnumRelatedProducts(string lpUpgradeCode, int reserved, int iProductIndex, StringBuilder lpProductBuf);
 
-    public static string GetUpgradeCodeFromFile(string msiPath)
+    public static string? GetUpgradeCodeFromFile(string msiPath)
     {
         IntPtr hProduct = IntPtr.Zero;
         try

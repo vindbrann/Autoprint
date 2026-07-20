@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Management;
 using Autoprint.Shared;
@@ -81,7 +81,7 @@ namespace Autoprint.Server.Services
 
         public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
         {
-            return Task.Run(() =>
+            return Task.Run<string?>(() =>
             {
                 string cleanIp = ipAddress.Trim();
                 string targetPortPattern = $"IP_{cleanIp}";

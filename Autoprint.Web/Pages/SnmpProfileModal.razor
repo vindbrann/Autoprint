@@ -1,46 +1,48 @@
 @using Autoprint.Shared
 @using Radzen
 @using Radzen.Blazor
+@using Autoprint.Web.Services
 @inject HttpClient Http
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
 
 <RadzenTemplateForm TItem="SnmpProfile" Data="@profileEdit" Submit="@OnSubmit">
     <RadzenStack Gap="1rem">
         <div>
             <RadzenLabel Text="Nom du Profil" Component="Name" />
-            <RadzenTextBox Name="Name" @bind-Value="@profileEdit.Name" Style="width: 100%;" Placeholder="Ex: Standard HP LaserJet" />
+            <RadzenTextBox Name="Name" @bind-Value="@profileEdit.Name" Style="width: 100%;" Placeholder="Ex: Standard HP LaserJet" Disabled="@(!canWrite)" />
             <RadzenRequiredValidator Component="Name" Text="Le nom est obligatoire" Popup="true" />
         </div>
 
         <div>
             <RadzenLabel Text="OID Compteur de Pages" Component="OidPageCounter" />
-            <RadzenTextBox Name="OidPageCounter" @bind-Value="@profileEdit.OidPageCounter" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.10.2.1.4.1.1" />
+            <RadzenTextBox Name="OidPageCounter" @bind-Value="@profileEdit.OidPageCounter" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.10.2.1.4.1.1" Disabled="@(!canWrite)" />
         </div>
 
         <RadzenFieldset Text="OIDs Consommables / Toners (Optionnel)">
             <RadzenStack Gap="0.5rem">
                 <div>
                     <RadzenLabel Text="Toner Noir (K)" Component="OidTonerBlack" />
-                    <RadzenTextBox Name="OidTonerBlack" @bind-Value="@profileEdit.OidTonerBlack" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.1" />
+                    <RadzenTextBox Name="OidTonerBlack" @bind-Value="@profileEdit.OidTonerBlack" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.1" Disabled="@(!canWrite)" />
                 </div>
                 <div>
                     <RadzenLabel Text="Toner Cyan (C)" Component="OidTonerCyan" />
-                    <RadzenTextBox Name="OidTonerCyan" @bind-Value="@profileEdit.OidTonerCyan" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.2" />
+                    <RadzenTextBox Name="OidTonerCyan" @bind-Value="@profileEdit.OidTonerCyan" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.2" Disabled="@(!canWrite)" />
                 </div>
                 <div>
                     <RadzenLabel Text="Toner Magenta (M)" Component="OidTonerMagenta" />
-                    <RadzenTextBox Name="OidTonerMagenta" @bind-Value="@profileEdit.OidTonerMagenta" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.3" />
+                    <RadzenTextBox Name="OidTonerMagenta" @bind-Value="@profileEdit.OidTonerMagenta" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.3" Disabled="@(!canWrite)" />
                 </div>
                 <div>
                     <RadzenLabel Text="Toner Jaune (Y)" Component="OidTonerYellow" />
-                    <RadzenTextBox Name="OidTonerYellow" @bind-Value="@profileEdit.OidTonerYellow" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.4" />
+                    <RadzenTextBox Name="OidTonerYellow" @bind-Value="@profileEdit.OidTonerYellow" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.4" Disabled="@(!canWrite)" />
                 </div>
             </RadzenStack>
         </RadzenFieldset>
 
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
-            @if (profileEdit.Id != 0)
+            @if (profileEdit.Id != 0 && canDelete)
             {
                 <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
             }
@@ -51,7 +53,7 @@
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                 <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" Visible="@canWrite" />
             </RadzenStack>
         </RadzenStack>
     </RadzenStack>
@@ -62,8 +64,14 @@
 
     private SnmpProfile profileEdit = new();
 
-    protected override void OnInitialized()
+    private bool canWrite = false;
+    private bool canDelete = false;
+
+    protected override async Task OnInitializedAsync()
     {
+        canWrite = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_WRITE");
+        canDelete = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_DELETE");
+
         profileEdit = new SnmpProfile
         {
             Id = ProfileToEdit.Id,
