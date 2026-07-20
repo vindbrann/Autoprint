@@ -1,4 +1,4 @@
-﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
@@ -82,6 +82,11 @@ else
                     @if (!editMode && !isAdUser)
                     {
                         <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="false" Style="display: block; margin-top: 5px;" />
+                        <RadzenLengthValidator Component="Password" Min="6" Text="Le mot de passe doit faire au moins 6 caractères" Popup="false" Style="display: block; margin-top: 5px;" />
+                    }
+                    @if (!string.IsNullOrEmpty(passwordError))
+                    {
+                        <div style="color: var(--rz-danger); font-size: 0.8rem; margin-top: 5px; display: block;">@passwordError</div>
                     }
                 </RadzenColumn>
 
@@ -104,6 +109,13 @@ else
                     </RadzenColumn>
                 }
             </RadzenRow>
+
+            @if (!string.IsNullOrEmpty(apiError))
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="true" Close="@(() => apiError = null)" Class="rz-mt-4">
+                    <div style="white-space: pre-line;">@apiError</div>
+                </RadzenAlert>
+            }
 
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
                 <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
@@ -172,8 +184,38 @@ else
         return availableRoles.FirstOrDefault(r => r.Name == roleName)?.Id ?? 0;
     }
 
+    private string? passwordError = null;
+    private string? apiError = null;
+
     private async Task OnSubmit()
     {
+        passwordError = null;
+        apiError = null;
+
+        if (!isAdUser)
+        {
+            if (editMode)
+            {
+                if (!string.IsNullOrEmpty(formData.Password) && formData.Password.Length < 6)
+                {
+                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    return;
+                }
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(formData.Password))
+                {
+                    return;
+                }
+                if (formData.Password.Length < 6)
+                {
+                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    return;
+                }
+            }
+        }
+
         try
         {
             if (editMode)
@@ -207,7 +249,45 @@ else
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message);
+            var msg = ex.Message;
+            string jsonPart = msg;
+            if (msg.StartsWith("Erreur Création : ")) jsonPart = msg.Substring("Erreur Création : ".Length);
+            else if (msg.StartsWith("Erreur Modification : ")) jsonPart = msg.Substring("Erreur Modification : ".Length);
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(jsonPart);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("errors", out var errorsProp) && errorsProp.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine("Certains champs sont incorrects :");
+                    foreach (var prop in errorsProp.EnumerateObject())
+                    {
+                        foreach (var err in prop.Value.EnumerateArray())
+                        {
+                            sb.AppendLine($"- {err.GetString()}");
+                        }
+                    }
+                    apiError = sb.ToString();
+                }
+                else if (root.TryGetProperty("message", out var msgProp))
+                {
+                    apiError = msgProp.GetString();
+                }
+                else if (root.TryGetProperty("title", out var titleProp))
+                {
+                    apiError = titleProp.GetString();
+                }
+                else
+                {
+                    apiError = msg;
+                }
+            }
+            catch
+            {
+                apiError = msg;
+            }
         }
     }
 }

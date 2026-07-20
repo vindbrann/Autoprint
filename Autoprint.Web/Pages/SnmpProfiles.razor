@@ -21,9 +21,11 @@
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
         <InputFile id="fileImport" OnChange="@ImporterFichierJson" style="display: none;" accept=".json" />
-        <RadzenButton Icon="file_upload" Text="Importer Profil" ButtonStyle="ButtonStyle.Secondary" Click="@TriggerFileInput" />
-        
-        <RadzenButton Icon="add_circle" Text="Nouveau Profil" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new SnmpProfile()))" />
+        @if (canWrite)
+        {
+            <RadzenButton Icon="file_upload" Text="Importer Profil" ButtonStyle="ButtonStyle.Secondary" Click="@TriggerFileInput" />
+            <RadzenButton Icon="add_circle" Text="Nouveau Profil" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new SnmpProfile()))" />
+        }
     </RadzenStack>
 </RadzenStack>
 
@@ -58,7 +60,7 @@ else
             <RadzenDataGridColumn TItem="SnmpProfile" Title="Actions" Sortable="false" Filterable="false" Width="150px" TextAlign="TextAlign.Center">
                 <Template Context="p">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.Center">
-                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(p))" Tooltip="Modifier" />
+                        <RadzenButton Icon="@(canWrite ? "edit" : "visibility")" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(p))" Tooltip="@(canWrite ? "Modifier" : "Consulter")" />
                         <RadzenButton Icon="file_download" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => ExporterProfil(p))" Tooltip="Exporter JSON" />
                     </RadzenStack>
                 </Template>
@@ -71,17 +73,22 @@ else
     private List<SnmpProfile>? profiles;
     private bool isLoading = true;
     private string? messageErreur;
+    private bool canWrite = false;
+    private bool canDelete = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var canManage = await AuthProvider.HasPermission("Permission", "SETTINGS_MANAGE");
-        if (canManage)
+        var canRead = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_READ");
+        canWrite = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_WRITE");
+        canDelete = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_DELETE");
+
+        if (canRead)
         {
             await ChargerListe();
         }
         else
         {
-            messageErreur = "Vous n'avez pas l'autorisation de gérer la configuration serveur.";
+            messageErreur = "Vous n'avez pas l'autorisation de consulter les profils SNMP.";
             isLoading = false;
         }
     }

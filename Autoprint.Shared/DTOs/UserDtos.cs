@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Autoprint.Shared.DTOs
 {
@@ -62,6 +62,7 @@ namespace Autoprint.Shared.DTOs
         [EmailAddress]
         public string? Email { get; set; }
         public bool IsActive { get; set; }
+        [MinLength(6, ErrorMessage = "Le mot de passe doit faire au moins 6 caractères.")]
         public string? NewPassword { get; set; }
         public int RoleId { get; set; }
         public bool ForceChangePassword { get; set; }

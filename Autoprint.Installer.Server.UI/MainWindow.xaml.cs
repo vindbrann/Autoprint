@@ -471,6 +471,7 @@ namespace Autoprint.Installer.Server.UI
         {
             return Task.Run(() => {
                 var p = Process.Start(new ProcessStartInfo { FileName = exe, Arguments = args, UseShellExecute = true, Verb = "runas" });
+                if (p == null) throw new Exception($"Impossible de démarrer le processus : {exe}");
                 p.WaitForExit();
                 if (p.ExitCode != 0) throw new Exception($"Erreur Code {p.ExitCode} pour {exe}");
             });

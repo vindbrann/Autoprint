@@ -134,7 +134,7 @@ namespace Autoprint.Server.Controllers
 
             if (isPasswordReset)
             {
-                user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword);
+                user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword!);
                 user.LastPasswordChangeDate = DateTime.UtcNow;
             }
 
