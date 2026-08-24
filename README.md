@@ -1,115 +1,104 @@
-# 🖨️ Autoprint V2
+<div align="center">
 
-[![.NET](https://img.shields.io/badge/.NET-10.0-blue.svg?logo=dotnet)](https://dotnet.microsoft.com/)
-[![Blazor](https://img.shields.io/badge/Blazor-WASM-purple.svg?logo=blazor)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
-[![WPF](https://img.shields.io/badge/Client-WPF-blue.svg)](https://github.com/dotnet/wpf)
-[![Database](https://img.shields.io/badge/Database-SQL%20Server%20%7C%20SQLite-lightgrey.svg?logo=microsoft-sql-server)](https://www.microsoft.com/sql-server)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+# 🖨️ Autoprint
 
-**Autoprint** est une solution moderne de gestion d'impression et de supervision de parc d'imprimantes pour environnements Windows. Conçue pour résoudre les problématiques de mobilité (roaming) et simplifier le déploiement de files d'attente d'impression (Zero-Trust/Intune), elle intègre désormais dans sa version **V2** un moteur de supervision réseau proactif et intelligent.
+**Solution Entreprise de Gestion Dynamique et Supervision d'Impression pour Windows**
+
+[![Version](https://img.shields.io/badge/version-26.08.24.2-blue.svg?style=for-the-badge&logo=github)](Docs/PATCH_NOTES_V2.md)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Blazor WASM](https://img.shields.io/badge/Console-Blazor%20WASM-7852FF.svg?style=for-the-badge&logo=blazor)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
+[![WPF Client](https://img.shields.io/badge/Client-WPF%20Agent-0078D4.svg?style=for-the-badge&logo=windows)](https://github.com/dotnet/wpf)
+[![Database](https://img.shields.io/badge/Database-SQL%20Server%20%7C%20SQLite-CC292B.svg?style=for-the-badge&logo=microsoft-sql-server)](https://www.microsoft.com/sql-server)
+[![Security](https://img.shields.io/badge/Security-Hardened%20%2F%20RBAC-success.svg?style=for-the-badge&logo=shield)](Docs/_DOC_Securite.md)
+
+<p align="center">
+  <b>Autoprint</b> simplifie le déploiement, la mobilité et la maintenance proactive de vos imprimantes en entreprise.<br/>
+  Conçu pour les environnements <b>Zero-Trust</b> et <b>Microsoft Intune</b>, il allie légèreté pour l'utilisateur et puissance de supervision pour les administrateurs IT.
+</p>
+
+[Fonctionnalités](#-fonctionnalités-clés) • [Architecture](#-architecture-des-composants) • [Sécurité](#-sécurité--conformité) • [Déploiement](#-installation--déploiement) • [Documentation](#-documentation)
 
 ---
+
+</div>
 
 ## 🌟 Fonctionnalités Clés
 
-### 🎛️ Gestion et Déploiement Agile
-* **Location Awareness (Détection de Lieu)** : L'agent utilisateur détermine automatiquement son emplacement physique en analysant les plages d'adresses IP (CIDR) et propose les imprimantes disponibles à proximité.
-* **Mode Filiale (Direct IP)** : Option de contournement du serveur d'impression (Direct Branch Office Printing) pour les sites distants à faible bande passante, en configurant les files d'impression directement vers les imprimantes réseau.
-* **Synchronisation Staging** : Dissociation entre les configurations en base de données et l'état réel du spouleur d'impression Windows. Les administrateurs prévisualisent et appliquent les modifications de façon centralisée.
+### 📍 Mobilité & Déploiement Agile
+* **Détection Automatique de Lieu (Location Awareness)** : L'agent client analyse le sous-réseau (CIDR IP) du poste et connecte instantanément les imprimantes du bureau où se trouve l'utilisateur.
+* **Mode Filiale / Direct IP** : Impression directe vers les imprimantes IP sur les sites distants à faible bande passante, sans saturer le serveur central.
+* **Synchronisation Sécurisée & Staging** : Gestion centralisée des files d'attente avec prévisualisation et application contrôlée sur le spouleur d'impression Windows (`winspool.drv`).
+* **Offline-First** : Cache local SQLite sur le poste utilisateur pour conserver l'accès aux imprimantes même lors d'une coupure réseau.
 
-### 📡 Supervision et Intelligence (Nouveautés V2)
-* **Diagnostics Réseau & SNMP en Direct** : Test de connectivité (Ping) et interrogation d'état à la demande des imprimantes.
-* **Scan Automatique d'Arrière-plan** : Collecte périodique et autonome de l'état de santé du parc d'impression.
-* **Prédiction d'Épuisement de Toner** : Algorithme prévisionnel qui anticipe le nombre de jours restants avant rupture, à partir de l'historique d'utilisation (`TonerHistory`).
-* **Profils SNMP par Marque** : Surcharge personnalisée des requêtes OIDs pour les imprimantes hors standards constructeurs.
-* **Rapports SMTP Planifiés** : Envoi de résumés d'état périodiques (compteurs, consommables) par e-mail en PDF ou CSV.
-* **Jetons d'Intégration API** : Export des données de supervision vers des outils tiers (GLPI, PRTG, Zabbix) via des clés sécurisées (`X-Api-Token`).
-
-### 🛡️ Sécurité de Niveau Production (V2)
-* **Architecture Zéro-Privilège** : Retrait du service Windows local pour éliminer les risques d'élévation de privilèges (LPE). L'agent s'exécute uniquement dans la session utilisateur.
-* **Chiffrement & Certificats** : Validation SSL/TLS stricte pour sécuriser les échanges entre les postes clients et le serveur.
-* **Hachage Moderne** : Protection des mots de passe locaux via l'algorithme PBKDF2 salé avec migration transparente.
-* **Désinfection des Entrées** : Protection contre les injections LDAP (annuaire AD) et les injections d'arguments système.
+### 📡 Supervision Réseau & Intelligence SNMP
+* **Profils SNMP Dynamiques & Multi-consommables** : Suivi illimité et précis des toners, bacs à papier (*Trays*), bacs de récupération, tambours et compteurs de pages (compatibilité RFC 3805).
+* **⚡ Auto-détection & Scan Réseau** : Assistant de découverte automatique des OIDs par balayage d'imprimante de test en un clic.
+* **⏳ Algorithme Prédictif** : Estimation du nombre de jours restants avant l'épuisement des toners pour anticiper les commandes de consommables.
+* **📑 Rapports Modulaires Automatisés** : Génération et expédition planifiée par e-mail de rapports PDF haute fidélité et d'exports CSV/Excel.
+* **🔗 API d'Intégration Tiers** : Connecteurs REST sécurisés par jetons pour vos outils ITSM/Monitoring (GLPI, PRTG, Zabbix).
 
 ---
 
-## 🏗️ Architecture Système (V2)
+## 🏛️ Architecture des Composants
 
-```mermaid
-graph TD
-    subgraph Client ["Poste Client (Utilisateur)"]
-        WPF["Autoprint.Client (WPF - Session User)"]
-        Cache["SQLite (Cache Local - Offline First)"]
-        WPF <--> Cache
-    end
+L'architecture d'Autoprint s'articule autour de trois modules complémentaires :
 
-    subgraph Server ["Serveur Autoprint (IIS)"]
-        API["ASP.NET Core Web API"]
-        WebUI["Console Web (Blazor WASM)"]
-        Worker["PrinterMonitoringWorker (Scan Arrière-plan)"]
-        Predictive["Service Prédictif (Toner)"]
-        Spooler["SyncSpoolerService (Win32 Spouleur)"]
-    end
-
-    subgraph External ["Externe"]
-        AD["Active Directory (LDAP)"]
-        Printers["Parc d'Imprimantes (Ping/SNMP)"]
-        Mail["Serveur SMTP (Rapports)"]
-        Tiers["Supervision Tiers (X-Api-Token)"]
-    end
-
-    WPF -- "HTTPS / SignalR" --> API
-    API <--> SQL[(SQL Server / SQLite)]
-    Worker -- "Ping & SNMP" --> Printers
-    API -- "LDAP" --> AD
-    Spooler -- "P/Invoke" --> SpoolerLocal["Spouleur Windows Server (Local)"]
-    API -- "SMTP" --> Mail
-    Tiers -- "REST" --> API
-    Worker --> Predictive
-```
+| Composant | Rôle | Technologies |
+|---|---|---|
+| **🌐 Console Web (Admin)** | Interface d'administration centralisée, cartographie des lieux, gestion des profils SNMP, supervision du parc et attribution des droits. | Blazor WebAssembly, Radzen UI, .NET 10 |
+| **⚙️ Serveur & API Web** | Moteur central : API REST, synchronisation du spouleur Windows, scans d'arrière-plan, algorithmes prédictifs et génération des rapports. | ASP.NET Core API, EF Core, SQL Server / SQLite, SignalR |
+| **💻 Agent Client (Bureau)** | Application légère en barre des tâches pour l'utilisateur. Connecte automatiquement les imprimantes selon le lieu sans droits administrateur. | WPF (.NET 10), SQLite Local, P/Invoke `printui.dll` |
 
 ---
 
-## 🛠️ Stack Technique
+## 🛡️ Sécurité & Conformité
 
-* **Serveur Back-end** : ASP.NET Core API (.NET 10) & Entity Framework Core.
-* **Console d'Administration** : Blazor WebAssembly avec composants Radzen.
-* **Agent Utilisateur** : WPF (.NET 10) léger & Base locale SQLite (Offline-First).
-* **Base de Données** : SQL Server (Production) / SQLite (Développement).
-* **Communication** : API REST HTTPS, WebSockets SignalR (Push-to-Pull) et API Win32 Native (`winspool.drv`).
+Autoprint intègre un modèle de sécurité rigoureux pour répondre aux exigences des audits d'entreprise :
 
----
-
-## 📂 Structure du Dépôt
-
-* `Autoprint.Client` : Code source de l'agent de bureau WPF.
-* `Autoprint.Client.Setup` : Projet WiX Toolset pour la compilation du package d'installation MSI client.
-* `Autoprint.Server` : API Web ASP.NET Core et services d'arrière-plan (scan, prédiction, rapports).
-* `Autoprint.Server.Setup` : Projet WiX Toolset pour la création du package MSI serveur.
-* `Autoprint.Installer.Server.UI` : Assistant d'installation WPF du serveur.
-* `Autoprint.Shared` : Modèles de données, DTOs et classes partagées.
-* `Autoprint.Web` : Application Blazor WASM (Console d'administration).
-* `Docs/` : Guides d'installation, manuels et documentation d'architecture technique.
+* **Principe du Moindre Privilège (Zero-Trust)** : Suppression de tout service système en arrière-plan sur les postes clients. L'agent s'exécute strictement avec les droits de l'utilisateur connecté.
+* **Contrôle d'Accès Granulaire (RBAC)** : Matrice fine de permissions (`NETWORK_SCAN`, `REPORT_MANAGE`, `SNMP_PROFILE_WRITE`, `SETTINGS_MANAGE`, etc.) avec liaison Active Directory.
+* **Protection des Données & Secrets** :
+  * Mots de passe locaux hachés via **PBKDF2 salé**.
+  * Masquage automatique des secrets (mots de passe de service AD, SMTP, clés API) dans l'API et l'interface.
+  * Validation stricte des certificats SSL/TLS.
+* **Désinfection des Entrées** : Protection contre les injections LDAP, injections de commandes et neutralisation des formules CSV (CWE-1236).
+* **Audit Trail Intégré** : Journalisation immuable de toutes les actions d'administration et modifications de configuration.
 
 ---
 
 ## 🚀 Installation & Déploiement
 
-### Déploiement du Serveur
-L'installation est automatisée via un assistant WPF interactif (`Autoprint.Server.Setup.exe`) :
-1. Analyse des prérequis système (IIS, rôles d'impression, Runtime .NET 10).
-2. Configuration de la base de données (détection SQL Server ou SQLite local).
-3. Provisionnement et démarrage du site dans IIS.
+### 1. Serveur d'Impression
+Le déploiement du serveur s'effectue via un assistant graphique interactif (`Autoprint.Server.Setup.exe`) :
+1. Détection automatique des prérequis (IIS, rôles Windows Server, Runtime .NET).
+2. Configuration de la base de données (SQL Server d'entreprise ou SQLite local).
+3. Création automatique du site Web IIS et initialisation des données.
 
-### Déploiement Silencieux des Clients
-Le client s'installe via un package MSI standard, idéal pour un déploiement de masse (Intune, GPO ou SCCM) :
+### 2. Postes Clients (Déploiement Silencieux)
+Le client est packagé sous forme de package MSI standard, optimisé pour les outils de gestion de parc (**Microsoft Intune**, **GPO Active Directory**, **SCCM**) :
 
 ```cmd
-msiexec /i AutoprintClient.msi PRINTSERVER="https://serveur-autoprint.corp" APIKEY="votre-cle-api-agent" /qn
+msiexec /i AutoprintClient.msi PRINTSERVER="https://autoprint.entreprise.corp" APIKEY="votre-cle-api-agent" /qn
 ```
-* **PRINTSERVER** : URL HTTPS de votre serveur Autoprint.
-* **APIKEY** : Clé de sécurité machine-to-machine générée sur la console web dans *Paramètres > Clé d'API Agent*.
+
+* `PRINTSERVER` : URL HTTPS sécurisée de votre instance Autoprint.
+* `APIKEY` : Clé d'authentification agent générée dans la console d'administration.
 
 ---
 
-*Autoprint - Solution de Gestion Dynamique et Supervision d'Impression pour Entreprises.*
+## 📚 Documentation
+
+Consultez nos guides détaillés dans le dossier [`Docs/`](Docs/) :
+
+* 📖 **[Guide d'Installation Serveur](Docs/INSTALLATION_SERVER.MD)** : Procédure pas-à-pas pour Windows Server & IIS.
+* 🛡️ **[Rapport de Sécurisation & Contrôles](Docs/_DOC_Securite.md)** : Détail des 11 mesures de sécurité et protections implémentées.
+* 🔍 **[Audit de Sécurité](Docs/_AUDIT_SECURITE_V2.md)** : Matrice des vulnérabilités traitées.
+* 📝 **[Notes de Version (Patch Notes)](Docs/PATCH_NOTES_V2.md)** : Historique exhaustif des évolutions par version.
+* 👤 **[Manuel Utilisateur Client](Docs/_Manuel_Client.md)** : Guide d'utilisation de l'agent de bureau.
+* 🎛️ **[Manuel Administrateur Serveur](Docs/_Manuel_Serveur.md)** : Guide de gestion de la console web.
+
+---
+
+<div align="center">
+  <sub>Autoprint - Conçu pour simplifier et sécuriser l'impression en entreprise.</sub>
+</div>
