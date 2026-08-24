@@ -27,9 +27,26 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<ActionResult<IEnumerable<ServerSetting>>> GetSettings()
         {
-            return await _context.ServerSettings.ToListAsync();
+            var settings = await _context.ServerSettings.AsNoTracking().ToListAsync();
+            var sensitiveKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "AdServicePassword",
+                "SmtpPass",
+                "AgentApiKey"
+            };
+
+            foreach (var s in settings)
+            {
+                if (sensitiveKeys.Contains(s.Key) && !string.IsNullOrEmpty(s.Value))
+                {
+                    s.Value = "●●●●●●●●";
+                }
+            }
+
+            return settings;
         }
 
         [HttpPost("Save")]
@@ -63,7 +80,7 @@ namespace Autoprint.Server.Controllers
             Check("SmtpHost", dto.SmtpHost, "SMTP Host", "SMTP");
             Check("SmtpPort", dto.SmtpPort.ToString(), "SMTP Port", "SMTP");
             Check("SmtpUser", dto.SmtpUser, "SMTP User", "SMTP");
-            if (!string.IsNullOrEmpty(dto.SmtpPass)) Check("SmtpPass", "CHANGED", "SMTP Password", "SMTP", true);
+            if (!string.IsNullOrEmpty(dto.SmtpPass) && dto.SmtpPass != "●●●●●●●●") Check("SmtpPass", "CHANGED", "SMTP Password", "SMTP", true);
             Check("SmtpEnableSsl", dto.SmtpEnableSsl.ToString(), "SMTP SSL", "SMTP");
             Check("SmtpFromAddress", dto.SmtpFromAddress, "SMTP From", "SMTP");
             Check("NamingTemplate", dto.NamingTemplate, "Template Nom", "Nommage");
@@ -77,7 +94,7 @@ namespace Autoprint.Server.Controllers
             Check("AdLdapFilter", dto.AdLdapFilter, "AD Filtre", "Active Directory");
             Check("AdUseServiceAccount", dto.AdUseServiceAccount.ToString(), "AD Service Account", "Active Directory");
             Check("AdServiceUser", dto.AdServiceUser, "AD User", "Active Directory");
-            if (!string.IsNullOrEmpty(dto.AdServicePassword)) Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
+            if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
             Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes", "Active Directory");
             Check("Monitoring_Enabled", dto.Monitoring_Enabled.ToString(), "Supervision active", "Supervision");
             Check("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString(), "Intervalle de scan (min)", "Supervision");
@@ -94,7 +111,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("SmtpHost", dto.SmtpHost);
             await UpdateSetting("SmtpPort", dto.SmtpPort.ToString());
             await UpdateSetting("SmtpUser", dto.SmtpUser);
-            if (!string.IsNullOrEmpty(dto.SmtpPass)) await UpdateSetting("SmtpPass", dto.SmtpPass);
+            if (!string.IsNullOrEmpty(dto.SmtpPass) && dto.SmtpPass != "●●●●●●●●") await UpdateSetting("SmtpPass", dto.SmtpPass);
             await UpdateSetting("SmtpEnableSsl", dto.SmtpEnableSsl.ToString());
             await UpdateSetting("SmtpFromAddress", dto.SmtpFromAddress);
 
@@ -109,7 +126,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("AdLdapFilter", dto.AdLdapFilter);
             await UpdateSetting("AdUseServiceAccount", dto.AdUseServiceAccount.ToString());
             await UpdateSetting("AdServiceUser", dto.AdServiceUser);
-            if (!string.IsNullOrEmpty(dto.AdServicePassword)) await UpdateSetting("AdServicePassword", dto.AdServicePassword);
+            if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") await UpdateSetting("AdServicePassword", dto.AdServicePassword);
             await UpdateSetting("AdAdminEmails", dto.AdAdminEmails);
             await UpdateSetting("Monitoring_Enabled", dto.Monitoring_Enabled.ToString());
             await UpdateSetting("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString());

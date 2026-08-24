@@ -14,6 +14,11 @@ Ce document récapitule l'ensemble des correctifs et des améliorations de sécu
 | 4 | Serveur | Injection LDAP (Active Directory) | Échappement des caractères spéciaux LDAP sur les entrées utilisateur |
 | 5 | Serveur | Hachage de mot de passe faible (SHA-256) | Migration vers PBKDF2 salé avec mise à niveau automatique des comptes |
 | 6 | Serveur | Secret par défaut en clair (JWT Key) | Blocage du démarrage en production avec la clé par défaut & Documentation |
+| 7 | Serveur | Contrôle d'accès Découverte Réseau (CWE-306) | Création de la permission `NETWORK_SCAN` et verrouillage de `DiscoveryController` |
+| 8 | Serveur | Fuite de secrets en clair (CWE-200) | Masquage des mots de passe AD, SMTP et clé API dans `SettingsController` |
+| 9 | Serveur | Probe réseau / SSRF (CWE-918) | Restriction des actions de scan et test SNMP à la permission `SNMP_PROFILE_WRITE` |
+| 10 | Serveur | Injection de formules CSV (CWE-1236) | Neutralisation des caractères initiateurs de formules (`=`, `+`, `-`, `@`) dans l'export CSV |
+| 11 | Serveur | Intégrité Sauvegarde & Restauration (CWE-404) | Prise en charge intégrale des Profils SNMP, Rapports, Jetons et Numéros de série |
 
 ---
 
@@ -66,3 +71,43 @@ Ce document récapitule l'ensemble des correctifs et des améliorations de sécu
 * **Ce qui a été fait :**
   * **Garde-fou applicatif** : Dans `Program.cs`, un test de sécurité vérifie la clé au démarrage. Si la clé par défaut est utilisée alors que le serveur s'exécute en dehors du mode de développement (`!IsDevelopment()`), le serveur s'arrête immédiatement et refuse de démarrer.
   * **Documentation dans le JSON** : Une propriété `"__Note__"` a été rajoutée dans `appsettings.json` juste sous la clé de développement pour expliciter clairement aux auditeurs que l'installateur du serveur d'impression génère et injecte automatiquement une clé aléatoire sécurisée de 512 bits lors du déploiement en production.
+
+---
+
+### 7. Contrôle d'Accès sur la Découverte Réseau (`DiscoveryController`)
+* **Pourquoi ?**
+  Le contrôleur de découverte réseau n'était protégé par aucun attribut d'autorisation, permettant à des utilisateurs anonymes d'accéder aux profils et de lancer des scans.
+* **Ce qui a été fait :**
+  Création d'une permission granulaire `NETWORK_SCAN` (« Scan réseau / Découverte »), intégrée à la matrice des rôles et sécurisation de toutes les actions de `DiscoveryController` par `[Authorize(Policy = "NETWORK_SCAN")]`.
+
+---
+
+### 8. Masquage des Secrets dans les Paramètres (`SettingsController`)
+* **Pourquoi ?**
+  L'appel à `GET /api/Settings` renvoyait en clair le mot de passe du compte de service Active Directory et les identifiants SMTP.
+* **Ce qui a été fait :**
+  Restriction de l'endpoint aux utilisateurs disposant de `SETTINGS_MANAGE` et masquage systématique des champs sensibles (`AdServicePassword`, `SmtpPass`, `AgentApiKey`) en `"●●●●●●●●"`.
+
+---
+
+### 9. Restriction des Actions de Diagnostic et Scan SNMP
+* **Pourquoi ?**
+  Les endpoints de test et scan SNMP acceptaient n'importe quel compte authentifié (`[Authorize]` simple).
+* **Ce qui a été fait :**
+  Verrouillage strict avec `[Authorize(Policy = "SNMP_PROFILE_WRITE")]` pour éviter toute utilisation comme proxy d'interrogation UDP arbitraire.
+
+---
+
+### 10. Protection contre l'Injection de Formules CSV
+* **Pourquoi ?**
+  Un champ contenant des symboles `=`, `+`, `-`, `@` pouvait être interprété comme une formule à l'ouverture du CSV dans Microsoft Excel.
+* **Ce qui a été fait :**
+  Dans `ReportGeneratorService.EscapeCsv`, toute valeur commençant par ces caractères est désormais automatiquement préfixée par une apostrophe `'`.
+
+---
+
+### 11. Complétude du Module de Sauvegarde & Restauration
+* **Pourquoi ?**
+  Les profils SNMP, les règles de planification des rapports et les jetons d'intégration n'étaient pas intégrés à l'export/import.
+* **Ce qui a été fait :**
+  Mise à niveau de `BackupRootDto` et de la méthode `Restore()` dans `BackupController.cs` pour inclure l'intégralité de ces données.

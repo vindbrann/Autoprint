@@ -55,7 +55,7 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpPost("scan-printer")]
-        [Authorize]
+        [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<List<DiscoveredOidDto>>> ScanPrinterOids([FromBody] SnmpScanRequestDto request)
         {
             _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", request?.IpAddress);
@@ -79,7 +79,7 @@ namespace Autoprint.Server.Controllers
 
         [HttpPost("test-profile")]
         [HttpPost("test")]
-        [Authorize]
+        [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<List<SnmpTestProfileResultDto>>> TestProfileItems([FromBody] SnmpTestProfileRequestDto request)
         {
             _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", request?.IpAddress, request?.Items?.Count ?? 0);

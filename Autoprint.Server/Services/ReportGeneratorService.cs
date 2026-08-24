@@ -576,6 +576,13 @@ namespace Autoprint.Server.Services
         private string EscapeCsv(string? field)
         {
             if (string.IsNullOrEmpty(field)) return string.Empty;
+
+            // Protection contre l'injection de formules CSV (CWE-1236)
+            if (field.StartsWith("=") || field.StartsWith("+") || field.StartsWith("-") || field.StartsWith("@") || field.StartsWith("\t") || field.StartsWith("\r"))
+            {
+                field = "'" + field;
+            }
+
             if (field.Contains(";") || field.Contains("\"") || field.Contains("\n") || field.Contains("\r"))
             {
                 return "\"" + field.Replace("\"", "\"\"") + "\"";

@@ -259,7 +259,8 @@ namespace Autoprint.Server.Data
                 new Permission { Code = "SNMP_PROFILE_WRITE", Description = "Créer/Modifier des profils SNMP" },
                 new Permission { Code = "SNMP_PROFILE_DELETE", Description = "Supprimer des profils SNMP" },
                 new Permission { Code = "REPORT_MANAGE", Description = "Gérer les rapports et la planification" },
-                new Permission { Code = "PRINTER_ARCHIVE", Description = "Archiver/Désarchiver des imprimantes" }
+                new Permission { Code = "PRINTER_ARCHIVE", Description = "Archiver/Désarchiver des imprimantes" },
+                new Permission { Code = "NETWORK_SCAN", Description = "Lancer des scans réseau et gérer la découverte" }
             };
 
             foreach (var perm in permissionsList)

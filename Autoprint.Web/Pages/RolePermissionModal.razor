@@ -187,6 +187,19 @@
             };
             ModuleRows.Add(reportRow);
         }
+
+        // Ligne dédiée au Scan Réseau & Découverte
+        var networkScanPerm = AllPermissions.FirstOrDefault(p => p.Code == "NETWORK_SCAN");
+        if (networkScanPerm != null)
+        {
+            var scanRow = new ModulePermissionRow 
+            { 
+                Title = "Scan Réseau", 
+                Prefix = "NETWORK_SCAN",
+                Others = new List<PermissionDto> { networkScanPerm }
+            };
+            ModuleRows.Add(scanRow);
+        }
     }
 
     private void TogglePermission(int permId, bool value)
