@@ -292,7 +292,8 @@ namespace Autoprint.Installer.Server.UI
 
                 TxtInstallLog.Text = _isUpgrade ? "Mise à jour (Ecrasement des fichiers)..." : "Installation...";
 
-                await RunProcess("msiexec.exe", $"/i \"{msi}\" /qn /norestart");
+                string logPath = Path.Combine(Path.GetTempPath(), "autoprint_msi.log");
+                await RunProcess("msiexec.exe", $"/i \"{msi}\" /l*v \"{logPath}\" /qn /norestart");
 
                 TxtInstallLog.Text = "Configuration des droits (NTFS)...";
                 await Task.Run(() => ConfigureNtfsPermissions());

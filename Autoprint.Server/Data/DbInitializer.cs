@@ -11,8 +11,80 @@ namespace Autoprint.Server.Data
     {
         public static void Initialize(ApplicationDbContext context)
         {
-            // Mise à jour de la structure pour SQLite lors des mises à jour (EnsureCreated ne gère pas les migrations)
-            if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+            // Mise à jour de la structure (SQL Server & SQLite) lors des mises à niveau
+            if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Imprimantes') AND name = 'SerialNumber')
+                        BEGIN
+                            ALTER TABLE Imprimantes ADD SerialNumber nvarchar(100) NULL;
+                        END
+                    ");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SnmpProfiles')
+                        BEGIN
+                            CREATE TABLE SnmpProfiles (
+                                Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                Name nvarchar(100) NOT NULL,
+                                OidTonerBlack nvarchar(150) NULL,
+                                OidTonerCyan nvarchar(150) NULL,
+                                OidTonerMagenta nvarchar(150) NULL,
+                                OidTonerYellow nvarchar(150) NULL,
+                                OidPageCounter nvarchar(150) NULL,
+                                IsColor bit NOT NULL DEFAULT 0,
+                                DateModification datetime2 NOT NULL DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL DEFAULT 0
+                            );
+                        END
+
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('SnmpProfiles') AND name = 'IsColor')
+                        BEGIN
+                            ALTER TABLE SnmpProfiles ADD IsColor bit NOT NULL DEFAULT 0;
+                        END
+
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Modeles') AND name = 'SnmpProfileId')
+                        BEGIN
+                            ALTER TABLE Modeles ADD SnmpProfileId int NULL;
+                        END
+                    ");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SnmpProfileItems')
+                        BEGIN
+                            CREATE TABLE SnmpProfileItems (
+                                Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                SnmpProfileId int NOT NULL,
+                                Category int NOT NULL,
+                                Name nvarchar(100) NOT NULL,
+                                Oid nvarchar(150) NOT NULL,
+                                OidMaxCapacity nvarchar(150) NULL,
+                                ValueType int NOT NULL,
+                                ColorHex nvarchar(20) NOT NULL,
+                                SortOrder int NOT NULL,
+                                DateModification datetime2 NOT NULL DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL DEFAULT 0,
+                                CONSTRAINT FK_SnmpProfileItems_SnmpProfiles_SnmpProfileId FOREIGN KEY (SnmpProfileId) REFERENCES SnmpProfiles(Id) ON DELETE CASCADE
+                            );
+                            CREATE INDEX IX_SnmpProfileItems_SnmpProfileId ON SnmpProfileItems(SnmpProfileId);
+                        END
+                    ");
+                }
+                catch { }
+            }
+            else if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
@@ -47,6 +119,72 @@ namespace Autoprint.Server.Data
                 try
                 {
                     context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunDayOfMonth INTEGER NULL;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE Imprimantes ADD COLUMN SerialNumber TEXT NULL;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        CREATE TABLE IF NOT EXISTS SnmpProfiles (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Name TEXT NOT NULL,
+                            OidTonerBlack TEXT NULL,
+                            OidTonerCyan TEXT NULL,
+                            OidTonerMagenta TEXT NULL,
+                            OidTonerYellow TEXT NULL,
+                            OidPageCounter TEXT NULL,
+                            IsColor INTEGER NOT NULL DEFAULT 0,
+                            DateModification TEXT NOT NULL DEFAULT (datetime('now')),
+                            ModifiePar TEXT NULL,
+                            EstSupprime INTEGER NOT NULL DEFAULT 0
+                        );
+                    ");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE SnmpProfiles ADD COLUMN IsColor INTEGER NOT NULL DEFAULT 0;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE Modeles ADD COLUMN SnmpProfileId INTEGER NULL;");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        CREATE TABLE IF NOT EXISTS SnmpProfileItems (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            SnmpProfileId INTEGER NOT NULL,
+                            Category INTEGER NOT NULL,
+                            Name TEXT NOT NULL,
+                            Oid TEXT NOT NULL,
+                            OidMaxCapacity TEXT NULL,
+                            ValueType INTEGER NOT NULL,
+                            ColorHex TEXT NOT NULL,
+                            SortOrder INTEGER NOT NULL,
+                            DateModification TEXT NOT NULL DEFAULT (datetime('now')),
+                            ModifiePar TEXT NULL,
+                            EstSupprime INTEGER NOT NULL DEFAULT 0,
+                            FOREIGN KEY (SnmpProfileId) REFERENCES SnmpProfiles(Id) ON DELETE CASCADE
+                        );
+                    ");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_SnmpProfileItems_SnmpProfileId ON SnmpProfileItems(SnmpProfileId);");
                 }
                 catch { }
             }

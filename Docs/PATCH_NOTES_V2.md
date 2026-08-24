@@ -4,7 +4,42 @@ Cette mise à jour apporte des améliorations majeures pour simplifier la gestio
 
 ---
 
-## 🚀 Nouvelles Fonctionnalités (Supervision)
+## 🌟 Nouveautés - Version 1.1.15
+
+### 🖨️ 1. Refonte complète des Profils SNMP Dynamiques
+* **Gestion multi-consommables personnalisée** : Fin de la limitation aux 4 toners rigides. Chaque profil d'imprimante gère désormais une liste dynamique et illimitée d'OIDs :
+  * **Toners & Encres** : Prise en charge des imprimantes monochromes (N&B), couleur 4 toners, ou machines spécifiques (toners photo, vernis) avec choix des codes couleurs visuels.
+  * **Bacs à papier (Trays)** : Suivi en temps réel des niveaux de papier de chaque bac avec calcul automatique exact (pourcentage ou nombre de feuilles selon la capacité maximale RFC 3805).
+  * **Compteurs de pages** : Relevé des compteurs totaux et spécifiques.
+  * **Numéros de série** : Lecture directe de l'identifiant matériel de la machine.
+  * **Consoles LCD & Alertes** : Récupération des messages de l'écran de l'imprimante (porte ouverte, bourrage, code panne).
+  * **Consommables de maintenance** : Suivi des bacs de récupération de toner usagé, tambours (*drums*) et unités de fusion (*fusers*).
+* **⚡ Auto-détection des OIDs (Scan intelligent)** : Scannez en direct une imprimante de test pour découvrir et configurer automatiquement tous ses toners, bacs et compteurs physiques en un clic.
+* **🧪 Test d'OID individuel en direct** : Bouton permettant de tester instantanément la réponse d'un OID sur une adresse IP avant d'enregistrer le champ.
+* **Modèles prédéfinis RFC 3805** : Boutons d'insertion rapide des OIDs standards du marché.
+
+### 📊 2. Évolutions majeures des Rapports d'Activité
+* **Modularité totale du contenu** : Vous composez votre rapport à la carte en activant uniquement les éléments souhaités :
+  * 📄 *Compteur de pages individuel*
+  * 🧪 *Niveaux de consommables (Toners)*
+  * 📦 *Niveaux des bacs de papier*
+  * ⚡ *Disponibilité réseau (Ping)*
+  * ⚠️ *Pannes et alertes matérielles*
+  * ⏳ *Prévisions intelligentes d'épuisement*
+* **🔢 Totalisation globale des impressions** : Option permettant de calculer et d'afficher le volume cumulé total de pages imprimées sur l'ensemble de votre parc (dans l'encart d'en-tête du PDF et en ligne de total final dans l'export Excel/CSV).
+* **📈 Synthèse globale du parc** : Statistiques globales en tête de document (total imprimantes suivies, réparties en ligne / hors ligne, alertes actives).
+* **🏷️ Intégration du Numéro de Série** : Colonne dédiée dans les exports PDF et CSV pour identifier formellement chaque matériel.
+* **🎯 Filtrage par Profil SNMP** : Possibilité de cibler la génération d'un rapport selon le type de profil SNMP configuré.
+* **✨ Rendu PDF haute fidélité** : Suppression des caractères d'emojis incompatibles avec les polices système, éliminant tout carré noir de substitution pour un document 100 % propre et professionnel.
+
+### 🔧 3. Améliorations Matérielles & Base de Données
+* **Auto-remplissage des Numéros de Série** : Lorsqu'un diagnostic ou un rapport interroge une imprimante en SNMP, son numéro de série matériel est désormais automatiquement enregistré et mis à jour en base de données.
+* **Persistance Modèle ↔ Profil SNMP** : Correction et fiabilisation de l'association entre les modèles d'imprimantes et leurs profils SNMP.
+* **Migrations et Initialisations automatiques** : Détection et création transparente des nouvelles colonnes et tables (SQLite et SQL Server) lors du déploiement via l'installateur, sans interruption ni intervention manuelle.
+
+---
+
+## 🚀 Nouvelles Fonctionnalités Initiales (Supervision)
 
 *   **Diagnostic en temps réel** : Testez instantanément si une imprimante est en ligne sur le réseau (Ping) et récupérez son modèle ainsi que ses niveaux de toner actuels d'un simple clic.
 *   **Supervision automatique** : L'application surveille désormais seule et en tâche de fond l'état de santé de toutes vos imprimantes à intervalle régulier, sans action manuelle requise.

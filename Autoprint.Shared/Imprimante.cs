@@ -33,6 +33,8 @@ namespace Autoprint.Shared
 
         [MaxLength(20)]
         public string MonitoringStatus { get; set; } = "Inconnu";
+        [MaxLength(100)]
+        public string? SerialNumber { get; set; }
         public DateTime? LastSeen { get; set; }
         public bool IsArchived { get; set; } = false;
     }

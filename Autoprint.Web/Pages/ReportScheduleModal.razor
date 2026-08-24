@@ -87,7 +87,6 @@
                         <RadzenLabel Text="Destinataires" Component="EmailRecipients" Style="font-weight: 500; font-size: 0.9rem;" />
                         <RadzenTextBox Name="EmailRecipients" @bind-Value="@schedule.EmailRecipients" Style="width: 100%; border-radius: 6px;" Placeholder="admin@corp.com; manager@corp.com" />
                         <RadzenRequiredValidator Component="EmailRecipients" Text="Au moins un destinataire est requis" Popup="false" Style="display: block; color: var(--rz-danger); font-size: 0.8rem; margin-top: 0.25rem;" />
-                        <!-- VALIDATEUR REGEX D'ADRESSES EMAIL MULTIPLES -->
                         <RadzenRegexValidator Component="EmailRecipients" 
                                                Text="Une ou plusieurs adresses email sont invalides (format attendu: nom@domaine.com)" 
                                                Pattern=@(@"^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})(\s*;\s*([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5}))*\s*;?\s*$")
@@ -136,68 +135,80 @@
         }
         else if (currentStep == 2)
         {
-            <!-- ÉTAPE 2 : CHOIX DES MÉTRIQUES -->
+            <!-- ÉTAPE 2 : CHOIX DES MÉTRIQUES & OPTIONS MODULAIRES -->
             <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
-                    <RadzenIcon Icon="bar_chart" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Métriques à inclure dans le Rapport
+                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-3">
+                    <RadzenIcon Icon="bar_chart" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Métriques par Imprimante (Colonnes)
                 </RadzenText>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
                     <!-- Compteur de pages -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.5rem; line-height: 1;">📄</span>
+                            <span style="font-size: 1.4rem; line-height: 1;">📄</span>
                             <div>
-                                <RadzenLabel Text="Compteur de pages" Component="Pages" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Volume total de pages imprimées sur la période.</span>
+                                <RadzenLabel Text="Compteur de pages" Component="Pages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Volume total de pages imprimées relevé sur la machine.</span>
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includePages" Name="Pages" />
                     </RadzenCard>
                     
                     <!-- Consommables -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.5rem; line-height: 1;">🧪</span>
+                            <span style="font-size: 1.4rem; line-height: 1;">🧪</span>
                             <div>
-                                <RadzenLabel Text="Consommables (Toner)" Component="Toner" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux d'encre et de toner restants.</span>
+                                <RadzenLabel Text="Consommables (Toners)" Component="Toner" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux d'encre et toners (Noir, Cyan, Magenta, Jaune).</span>
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeToner" Name="Toner" />
                     </RadzenCard>
+
+                    <!-- Bacs Papier -->
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
+                            <span style="font-size: 1.4rem; line-height: 1;">📦</span>
+                            <div>
+                                <RadzenLabel Text="Bacs de Papier" Component="Trays" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux de papier par bac (feuilles ou %).</span>
+                            </div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@includeTrays" Name="Trays" />
+                    </RadzenCard>
                     
                     <!-- Disponibilité -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.5rem; line-height: 1;">⚡</span>
+                            <span style="font-size: 1.4rem; line-height: 1;">⚡</span>
                             <div>
-                                <RadzenLabel Text="Disponibilité (Ping)" Component="Availability" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Taux de connectivité réseau de l'imprimante.</span>
+                                <RadzenLabel Text="Disponibilité réseau (Ping)" Component="Availability" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Statut En ligne / Hors ligne de chaque machine.</span>
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeAvailability" Name="Availability" />
                     </RadzenCard>
                     
                     <!-- Alertes -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.5rem; line-height: 1;">⚠️</span>
+                            <span style="font-size: 1.4rem; line-height: 1;">⚠️</span>
                             <div>
-                                <RadzenLabel Text="Pannes & Alertes" Component="Alerts" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Erreurs, bourrages et alertes matérielles actives.</span>
+                                <RadzenLabel Text="Pannes & Alertes matérielles" Component="Alerts" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Codes erreurs, bourrages et capots ouverts.</span>
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includeAlerts" Name="Alerts" />
                     </RadzenCard>
  
                     <!-- Prévisions d'épuisement -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.5rem; line-height: 1;">⏳</span>
+                            <span style="font-size: 1.4rem; line-height: 1;">⏳</span>
                             <div>
-                                <RadzenLabel Text="Prévision d'épuisement (Toner)" Component="Predictions" Style="font-weight: 600; cursor:pointer; font-size: 0.95rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Estimation de panne d'encre basée sur l'historique d'usage.</span>
+                                <RadzenLabel Text="Prévision d'épuisement (Toner)" Component="Predictions" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Estimation en jours basée sur l'historique d'usage.</span>
                             </div>
                         </div>
                         <RadzenSwitch @bind-Value="@includePredictions" Name="Predictions" />
@@ -221,6 +232,37 @@
                         </RadzenStack>
                     </RadzenCard>
                 }
+
+                <!-- OPTIONS DE SYNTHÈSE & TOTAUX GLOBAUX -->
+                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mt-4 rz-mb-3">
+                    <RadzenIcon Icon="functions" Style="font-size: 1.3rem; color: var(--rz-success);" /> Synthèse & Totaux du Parc
+                </RadzenText>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
+                    <!-- Totalisation globale des pages -->
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; border-color: var(--rz-success-light); background: rgba(40, 167, 69, 0.03);">
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
+                            <span style="font-size: 1.4rem; line-height: 1;">📊</span>
+                            <div>
+                                <RadzenLabel Text="Totalisation globale des impressions" Component="TotalPages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block; color: var(--rz-success-darker);" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche la somme totale de toutes les pages imprimées sur le parc (en-tête PDF et pied CSV).</span>
+                            </div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@includeTotalPages" Name="TotalPages" />
+                    </RadzenCard>
+
+                    <!-- Synthèse globale du parc -->
+                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
+                            <span style="font-size: 1.4rem; line-height: 1;">📈</span>
+                            <div>
+                                <RadzenLabel Text="Statistiques globales du parc" Component="FleetSummary" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
+                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche les compteurs d'imprimantes en ligne/hors ligne et alertes actives en en-tête.</span>
+                            </div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@includeFleetSummary" Name="FleetSummary" />
+                    </RadzenCard>
+                </div>
             </RadzenCard>
         }
         else if (currentStep == 3)
@@ -239,7 +281,7 @@
                         <RadzenIcon Icon="print" Style="@($"font-size: 1.75rem; color: {(!useFilters ? "var(--rz-primary)" : "var(--rz-text-secondary-color)")};")" />
                         <div>
                             <div style="font-weight: bold; font-size: 0.95rem; color: var(--rz-text-color-primary);">Toutes les imprimantes</div>
-                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Le rapport s'appliquera sur l'ensemble de votre parc.</div>
+                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Le rapport s'appliquera sur l'ensemble de votre parc (1 seul mail / 1 seul fichier).</div>
                         </div>
                     </div>
                     
@@ -249,7 +291,7 @@
                         <RadzenIcon Icon="filter_alt" Style="@($"font-size: 1.75rem; color: {(useFilters ? "var(--rz-primary)" : "var(--rz-text-secondary-color)")};")" />
                         <div>
                             <div style="font-weight: bold; font-size: 0.95rem; color: var(--rz-text-color-primary);">Filtrer par critères</div>
-                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Définir des règles d'inclusion (lieu, marque, modèle, etc.).</div>
+                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Définir des règles d'inclusion (lieu, marque, modèle, profil SNMP, etc.).</div>
                         </div>
                     </div>
                 </div>
@@ -340,6 +382,14 @@
                                                                 Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
                                                                 SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
                                             }
+                                            else if (rule.Field == "SnmpProfileId")
+                                            {
+                                                <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
+                                                                Data="@snmpProfiles" TextProperty="Name" ValueProperty="Id"
+                                                                Placeholder="Sélectionner les profils..." Style="width: 100%; border-radius: 6px;"
+                                                                Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
+                                                                SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
+                                            }
                                             else
                                             {
                                                 <RadzenTextBox @bind-Value="@rule.Value" Placeholder="Entrez une valeur..." Style="width: 100%; border-radius: 6px;" />
@@ -420,9 +470,12 @@
 
     private bool includePages = true;
     private bool includeToner = true;
+    private bool includeTrays = true;
     private bool includeAvailability = true;
     private bool includeAlerts = true;
     private bool includePredictions = false;
+    private bool includeTotalPages = true;
+    private bool includeFleetSummary = true;
 
     private class ThresholdOption { public int Value { get; set; } public string Label { get; set; } = ""; }
     private List<ThresholdOption> thresholdOptions = new()
@@ -438,7 +491,7 @@
     private List<Emplacement> locations = new();
     private List<Marque> brands = new();
     private List<Modele> allModels = new();
-    private List<Modele> filteredModels = new();
+    private List<SnmpProfile> snmpProfiles = new();
 
     private ScopeFilter scopeFilter = new();
 
@@ -449,6 +502,7 @@
             locations = await Http.GetFromJsonAsync<List<Emplacement>>("api/Emplacements") ?? new();
             brands = await Http.GetFromJsonAsync<List<Marque>>("api/Marques") ?? new();
             allModels = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles") ?? new();
+            snmpProfiles = await Http.GetFromJsonAsync<List<SnmpProfile>>("api/SnmpProfiles") ?? new();
         }
         catch (Exception ex)
         {
@@ -481,9 +535,12 @@
                 var list = JsonSerializer.Deserialize<List<string>>(schedule.SelectedMetricsJson) ?? new();
                 includePages = list.Contains("Pages");
                 includeToner = list.Contains("Toner");
+                includeTrays = list.Contains("Trays");
                 includeAvailability = list.Contains("Availability");
                 includeAlerts = list.Contains("Alerts");
                 includePredictions = list.Contains("Predictions");
+                includeTotalPages = list.Contains("TotalPages");
+                includeFleetSummary = list.Contains("FleetSummary");
             }
             catch { }
 
@@ -556,6 +613,7 @@
         new ChampInfo { Value = "LocationId", Label = "Lieu / Emplacement" },
         new ChampInfo { Value = "BrandId", Label = "Marque" },
         new ChampInfo { Value = "ModelId", Label = "Modèle" },
+        new ChampInfo { Value = "SnmpProfileId", Label = "Profil SNMP" },
         new ChampInfo { Value = "Nom", Label = "Nom de l'imprimante" },
         new ChampInfo { Value = "AdresseIp", Label = "Adresse IP" },
         new ChampInfo { Value = "Code", Label = "Code de l'imprimante" }
@@ -563,7 +621,7 @@
 
     private List<OperateurInfo> ObtenirOperateurs(string field)
     {
-        if (field == "LocationId" || field == "BrandId" || field == "ModelId")
+        if (field == "LocationId" || field == "BrandId" || field == "ModelId" || field == "SnmpProfileId")
         {
             return new List<OperateurInfo>
             {
@@ -585,7 +643,7 @@
     private void OnFieldChanged(ReportRule rule, string newField)
     {
         rule.Field = newField;
-        if (newField == "LocationId" || newField == "BrandId" || newField == "ModelId")
+        if (newField == "LocationId" || newField == "BrandId" || newField == "ModelId" || newField == "SnmpProfileId")
         {
             rule.Operator = "In";
             rule.Values = new List<int>();
@@ -649,9 +707,12 @@
         var metrics = new List<string>();
         if (includePages) metrics.Add("Pages");
         if (includeToner) metrics.Add("Toner");
+        if (includeTrays) metrics.Add("Trays");
         if (includeAvailability) metrics.Add("Availability");
         if (includeAlerts) metrics.Add("Alerts");
         if (includePredictions) metrics.Add("Predictions");
+        if (includeTotalPages) metrics.Add("TotalPages");
+        if (includeFleetSummary) metrics.Add("FleetSummary");
 
         schedule.SelectedMetricsJson = JsonSerializer.Serialize(metrics);
 

@@ -1,0 +1,187 @@
+@using Autoprint.Shared
+@using Autoprint.Shared.DTOs
+@using Radzen
+@using Radzen.Blazor
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1rem" Class="rz-p-2">
+    <!-- SUGGESTIONS RAPIDES DE CONFIGURATION -->
+    <div style="background-color: var(--rz-base-50); border: 1px solid var(--rz-base-200); border-radius: 6px; padding: 0.75rem;">
+        <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: 600; color: var(--rz-text-secondary-color); text-transform: uppercase; margin-bottom: 0.5rem;">
+            ⚡ Modèles d'OIDs Prédéfinis (RFC 3805 / Standard)
+        </RadzenText>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Style="flex-wrap: wrap;">
+            <RadzenButton Text="Toner Noir" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Toner Noir", "1.3.6.1.2.1.43.11.1.1.9.1.1", "1.3.6.1.2.1.43.11.1.1.8.1.1", SnmpItemCategory.Toner, SnmpValueType.RawWithMax, "#212529"))" />
+            <RadzenButton Text="Bac Papier 1" ButtonStyle="ButtonStyle.Info" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Bac 1 (Papier)", "1.3.6.1.2.1.43.8.2.1.10.1.1", "1.3.6.1.2.1.43.8.2.1.9.1.1", SnmpItemCategory.Tray, SnmpValueType.RawWithMax))" />
+            <RadzenButton Text="Compteur Total" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Compteur Total Pages", "1.3.6.1.2.1.43.10.2.1.4.1.1", null, SnmpItemCategory.PageCounter, SnmpValueType.Counter))" />
+            <RadzenButton Text="Écran LCD" ButtonStyle="ButtonStyle.Dark" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Écran LCD Console", "1.3.6.1.2.1.43.16.5.1.2.1.1", null, SnmpItemCategory.Console, SnmpValueType.String))" />
+            <RadzenButton Text="Statut Machine" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Statut Imprimante", "1.3.6.1.2.1.25.3.5.1.1.1", null, SnmpItemCategory.Status, SnmpValueType.String))" />
+            <RadzenButton Text="N° de Série" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Numéro de Série", "1.3.6.1.2.1.43.5.1.1.17.1", null, SnmpItemCategory.SerialNumber, SnmpValueType.String))" />
+        </RadzenStack>
+    </div>
+
+    <!-- FORMULAIRE DE CONFIGURATION DU CHAMP -->
+    <RadzenRow Gap="0.75rem">
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenLabel Text="Catégorie du Champ" Style="font-weight: 600; font-size: 0.85rem;" />
+            <RadzenDropDown TValue="SnmpItemCategory" Data="@categoriesEnum" @bind-Value="@ItemToEdit.Category" Style="width: 100%;" />
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenLabel Text="Désignation du Champ" Style="font-weight: 600; font-size: 0.85rem;" />
+            <RadzenTextBox @bind-Value="@ItemToEdit.Name" Style="width: 100%;" Placeholder="Ex: Toner Noir, Bac 1..." />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <div>
+        <RadzenLabel Text="OID SNMP Principal (Lecture)" Style="font-weight: 600; font-size: 0.85rem;" />
+        <RadzenTextBox @bind-Value="@ItemToEdit.Oid" Style="width: 100%; font-family: monospace;" Placeholder="1.3.6.1.2.1.43..." />
+    </div>
+
+    <RadzenRow Gap="0.75rem">
+        <RadzenColumn Size="12" SizeMD="ItemToEdit.ValueType == SnmpValueType.RawWithMax ? 6 : 12">
+            <RadzenLabel Text="Type d'Interprétation" Style="font-weight: 600; font-size: 0.85rem;" />
+            <RadzenDropDown TValue="SnmpValueType" Data="@valueTypesEnum" @bind-Value="@ItemToEdit.ValueType" Style="width: 100%;" />
+        </RadzenColumn>
+
+        @if (ItemToEdit.ValueType == SnmpValueType.RawWithMax)
+        {
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenLabel Text="OID Capacité Maximale" Style="font-weight: 600; font-size: 0.85rem;" />
+                <RadzenTextBox @bind-Value="@ItemToEdit.OidMaxCapacity" Style="width: 100%; font-family: monospace;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.8.1.1" />
+            </RadzenColumn>
+        }
+    </RadzenRow>
+
+    @if (ItemToEdit.Category == SnmpItemCategory.Toner)
+    {
+        <div>
+            <RadzenLabel Text="Couleur Visuelle" Style="font-weight: 600; font-size: 0.85rem;" />
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 4px; background-color: @ItemToEdit.ColorHex; border: 1px solid rgba(0,0,0,0.25);" />
+                <RadzenTextBox @bind-Value="@ItemToEdit.ColorHex" Style="width: 130px; font-family: monospace;" Placeholder="#212529" />
+                <span style="color: var(--rz-text-secondary-color); font-size: 0.8rem;">(Code HEX : #212529 Noir, #17a2b8 Cyan, #e83e8c Magenta, #ffc107 Jaune)</span>
+            </RadzenStack>
+        </div>
+    }
+
+    <!-- TEST DIRECT DE CET OID -->
+    @if (!string.IsNullOrWhiteSpace(TestIpAddress))
+    {
+        <div style="border-top: 1px dashed var(--rz-base-200); padding-top: 0.75rem;">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenButton Text="Tester cet OID" Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@TesterOidEnDirect" IsBusy="@isTesting" BusyText="Test..." Disabled="@string.IsNullOrWhiteSpace(ItemToEdit.Oid)" />
+                    <span style="font-size: 0.8rem; color: var(--rz-text-secondary-color);">sur @TestIpAddress</span>
+                </RadzenStack>
+
+                @if (!string.IsNullOrEmpty(testFeedback))
+                {
+                    <span style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: @(testFeedbackSuccess ? "var(--rz-success)" : "var(--rz-danger)");">
+                        @(testFeedbackSuccess ? "✓ " : "⚠️ ") @testFeedback
+                    </span>
+                }
+            </RadzenStack>
+        </div>
+    }
+
+    <!-- ACTIONS -->
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-2">
+        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Valider le Champ" ButtonStyle="ButtonStyle.Primary" Icon="check" Click="@OnValider" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public SnmpProfileItem ItemToEdit { get; set; } = new();
+    [Parameter] public string? TestIpAddress { get; set; }
+    [Parameter] public int TestPort { get; set; } = 161;
+    [Parameter] public string TestCommunity { get; set; } = "public";
+    [Parameter] public int TestVersion { get; set; } = 2;
+
+    private IEnumerable<SnmpItemCategory> categoriesEnum = Enum.GetValues(typeof(SnmpItemCategory)).Cast<SnmpItemCategory>();
+    private IEnumerable<SnmpValueType> valueTypesEnum = Enum.GetValues(typeof(SnmpValueType)).Cast<SnmpValueType>();
+
+    private bool isTesting = false;
+    private string? testFeedback;
+    private bool testFeedbackSuccess = false;
+
+    private void AppliquerPreset(string name, string oid, string? maxOid, SnmpItemCategory cat, SnmpValueType valType, string colorHex = "#212529")
+    {
+        ItemToEdit.Name = name;
+        ItemToEdit.Oid = oid;
+        ItemToEdit.OidMaxCapacity = maxOid;
+        ItemToEdit.Category = cat;
+        ItemToEdit.ValueType = valType;
+        ItemToEdit.ColorHex = colorHex;
+        testFeedback = null;
+    }
+
+    private async Task TesterOidEnDirect()
+    {
+        if (string.IsNullOrWhiteSpace(TestIpAddress) || string.IsNullOrWhiteSpace(ItemToEdit.Oid)) return;
+
+        isTesting = true;
+        testFeedback = null;
+
+        var req = new SnmpTestProfileRequestDto
+        {
+            IpAddress = TestIpAddress.Trim(),
+            Port = TestPort > 0 ? TestPort : 161,
+            Community = !string.IsNullOrWhiteSpace(TestCommunity) ? TestCommunity.Trim() : "public",
+            Version = TestVersion > 0 ? TestVersion : 2,
+            Items = new List<SnmpProfileItem> { ItemToEdit }
+        };
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/SnmpProfiles/test-profile", req);
+            if (res.IsSuccessStatusCode)
+            {
+                var list = await res.Content.ReadFromJsonAsync<List<SnmpTestProfileResultDto>>() ?? new();
+                if (list.Any())
+                {
+                    var r = list.First();
+                    testFeedbackSuccess = r.Success;
+                    testFeedback = r.Value;
+                }
+                else
+                {
+                    testFeedbackSuccess = false;
+                    testFeedback = "Aucune réponse de l'OID.";
+                }
+            }
+            else
+            {
+                testFeedbackSuccess = false;
+                testFeedback = "Échec de communication SNMP.";
+            }
+        }
+        catch (Exception ex)
+        {
+            testFeedbackSuccess = false;
+            testFeedback = ex.Message;
+        }
+        finally
+        {
+            isTesting = false;
+        }
+    }
+
+    private void OnValider()
+    {
+        if (string.IsNullOrWhiteSpace(ItemToEdit.Name))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Nom manquant", "Veuillez renseigner un nom de champ.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(ItemToEdit.Oid))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "OID manquant", "Veuillez renseigner l'OID SNMP.");
+            return;
+        }
+        DialogService.Close(ItemToEdit);
+    }
+}

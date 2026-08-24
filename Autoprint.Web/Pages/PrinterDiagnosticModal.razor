@@ -45,7 +45,16 @@
             </RadzenStack>
         </RadzenCard>
 
-        @if (diagnostic.PingSuccess)
+        @if (!diagnostic.HasSnmpProfile)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat" Class="rz-p-4">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenIcon Icon="info" IconColor="var(--rz-info)" />
+                    <span><strong>Aucun profil SNMP configuré</strong> pour le modèle de cette imprimante. Associez un profil SNMP dans la gestion des modèles pour suivre les consommables et les compteurs.</span>
+                </RadzenStack>
+            </RadzenAlert>
+        }
+        else if (diagnostic.PingSuccess)
         {
             <RadzenRow Gap="1rem">
                 <!-- Statut physique & Uptime -->
@@ -62,19 +71,35 @@
                                 </RadzenText>
                             </RadzenStack>
 
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                <RadzenIcon Icon="query_builder" IconColor="var(--rz-warning)" />
-                                <RadzenText TextStyle="TextStyle.Body2">
-                                    Uptime : @FormatUptime(diagnostic.UptimeSeconds)
-                                </RadzenText>
-                            </RadzenStack>
+                            @if (!string.IsNullOrWhiteSpace(diagnostic.SerialNumber))
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="qr_code" IconColor="var(--rz-primary)" />
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold;">
+                                        N° de Série : <span style="font-family: monospace; color: var(--rz-primary);">@diagnostic.SerialNumber</span>
+                                    </RadzenText>
+                                </RadzenStack>
+                            }
 
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                <RadzenIcon Icon="tag" IconColor="var(--rz-secondary)" />
-                                <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold;">
-                                    Compteur Pages : @diagnostic.PageCounter.ToString("N0")
-                                </RadzenText>
-                            </RadzenStack>
+                            @if (diagnostic.UptimeSeconds > 0)
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="query_builder" IconColor="var(--rz-warning)" />
+                                    <RadzenText TextStyle="TextStyle.Body2">
+                                        Uptime : @FormatUptime(diagnostic.UptimeSeconds)
+                                    </RadzenText>
+                                </RadzenStack>
+                            }
+
+                            @if (diagnostic.PageCounter > 0)
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="tag" IconColor="var(--rz-secondary)" />
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold;">
+                                        Compteur Pages : @diagnostic.PageCounter.ToString("N0")
+                                    </RadzenText>
+                                </RadzenStack>
+                            }
                         </RadzenStack>
                     </RadzenCard>
                 </RadzenColumn>
@@ -83,7 +108,7 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard Style="height: 100%; background-color: var(--rz-base-50);">
                         <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase;">
-                            Messages Imprimante (Écran)
+                            Messages &amp; Alertes Imprimante
                         </RadzenText>
                         <RadzenStack Gap="0.5rem" Class="rz-mt-3">
                             @if (diagnostic.Alerts == null || !diagnostic.Alerts.Any())
@@ -110,19 +135,13 @@
             </RadzenRow>
 
             <!-- Consommables & Cartouches -->
-            <RadzenCard>
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
-                    Niveaux des Consommables
-                </RadzenText>
+            @if (diagnostic.Toners != null && diagnostic.Toners.Any())
+            {
+                <RadzenCard>
+                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
+                        Niveaux des Consommables &amp; Toners
+                    </RadzenText>
 
-                @if (diagnostic.Toners == null || !diagnostic.Toners.Any())
-                {
-                    <RadzenAlert AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" AllowClose="false" Variant="Variant.Flat">
-                        Aucun consommable détecté ou SNMP supplies non supporté.
-                    </RadzenAlert>
-                }
-                else
-                {
                     <RadzenStack Gap="1rem">
                         @foreach (var toner in diagnostic.Toners)
                         {
@@ -133,38 +152,49 @@
                                     </RadzenText>
                                 </RadzenColumn>
                                 <RadzenColumn Size="9">
-                                    <!-- Barre de progression customisée et magnifique -->
                                     <div style="background-color: var(--rz-base-200); border-radius: 4px; height: 24px; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rz-base-300);">
-                                        <div style="width: @(toner.CurrentLevel >= 0 ? toner.CurrentLevel : 0)%; height: 100%; background-color: @(GetColorHex(toner.Color)); transition: width 0.5s ease-in-out;"></div>
+                                        <div style="width: @(toner.CurrentLevel >= 0 ? toner.CurrentLevel : 0)%; height: 100%; background-color: @(!string.IsNullOrEmpty(toner.ColorHex) ? toner.ColorHex : GetColorHex(toner.Color)); transition: width 0.5s ease-in-out;"></div>
                                         <span style="position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 24px; font-weight: bold; color: @(GetTextColor(toner.Color)); font-size: 0.9em; text-shadow: @(GetTextShadow(toner.Color));">
                                             @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel}%" : "Niveau inconnu")
                                         </span>
                                     </div>
-                                    @if (toner.EstimatedDaysRemaining.HasValue)
-                                    {
-                                        <div style="font-size: 0.75rem; color: var(--rz-text-tertiary-color); margin-top: 2px;">
-                                            @if (toner.EstimatedDaysRemaining.Value == -99)
-                                            {
-                                                <span>📊 Consommation stable / niveau constant</span>
-                                            }
-                                            else
-                                            {
-                                                <span>⏳ Épuisement estimé dans <b>@toner.EstimatedDaysRemaining.Value jours</b></span>
-                                            }
-                                        </div>
-                                    }
-                                    else if (toner.CurrentLevel >= 0)
-                                    {
-                                        <div style="font-size: 0.75rem; color: var(--rz-text-disabled-color); margin-top: 2px; font-style: italic;">
-                                            ⏳ Calcul de tendance en cours (besoin de relevés sur plusieurs jours)...
-                                        </div>
-                                    }
                                 </RadzenColumn>
                             </RadzenRow>
                         }
                     </RadzenStack>
-                }
-            </RadzenCard>
+                </RadzenCard>
+            }
+
+            <!-- Bacs Papier -->
+            @if (diagnostic.Trays != null && diagnostic.Trays.Any())
+            {
+                <RadzenCard>
+                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
+                        Bacs de Papier
+                    </RadzenText>
+
+                    <RadzenStack Gap="1rem">
+                        @foreach (var tray in diagnostic.Trays)
+                        {
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="3">
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0;">
+                                        @tray.Name
+                                    </RadzenText>
+                                </RadzenColumn>
+                                <RadzenColumn Size="9">
+                                    <div style="background-color: var(--rz-base-200); border-radius: 4px; height: 20px; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rz-base-300);">
+                                        <div style="width: @(tray.CurrentLevel >= 0 ? Math.Min(tray.CurrentLevel, 100) : 0)%; height: 100%; background-color: var(--rz-info); transition: width 0.5s ease-in-out;"></div>
+                                        <span style="position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 20px; font-weight: bold; color: #ffffff; font-size: 0.85em;">
+                                            @(tray.CurrentLevel >= 0 ? (tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel}%" : $"{tray.CurrentLevel} feuilles") : "Niveau inconnu")
+                                        </span>
+                                    </div>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
         }
         else
         {
@@ -251,8 +281,8 @@
     {
         return colorName.ToLower() switch
         {
-            "jaune" => "#212529", // texte sombre sur fond jaune pour le contraste
-            _ => "#ffffff"       // texte blanc pour le noir, cyan, magenta et gris
+            "jaune" => "#212529",
+            _ => "#ffffff"
         };
     }
 

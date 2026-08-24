@@ -157,6 +157,7 @@ namespace Autoprint.Server.Controllers
             dbImprimante.IsDirectPrintingEnabled = inputImprimante.IsDirectPrintingEnabled;
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
+            dbImprimante.SerialNumber = inputImprimante.SerialNumber;
             dbImprimante.DateModification = DateTime.UtcNow;
             dbImprimante.ModifiePar = User.Identity?.Name ?? "Système";
 
@@ -337,6 +338,7 @@ namespace Autoprint.Server.Controllers
             var printer = await _context.Imprimantes
                 .Include(i => i.Modele)
                 .ThenInclude(m => m.SnmpProfile)
+                .ThenInclude(p => p!.Items)
                 .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();
 
@@ -355,6 +357,11 @@ namespace Autoprint.Server.Controllers
             else
             {
                 printer.LastSeen = DateTime.UtcNow;
+
+                if (!string.IsNullOrWhiteSpace(result.SerialNumber))
+                {
+                    printer.SerialNumber = result.SerialNumber;
+                }
 
                 bool tonerLow = false;
                 if (result.Toners != null)

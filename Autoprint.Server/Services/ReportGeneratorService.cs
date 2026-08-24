@@ -1,5 +1,6 @@
 using Autoprint.Server.Data;
 using Autoprint.Shared;
+using Autoprint.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using PdfSharpCore.Drawing;
 using PdfSharpCore.Pdf;
@@ -37,7 +38,7 @@ namespace Autoprint.Server.Services
             var query = _context.Imprimantes
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m!.Marque)
-                .Include(i => i.Modele).ThenInclude(m => m!.SnmpProfile)
+                .Include(i => i.Modele).ThenInclude(m => m!.SnmpProfile).ThenInclude(p => p!.Items)
                 .Where(i => !i.IsArchived);
 
             try
@@ -80,6 +81,17 @@ namespace Autoprint.Server.Services
                                 else if (rule.Operator == "NotIn" && rule.Values != null && rule.Values.Any())
                                 {
                                     query = query.Where(i => !rule.Values.Contains(i.ModeleId));
+                                }
+                            }
+                            else if (rule.Field == "SnmpProfileId")
+                            {
+                                if (rule.Operator == "In" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => i.Modele != null && i.Modele.SnmpProfileId.HasValue && rule.Values.Contains(i.Modele.SnmpProfileId.Value));
+                                }
+                                else if (rule.Operator == "NotIn" && rule.Values != null && rule.Values.Any())
+                                {
+                                    query = query.Where(i => i.Modele == null || !i.Modele.SnmpProfileId.HasValue || !rule.Values.Contains(i.Modele.SnmpProfileId.Value));
                                 }
                             }
                             else if (rule.Field == "Nom")
@@ -145,6 +157,8 @@ namespace Autoprint.Server.Services
                 .Where(h => printerIds.Contains(h.ImprimanteId))
                 .ToListAsync();
 
+            bool dbUpdated = false;
+
             // Run SNMP diagnostic query in parallel for all selected printers
             var tasks = printers.Select(async printer =>
             {
@@ -159,13 +173,24 @@ namespace Autoprint.Server.Services
                         printer.Modele?.SnmpProfile
                     );
 
-                    var toners = diagnostic.Toners ?? new List<Autoprint.Shared.DTOs.TonerLevelResult>();
+                    var toners = diagnostic.Toners ?? new List<TonerLevelResult>();
                     foreach (var toner in toners)
                     {
                         var tonerHistory = printerHistory
                             .Where(h => h.ComponentColor.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
                             .ToList();
                         toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
+                    }
+
+                    string resolvedSn = !string.IsNullOrWhiteSpace(diagnostic.SerialNumber)
+                        ? diagnostic.SerialNumber.Trim()
+                        : (printer.SerialNumber ?? "");
+
+                    // Auto-remplissage du numéro de série en base si découvert en direct
+                    if (!string.IsNullOrWhiteSpace(diagnostic.SerialNumber) && string.IsNullOrWhiteSpace(printer.SerialNumber))
+                    {
+                        printer.SerialNumber = diagnostic.SerialNumber.Trim();
+                        dbUpdated = true;
                     }
 
                     return new PrinterReportItem
@@ -175,7 +200,9 @@ namespace Autoprint.Server.Services
                         PageCounter = diagnostic.PageCounter,
                         Status = diagnostic.Status,
                         Alerts = diagnostic.Alerts,
-                        Toners = toners
+                        Toners = toners,
+                        Trays = diagnostic.Trays ?? new List<PaperTrayResult>(),
+                        SerialNumber = resolvedSn
                     };
                 }
                 catch
@@ -187,12 +214,24 @@ namespace Autoprint.Server.Services
                         PageCounter = 0,
                         Status = "Erreur SNMP",
                         Alerts = new List<string> { "Impossible d'interroger la machine en SNMP." },
-                        Toners = new List<Autoprint.Shared.DTOs.TonerLevelResult>()
+                        Toners = new List<TonerLevelResult>(),
+                        Trays = new List<PaperTrayResult>(),
+                        SerialNumber = printer.SerialNumber ?? ""
                     };
                 }
             });
 
             var results = await Task.WhenAll(tasks);
+
+            if (dbUpdated)
+            {
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
+            }
+
             return results.ToList();
         }
 
@@ -205,9 +244,10 @@ namespace Autoprint.Server.Services
             var sb = new StringBuilder();
 
             // Header line
-            var headers = new List<string> { "Nom imprimante", "Adresse IP", "Emplacement", "Modèle" };
+            var headers = new List<string> { "Nom imprimante", "N° Série", "Adresse IP", "Emplacement", "Modèle" };
             if (metrics.Contains("Pages")) headers.Add("Compteur de Pages");
             if (metrics.Contains("Toner")) headers.Add("Niveaux de Toners");
+            if (metrics.Contains("Trays")) headers.Add("Bacs Papier");
             if (metrics.Contains("Availability")) headers.Add("Disponibilité");
             if (metrics.Contains("Alerts")) headers.Add("Pannes / Alertes");
             if (metrics.Contains("Predictions")) headers.Add("Prévision d'épuisement");
@@ -216,9 +256,14 @@ namespace Autoprint.Server.Services
 
             foreach (var item in data)
             {
+                string snValue = !string.IsNullOrWhiteSpace(item.SerialNumber)
+                    ? item.SerialNumber
+                    : (!string.IsNullOrWhiteSpace(item.Printer.SerialNumber) ? item.Printer.SerialNumber : "");
+
                 var row = new List<string>
                 {
                     item.Printer.NomAffiche,
+                    snValue,
                     item.Printer.AdresseIp,
                     item.Printer.Emplacement?.Nom ?? "Non défini",
                     item.Printer.Modele?.Nom ?? "Générique"
@@ -232,12 +277,24 @@ namespace Autoprint.Server.Services
                 {
                     if (item.PingSuccess && item.Toners.Any())
                     {
-                        var tonerParts = item.Toners.Select(t => $"{t.Color}: {t.CurrentLevel}%");
+                        var tonerParts = item.Toners.Select(t => $"{t.Color}: {(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "Niveau OK")}");
                         row.Add(string.Join(" | ", tonerParts));
                     }
                     else
                     {
-                        row.Add(item.PingSuccess ? "Aucun toner détecté" : "Hors ligne");
+                        row.Add(item.PingSuccess ? "Aucun toner configuré" : "Hors ligne");
+                    }
+                }
+                if (metrics.Contains("Trays"))
+                {
+                    if (item.PingSuccess && item.Trays.Any())
+                    {
+                        var trayParts = item.Trays.Select(t => $"{t.Name}: {(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel} f.") : "Inconnu")}");
+                        row.Add(string.Join(" | ", trayParts));
+                    }
+                    else
+                    {
+                        row.Add(item.PingSuccess ? "Aucun bac configuré" : "Hors ligne");
                     }
                 }
                 if (metrics.Contains("Availability"))
@@ -270,6 +327,20 @@ namespace Autoprint.Server.Services
                 sb.AppendLine(string.Join(";", row.Select(EscapeCsv)));
             }
 
+            // Ligne de Totalisation optionnelle en bas du tableau CSV
+            if (metrics.Contains("TotalPages"))
+            {
+                long totalPages = data.Where(d => d.PingSuccess).Sum(d => d.PageCounter);
+                var totalRow = new List<string> { "TOTAL DU PARC", "", "", "", $"{data.Count} imprimantes" };
+                if (metrics.Contains("Pages")) totalRow.Add($"{totalPages:N0} pages");
+                if (metrics.Contains("Toner")) totalRow.Add("");
+                if (metrics.Contains("Trays")) totalRow.Add("");
+                if (metrics.Contains("Availability")) totalRow.Add($"{data.Count(d => d.PingSuccess)}/{data.Count} en ligne");
+                if (metrics.Contains("Alerts")) totalRow.Add($"{data.Count(d => d.Alerts.Any())} alerte(s)");
+                if (metrics.Contains("Predictions")) totalRow.Add("");
+                sb.AppendLine(string.Join(";", totalRow.Select(EscapeCsv)));
+            }
+
             return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
         }
 
@@ -288,53 +359,68 @@ namespace Autoprint.Server.Services
                 // Fonts
                 var fontTitle = new XFont("Arial", 18, XFontStyle.Bold);
                 var fontSubtitle = new XFont("Arial", 11, XFontStyle.Bold);
-                var fontRegular = new XFont("Arial", 9, XFontStyle.Regular);
-                var fontBold = new XFont("Arial", 9, XFontStyle.Bold);
+                var fontRegular = new XFont("Arial", 8.5, XFontStyle.Regular);
+                var fontBold = new XFont("Arial", 8.5, XFontStyle.Bold);
 
                 // 1. Draw Title Header Band
                 var headerRect = new XRect(20, 20, page.Width - 40, 50);
                 var headerBrush = new XSolidBrush(XColor.FromArgb(13, 110, 253)); // Blue bootstrap primary
                 gfx.DrawRectangle(headerBrush, headerRect);
 
-                gfx.DrawString("🖨️ AUTOPRINT - RAPPORT D'ACTIVITÉ", fontTitle, XBrushes.White, new XRect(30, 30, page.Width - 60, 30), XStringFormats.TopLeft);
+                gfx.DrawString("AUTOPRINT - RAPPORT D'ACTIVITE", fontTitle, XBrushes.White, new XRect(30, 30, page.Width - 60, 30), XStringFormats.TopLeft);
 
                 // 2. Draw Report Summary Card
                 gfx.DrawString($"Rapport : {schedule.ReportName}", fontSubtitle, XBrushes.Black, 20, 95);
-                gfx.DrawString($"Généré le : {DateTime.Now.ToString("dd/MM/yyyy HH:mm")}", fontRegular, XBrushes.Gray, 20, 115);
-                gfx.DrawString($"Fréquence : {schedule.Frequency}", fontRegular, XBrushes.Gray, 20, 130);
+                gfx.DrawString($"Genere le : {DateTime.Now.ToString("dd/MM/yyyy HH:mm")}", fontRegular, XBrushes.Gray, 20, 115);
+                gfx.DrawString($"Frequence : {schedule.Frequency}", fontRegular, XBrushes.Gray, 20, 130);
 
                 int totalCount = data.Count;
                 int onlineCount = data.Count(d => d.PingSuccess);
                 int offlineCount = totalCount - onlineCount;
                 int alertCount = data.Count(d => d.Alerts.Any());
-                int predictionThreshold = schedule.PredictionThresholdDays;
-                int nearExhaustionCount = 0;
-                if (metrics.Contains("Predictions"))
+
+                int summaryY = 150;
+
+                if (metrics.Contains("FleetSummary") || !metrics.Contains("TotalPages"))
                 {
-                    nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
+                    string summaryText = $"Total Imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}";
+                    gfx.DrawString(summaryText, fontBold, XBrushes.DarkSlateGray, 20, summaryY);
+                    summaryY += 16;
                 }
 
-                string summaryText = $"Total Imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}";
+                if (metrics.Contains("TotalPages"))
+                {
+                    long totalPages = data.Where(d => d.PingSuccess).Sum(d => d.PageCounter);
+                    string totalText = $"Volume Total d'Impressions du Parc : {totalPages:N0} pages";
+                    gfx.DrawString(totalText, fontBold, XBrushes.DarkBlue, 20, summaryY);
+                    summaryY += 16;
+                }
+
                 if (metrics.Contains("Predictions"))
                 {
-                    summaryText += $"  |  Épuisement proche (<={predictionThreshold}j) : {nearExhaustionCount}";
+                    int predictionThreshold = schedule.PredictionThresholdDays;
+                    int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
+                    string predText = $"Alertes epuisement toner proche (<= {predictionThreshold} jours) : {nearExhaustionCount}";
+                    gfx.DrawString(predText, fontBold, XBrushes.DarkRed, 20, summaryY);
+                    summaryY += 16;
                 }
-                gfx.DrawString(summaryText, fontBold, XBrushes.DarkSlateGray, 20, 155);
 
                 // 3. Draw Table Headers
-                int y = 180;
+                int y = summaryY + 10;
                 gfx.DrawLine(XPens.DarkGray, 20, y, page.Width - 20, y);
                 y += 5;
 
-                // Column X positions
+                // Column X positions (Page Width ~ 595, Margins 20/20)
                 int colName = 20;
-                int colIp = 120;
-                int colLocation = 210;
-                int colStatus = 290;
-                int colMetric1 = 370;
-                int colMetric2 = 480;
+                int colSerial = 125;
+                int colIp = 210;
+                int colLocation = 290;
+                int colStatus = 370;
+                int colMetric1 = 430;
+                int colMetric2 = 505;
 
                 gfx.DrawString("Nom Imprimante", fontBold, XBrushes.Black, colName, y);
+                gfx.DrawString("N° Série", fontBold, XBrushes.Black, colSerial, y);
                 gfx.DrawString("Adresse IP", fontBold, XBrushes.Black, colIp, y);
                 gfx.DrawString("Emplacement", fontBold, XBrushes.Black, colLocation, y);
                 gfx.DrawString("Statut", fontBold, XBrushes.Black, colStatus, y);
@@ -343,7 +429,7 @@ namespace Autoprint.Server.Services
                 string mHeader1 = "";
                 string mHeader2 = "";
 
-                var activeMetrics = metrics.Where(m => m == "Pages" || m == "Toner" || m == "Availability" || m == "Alerts" || m == "Predictions").ToList();
+                var activeMetrics = metrics.Where(m => m == "Pages" || m == "Toner" || m == "Trays" || m == "Availability" || m == "Alerts" || m == "Predictions").ToList();
                 if (activeMetrics.Count > 0) mHeader1 = MapMetricHeader(activeMetrics[0]);
                 if (activeMetrics.Count > 1) mHeader2 = MapMetricHeader(activeMetrics[1]);
 
@@ -375,12 +461,20 @@ namespace Autoprint.Server.Services
                     }
 
                     // Print printer base details
-                    string printName = item.Printer.NomAffiche.Length > 18 ? item.Printer.NomAffiche.Substring(0, 16) + ".." : item.Printer.NomAffiche;
+                    string printName = item.Printer.NomAffiche.Length > 16 ? item.Printer.NomAffiche.Substring(0, 14) + ".." : item.Printer.NomAffiche;
                     gfx.DrawString(printName, fontRegular, XBrushes.Black, colName, y);
+
+                    // Print Serial Number
+                    string snDisplay = !string.IsNullOrWhiteSpace(item.SerialNumber)
+                        ? item.SerialNumber
+                        : (!string.IsNullOrWhiteSpace(item.Printer.SerialNumber) ? item.Printer.SerialNumber : "-");
+                    if (snDisplay.Length > 13) snDisplay = snDisplay.Substring(0, 11) + "..";
+                    gfx.DrawString(snDisplay, fontRegular, XBrushes.DarkSlateGray, colSerial, y);
+
                     gfx.DrawString(item.Printer.AdresseIp, fontRegular, XBrushes.Black, colIp, y);
-                    
+
                     string locName = item.Printer.Emplacement?.Nom ?? "Non défini";
-                    if (locName.Length > 13) locName = locName.Substring(0, 11) + "..";
+                    if (locName.Length > 12) locName = locName.Substring(0, 10) + "..";
                     gfx.DrawString(locName, fontRegular, XBrushes.Black, colLocation, y);
 
                     // Status display
@@ -399,7 +493,17 @@ namespace Autoprint.Server.Services
                         string val = "-";
                         if (item.PingSuccess && item.Toners.Any())
                         {
-                            var list = item.Toners.Select(t => $"{t.Color.Substring(0,1)}:{t.CurrentLevel}%");
+                            var list = item.Toners.Select(t => $"{t.Color.Substring(0, 1)}:{(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "OK")}");
+                            val = string.Join(" ", list);
+                        }
+                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
+                    }
+                    if (metrics.Contains("Trays"))
+                    {
+                        string val = "-";
+                        if (item.PingSuccess && item.Trays.Any())
+                        {
+                            var list = item.Trays.Select(t => $"{t.Name.Replace("Bac", "B").Trim()}:{(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel}f") : "?")}");
                             val = string.Join(" ", list);
                         }
                         DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
@@ -424,8 +528,8 @@ namespace Autoprint.Server.Services
                                 .Select(t =>
                                 {
                                     var days = t.EstimatedDaysRemaining!.Value;
-                                    if (days == -99) return $"{t.Color.Substring(0,1)}:Stab";
-                                    return $"{t.Color.Substring(0,1)}:{days}j";
+                                    if (days == -99) return $"{t.Color.Substring(0, 1)}:Stab";
+                                    return $"{t.Color.Substring(0, 1)}:{days}j";
                                 });
                             if (list.Any()) val = string.Join(" ", list);
                         }
@@ -447,6 +551,7 @@ namespace Autoprint.Server.Services
             {
                 "Pages" => "Compteur",
                 "Toner" => "Toners",
+                "Trays" => "Bacs Papier",
                 "Availability" => "Dispo",
                 "Alerts" => "Pannes",
                 "Predictions" => "Prévision",
@@ -501,8 +606,10 @@ namespace Autoprint.Server.Services
             public bool PingSuccess { get; set; }
             public long PageCounter { get; set; }
             public string Status { get; set; } = string.Empty;
+            public string SerialNumber { get; set; } = string.Empty;
             public List<string> Alerts { get; set; } = new();
-            public List<Autoprint.Shared.DTOs.TonerLevelResult> Toners { get; set; } = new();
+            public List<TonerLevelResult> Toners { get; set; } = new();
+            public List<PaperTrayResult> Trays { get; set; } = new();
         }
     }
 }

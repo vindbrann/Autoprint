@@ -133,7 +133,7 @@ else
                 </RadzenText>
             </div>
     }
-        <RadzenDataGrid @ref="grid" Data="@GetFilteredPrinters()" TItem="Imprimante"
+        <RadzenDataGrid @ref="grid" Data="@imprimantesFiltrees" TItem="Imprimante"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true"
@@ -141,8 +141,7 @@ else
                     AllowColumnPicking="true"
                     ColumnWidth="200px"
                     Responsive="true"
-                    Settings="@gridSettings"
-                    SettingsChanged="@OnSettingsChanged"
+                    @bind-Settings="gridSettings"
                     Style="width: 100%;">
 
         <Columns>
@@ -202,6 +201,19 @@ else
                     @if (!string.IsNullOrEmpty(imp.Code))
                     {
                         <RadzenBadge Variant="Variant.Flat" BadgeStyle="BadgeStyle.Secondary" Text="@imp.Code" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn TItem="Imprimante" Property="SerialNumber" Title="N° Série" Width="140px">
+                <Template Context="imp">
+                    @if (!string.IsNullOrEmpty(imp.SerialNumber))
+                    {
+                        <span style="font-family: monospace; font-size: 0.95em; color: var(--rz-text-title-color);">@imp.SerialNumber</span>
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-disabled-color); font-style: italic; font-size: 0.85em;">-</span>
                     }
                 </Template>
             </RadzenDataGridColumn>
@@ -328,9 +340,22 @@ else
 
 @code {
     RadzenDataGrid<Imprimante> grid;
-    DataGridSettings gridSettings;
+    private DataGridSettings? _gridSettings;
+    private DataGridSettings? gridSettings
+    {
+        get => _gridSettings;
+        set
+        {
+            _gridSettings = value;
+            if (value != null)
+            {
+                _ = SaveSettingsAsync(value);
+            }
+        }
+    }
 
     private List<Imprimante>? imprimantes;
+    private List<Imprimante> imprimantesFiltrees = new();
     private int selectedTab = 0;
     private bool isLoading = true;
     private bool isSyncing = false;
@@ -373,7 +398,7 @@ else
                 var settingsJson = await LocalStorage.GetItemAsync<string>("PrintersGridSettings");
                 if (!string.IsNullOrEmpty(settingsJson))
                 {
-                    gridSettings = System.Text.Json.JsonSerializer.Deserialize<DataGridSettings>(settingsJson);
+                    _gridSettings = System.Text.Json.JsonSerializer.Deserialize<DataGridSettings>(settingsJson);
                     StateHasChanged();
                 }
             }
@@ -381,9 +406,8 @@ else
         }
     }
 
-    private async Task OnSettingsChanged(DataGridSettings settings)
+    private async Task SaveSettingsAsync(DataGridSettings settings)
     {
-        gridSettings = settings;
         try
         {
             var json = System.Text.Json.JsonSerializer.Serialize(settings);
@@ -403,7 +427,8 @@ else
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
         finally 
         { 
-            isLoading = false; 
+            isLoading = false;
+            MettreAJourFiltre();
             if (grid != null)
             {
                 await grid.Reload();
@@ -418,16 +443,21 @@ else
         await ChargerListe();
     }
 
-    private IEnumerable<Imprimante> GetFilteredPrinters()
+    private void MettreAJourFiltre()
     {
-        if (imprimantes == null) return Enumerable.Empty<Imprimante>();
+        if (imprimantes == null)
+        {
+            imprimantesFiltrees = new List<Imprimante>();
+            return;
+        }
+
         if (selectedTab == 0)
         {
-            return imprimantes.Where(i => !i.IsArchived);
+            imprimantesFiltrees = imprimantes.Where(i => !i.IsArchived).ToList();
         }
         else
         {
-            return imprimantes.Where(i => i.IsArchived);
+            imprimantesFiltrees = imprimantes.Where(i => i.IsArchived).ToList();
         }
     }
 
@@ -554,6 +584,7 @@ else
             EmplacementId = imp.EmplacementId,
             Status = imp.Status,
             IsDirectPrintingEnabled = imp.IsDirectPrintingEnabled,
+            SerialNumber = imp.SerialNumber,
             SnmpPort = imp.SnmpPort,
             SnmpCommunity = imp.SnmpCommunity,
             SnmpVersion = imp.SnmpVersion
@@ -583,15 +614,16 @@ else
     {
         if (imprimantes == null || !imprimantes.Any()) return;
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom;Code;Modele;IP;Lieu;Emplacement;Partage;modeDirect");
+        csvBuilder.AppendLine("Id;Nom;Code;N° Série;Modele;IP;Lieu;Emplacement;Partage;modeDirect");
 
         foreach (var i in imprimantes)
         {
             var nom = i.NomAffiche?.Replace(";", ",") ?? "";
+            var sn = i.SerialNumber?.Replace(";", ",") ?? "";
             var modele = i.Modele?.Nom?.Replace(";", ",") ?? "";
             var lieu = i.Emplacement?.Nom?.Replace(";", ",") ?? "";
             var modeDirect = i.IsDirectPrintingEnabled ? "Oui" : "Non";
-            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect}");
+            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{sn};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();
