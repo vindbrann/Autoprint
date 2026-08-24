@@ -30,6 +30,7 @@ namespace Autoprint.Server.Data
         public DbSet<DiscoveryProfile> DiscoveryProfiles { get; set; }
         public DbSet<TonerHistory> TonerHistories { get; set; }
         public DbSet<SnmpProfile> SnmpProfiles { get; set; }
+        public DbSet<SnmpProfileItem> SnmpProfileItems { get; set; }
         public DbSet<IntegrationToken> IntegrationTokens { get; set; }
         public DbSet<ReportSchedule> ReportSchedules { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -153,6 +154,18 @@ namespace Autoprint.Server.Data
             modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI" });
 
             modelBuilder.Entity<Modele>().HasData(new Modele { Id = 1, Nom = "GÉNÉRIQUE", MarqueId = 1 });
+
+            modelBuilder.Entity<Modele>()
+                .HasOne(m => m.SnmpProfile)
+                .WithMany()
+                .HasForeignKey(m => m.SnmpProfileId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<SnmpProfile>()
+                .HasMany(s => s.Items)
+                .WithOne(i => i.SnmpProfile)
+                .HasForeignKey(i => i.SnmpProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

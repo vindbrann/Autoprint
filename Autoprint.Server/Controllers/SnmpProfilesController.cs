@@ -1,5 +1,6 @@
 using Autoprint.Server.Data;
 using Autoprint.Shared;
+using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,11 +21,15 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AuditService _auditService;
+        private readonly ISnmpService _snmpService;
+        private readonly ILogger<SnmpProfilesController> _logger;
 
-        public SnmpProfilesController(ApplicationDbContext context, AuditService auditService)
+        public SnmpProfilesController(ApplicationDbContext context, AuditService auditService, ISnmpService snmpService, ILogger<SnmpProfilesController> logger)
         {
             _context = context;
             _auditService = auditService;
+            _snmpService = snmpService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -32,32 +37,101 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<SnmpProfile>>> GetSnmpProfiles()
         {
             return await _context.SnmpProfiles
+                .Include(p => p.Items)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<ActionResult<SnmpProfile>> GetSnmpProfile(int id)
         {
-            var profile = await _context.SnmpProfiles.FindAsync(id);
+            var profile = await _context.SnmpProfiles
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (profile == null) return NotFound();
             return profile;
         }
 
-        [HttpPut("{id}")]
+        [HttpPost("scan-printer")]
+        [Authorize]
+        public async Task<ActionResult<List<DiscoveredOidDto>>> ScanPrinterOids([FromBody] SnmpScanRequestDto request)
+        {
+            _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", request?.IpAddress);
+            if (request == null || string.IsNullOrWhiteSpace(request.IpAddress))
+            {
+                return BadRequest("L'adresse IP de l'imprimante de test est obligatoire.");
+            }
+
+            try
+            {
+                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request);
+                _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", request.IpAddress, discoveredOids.Count);
+                return Ok(discoveredOids);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", request.IpAddress);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("test-profile")]
+        [HttpPost("test")]
+        [Authorize]
+        public async Task<ActionResult<List<SnmpTestProfileResultDto>>> TestProfileItems([FromBody] SnmpTestProfileRequestDto request)
+        {
+            _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", request?.IpAddress, request?.Items?.Count ?? 0);
+
+            if (request == null || string.IsNullOrWhiteSpace(request.IpAddress))
+            {
+                _logger.LogWarning("[SNMP_TEST_API] Requête invalide : IP obligatoire.");
+                return BadRequest("L'adresse IP de l'imprimante de test est obligatoire.");
+            }
+
+            try
+            {
+                var testResults = await _snmpService.TestProfileItemsAsync(request);
+                _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", request.IpAddress, testResults.Count);
+                return Ok(testResults);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SNMP_TEST_API] Erreur sur test-profile pour IP={Ip}", request.IpAddress);
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id:int}")]
         [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<IActionResult> PutSnmpProfile(int id, SnmpProfile profile)
         {
             if (id != profile.Id) return BadRequest();
 
-            _context.Entry(profile).State = EntityState.Modified;
+            var existingProfile = await _context.SnmpProfiles
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (existingProfile == null) return NotFound();
+
+            existingProfile.Name = profile.Name;
+            existingProfile.IsColor = profile.IsColor;
+            existingProfile.OidPageCounter = profile.OidPageCounter;
+            existingProfile.OidTonerBlack = profile.OidTonerBlack;
+            existingProfile.OidTonerCyan = profile.OidTonerCyan;
+            existingProfile.OidTonerMagenta = profile.OidTonerMagenta;
+            existingProfile.OidTonerYellow = profile.OidTonerYellow;
+
+            // Remplacement des items
+            _context.SnmpProfileItems.RemoveRange(existingProfile.Items);
+            existingProfile.Items = profile.Items ?? new List<SnmpProfileItem>();
 
             try
             {
                 await _auditService.LogUpdateAsync(
                     id,
-                    profile,
+                    existingProfile,
                     "SNMP_PROFILE_UPDATE",
                     User.Identity?.Name);
 
@@ -87,7 +161,7 @@ namespace Autoprint.Server.Controllers
             return CreatedAtAction("GetSnmpProfile", new { id = profile.Id }, profile);
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         [Authorize(Policy = "SNMP_PROFILE_DELETE")]
         public async Task<IActionResult> DeleteSnmpProfile(int id)
         {
@@ -112,11 +186,14 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
-        [HttpGet("{id}/export")]
+        [HttpGet("{id:int}/export")]
         [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<IActionResult> ExportProfile(int id)
         {
-            var profile = await _context.SnmpProfiles.FindAsync(id);
+            var profile = await _context.SnmpProfiles
+                .Include(p => p.Items)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (profile == null) return NotFound();
 
             var exportData = new
@@ -126,7 +203,17 @@ namespace Autoprint.Server.Controllers
                 profile.OidTonerCyan,
                 profile.OidTonerMagenta,
                 profile.OidTonerYellow,
-                profile.OidPageCounter
+                profile.OidPageCounter,
+                Items = profile.Items.Select(i => new
+                {
+                    i.Category,
+                    i.Name,
+                    i.Oid,
+                    i.OidMaxCapacity,
+                    i.ValueType,
+                    i.ColorHex,
+                    i.SortOrder
+                })
             };
 
             var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
@@ -153,6 +240,23 @@ namespace Autoprint.Server.Controllers
                 OidPageCounter = importDto.OidPageCounter
             };
 
+            if (importDto.Items != null)
+            {
+                foreach (var itemDto in importDto.Items)
+                {
+                    profile.Items.Add(new SnmpProfileItem
+                    {
+                        Category = itemDto.Category,
+                        Name = itemDto.Name,
+                        Oid = itemDto.Oid,
+                        OidMaxCapacity = itemDto.OidMaxCapacity,
+                        ValueType = itemDto.ValueType,
+                        ColorHex = itemDto.ColorHex,
+                        SortOrder = itemDto.SortOrder
+                    });
+                }
+            }
+
             _context.SnmpProfiles.Add(profile);
 
             _auditService.LogAction(
@@ -170,5 +274,4 @@ namespace Autoprint.Server.Controllers
             return _context.SnmpProfiles.Any(e => e.Id == id);
         }
     }
-
 }

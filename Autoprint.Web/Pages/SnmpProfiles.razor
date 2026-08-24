@@ -50,12 +50,28 @@ else
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="250px">
         <Columns>
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="Name" Title="Nom du Profil" Width="200px" Sortable="true" Filterable="true" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidPageCounter" Title="OID Compteur" Width="180px" Sortable="false" Filterable="false" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerBlack" Title="Noir (K)" Width="150px" Sortable="false" Filterable="false" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerCyan" Title="Cyan (C)" Width="150px" Sortable="false" Filterable="false" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerMagenta" Title="Magenta (M)" Width="150px" Sortable="false" Filterable="false" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Property="OidTonerYellow" Title="Jaune (Y)" Width="150px" Sortable="false" Filterable="false" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Property="Name" Title="Nom du Profil" Width="220px" Sortable="true" Filterable="true" />
+            <RadzenDataGridColumn TItem="SnmpProfile" Title="Champs SNMP Dynamiques" Sortable="false" Filterable="false">
+                <Template Context="p">
+                    @if (p.Items != null && p.Items.Any())
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" Style="flex-wrap: wrap;">
+                            @foreach (var item in p.Items.Take(6))
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@($"{item.Name} ({item.Category})")" />
+                            }
+                            @if (p.Items.Count > 6)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"+{p.Items.Count - 6} autres")" />
+                            }
+                        </RadzenStack>
+                    }
+                    else
+                    {
+                        <span style="color: var(--rz-text-tertiary-color); font-style: italic;">Profil hérité / aucun champ configuré</span>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
             
             <RadzenDataGridColumn TItem="SnmpProfile" Title="Actions" Sortable="false" Filterable="false" Width="150px" TextAlign="TextAlign.Center">
                 <Template Context="p">
@@ -115,7 +131,7 @@ else
         var title = profile.Id == 0 ? "Créer un Profil SNMP" : $"Modifier le Profil SNMP : {profile.Name}";
         var r = await DialogService.OpenAsync<SnmpProfileModal>(title,
             new Dictionary<string, object> { { "ProfileToEdit", profile } },
-            new DialogOptions { Width = "550px" });
+            new DialogOptions { Width = "1050px", Height = "90vh", CloseDialogOnOverlayClick = false, Resizable = true });
 
         if (r == true)
         {

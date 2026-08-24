@@ -108,6 +108,7 @@ namespace Autoprint.Server.Services
             var activePrinters = await context.Imprimantes
                 .Include(i => i.Modele)
                 .ThenInclude(m => m.SnmpProfile)
+                .ThenInclude(p => p!.Items)
                 .Where(i => !i.IsArchived)
                 .ToListAsync(stoppingToken);
 
@@ -134,6 +135,11 @@ namespace Autoprint.Server.Services
                     else
                     {
                         printer.LastSeen = DateTime.UtcNow;
+
+                        if (!string.IsNullOrWhiteSpace(diagnostic.SerialNumber))
+                        {
+                            printer.SerialNumber = diagnostic.SerialNumber;
+                        }
 
                         bool tonerLow = false;
                         if (diagnostic.Toners != null)

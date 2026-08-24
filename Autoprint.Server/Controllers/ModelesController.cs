@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +27,7 @@ namespace Autoprint.Server.Controllers
             return await _context.Modeles
                 .Include(m => m.Marque)
                 .Include(m => m.Pilote)
+                .Include(m => m.SnmpProfile)
                 .Select(m => new Modele
                 {
                     Id = m.Id,
@@ -34,9 +35,10 @@ namespace Autoprint.Server.Controllers
                     Code = m.Code,
                     MarqueId = m.MarqueId,
                     PiloteId = m.PiloteId,
+                    SnmpProfileId = m.SnmpProfileId,
                     Marque = m.Marque,
                     Pilote = m.Pilote,
-
+                    SnmpProfile = m.SnmpProfile,
                     PrinterCount = _context.Imprimantes.Count(i => i.ModeleId == m.Id)
                 })
                 .ToListAsync();
@@ -48,6 +50,7 @@ namespace Autoprint.Server.Controllers
             var modele = await _context.Modeles
                             .Include(m => m.Marque)
                             .Include(m => m.Pilote)
+                            .Include(m => m.SnmpProfile)
                             .Where(m => m.Id == id)
                             .Select(m => new Modele
                             {
@@ -56,8 +59,10 @@ namespace Autoprint.Server.Controllers
                                 Code = m.Code,
                                 MarqueId = m.MarqueId,
                                 PiloteId = m.PiloteId,
+                                SnmpProfileId = m.SnmpProfileId,
                                 Marque = m.Marque,
                                 Pilote = m.Pilote,
+                                SnmpProfile = m.SnmpProfile,
                                 PrinterCount = _context.Imprimantes.Count(i => i.ModeleId == m.Id)
                             })
                             .FirstOrDefaultAsync();
@@ -98,6 +103,7 @@ namespace Autoprint.Server.Controllers
             dbModele.Code = inputModele.Code;
             dbModele.MarqueId = inputModele.MarqueId;
             dbModele.PiloteId = inputModele.PiloteId;
+            dbModele.SnmpProfileId = inputModele.SnmpProfileId;
 
             var nomMarque = await _context.Marques
                 .AsNoTracking()
@@ -122,6 +128,7 @@ namespace Autoprint.Server.Controllers
                 Code = inputModele.Code,
                 MarqueId = inputModele.MarqueId,
                 PiloteId = inputModele.PiloteId,
+                SnmpProfileId = inputModele.SnmpProfileId,
                 Marque = new Marque { Id = inputModele.MarqueId, Nom = nomMarque ?? "Inconnu" },
                 Pilote = nomPilote != null ? new Pilote { Id = inputModele.PiloteId.Value, Nom = nomPilote } : null
             };
@@ -157,6 +164,7 @@ namespace Autoprint.Server.Controllers
 
             modele.Marque = null!;
             modele.Pilote = null;
+            modele.SnmpProfile = null;
 
             _context.Modeles.Add(modele);
 
@@ -168,7 +176,7 @@ namespace Autoprint.Server.Controllers
 
             await _context.SaveChangesAsync();
 
-            var newModele = await _context.Modeles.Include(m => m.Marque).Include(m => m.Pilote).FirstOrDefaultAsync(m => m.Id == modele.Id);
+            var newModele = await _context.Modeles.Include(m => m.Marque).Include(m => m.Pilote).Include(m => m.SnmpProfile).FirstOrDefaultAsync(m => m.Id == modele.Id);
             return CreatedAtAction("GetModele", new { id = modele.Id }, newModele);
         }
 

@@ -1,4 +1,5 @@
 @using Autoprint.Shared
+@using Autoprint.Shared.DTOs
 @using Radzen
 @using Radzen.Blazor
 @using Autoprint.Web.Services
@@ -7,62 +8,185 @@
 @inject NotificationService NotificationService
 @inject CustomAuthStateProvider AuthProvider
 
-<RadzenTemplateForm TItem="SnmpProfile" Data="@profileEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
-        <div>
-            <RadzenLabel Text="Nom du Profil" Component="Name" />
-            <RadzenTextBox Name="Name" @bind-Value="@profileEdit.Name" Style="width: 100%;" Placeholder="Ex: Standard HP LaserJet" Disabled="@(!canWrite)" />
-            <RadzenRequiredValidator Component="Name" Text="Le nom est obligatoire" Popup="true" />
-        </div>
+<RadzenStack Gap="1rem" Style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+    <!-- SECTION 1 : CONFIGURATION DU PROFIL & MODÈLE -->
+    <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="border-radius: 8px;">
+        <RadzenRow Gap="1rem" AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="5">
+                <RadzenLabel Text="Modèle d'Imprimante Associé" Style="font-weight: 600; font-size: 0.85rem;" />
+                <RadzenDropDown TValue="int?" Data="@modelesDisponibles" TextProperty="Nom" ValueProperty="Id" Value="@selectedModeleId" ValueChanged="@OnModeleSelectionne" Style="width: 100%;" Placeholder="Sélectionner un modèle..." AllowClear="true" />
+            </RadzenColumn>
 
-        <div>
-            <RadzenLabel Text="OID Compteur de Pages" Component="OidPageCounter" />
-            <RadzenTextBox Name="OidPageCounter" @bind-Value="@profileEdit.OidPageCounter" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.10.2.1.4.1.1" Disabled="@(!canWrite)" />
-        </div>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Nom du Profil SNMP" Component="ProfileName" Style="font-weight: 600; font-size: 0.85rem;" />
+                <RadzenTextBox Name="ProfileName" @bind-Value="@profileEdit.Name" Style="width: 100%;" Placeholder="Ex: HP Color LaserJet M553" Disabled="@(!canWrite)" />
+            </RadzenColumn>
 
-        <RadzenFieldset Text="OIDs Consommables / Toners (Optionnel)">
-            <RadzenStack Gap="0.5rem">
-                <div>
-                    <RadzenLabel Text="Toner Noir (K)" Component="OidTonerBlack" />
-                    <RadzenTextBox Name="OidTonerBlack" @bind-Value="@profileEdit.OidTonerBlack" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.1" Disabled="@(!canWrite)" />
-                </div>
-                <div>
-                    <RadzenLabel Text="Toner Cyan (C)" Component="OidTonerCyan" />
-                    <RadzenTextBox Name="OidTonerCyan" @bind-Value="@profileEdit.OidTonerCyan" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.2" Disabled="@(!canWrite)" />
-                </div>
-                <div>
-                    <RadzenLabel Text="Toner Magenta (M)" Component="OidTonerMagenta" />
-                    <RadzenTextBox Name="OidTonerMagenta" @bind-Value="@profileEdit.OidTonerMagenta" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.3" Disabled="@(!canWrite)" />
-                </div>
-                <div>
-                    <RadzenLabel Text="Toner Jaune (Y)" Component="OidTonerYellow" />
-                    <RadzenTextBox Name="OidTonerYellow" @bind-Value="@profileEdit.OidTonerYellow" Style="width: 100%;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.9.1.4" Disabled="@(!canWrite)" />
-                </div>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenLabel Text="Type d'Impression" Style="font-weight: 600; font-size: 0.85rem;" />
+                <RadzenSelectBar TValue="bool" Value="@profileEdit.IsColor" ValueChanged="@OnColorModeChanged" Style="width: 100%;">
+                    <Items>
+                        <RadzenSelectBarItem Text="N&B" Value="false" />
+                        <RadzenSelectBarItem Text="Couleur" Value="true" />
+                    </Items>
+                </RadzenSelectBar>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    <!-- SECTION 2 : MACHINE DE TEST & DIAGNOSTIC DIRECT -->
+    <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="background-color: var(--rz-base-50); border-radius: 8px;">
+        <RadzenRow Gap="0.75rem" AlignItems="AlignItems.End">
+            @if (imprimantesDuModele != null && imprimantesDuModele.Any())
+            {
+                <RadzenColumn Size="12" SizeMD="3">
+                    <RadzenLabel Text="Imprimante liée" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
+                    <RadzenDropDown TValue="int?" Data="@imprimantesDuModele" TextProperty="NomAffiche" ValueProperty="Id" Value="@selectedImprimanteId" ValueChanged="@OnImprimanteTestSelectionnee" Style="width: 100%;" Placeholder="Choisir imprimante..." AllowClear="true" />
+                </RadzenColumn>
+            }
+            <RadzenColumn Size="12" SizeMD="@(imprimantesDuModele != null && imprimantesDuModele.Any() ? 3 : 4)">
+                <RadzenLabel Text="Adresse IP de test" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
+                <RadzenTextBox @bind-Value="@testRequest.IpAddress" Style="width: 100%;" Placeholder="192.168.1.50" />
+            </RadzenColumn>
+            <RadzenColumn Size="6" SizeMD="2">
+                <RadzenLabel Text="Port SNMP" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
+                <RadzenNumeric @bind-Value="@testRequest.Port" Style="width: 100%;" Placeholder="161" />
+            </RadzenColumn>
+            <RadzenColumn Size="6" SizeMD="2">
+                <RadzenLabel Text="Communauté" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
+                <RadzenTextBox @bind-Value="@testRequest.Community" Style="width: 100%;" Placeholder="public" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="@(imprimantesDuModele != null && imprimantesDuModele.Any() ? 2 : 2)">
+                <RadzenButton Text="Tester le profil" Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Variant="Variant.Filled" Size="ButtonSize.Medium" Click="@LancerTestDirect" IsBusy="@isTesting" BusyText="Test..." Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isScanning)" Style="width: 100%; font-weight: 600;" Tooltip="Interroge en temps réel tous les OIDs de la liste" />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    <!-- SECTION 3 : TABLEAU DES CHAMPS OID -->
+    <RadzenCard Variant="Variant.Outlined" Style="flex: 1; display: flex; flex-direction: column; min-height: 0; border-radius: 8px;" Class="rz-p-3">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mb-2">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="format_list_bulleted" Style="color: var(--rz-primary);" />
+                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; margin: 0;">
+                    Champs OID (@profileEdit.Items.Count)
+                </RadzenText>
             </RadzenStack>
-        </RadzenFieldset>
 
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
-            @if (profileEdit.Id != 0 && canDelete)
-            {
-                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
-            }
-            else
-            {
-                <div></div>
-            }
-
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" Visible="@canWrite" />
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                <RadzenButton Icon="auto_awesome" Text="Auto-détecter OIDs" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@AutoDetecterOids" IsBusy="@isScanning" BusyText="Scan en cours..." Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isTesting)" Tooltip="Scanne l'imprimante pour configurer automatiquement les toners et bacs" />
+                <RadzenButton Icon="restart_alt" Text="Préréglage Standard" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => ReinitialiserPreset(profileEdit.IsColor))" Tooltip="Réinitialise la liste avec les OIDs standards RFC 3805" />
+                <RadzenButton Icon="add" Text="Ajouter un champ" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => AjouterNouveauChamp(SnmpItemCategory.Toner))" />
             </RadzenStack>
         </RadzenStack>
+
+        @if (!profileEdit.Items.Any())
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat" Class="rz-mt-2">
+                Aucun champ configuré. Utilisez <strong>Auto-détecter OIDs</strong> avec une machine de test ou <strong>Préréglage Standard</strong> pour commencer.
+            </RadzenAlert>
+        }
+        else
+        {
+            <div style="flex: 1; overflow-y: auto; min-height: 0;">
+                <RadzenDataGrid Data="@profileEdit.Items.OrderBy(i => i.SortOrder)" TItem="SnmpProfileItem" AllowSorting="true" Style="width: 100%;">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Property="Category" Title="Catégorie" Width="130px">
+                            <Template Context="item">
+                                <RadzenBadge BadgeStyle="@GetBadgeStyle(item.Category)" Text="@FormatCategory(item.Category)" Variant="Variant.Flat" />
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Property="Name" Title="Désignation" Width="180px">
+                            <Template Context="item">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    @if (item.Category == SnmpItemCategory.Toner)
+                                    {
+                                        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: @item.ColorHex; border: 1px solid rgba(0,0,0,0.25);" />
+                                    }
+                                    <span style="font-weight: 600;">@item.Name</span>
+                                </div>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Property="Oid" Title="OID SNMP" Width="230px">
+                            <Template Context="item">
+                                <span style="font-family: monospace; font-size: 0.85rem; color: var(--rz-text-secondary-color);">@item.Oid</span>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Title="Valeur en Direct" Width="240px">
+                            <Template Context="item">
+                                @if (testResults.TryGetValue(item.Oid, out var testRes))
+                                {
+                                    @if (testRes.Success)
+                                    {
+                                        <span style="font-weight: 600; color: var(--rz-success); font-family: monospace; font-size: 0.9rem;">
+                                            ✓ @testRes.Value
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-weight: 600; color: var(--rz-danger); font-family: monospace; font-size: 0.85rem;">
+                                            ⚠️ @testRes.Value
+                                        </span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span style="color: var(--rz-text-disabled-color); font-size: 0.85rem; font-style: italic;">
+                                        Non testé
+                                    </span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Title="Actions" Width="90px" TextAlign="TextAlign.Center">
+                            <Template Context="item">
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall" Click="@(() => EditerItem(item))" Tooltip="Modifier" />
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.ExtraSmall" Click="@(() => SupprimerItem(item))" Tooltip="Supprimer" />
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        }
+    </RadzenCard>
+
+    <!-- FOOTER : ACTIONS -->
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-pt-2" Style="border-top: 1px solid var(--rz-base-200);">
+        @if (profileEdit.Id != 0 && canDelete)
+        {
+            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined" Text="Supprimer le Profil" Click="@OnDelete" />
+        }
+        else
+        {
+            <div></div>
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton Text="Enregistrer le Profil" Icon="check" ButtonStyle="ButtonStyle.Primary" Click="@OnSubmit" Visible="@canWrite" />
+        </RadzenStack>
     </RadzenStack>
-</RadzenTemplateForm>
+</RadzenStack>
 
 @code {
     [Parameter] public SnmpProfile ProfileToEdit { get; set; } = new();
 
     private SnmpProfile profileEdit = new();
+    private List<Modele> modelesDisponibles = new();
+    private List<Imprimante> imprimantesDisponibles = new();
+    private List<Imprimante> imprimantesDuModele = new();
+
+    private int? selectedModeleId;
+    private int? selectedImprimanteId;
+    private bool isTesting = false;
+    private bool isScanning = false;
+
+    private SnmpTestProfileRequestDto testRequest = new() { Port = 161, Community = "public", Version = 2 };
+    private Dictionary<string, SnmpTestProfileResultDto> testResults = new();
 
     private bool canWrite = false;
     private bool canDelete = false;
@@ -76,29 +200,491 @@
         {
             Id = ProfileToEdit.Id,
             Name = ProfileToEdit.Name,
+            IsColor = ProfileToEdit.IsColor,
             OidTonerBlack = ProfileToEdit.OidTonerBlack,
             OidTonerCyan = ProfileToEdit.OidTonerCyan,
             OidTonerMagenta = ProfileToEdit.OidTonerMagenta,
             OidTonerYellow = ProfileToEdit.OidTonerYellow,
-            OidPageCounter = ProfileToEdit.OidPageCounter
+            OidPageCounter = ProfileToEdit.OidPageCounter,
+            Items = ProfileToEdit.Items != null ? ProfileToEdit.Items.ToList() : new List<SnmpProfileItem>()
+        };
+
+        try
+        {
+            modelesDisponibles = await Http.GetFromJsonAsync<List<Modele>>("api/Modeles") ?? new();
+            imprimantesDisponibles = await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes") ?? new();
+
+            if (profileEdit.Id != 0)
+            {
+                var mod = modelesDisponibles.FirstOrDefault(m => m.SnmpProfileId == profileEdit.Id);
+                if (mod != null)
+                {
+                    selectedModeleId = mod.Id;
+                    imprimantesDuModele = imprimantesDisponibles.Where(i => i.ModeleId == mod.Id).ToList();
+                    if (imprimantesDuModele.Any())
+                    {
+                        selectedImprimanteId = imprimantesDuModele.First().Id;
+                        OnImprimanteTestSelectionnee(selectedImprimanteId);
+                    }
+                }
+            }
+            else
+            {
+                ReinitialiserPreset(false);
+            }
+        }
+        catch { }
+    }
+
+    private void OnModeleSelectionne(int? modId)
+    {
+        selectedModeleId = modId;
+        if (modId.HasValue && modId.Value > 0)
+        {
+            var mod = modelesDisponibles.FirstOrDefault(m => m.Id == modId.Value);
+            if (mod != null)
+            {
+                profileEdit.Name = mod.Nom;
+
+                imprimantesDuModele = imprimantesDisponibles.Where(i => i.ModeleId == modId.Value).ToList();
+                if (imprimantesDuModele.Any())
+                {
+                    selectedImprimanteId = imprimantesDuModele.First().Id;
+                    OnImprimanteTestSelectionnee(selectedImprimanteId);
+                }
+                else
+                {
+                    selectedImprimanteId = null;
+                }
+            }
+        }
+        else
+        {
+            imprimantesDuModele.Clear();
+            selectedImprimanteId = null;
+        }
+    }
+
+    private void OnImprimanteTestSelectionnee(int? impId)
+    {
+        selectedImprimanteId = impId;
+        if (impId.HasValue && impId.Value > 0)
+        {
+            var imp = imprimantesDisponibles.FirstOrDefault(i => i.Id == impId.Value);
+            if (imp != null && !string.IsNullOrEmpty(imp.AdresseIp))
+            {
+                testRequest.IpAddress = imp.AdresseIp;
+                testRequest.Port = imp.SnmpPort > 0 ? imp.SnmpPort : 161;
+                testRequest.Community = !string.IsNullOrEmpty(imp.SnmpCommunity) ? imp.SnmpCommunity : "public";
+                testRequest.Version = imp.SnmpVersion > 0 ? imp.SnmpVersion : 2;
+            }
+        }
+    }
+
+    private void OnColorModeChanged(bool isColor)
+    {
+        profileEdit.IsColor = isColor;
+        if (isColor)
+        {
+            if (!profileEdit.Items.Any(i => i.Name.ToLower().Contains("cyan")))
+            {
+                profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Cyan", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.2", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.2", ValueType = SnmpValueType.RawWithMax, ColorHex = "#17a2b8", SortOrder = 2 });
+            }
+            if (!profileEdit.Items.Any(i => i.Name.ToLower().Contains("magenta")))
+            {
+                profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Magenta", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.3", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.3", ValueType = SnmpValueType.RawWithMax, ColorHex = "#e83e8c", SortOrder = 3 });
+            }
+            if (!profileEdit.Items.Any(i => i.Name.ToLower().Contains("jaune") || i.Name.ToLower().Contains("yellow")))
+            {
+                profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Jaune", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.4", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.4", ValueType = SnmpValueType.RawWithMax, ColorHex = "#ffc107", SortOrder = 4 });
+            }
+        }
+        else
+        {
+            profileEdit.Items.RemoveAll(i => i.Category == SnmpItemCategory.Toner && (i.Name.ToLower().Contains("cyan") || i.Name.ToLower().Contains("magenta") || i.Name.ToLower().Contains("jaune") || i.Name.ToLower().Contains("yellow")));
+        }
+    }
+
+    private void ReinitialiserPreset(bool isColor)
+    {
+        profileEdit.IsColor = isColor;
+        profileEdit.Items.Clear();
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.Toner,
+            Name = "Toner Noir",
+            Oid = "1.3.6.1.2.1.43.11.1.1.9.1.1",
+            OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.1",
+            ValueType = SnmpValueType.RawWithMax,
+            ColorHex = "#212529",
+            SortOrder = 1
+        });
+
+        if (isColor)
+        {
+            profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Cyan", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.2", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.2", ValueType = SnmpValueType.RawWithMax, ColorHex = "#17a2b8", SortOrder = 2 });
+            profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Magenta", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.3", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.3", ValueType = SnmpValueType.RawWithMax, ColorHex = "#e83e8c", SortOrder = 3 });
+            profileEdit.Items.Add(new SnmpProfileItem { Category = SnmpItemCategory.Toner, Name = "Toner Jaune", Oid = "1.3.6.1.2.1.43.11.1.1.9.1.4", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.4", ValueType = SnmpValueType.RawWithMax, ColorHex = "#ffc107", SortOrder = 4 });
+        }
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.PageCounter,
+            Name = "Compteur Total Pages",
+            Oid = "1.3.6.1.2.1.43.10.2.1.4.1.1",
+            ValueType = SnmpValueType.Counter,
+            SortOrder = 5
+        });
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.SerialNumber,
+            Name = "Numéro de Série",
+            Oid = "1.3.6.1.2.1.43.5.1.1.17.1",
+            ValueType = SnmpValueType.String,
+            SortOrder = 6
+        });
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.Status,
+            Name = "Statut Imprimante",
+            Oid = "1.3.6.1.2.1.25.3.5.1.1.1",
+            ValueType = SnmpValueType.String,
+            SortOrder = 7
+        });
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.Status,
+            Name = "Uptime Système",
+            Oid = "1.3.6.1.2.1.1.3.0",
+            ValueType = SnmpValueType.String,
+            SortOrder = 8
+        });
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.Tray,
+            Name = "Bac 1 (Papier)",
+            Oid = "1.3.6.1.2.1.43.8.2.1.10.1.1",
+            OidMaxCapacity = "1.3.6.1.2.1.43.8.2.1.9.1.1",
+            ValueType = SnmpValueType.RawWithMax,
+            SortOrder = 9
+        });
+
+        profileEdit.Items.Add(new SnmpProfileItem
+        {
+            Category = SnmpItemCategory.Console,
+            Name = "Écran LCD Console",
+            Oid = "1.3.6.1.2.1.43.16.5.1.2.1.1",
+            ValueType = SnmpValueType.String,
+            SortOrder = 10
+        });
+    }
+
+    private async Task LancerTestDirect()
+    {
+        if (string.IsNullOrWhiteSpace(testRequest.IpAddress))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "IP Manquante", "Veuillez renseigner l'adresse IP de l'imprimante de test.");
+            return;
+        }
+
+        if (!profileEdit.Items.Any())
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Aucun champ", "Le profil ne contient aucun champ OID à tester.");
+            return;
+        }
+
+        isTesting = true;
+        testRequest.Items = profileEdit.Items.ToList();
+        testRequest.Port = testRequest.Port > 0 ? testRequest.Port : 161;
+        testRequest.Community = !string.IsNullOrWhiteSpace(testRequest.Community) ? testRequest.Community.Trim() : "public";
+        testRequest.Version = testRequest.Version > 0 ? testRequest.Version : 2;
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/SnmpProfiles/test-profile", testRequest);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var resultsList = await res.Content.ReadFromJsonAsync<List<SnmpTestProfileResultDto>>() ?? new();
+                int okCount = 0;
+
+                foreach (var r in resultsList)
+                {
+                    testResults[r.Oid] = r;
+                    if (r.Success) okCount++;
+                }
+
+                if (okCount > 0)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Test SNMP Réussi", $"{okCount}/{profileEdit.Items.Count} OIDs validés avec succès sur l'imprimante !");
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Warning, "Test SNMP", "L'imprimante a répondu mais aucun des OIDs configurés n'a retourné de valeur.");
+                }
+            }
+            else
+            {
+                string body = await res.Content.ReadAsStringAsync();
+                NotificationService.Notify(NotificationSeverity.Error, "Échec du Test SNMP", body, 8000);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Réseau", ex.Message, 8000);
+        }
+        finally
+        {
+            isTesting = false;
+        }
+    }
+
+    private async Task AutoDetecterOids()
+    {
+        if (string.IsNullOrWhiteSpace(testRequest.IpAddress))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "IP Manquante", "Veuillez renseigner l'adresse IP de l'imprimante pour lancer l'auto-découverte.");
+            return;
+        }
+
+        isScanning = true;
+        var scanReq = new SnmpScanRequestDto
+        {
+            IpAddress = testRequest.IpAddress.Trim(),
+            Port = testRequest.Port > 0 ? testRequest.Port : 161,
+            Community = !string.IsNullOrWhiteSpace(testRequest.Community) ? testRequest.Community.Trim() : "public",
+            Version = testRequest.Version > 0 ? testRequest.Version : 2
+        };
+
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/SnmpProfiles/scan-printer", scanReq);
+            if (res.IsSuccessStatusCode)
+            {
+                var discovered = await res.Content.ReadFromJsonAsync<List<DiscoveredOidDto>>() ?? new();
+                if (discovered.Any())
+                {
+                    profileEdit.Items.Clear();
+                    testResults.Clear();
+                    int order = 1;
+
+                    foreach (var d in discovered)
+                    {
+                        var newItem = new SnmpProfileItem
+                        {
+                            Category = d.SuggestedCategory,
+                            Name = d.SuggestedName,
+                            Oid = d.Oid,
+                            OidMaxCapacity = d.OidMaxCapacity,
+                            ValueType = d.ValueType == "RawWithMax" ? SnmpValueType.RawWithMax :
+                                        d.ValueType == "Counter" ? SnmpValueType.Counter :
+                                        d.ValueType == "Percentage" ? SnmpValueType.Percentage : SnmpValueType.String,
+                            ColorHex = d.SuggestedCategory == SnmpItemCategory.Toner ? GetColorHexFromName(d.SuggestedName) : "#17a2b8",
+                            SortOrder = order++
+                        };
+                        profileEdit.Items.Add(newItem);
+                        testResults[d.Oid] = new SnmpTestProfileResultDto { Oid = d.Oid, Value = d.Value, Success = true };
+                    }
+
+                    int tonerCount = profileEdit.Items.Count(i => i.Category == SnmpItemCategory.Toner);
+                    profileEdit.IsColor = tonerCount > 1;
+
+                    NotificationService.Notify(NotificationSeverity.Success, "Auto-détection réussie", $"{discovered.Count} OIDs physiques détectés et configurés !");
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Warning, "Aucun OID détecté", "L'imprimante a répondu mais aucun consommable ou bac standard n'a été trouvé.");
+                }
+            }
+            else
+            {
+                string body = await res.Content.ReadAsStringAsync();
+                NotificationService.Notify(NotificationSeverity.Error, "Échec Auto-détection", body, 8000);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur Réseau", ex.Message, 8000);
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    private string GetColorHexFromName(string name)
+    {
+        string lower = name.ToLower();
+        if (lower.Contains("noir") || lower.Contains("black") || lower.Contains("k")) return "#212529";
+        if (lower.Contains("cyan") || lower.Contains("c")) return "#17a2b8";
+        if (lower.Contains("magenta") || lower.Contains("m")) return "#e83e8c";
+        if (lower.Contains("jaune") || lower.Contains("yellow") || lower.Contains("y")) return "#ffc107";
+        return "#6c757d";
+    }
+
+    private async Task AjouterNouveauChamp(SnmpItemCategory category)
+    {
+        var item = new SnmpProfileItem
+        {
+            Category = category,
+            Name = "Nouveau Champ",
+            Oid = "1.3.6.1.2.1.",
+            ValueType = SnmpValueType.Percentage,
+            ColorHex = "#212529",
+            SortOrder = profileEdit.Items.Count + 1
+        };
+
+        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Ajouter un Champ OID",
+            new Dictionary<string, object>
+            {
+                { "ItemToEdit", item },
+                { "TestIpAddress", testRequest.IpAddress },
+                { "TestPort", testRequest.Port },
+                { "TestCommunity", testRequest.Community },
+                { "TestVersion", testRequest.Version }
+            },
+            new DialogOptions { Width = "560px" });
+
+        if (result is SnmpProfileItem validatedItem)
+        {
+            profileEdit.Items.Add(validatedItem);
+            NotificationService.Notify(NotificationSeverity.Success, "Ajouté", $"Champ '{validatedItem.Name}' ajouté au profil.");
+        }
+    }
+
+    private async Task EditerItem(SnmpProfileItem item)
+    {
+        var itemCopy = new SnmpProfileItem
+        {
+            Id = item.Id,
+            SnmpProfileId = item.SnmpProfileId,
+            Category = item.Category,
+            Name = item.Name,
+            Oid = item.Oid,
+            OidMaxCapacity = item.OidMaxCapacity,
+            ValueType = item.ValueType,
+            ColorHex = item.ColorHex,
+            SortOrder = item.SortOrder
+        };
+
+        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Modifier le Champ OID",
+            new Dictionary<string, object>
+            {
+                { "ItemToEdit", itemCopy },
+                { "TestIpAddress", testRequest.IpAddress },
+                { "TestPort", testRequest.Port },
+                { "TestCommunity", testRequest.Community },
+                { "TestVersion", testRequest.Version }
+            },
+            new DialogOptions { Width = "560px" });
+
+        if (result is SnmpProfileItem validatedItem)
+        {
+            var idx = profileEdit.Items.FindIndex(i => (i.Id != 0 && i.Id == validatedItem.Id) || i.Oid == item.Oid);
+            if (idx >= 0)
+            {
+                profileEdit.Items[idx] = validatedItem;
+            }
+            NotificationService.Notify(NotificationSeverity.Success, "Modifié", $"Champ '{validatedItem.Name}' mis à jour.");
+        }
+    }
+
+    private void SupprimerItem(SnmpProfileItem item)
+    {
+        profileEdit.Items.Remove(item);
+    }
+
+    private string FormatCategory(SnmpItemCategory cat)
+    {
+        return cat switch
+        {
+            SnmpItemCategory.Toner => "Toner",
+            SnmpItemCategory.Tray => "Bac Papier",
+            SnmpItemCategory.PageCounter => "Compteur",
+            SnmpItemCategory.SerialNumber => "N° Série",
+            SnmpItemCategory.Status => "Statut",
+            SnmpItemCategory.Console => "Console LCD",
+            SnmpItemCategory.Maintenance => "Maintenance",
+            _ => cat.ToString()
+        };
+    }
+
+    private BadgeStyle GetBadgeStyle(SnmpItemCategory cat)
+    {
+        return cat switch
+        {
+            SnmpItemCategory.Toner => BadgeStyle.Primary,
+            SnmpItemCategory.Tray => BadgeStyle.Info,
+            SnmpItemCategory.PageCounter => BadgeStyle.Success,
+            SnmpItemCategory.SerialNumber => BadgeStyle.Secondary,
+            SnmpItemCategory.Status => BadgeStyle.Warning,
+            SnmpItemCategory.Console => BadgeStyle.Dark,
+            _ => BadgeStyle.Light
         };
     }
 
     private async Task OnSubmit()
     {
+        if (string.IsNullOrWhiteSpace(profileEdit.Name))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Attention", "Le nom du profil est obligatoire.");
+            return;
+        }
+
         try
         {
             if (profileEdit.Id == 0)
             {
-                await Http.PostAsJsonAsync("api/SnmpProfiles", profileEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Profil SNMP créé.");
+                var response = await Http.PostAsJsonAsync("api/SnmpProfiles", profileEdit);
+                if (response.IsSuccessStatusCode)
+                {
+                    var created = await response.Content.ReadFromJsonAsync<SnmpProfile>();
+                    if (selectedModeleId.HasValue && selectedModeleId > 0 && created != null)
+                    {
+                        var mod = modelesDisponibles.FirstOrDefault(m => m.Id == selectedModeleId.Value);
+                        if (mod != null)
+                        {
+                            mod.SnmpProfileId = created.Id;
+                            await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                        }
+                    }
+
+                    NotificationService.Notify(NotificationSeverity.Success, "Succès", "Profil SNMP créé et associé.");
+                    DialogService.Close(true);
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
+                }
             }
             else
             {
-                await Http.PutAsJsonAsync($"api/SnmpProfiles/{profileEdit.Id}", profileEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Profil SNMP mis à jour.");
+                var response = await Http.PutAsJsonAsync($"api/SnmpProfiles/{profileEdit.Id}", profileEdit);
+                if (response.IsSuccessStatusCode)
+                {
+                    if (selectedModeleId.HasValue && selectedModeleId > 0)
+                    {
+                        var mod = modelesDisponibles.FirstOrDefault(m => m.Id == selectedModeleId.Value);
+                        if (mod != null && mod.SnmpProfileId != profileEdit.Id)
+                        {
+                            mod.SnmpProfileId = profileEdit.Id;
+                            await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                        }
+                    }
+
+                    NotificationService.Notify(NotificationSeverity.Success, "Succès", "Profil SNMP mis à jour.");
+                    DialogService.Close(true);
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
+                }
             }
-            DialogService.Close(true);
         }
         catch (Exception ex)
         {

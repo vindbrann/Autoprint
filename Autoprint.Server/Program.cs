@@ -155,14 +155,15 @@ if (args.Contains("--migrate-only"))
             var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var currentProvider = config["Database:Provider"];
 
-            if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-            {
-                context.Database.EnsureCreated();
-            }
-            else
+            try
             {
                 context.Database.Migrate();
             }
+            catch
+            {
+                context.Database.EnsureCreated();
+            }
+            DbInitializer.Initialize(context);
 
             Console.WriteLine("[MIGRATION_SUCCESS]");
             Environment.Exit(0);
@@ -211,13 +212,13 @@ using (var scope = app.Services.CreateScope())
         var config = services.GetRequiredService<IConfiguration>();
         var currentProvider = config["Database:Provider"];
 
-        if (currentProvider != null && currentProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
-        {
-            context.Database.EnsureCreated();
-        }
-        else
+        try
         {
             context.Database.Migrate();
+        }
+        catch
+        {
+            context.Database.EnsureCreated();
         }
 
         DbInitializer.Initialize(context);
