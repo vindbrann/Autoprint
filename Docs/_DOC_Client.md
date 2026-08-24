@@ -1,7 +1,7 @@
 # Documentation Technique : Agent Client (Autoprint.Client)
 
 ## 1. Vue d'ensemble
-L'agent client est une application Windows légère s'exécutant entièrement dans l'espace utilisateur. Elle a été simplifiée dans sa version V2 pour éliminer tout service d'arrière-plan à privilèges élevés afin de respecter les meilleures pratiques de sécurité système (retrait du risque d'élévation locale de privilèges - LPE).
+L'agent client est une application Windows légère s'exécutant entièrement dans l'espace utilisateur sans nécessiter de service d'arrière-plan à privilèges élevés, afin de respecter les meilleures pratiques de sécurité système (absence de risque d'élévation locale de privilèges - LPE).
 
 * **Cible :** Postes de travail Windows 10 / 11 (Domaine, Hors-Domaine/Intune).
 * **Technologie :** .NET 10 (WPF).
