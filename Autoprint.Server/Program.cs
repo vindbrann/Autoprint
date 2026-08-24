@@ -140,6 +140,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("SNMP_PROFILE_DELETE", policy => policy.RequireClaim("Permission", "SNMP_PROFILE_DELETE"));
     options.AddPolicy("REPORT_MANAGE", policy => policy.RequireClaim("Permission", "REPORT_MANAGE"));
     options.AddPolicy("PRINTER_ARCHIVE", policy => policy.RequireClaim("Permission", "PRINTER_ARCHIVE"));
+    options.AddPolicy("NETWORK_SCAN", policy => policy.RequireClaim("Permission", "NETWORK_SCAN"));
 });
 
 var app = builder.Build();

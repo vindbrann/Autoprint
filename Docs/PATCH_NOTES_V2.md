@@ -4,6 +4,24 @@ Cette mise à jour apporte des améliorations majeures pour simplifier la gestio
 
 ---
 
+## 🌟 Nouveautés - Version 26.08.24.2
+
+### 🛡️ 1. Durcissement de Sécurité & Contrôle d'Accès Réseau
+* **Nouveau Rôle & Permission « Scan Réseau » (`NETWORK_SCAN`)** :
+  * Contrôle granulaire des fonctions de découverte et de scan réseau : attribution personnalisable dans la matrice des rôles et masquage des boutons/actions pour les utilisateurs non autorisés.
+  * Verrouillage complet des APIs de découverte réseau (`DiscoveryController`).
+* **Protection des Mots de Passe & Paramètres Sensibles** :
+  * Sécurisation renforcée de l'accès à la configuration globale (`SETTINGS_MANAGE`).
+  * Masquage systématique des secrets (mots de passe de service Active Directory, mots de passe SMTP et clés API) envoyés au navigateur.
+* **Sécurisation des Diagnostics & Scans SNMP** :
+  * Restriction des fonctions de diagnostic et de découverte SNMP aux profils autorisés (`SNMP_PROFILE_WRITE`).
+* **Protection contre l'Injection de Formules CSV (CSV Injection)** :
+  * Échappement automatique des caractères d'initiation de formules (`=`, `+`, `-`, `@`) dans les rapports exportés pour empêcher toute exécution malveillante dans Excel.
+* **Sauvegarde & Restauration Intégrale** :
+  * Prise en compte complète des profils SNMP, des planifications de rapports, des jetons d'intégration et des numéros de série dans le module de sauvegarde.
+
+---
+
 ## 🌟 Nouveautés - Version 26.08.24.1
 
 ### 🖨️ 1. Refonte complète des Profils SNMP Dynamiques

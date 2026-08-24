@@ -4,9 +4,9 @@
     <!--  VERSION GLOBALE DE LA SOLUTION AUTOPRINT (Format: YY.M.D.REV)    -->
     <!--  Modifier UNIQUEMENT cette ligne pour mettre à jour la solution   -->
     <!-- ================================================================= -->
-    <Version>26.8.24.1</Version>
-    <AssemblyVersion>26.8.24.1</AssemblyVersion>
-    <FileVersion>26.8.24.1</FileVersion>
-    <InformationalVersion>26.08.24.1</InformationalVersion>
+    <Version>26.8.24.2</Version>
+    <AssemblyVersion>26.8.24.2</AssemblyVersion>
+    <FileVersion>26.8.24.2</FileVersion>
+    <InformationalVersion>26.08.24.2</InformationalVersion>
   </PropertyGroup>
 </Project>

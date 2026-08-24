@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Autoprint.Server.Data;
 using Autoprint.Server.Models.Security;
@@ -48,7 +48,40 @@ namespace Autoprint.Server.Controllers
                     }).ToListAsync(),
 
                 Pilotes = await _context.Pilotes.Select(x => new BackupPiloteDto { Id = x.Id, Nom = x.Nom, Version = x.Version, EstInstalle = x.EstInstalle }).ToListAsync(),
-                Modeles = await _context.Modeles.Select(x => new BackupModeleDto { Id = x.Id, Nom = x.Nom, MarqueId = x.MarqueId, PiloteId = x.PiloteId }).ToListAsync(),
+                
+                SnmpProfiles = await _context.SnmpProfiles
+                    .Include(p => p.Items)
+                    .Select(p => new BackupSnmpProfileDto
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        IsColor = p.IsColor,
+                        OidTonerBlack = p.OidTonerBlack,
+                        OidTonerCyan = p.OidTonerCyan,
+                        OidTonerMagenta = p.OidTonerMagenta,
+                        OidTonerYellow = p.OidTonerYellow,
+                        OidPageCounter = p.OidPageCounter,
+                        Items = p.Items.Select(i => new BackupSnmpProfileItemDto
+                        {
+                            Id = i.Id,
+                            Category = i.Category,
+                            Name = i.Name,
+                            Oid = i.Oid,
+                            OidMaxCapacity = i.OidMaxCapacity,
+                            ValueType = i.ValueType,
+                            ColorHex = i.ColorHex,
+                            SortOrder = i.SortOrder
+                        }).ToList()
+                    }).ToListAsync(),
+
+                Modeles = await _context.Modeles.Select(x => new BackupModeleDto
+                {
+                    Id = x.Id,
+                    Nom = x.Nom,
+                    MarqueId = x.MarqueId,
+                    PiloteId = x.PiloteId,
+                    SnmpProfileId = x.SnmpProfileId
+                }).ToListAsync(),
 
                 Imprimantes = await _context.Imprimantes.Select(x => new BackupImprimanteDto
                 {
@@ -60,7 +93,36 @@ namespace Autoprint.Server.Controllers
                     ModeleId = x.ModeleId,
                     EmplacementId = x.EmplacementId,
                     Status = x.Status,
-                    Localisation = x.Localisation
+                    Localisation = x.Localisation,
+                    SerialNumber = x.SerialNumber
+                }).ToListAsync(),
+
+                ReportSchedules = await _context.ReportSchedules
+                    .Where(r => !r.EstSupprime)
+                    .Select(r => new BackupReportScheduleDto
+                    {
+                        Id = r.Id,
+                        ReportName = r.ReportName,
+                        Frequency = r.Frequency,
+                        SelectedMetricsJson = r.SelectedMetricsJson,
+                        ScopeFilterJson = r.ScopeFilterJson,
+                        EmailRecipients = r.EmailRecipients,
+                        Format = r.Format,
+                        IsActive = r.IsActive,
+                        PredictionThresholdDays = r.PredictionThresholdDays,
+                        RunHour = r.RunHour,
+                        RunMinute = r.RunMinute,
+                        RunDayOfWeek = r.RunDayOfWeek,
+                        RunDayOfMonth = r.RunDayOfMonth
+                    }).ToListAsync(),
+
+                IntegrationTokens = await _context.IntegrationTokens.Select(t => new BackupIntegrationTokenDto
+                {
+                    Id = t.Id,
+                    TokenHash = t.TokenHash,
+                    Description = t.Description,
+                    CreatedAt = t.CreatedAt,
+                    ExpiresAt = t.ExpiresAt
                 }).ToListAsync(),
 
                 Roles = await _context.Roles.Include(r => r.RolePermissions).Select(x => new BackupRoleDto
@@ -110,6 +172,11 @@ namespace Autoprint.Server.Controllers
                 _context.Marques.RemoveRange(_context.Marques);
                 _context.Pilotes.RemoveRange(_context.Pilotes);
 
+                _context.SnmpProfileItems.RemoveRange(_context.SnmpProfileItems);
+                _context.SnmpProfiles.RemoveRange(_context.SnmpProfiles);
+                _context.ReportSchedules.RemoveRange(_context.ReportSchedules);
+                _context.IntegrationTokens.RemoveRange(_context.IntegrationTokens);
+
                 _context.Emplacements.RemoveRange(_context.Emplacements);
 
                 _context.ServerSettings.RemoveRange(_context.ServerSettings);
@@ -125,6 +192,53 @@ namespace Autoprint.Server.Controllers
                 _context.Pilotes.AddRange(backup.Pilotes.Select(x => new Pilote { Id = x.Id, Nom = x.Nom, Version = x.Version, EstInstalle = x.EstInstalle }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Pilotes");
+
+                if (backup.SnmpProfiles != null && backup.SnmpProfiles.Any())
+                {
+                    await EnableIdentityInsert("SnmpProfiles");
+                    foreach (var p in backup.SnmpProfiles)
+                    {
+                        var profile = new SnmpProfile
+                        {
+                            Id = p.Id,
+                            Name = p.Name,
+                            IsColor = p.IsColor,
+                            OidTonerBlack = p.OidTonerBlack,
+                            OidTonerCyan = p.OidTonerCyan,
+                            OidTonerMagenta = p.OidTonerMagenta,
+                            OidTonerYellow = p.OidTonerYellow,
+                            OidPageCounter = p.OidPageCounter
+                        };
+                        _context.SnmpProfiles.Add(profile);
+                    }
+                    await _context.SaveChangesAsync();
+                    await DisableIdentityInsert("SnmpProfiles");
+
+                    await EnableIdentityInsert("SnmpProfileItems");
+                    foreach (var p in backup.SnmpProfiles)
+                    {
+                        if (p.Items != null)
+                        {
+                            foreach (var item in p.Items)
+                            {
+                                _context.SnmpProfileItems.Add(new SnmpProfileItem
+                                {
+                                    Id = item.Id,
+                                    SnmpProfileId = p.Id,
+                                    Category = item.Category,
+                                    Name = item.Name,
+                                    Oid = item.Oid,
+                                    OidMaxCapacity = item.OidMaxCapacity,
+                                    ValueType = item.ValueType,
+                                    ColorHex = item.ColorHex,
+                                    SortOrder = item.SortOrder
+                                });
+                            }
+                        }
+                    }
+                    await _context.SaveChangesAsync();
+                    await DisableIdentityInsert("SnmpProfileItems");
+                }
 
                 await EnableIdentityInsert("Emplacements");
                 var lieuxToRestore = backup.Lieux.Select(x => new Emplacement
@@ -143,7 +257,14 @@ namespace Autoprint.Server.Controllers
                 await DisableIdentityInsert("Emplacements");
 
                 await EnableIdentityInsert("Modeles");
-                _context.Modeles.AddRange(backup.Modeles.Select(x => new Modele { Id = x.Id, Nom = x.Nom, MarqueId = x.MarqueId, PiloteId = x.PiloteId }));
+                _context.Modeles.AddRange(backup.Modeles.Select(x => new Modele
+                {
+                    Id = x.Id,
+                    Nom = x.Nom,
+                    MarqueId = x.MarqueId,
+                    PiloteId = x.PiloteId,
+                    SnmpProfileId = x.SnmpProfileId
+                }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Modeles");
 
@@ -158,10 +279,51 @@ namespace Autoprint.Server.Controllers
                     ModeleId = x.ModeleId,
                     EmplacementId = x.EmplacementId,
                     Status = x.Status,
-                    Localisation = x.Localisation
+                    Localisation = x.Localisation,
+                    SerialNumber = x.SerialNumber
                 }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Imprimantes");
+
+                if (backup.ReportSchedules != null && backup.ReportSchedules.Any())
+                {
+                    await EnableIdentityInsert("ReportSchedules");
+                    _context.ReportSchedules.AddRange(backup.ReportSchedules.Select(r => new ReportSchedule
+                    {
+                        Id = r.Id,
+                        ReportName = r.ReportName,
+                        Frequency = r.Frequency,
+                        SelectedMetricsJson = r.SelectedMetricsJson,
+                        ScopeFilterJson = r.ScopeFilterJson,
+                        EmailRecipients = r.EmailRecipients,
+                        Format = r.Format,
+                        IsActive = r.IsActive,
+                        PredictionThresholdDays = r.PredictionThresholdDays,
+                        RunHour = r.RunHour,
+                        RunMinute = r.RunMinute,
+                        RunDayOfWeek = r.RunDayOfWeek,
+                        RunDayOfMonth = r.RunDayOfMonth,
+                        EstSupprime = false,
+                        DateModification = DateTime.UtcNow
+                    }));
+                    await _context.SaveChangesAsync();
+                    await DisableIdentityInsert("ReportSchedules");
+                }
+
+                if (backup.IntegrationTokens != null && backup.IntegrationTokens.Any())
+                {
+                    await EnableIdentityInsert("IntegrationTokens");
+                    _context.IntegrationTokens.AddRange(backup.IntegrationTokens.Select(t => new IntegrationToken
+                    {
+                        Id = t.Id,
+                        TokenHash = t.TokenHash,
+                        Description = t.Description,
+                        CreatedAt = t.CreatedAt,
+                        ExpiresAt = t.ExpiresAt
+                    }));
+                    await _context.SaveChangesAsync();
+                    await DisableIdentityInsert("IntegrationTokens");
+                }
 
                 await EnableIdentityInsert("Roles");
                 foreach (var r in backup.Roles) _context.Roles.Add(new Role { Id = r.Id, Name = r.Name, Description = r.Description });
