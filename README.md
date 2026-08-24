@@ -53,16 +53,19 @@ L'architecture d'Autoprint s'articule autour de trois modules complémentaires :
 
 ## 🛡️ Sécurité & Conformité
 
-Autoprint intègre un modèle de sécurité rigoureux pour répondre aux exigences des audits d'entreprise :
+Autoprint intègre un modèle de sécurité rigoureux et conforme aux exigences des environnements d'entreprise :
 
-* **Principe du Moindre Privilège (Zero-Trust)** : Suppression de tout service système en arrière-plan sur les postes clients. L'agent s'exécute strictement avec les droits de l'utilisateur connecté.
-* **Contrôle d'Accès Granulaire (RBAC)** : Matrice fine de permissions (`NETWORK_SCAN`, `REPORT_MANAGE`, `SNMP_PROFILE_WRITE`, `SETTINGS_MANAGE`, etc.) avec liaison Active Directory.
+* **Architecture Zéro-Privilège (Zero-Trust)** : L'agent client s'exécute exclusivement dans le contexte de la session utilisateur standard, sans aucun service d'arrière-plan à privilèges élevés (`SYSTEM`).
+* **Contrôle d'Accès Granulaire (RBAC)** : Matrice fine de permissions applicatives (`NETWORK_SCAN`, `REPORT_MANAGE`, `SNMP_PROFILE_WRITE`, `SETTINGS_MANAGE`, `PRINTER_ARCHIVE`, etc.) avec synchronisation et possibilité de liaison Active Directory.
 * **Protection des Données & Secrets** :
-  * Mots de passe locaux hachés via **PBKDF2 salé**.
-  * Masquage automatique des secrets (mots de passe de service AD, SMTP, clés API) dans l'API et l'interface.
-  * Validation stricte des certificats SSL/TLS.
-* **Désinfection des Entrées** : Protection contre les injections LDAP, injections de commandes et neutralisation des formules CSV (CWE-1236).
-* **Audit Trail Intégré** : Journalisation immuable de toutes les actions d'administration et modifications de configuration.
+  * Hachage fort des mots de passe locaux via **PBKDF2 salé** (recommandation NIST).
+  * Masquage systématique des données sensibles (mots de passe de service AD, identifiants SMTP, clés API) dans l'API et l'interface Web.
+  * Validation stricte des certificats SSL/TLS pour l'ensemble des flux réseau.
+* **Désinfection des Entrées & Neutralisation des Injections** :
+  * Échappement systématique des filtres LDAP Active Directory.
+  * Assainissement des paramètres d'appel d'impression système.
+  * Protection contre l'injection de formules CSV (CWE-1236) lors de l'ouverture des exports dans Excel.
+* **Audit & Traçabilité Complète** : Journalisation immuable de toutes les actions d'administration avec historique comparatif des modifications.
 
 ---
 

@@ -17,7 +17,7 @@ L'administration est accessible via votre navigateur Web favori.
 
 ---
 
-## 2. Le Tableau de Bord & Supervision (Nouveauté V2)
+## 2. Le Tableau de Bord & Supervision
 
 Le tableau de bord centralise l'état global de vos services :
 * **État du Spouleur Windows :** Vérifiez instantanément si le service spouleur tourne sur le serveur hôte.
@@ -74,7 +74,7 @@ Quand vous créez ou modifiez une imprimante dans la console, **l'action n'est p
 
 ---
 
-## 5. Rapports Planifiés par E-mail (Nouveauté V2)
+## 5. Rapports Planifiés par E-mail
 
 Vous pouvez recevoir régulièrement des comptes-rendus de l'état de votre parc :
 1. Allez dans **Supervision > Rapports & Planification**.
@@ -85,7 +85,7 @@ Vous pouvez recevoir régulièrement des comptes-rendus de l'état de votre parc
 
 ---
 
-## 6. Jetons d'Intégration API (Nouveauté V2)
+## 6. Jetons d'Intégration API
 
 Si vous souhaitez connecter Autoprint à votre outil de supervision interne (ex. GLPI, PRTG, Zabbix) :
 1. Allez dans **Paramètres > Jetons d'Intégration**.
@@ -98,7 +98,7 @@ Si vous souhaitez connecter Autoprint à votre outil de supervision interne (ex.
 Vous pouvez déléguer des tâches à des techniciens ou des gestionnaires de stocks sans leur donner l'accès administrateur complet :
 * Allez dans **Administration > Utilisateurs**.
 * Créez des comptes locaux ou importez des groupes depuis votre Active Directory.
-* Attribuez-leur des rôles spécifiques. Grâce au système RBAC, un utilisateur peut être limité à la lecture seule ou restreint aux seules fonctions de gestion des rapports sans pouvoir modifier les imprimantes système.
+* Attribuez-leur des rôles spécifiques. Grâce au système RBAC, un utilisateur peut être limité à la lecture seule, restreint aux seules fonctions de gestion des rapports ou autorisé au scan réseau (`NETWORK_SCAN`) sans pouvoir modifier les imprimantes système.
 
 ---
 

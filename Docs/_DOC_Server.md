@@ -54,9 +54,9 @@ L'application interdit la création manuelle de fiches pilotes pour garantir l'i
 
 ---
 
-## 4. Module de Supervision et de Diagnostics (Nouveauté V2)
+## 4. Module de Supervision et de Diagnostics
 
-La V2 d'Autoprint introduit un moteur complet de collecte d'informations et de reporting sur le parc d'impression :
+Autoprint intègre un moteur complet de collecte d'informations et de reporting sur le parc d'impression :
 
 ### 4.1 Collecte Automatique (`PrinterMonitoringWorker`)
 Un service d'arrière-plan hébergé (`IHostedService`) réalise des scans réguliers du parc réseau :
@@ -82,7 +82,7 @@ Génère et transmet automatiquement par e-mail (via SMTP) des rapports périodi
 
 ### 5.1 Authentification Hybride
 Le système supporte deux modes d'authentification simultanés :
-* **Comptes Locaux :** Stockage sécurisé via **PBKDF2 salé** (classe `PasswordHasher` d'ASP.NET Core). Lors de la première connexion réussie d'un compte héritant de l'ancienne version V1, sa signature SHA-256 brute est automatiquement et de manière transparente mise à jour vers le format PBKDF2.
+* **Comptes Locaux :** Stockage sécurisé via **PBKDF2 salé** (classe `PasswordHasher` d'ASP.NET Core). Lors de la première connexion réussie d'un compte héritant d'un ancien hachage, sa signature SHA-256 brute est automatiquement et de manière transparente mise à jour vers le format PBKDF2.
 * **Active Directory :** Connecteur LDAP (`System.DirectoryServices`) avec mapping de groupes de sécurité AD vers des Rôles applicatifs. Les entrées utilisateurs sont systématiquement désinfectées via `SecurityHelper.EscapeLdapFilter` pour prévenir les injections de filtres LDAP.
 
 ### 5.2 Protocole d'Échange
@@ -91,7 +91,8 @@ Le système supporte deux modes d'authentification simultanés :
 * **Intégrations Tiers :** Authentification par jetons d'intégration via le header HTTP `X-Api-Token` pour consommer les endpoints d'exportation des métriques de supervision.
 
 ### 5.3 RBAC (Role-Based Access Control)
-La matrice de droits distingue les entités gérées. La V2 a étendu ces droits avec des privilèges fins :
+La matrice de droits distingue les entités gérées avec des privilèges fins :
+* `NETWORK_SCAN` : Lancer des scans réseau et gérer les profils de découverte.
 * `REPORT_MANAGE` : Gestion et planification des rapports d'activité.
 * `SNMP_PROFILE_READ`, `SNMP_PROFILE_WRITE`, `SNMP_PROFILE_DELETE` : Gestion des profils SNMP personnalisés.
 * `PRINTER_ARCHIVE` : Droit d'archiver manuellement ou de restaurer des imprimantes archivées.
