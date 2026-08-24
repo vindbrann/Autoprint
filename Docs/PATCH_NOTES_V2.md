@@ -4,7 +4,7 @@ Cette mise à jour apporte des améliorations majeures pour simplifier la gestio
 
 ---
 
-## 🌟 Nouveautés - Version 1.1.15
+## 🌟 Nouveautés - Version 26.08.24.1
 
 ### 🖨️ 1. Refonte complète des Profils SNMP Dynamiques
 * **Gestion multi-consommables personnalisée** : Fin de la limitation aux 4 toners rigides. Chaque profil d'imprimante gère désormais une liste dynamique et illimitée d'OIDs :
