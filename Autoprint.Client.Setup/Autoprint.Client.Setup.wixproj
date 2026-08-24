@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<Platform>x64</Platform>
 		<Cultures>fr-FR</Cultures>
-		<DefineConstants>ClientSource=..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish;ExeSource=..\Executables</DefineConstants>
+		<DefineConstants>ClientSource=..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish;ExeSource=..\Executables;AppVersion=$(Version)</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>

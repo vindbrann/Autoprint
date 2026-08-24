@@ -1,12 +1,12 @@
 <Project Sdk="WixToolset.Sdk/6.0.2">
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
 		<Cultures>fr-FR</Cultures>
-		<DefineConstants>PublishFolder=..\Autoprint.Server\bin\Release\net10.0\publish\</DefineConstants>
+		<DefineConstants>PublishFolder=..\Autoprint.Server\bin\Release\net10.0\publish\;AppVersion=$(Version)</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
 		<Cultures>fr-FR</Cultures>
-		<DefineConstants>PublishFolder=..\Autoprint.Server\bin\Release\net10.0\publish\</DefineConstants>
+		<DefineConstants>PublishFolder=..\Autoprint.Server\bin\Release\net10.0\publish\;AppVersion=$(Version)</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>
