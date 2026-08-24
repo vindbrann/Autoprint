@@ -1,6 +1,6 @@
-# Rapport de Sécurisation de l'Application Autoprint (V2)
+# Rapport de Sécurisation de l'Application Autoprint
 
-Ce document récapitule l'ensemble des correctifs et des améliorations de sécurité apportés à l'application Autoprint (branche `feature/v2`). Ces modifications visent à répondre aux exigences de sécurité pour un déploiement en production et à prévenir les remarques d'audits de sécurité ou de tests d'intrusion.
+Ce document récapitule l'ensemble des correctifs et des améliorations de sécurité apportés à l'application Autoprint. Ces modifications visent à répondre aux exigences de sécurité pour un déploiement en production et à prévenir les remarques d'audits de sécurité ou de tests d'intrusion.
 
 ---
 

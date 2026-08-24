@@ -1,4 +1,4 @@
-# 📝 Notes de Version - Autoprint V2 (Patch Notes)
+# 📝 Notes de Version - Autoprint (Patch Notes)
 
 Cette mise à jour apporte des améliorations majeures pour simplifier la gestion quotidienne de votre parc d'imprimantes, anticiper les pannes et renforcer la sécurité globale de vos installations.
 

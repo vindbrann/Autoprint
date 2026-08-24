@@ -1,4 +1,4 @@
-# 🛡️ Rapport d'Audit de Sécurité - Autoprint V2
+# 🛡️ Rapport d'Audit de Sécurité - Autoprint
 
 **Date de l'audit :** 24 Août 2026  
 **Cible :** Solution Autoprint (API Serveur, Authentification, SNMP, Rapports, Découverte)  
