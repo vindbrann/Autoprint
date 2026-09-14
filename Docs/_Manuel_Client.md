@@ -42,27 +42,31 @@ Pour éviter de réinstaller votre imprimante chaque matin :
 
 ---
 
-## 5. Faire du ménage
+## 5. Faire du ménage (Mes installations)
 Si vous ne voulez plus voir une imprimante que vous n'utilisez plus :
 
-1.  Dans la fenêtre principale, faites un **Clic-Droit**.
-2.  Choisissez **"Nettoyer les installations"**.
-3.  Cliquez sur la **Corbeille** à côté de l'imprimante à retirer.
+1. Dans la fenêtre unique d'Autoprint, cliquez sur l'onglet **"Mes installations"** (ou faites un clic-droit sur l'icône dans la barre des tâches puis *"Mes Installations"*).
+2. Repérez l'imprimante à retirer :
+   * **Imprimantes réseau :** Cliquez sur la **Corbeille (🗑️)** pour la désinstaller sans droits particuliers.
+   * **Imprimantes locales :** Vous pouvez cocher en bas à gauche *"Afficher les imprimantes locales"* pour voir vos imprimantes USB ou physiques. Si une imprimante a été installée par l'administrateur, un petit **Bouclier (🛡️)** apparaît : un mot de passe administrateur sera demandé pour la supprimer.
+3. **Nettoyage automatique :** Vous pouvez cliquer en bas à droite sur **"NETTOYER"** pour désinstaller d'un coup toutes les imprimantes réseau qui ne sont pas marquées en favoris (★). Vos favoris et vos imprimantes locales restent toujours protégés.
 
 ---
 
 ## 6. En cas de problème réseau
 Si le serveur est injoignable ou que vous avez une coupure internet :
 
-* Un bandeau rouge **"- MODE HORS LIGNE"** apparaît en haut de l'application.
+* Un bandeau rouge **"MODE HORS LIGNE"** apparaît en haut de l'application.
 * **Pas de panique :** Vous pouvez toujours voir et installer les imprimantes, car l'application garde une mémoire locale (Cache).
 * L'application tentera de se reconnecter toute seule toutes les 30 secondes.
 
 ---
 
-## 7. Options et Apparence
-* **Mode Sombre :** L'application respecte vos yeux. Si votre Windows est en mode sombre, Autoprint le sera aussi automatiquement].
-* **Réglages :** Vous pouvez désactiver les notifications via le menu "Options" si vous ne souhaitez pas être dérangé lors de vos changements de bureau.
+## 7. Options et Raccourci Windows
+* **Onglet Options :** Accessible directement dans la fenêtre (ou via le menu de la barre des tâches), il permet de régler les notifications, le changement automatique d'imprimante par défaut et le lancement au démarrage.
+* **Zone Technique (IT) :** Un clic répété (5 fois) sur le numéro de version affiche la zone technique réservée aux administrateurs (URL Serveur et clé API d'agent) avec test de connexion. Elle se referme automatiquement dès que la fenêtre est masquée ou par un clic sur le cadenas.
+* **Paramètres Windows ↗ :** Un bouton direct dans le pied de page vous permet d'ouvrir en un clic la gestion officielle des imprimantes de Windows.
+* **Mode Sombre :** L'application respecte vos yeux. Si votre Windows est en mode sombre, Autoprint bascule automatiquement avec des contrastes soignés et lisibles.
 
 --- 
 *Besoin d'aide supplémentaire ? Contactez le Support IT.*

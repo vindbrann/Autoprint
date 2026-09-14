@@ -11,10 +11,15 @@ L'agent client est une application Windows légère s'exécutant entièrement da
 
 ## 2. Architecture Technique
 
-### 2.1 Contexte d'Exécution
-* **Processus unique :** `Autoprint.Client.exe`.
-* **Contexte :** `User Session` (Privilèges utilisateur standard).
-* **Responsabilités :** Interface graphique (TrayIcon), détection réseau, requête vers l'API du serveur d'impression, et mappage de l'imprimante dans la session de l'utilisateur connecté.
+### 2.1 Contexte d'Exécution & Interface Fenêtre Unique
+* **Processus unique :** `Autoprint.Client.exe` (compilé en exécutable autonome .NET 10 *Single-File*).
+* **Contexte :** `User Session` (Privilèges utilisateur standard, sans service permanent).
+* **Interface Fenêtre Unique :** Remplacement de l'ancien modèle multi-fenêtres par une fenêtre unifiée réactive organisée en onglets segmentés (*Segmented Pill Tabs*) :
+  1. **Disponibles :** Liste temps réel des imprimantes du lieu détecté avec installation et favoris (★).
+  2. **Mes installations :** Gestion unifiée du nettoyage (imprimantes réseau et locales).
+  3. **Options :** Préférences utilisateur (notifications, bascule automatique, démarrage) et zone technique admin sécurisée.
+  4. **Pied de page :** Bouton de raccourci direct vers la gestion Windows (`ms-settings:printers`) et actualisation manuelle.
+* **Intégration Tray :** Routage contextuel direct depuis les menus de la barre des tâches vers l'onglet approprié.
 * **Cycle de vie :** Lancé automatiquement à l'ouverture de session via l'Active Setup de Windows.
 
 ---
@@ -40,35 +45,42 @@ Avant d'autoriser toute installation, l'interface graphique teste l'accessibilit
 
 ---
 
-## 4. Workflow d'Installation (Moteur d'Impression)
+## 4. Workflow d'Installation et Moteur de Nettoyage Hybride
 
+### 4.1 Ajout d'Imprimante Réseau
 Le processus d'ajout d'imprimante s'exécute entièrement dans le contexte utilisateur :
+* **Mappage de la Queue :** Commande de connexion spouleur utilisateur :
+  `rundll32 printui.dll,PrintUIEntry /in /n "\\serveur-impression\NomPartageImprimante"`
+* **Pré-requis Pilotes (Driver Store) :** Le pilote requis doit être présent dans le Driver Store de la machine (pré-déployé via Intune, SCCM ou GPO) pour une sécurité maximale contre les failles de type PrintNightmare.
 
-* **Mappage de la Queue (Client / User) :**
-  L'application exécute la commande de mappage réseau via `printui.dll` :
-  `rundll32 printui.dll /in /n "\\serveur-impression\NomPartageImprimante"`
-  
-* **Pré-requis Pilotes (Driver Store) :**
-  N'ayant plus de service à hauts privilèges (`SYSTEM`) pour injecter des pilotes non signés ou inconnus du système, **le pilote requis doit être présent dans le Driver Store de la machine**. 
-  * *Déploiement moderne :* Dans un parc managé (Intune, SCCM, GPO), les pilotes d'impression requis doivent être pré-déployés sur les postes.
-  * *Avantage sécurité :* Protection complète contre les vulnérabilités de type PrintNightmare et le chargement de pilotes arbitraires malveillants.
-  * *Avantage réseau :* L'exécution dans la session utilisateur permet à Windows d'afficher nativement les pop-ups d'authentification réseau (Kerberos/NTLM) si le spouleur de destination l'exige (cas des postes hors-domaine).
+### 4.2 Moteur de Nettoyage Hybride (Réseau & Local)
+L'onglet "Mes installations" implémente un nettoyage intelligent et sécurisé :
+* **Suppression Réseau :** Exécution directe dans la session utilisateur via `printui.dll /dn` (aucun privilège requis).
+* **Suppression Locale (UAC Just-in-Time) :** 
+  - Détection automatique des droits d'administration sur la file (`PRINTER_ACCESS_ADMINISTER`).
+  - Si l'imprimante a été déployée pour l'ordinateur entier (*Machine-Wide*), un bouclier UAC est affiché et une invite d'élévation ponctuelle Windows (`runas`) est sollicitée via le chemin absolu `System32\rundll32.exe`.
+* **Protection Système Absolue :**
+  - Les imprimantes virtuelles critiques (`Microsoft Print to PDF`, `XPS`, `OneNote`, `Fax`) sont protégées contre toute suppression accidentelle.
+  - Le bouton groupé **"NETTOYER"** cible exclusivement les imprimantes réseau non-favorites. Les imprimantes locales matérielles et les favoris sont systématiquement protégés.
 
 ---
 
 ## 5. Configuration et Déploiement
 
 ### 5.1 Gestion de la Configuration
-L'application stocke sa configuration métier de manière portable :
-* **Source de Vérité Unique :** Le fichier `user-settings.json`, situé dans le profil utilisateur (`%UserProfile%\Documents\Autoprint`), contient l'URL du serveur, la clé API de l'Agent et les préférences utilisateur (mode sombre, etc.).
-* **Mécanisme de Bootstrap :** Au démarrage, la configuration est lue selon les priorités suivantes :
-    1. **Arguments CLI :** Les paramètres passés à l'exécutable (`--api-key`, `--print-server`) écrasent temporairement/définissent le fichier JSON.
-    2. **Fichier JSON existant :** Chargé par défaut.
-    3. **Mode Technicien :** Si aucun paramètre n'est fourni et que le fichier JSON est absent, l'application attend une configuration manuelle via l'interface graphique de configuration.
+L'application articule sa configuration sur deux niveaux :
+* **Configuration Machine (Serveur & Clé API) :** Stockée dans le Registre Windows `HKLM\SOFTWARE\Autoprint` (valeurs `PRINTSERVER` et `APIKEY`). Déposée par l'installateur MSI ou surchargeable via arguments en ligne de commande (`--print-server`, `--api-key`).
+* **Préférences Utilisateur :** Stockées dans `%UserProfile%\Documents\Autoprint\user-settings.json` (imprimantes favorites par lieu, activation des notifications, bascule automatique, lancement au démarrage).
+* **Zone Technique Admin :** Accessible dans l'onglet Options après 5 clics sur la version, elle affiche les paramètres machine en lecture seule avec test de connectivité API, et se referme automatiquement à la fermeture de la fenêtre.
 
-### 5.2 Packaging (MSI)
-Le déploiement de l'agent est assuré par un package MSI généré via WiX Toolset.
-* **Active Setup :** Le MSI inscrit la commande de démarrage d'Autoprint dans la clé `HKLM\Software\Microsoft\Active Setup\Installed Components`. Cela permet d'assurer que pour chaque nouvel utilisateur se connectant sur le poste de travail, le client WPF démarre automatiquement à l'ouverture de sa session et initialise son profil utilisateur.
-* **Paramètres d'installation (MSI) :**
-  Le package supporte des variables d'installation silencieuse à passer en ligne de commande :
-  `msiexec /i AutoprintClient.msi PRINTSERVER="https://mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn`
+### 5.2 Packaging MSI Autonome (Single-File)
+Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 6 :
+* **Architecture Single-File :** L'exécutable client est compilé avec `PublishSingleFile=true`, `SelfContained=true` et `IncludeNativeLibrariesForSelfExtract=true`. Le package MSI ne déploie qu'un seul fichier binaire (`Autoprint.Client.exe`).
+* **Déploiement en Entreprise :** 
+  - **En mode silencieux (`/qn` ou `/qr`) :** L'installation ou réparation s'exécute en **~7 secondes**, sans aucune invite bloquante.
+  - **En mode interactif graphique :** Si la machine dispose de la stratégie de groupe `DisableAutomaticApplicationShutdown=1`, Windows Installer désactive le Restart Manager et procède à un scan hérité des fenêtres actives lors de l'action `InstallValidate`.
+* **Active Setup :** Enregistre la commande dans `HKLM\Software\Microsoft\Active Setup\Installed Components` pour lancer automatiquement l'agent à l'ouverture de session de chaque utilisateur.
+* **Paramètres d'installation silencieuse :**
+  ```cmd
+  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="https://mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn
+  ```

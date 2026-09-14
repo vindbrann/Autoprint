@@ -19,6 +19,7 @@ Ce document récapitule l'ensemble des correctifs et des améliorations de sécu
 | 9 | Serveur | Probe réseau / SSRF (CWE-918) | Restriction des actions de scan et test SNMP à la permission `SNMP_PROFILE_WRITE` |
 | 10 | Serveur | Injection de formules CSV (CWE-1236) | Neutralisation des caractères initiateurs de formules (`=`, `+`, `-`, `@`) dans l'export CSV |
 | 11 | Serveur | Intégrité Sauvegarde & Restauration (CWE-404) | Prise en charge intégrale des Profils SNMP, Rapports, Jetons et Numéros de série |
+| 12 | Client | Injection d'arguments & Hijacking UAC | Isolation via `ArgumentList`, chemin absolu `System32` et sanctuarisation des imprimantes système |
 
 ---
 
@@ -111,3 +112,14 @@ Ce document récapitule l'ensemble des correctifs et des améliorations de sécu
   Les profils SNMP, les règles de planification des rapports et les jetons d'intégration n'étaient pas intégrés à l'export/import.
 * **Ce qui a été fait :**
   Mise à niveau de `BackupRootDto` et de la méthode `Restore()` dans `BackupController.cs` pour inclure l'intégralité de ces données.
+
+---
+
+### 12. Sécurisation de la Suppression des Imprimantes Locales et Élévation UAC (Client)
+* **Pourquoi ?**
+  La suppression d'une file d'attente d'impression locale installée pour la machine entière (*Machine-Wide*) nécessite des privilèges administratifs locaux (`PRINTER_ACCESS_ADMINISTER`). Si une application utilisateur élève des privilèges via l'UAC (`runas`) en concaténant des arguments en texte brut ou en appelant un exécutable relatif, un attaquant local pourrait exploiter cette élévation pour exécuter du code arbitraire avec de hauts privilèges (Local Privilege Escalation / Binary Hijacking), ou supprimer des imprimantes logicielles vitales de l'OS.
+* **Ce qui a été fait :**
+  1. **Isolation stricte des arguments système (`CreateProcess`)** : Utilisation exclusive de `ProcessStartInfo.ArgumentList` (.NET 10) qui garantit l'échappement natif au niveau de l'API Win32, sans aucune concaténation de chaînes de caractères.
+  2. **Chemin absolu qualifié** : L'appel système cible impérativement le chemin absolu immuable `System32\rundll32.exe` via `Environment.GetFolderPath(SpecialFolder.System)` pour neutraliser tout risque de détournement de DLL ou de binaire dans le répertoire courant ou le `PATH`.
+  3. **Sanctuarisation des files virtuelles de l'OS** : Les composants critiques du système (`Microsoft Print to PDF`, `Microsoft XPS Document Writer`, `OneNote`, `Fax`) sont soumis à une liste noire infranchissable interdisant toute suppression unitaire ou groupée.
+  4. **Architecture Zero-Privilege maintenue** : L'agent client conserve son exécution dans la session utilisateur standard. L'élévation UAC n'intervient que ponctuellement (*Just-in-Time*), de façon explicite avec confirmation utilisateur, et l'éventuel refus ou annulation UAC est géré silencieusement et de manière étanche.

@@ -2,13 +2,13 @@
 	<PropertyGroup>
 		<Platform>x64</Platform>
 		<Cultures>fr-FR</Cultures>
-		<DefineConstants>ClientSource=..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish;ExeSource=..\Executables;AppVersion=$(Version)</DefineConstants>
+		<DefineConstants>ExeSource=..\Executables;AppVersion=$(Version)</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="WixToolset.Heat" Version="6.0.2" />
 		<PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
 		<PackageReference Include="WixToolset.Firewall.wixext" Version="6.0.2" />
+		<PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -16,20 +16,7 @@
 	</ItemGroup>
 
 	<Target Name="PrepareFiles" BeforeTargets="BeforeBuild">
-		<Exec Command="dotnet publish &quot;..\Autoprint.Client\Autoprint.Client.csproj&quot; -c Release -r win-x64 --self-contained" />
-
 		<MakeDir Directories="..\Executables" />
-
-		<Move SourceFiles="..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish\Autoprint.Client.exe" DestinationFolder="..\Executables" OverwriteReadOnlyFiles="true" />
+		<Exec Command="dotnet publish &quot;..\Autoprint.Client\Autoprint.Client.csproj&quot; -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o &quot;..\Executables&quot;" />
 	</Target>
-
-	<ItemGroup>
-		<HarvestDirectory Include="..\Autoprint.Client\bin\Release\net10.0-windows\win-x64\publish">
-			<ComponentGroupName>Autoprint.Client</ComponentGroupName>
-			<DirectoryRefId>ClientDir</DirectoryRefId>
-			<SuppressRootDirectory>true</SuppressRootDirectory>
-			<PreprocessorVariable>var.ClientSource</PreprocessorVariable>
-			<SuppressRegistry>true</SuppressRegistry>
-		</HarvestDirectory>
-	</ItemGroup>
 </Project>

@@ -38,10 +38,6 @@ namespace Autoprint.Client
         private RealTimeService? _realTimeService;
         private MainWindow? _mainWindow;
         private MainWindowViewModel? _mainViewModel;
-        private OptionsWindow? _optionsWindow;
-        private OptionsViewModel? _optionsViewModel;
-        private ManagePrintersWindow? _manageWindow;
-        private ManagePrintersViewModel? _manageViewModel;
 
         private List<Imprimante> _toutesLesImprimantes = new List<Imprimante>();
         private Emplacement? _lieuActuel = null;
@@ -86,16 +82,13 @@ namespace Autoprint.Client
             }
             catch { }
 
-            _mainViewModel = new MainWindowViewModel(_prefService, _configService);
-            _mainWindow = new MainWindow();
-            _mainWindow.DataContext = _mainViewModel;
-
-            _optionsViewModel = new OptionsViewModel(_prefService, _configService);
-            _manageViewModel = new ManagePrintersViewModel(_prefService);
-
             try
             {
                 _configService.Initialize(e.Args, _prefService);
+
+                _mainViewModel = new MainWindowViewModel(_prefService, _configService);
+                _mainWindow = new MainWindow();
+                _mainWindow.DataContext = _mainViewModel;
 
                 string serverInput = _configService.PrintServerName;
                 if (string.IsNullOrWhiteSpace(serverInput)) serverInput = "localhost";
@@ -383,27 +376,12 @@ namespace Autoprint.Client
 
         private void MenuOptions_Click(object sender, RoutedEventArgs e)
         {
-            if (_optionsWindow == null || !_optionsWindow.IsLoaded)
-                _optionsWindow = new Autoprint.Client.OptionsWindow(_prefService, _configService);
-
-            _optionsWindow.Show();
-            _optionsWindow.Activate();
+            AfficherFenetre(ClientTab.Options);
         }
 
         private void MenuManage_Click(object sender, RoutedEventArgs e)
         {
-            if (_manageWindow != null && _manageWindow.IsLoaded)
-            {
-                _manageWindow.Activate();
-                return;
-            }
-            _manageWindow = new ManagePrintersWindow(_prefService);
-            _manageWindow.Closed += (s, args) =>
-            {
-                _manageWindow = null;
-                _mainViewModel?.RafraichirEtatInstallation();
-            };
-            _manageWindow.Show();
+            AfficherFenetre(ClientTab.Manage);
         }
 
         private void MenuWindowsPrinters_Click(object sender, RoutedEventArgs e)
@@ -412,13 +390,24 @@ namespace Autoprint.Client
             catch { try { Process.Start(new ProcessStartInfo("control", "printers") { UseShellExecute = true }); } catch { } }
         }
 
-        private void AfficherFenetre()
+        private void AfficherFenetre(ClientTab tab = ClientTab.Printers)
         {
-            if (_mainWindow == null) return;
+            if (_mainWindow == null || _mainViewModel == null) return;
 
-            MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
-            _ = RafraichirDonneesAsync(false);
-            _mainViewModel?.RafraichirEtatInstallation();
+            _mainViewModel.OptionsViewModel?.ResetAdminPanel();
+            _mainViewModel.OptionsViewModel?.ReloadConfig();
+            _mainViewModel.SelectedTab = tab;
+
+            if (tab == ClientTab.Printers)
+            {
+                MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
+                _ = RafraichirDonneesAsync(false);
+                _mainViewModel.RafraichirEtatInstallation();
+            }
+            else if (tab == ClientTab.Manage)
+            {
+                _mainViewModel.ManageViewModel?.RefreshPrinters();
+            }
 
             if (_mainWindow.Visibility != Visibility.Visible)
             {
@@ -452,9 +441,9 @@ namespace Autoprint.Client
         }
 
         private void MenuExit_Click(object sender, RoutedEventArgs e) { Shutdown(); }
-        private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherFenetre();
-        private void OnTrayDoubleClick(object sender, RoutedEventArgs e) => AfficherFenetre();
-        private void MenuOpen_Click(object sender, RoutedEventArgs e) => AfficherFenetre();
+        private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherFenetre(ClientTab.Printers);
+        private void OnTrayDoubleClick(object sender, RoutedEventArgs e) => AfficherFenetre(_mainViewModel?.SelectedTab ?? ClientTab.Printers);
+        private void MenuOpen_Click(object sender, RoutedEventArgs e) => AfficherFenetre(ClientTab.Printers);
 
         protected override void OnExit(ExitEventArgs e)
         {
@@ -488,7 +477,7 @@ namespace Autoprint.Client
 
                     if (msg == "WAKE_UP")
                     {
-                        Dispatcher.Invoke(() => AfficherFenetre());
+                        Dispatcher.Invoke(() => AfficherFenetre(ClientTab.Printers));
                     }
                 }
                 catch

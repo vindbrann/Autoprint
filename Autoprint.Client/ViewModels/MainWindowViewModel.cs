@@ -17,10 +17,62 @@ using System.Windows.Input;
 
 namespace Autoprint.Client.ViewModels
 {
+    public enum ClientTab
+    {
+        Printers = 0,
+        Manage = 1,
+        Options = 2
+    }
+
     public class MainWindowViewModel : INotifyPropertyChanged
     {
         private readonly UserPreferencesService? _prefService;
         private readonly ConfigurationService? _configService;
+
+        private ClientTab _selectedTab = ClientTab.Printers;
+        public ClientTab SelectedTab
+        {
+            get => _selectedTab;
+            set
+            {
+                if (_selectedTab != value)
+                {
+                    _selectedTab = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsPrintersTabSelected));
+                    OnPropertyChanged(nameof(IsManageTabSelected));
+                    OnPropertyChanged(nameof(IsOptionsTabSelected));
+
+                    if (_selectedTab == ClientTab.Manage)
+                    {
+                        ManageViewModel?.RefreshPrinters();
+                    }
+                    else if (_selectedTab == ClientTab.Printers)
+                    {
+                        RafraichirEtatInstallation();
+                    }
+                    else if (_selectedTab == ClientTab.Options)
+                    {
+                        OptionsViewModel?.ReloadConfig();
+                    }
+
+                    if (_selectedTab != ClientTab.Options)
+                    {
+                        OptionsViewModel?.ResetAdminPanel();
+                    }
+                }
+            }
+        }
+
+        public bool IsPrintersTabSelected => SelectedTab == ClientTab.Printers;
+        public bool IsManageTabSelected => SelectedTab == ClientTab.Manage;
+        public bool IsOptionsTabSelected => SelectedTab == ClientTab.Options;
+
+        public ManagePrintersViewModel? ManageViewModel { get; }
+        public OptionsViewModel? OptionsViewModel { get; }
+
+        public ICommand OpenWindowsPrintersCommand { get; }
+        public ICommand SelectTabCommand { get; }
 
         private string _appVersion = "v1.0";
         public string AppVersion
@@ -74,12 +126,31 @@ namespace Autoprint.Client.ViewModels
 
         public ObservableCollection<ImprimanteUiItem> Imprimantes { get; set; } = new ObservableCollection<ImprimanteUiItem>();
 
-        public MainWindowViewModel() { }
+        public MainWindowViewModel()
+        {
+            OpenWindowsPrintersCommand = new RelayCommand(_ => OpenWindowsPrinters());
+            SelectTabCommand = new RelayCommand(param =>
+            {
+                if (param is ClientTab tab) SelectedTab = tab;
+                else if (param is string str && Enum.TryParse<ClientTab>(str, true, out var parsedTab)) SelectedTab = parsedTab;
+            });
+        }
 
-        public MainWindowViewModel(UserPreferencesService prefService, ConfigurationService configService)
+        public MainWindowViewModel(UserPreferencesService prefService, ConfigurationService configService) : this()
         {
             _prefService = prefService;
             _configService = configService;
+
+            ManageViewModel = new ManagePrintersViewModel(_prefService);
+            ManageViewModel.OnPrinterDeleted += RafraichirEtatInstallation;
+
+            OptionsViewModel = new OptionsViewModel(_prefService, _configService);
+        }
+
+        private void OpenWindowsPrinters()
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:printers") { UseShellExecute = true }); }
+            catch { try { Process.Start(new ProcessStartInfo("control", "printers") { UseShellExecute = true }); } catch { } }
         }
 
         public void ChargerDonnees(string nomLieu, string codeLieu, List<Imprimante> toutesLesImprimantes, string ipLocale, bool isOffline)

@@ -4,6 +4,29 @@ Cette mise à jour apporte des améliorations majeures pour simplifier la gestio
 
 ---
 
+## 🌟 Nouveautés - Version 26.08.24.3
+
+### 🖥️ 1. Refonte Majeure de l'Agent Client : Interface à Fenêtre Unique
+* **Expérience Unifiée (Single-Window)** : Remplacement du système à fenêtres multiples par une interface moderne, fluide et réactive articulée autour d'onglets segmentés (*Disponibles*, *Mes installations*, *Options*).
+* **Routage Direct depuis le Menu Tray** : Chaque option du menu contextuel de la barre des tâches bascule directement la fenêtre principale sur l'onglet correspondant.
+* **Raccourci Paramètres Windows ↗** : Accès direct en un clic aux paramètres d'imprimantes natifs du système d'exploitation depuis le pied de page de l'agent.
+
+### 🧹 2. Moteur de Nettoyage Hybride (Réseau & Local)
+* **Gestion Globale des Imprimantes** : Possibilité d'afficher également les imprimantes locales physiques (USB, directes).
+* **Élévation UAC Just-in-Time** : Détection dynamique des privilèges requis (`PRINTER_ACCESS_ADMINISTER`). La suppression d'imprimantes système déclenche une invite UAC sécurisée avec protection anti-injection d'arguments (`ArgumentList`), sans nécessiter de service d'arrière-plan permanent.
+* **Protection Système & Ergonomie** : Bouton groupé **"NETTOYER"** ciblant exclusivement les imprimantes réseau non-favorites, protection inconditionnelle des imprimantes système (`PDF`, `XPS`, `OneNote`, `Fax`), et remplacement des icônes pour une clarté visuelle totale.
+
+### 📦 3. Packaging Autonome en Fichier Unique (Single-File)
+* **Exécutable Autonome .NET 10** : L'agent client est désormais compilé en un unique binaire autonome (`Autoprint.Client.exe`), éliminant l'extraction de 300 DLLs en vrac et évitant les conflits de fichiers partagés avec d'autres applications du poste.
+* **Déploiement Silencieux Optimisé (Intune / GPO / SCCM)** : En mode silencieux (`msiexec /qn` ou `/qr`), l'installation et la réparation s'exécutent en **7 secondes chrono** sans interruption.
+* **Comportement en Mode Graphique Interactif (GPO d'Entreprise)** : Sur les postes d'entreprise configurés avec la stratégie `DisableAutomaticApplicationShutdown=1`, Windows Installer désactive le Restart Manager et applique son ancien mécanisme de vérification des fenêtres ouvertes lors de l'étape "Validation de l'installation" en interface graphique.
+
+### 🎨 4. Finitions & Thème Sombre
+* **Mode Sombre Impeccable** : Correction des contrastes pour garantir que l'ensemble des textes et icônes restent éclatants et lisibles sur fond sombre.
+* **Zone Technique Sécurisée** : Affichage transparent de l'URL Serveur et de la clé API pour les techniciens, avec réinitialisation et verrouillage automatique dès la fermeture de la fenêtre ou le changement d'onglet.
+
+---
+
 ## 🌟 Nouveautés - Version 26.08.24.2
 
 ### 🛡️ 1. Durcissement de Sécurité & Contrôle d'Accès Réseau
