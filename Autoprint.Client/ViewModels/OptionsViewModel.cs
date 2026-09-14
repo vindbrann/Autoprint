@@ -46,6 +46,7 @@ namespace Autoprint.Client.ViewModels
 
             VersionClickCommand = new RelayCommand(param => OnVersionClicked());
             TestConnectionCommand = new RelayCommand(async param => await TestConnectionAsync());
+            CloseAdminPanelCommand = new RelayCommand(_ => ResetAdminPanel());
         }
 
         public bool EnableNotifications
@@ -134,7 +135,7 @@ namespace Autoprint.Client.ViewModels
             set { _testStatusMessage = value; OnPropertyChanged(); }
         }
 
-        private Brush _testStatusColor = Brushes.Black;
+        private Brush _testStatusColor = Brushes.Gray;
         public Brush TestStatusColor
         {
             get => _testStatusColor;
@@ -143,6 +144,21 @@ namespace Autoprint.Client.ViewModels
 
         public ICommand VersionClickCommand { get; }
         public ICommand TestConnectionCommand { get; }
+        public ICommand CloseAdminPanelCommand { get; }
+
+        public void ReloadConfig()
+        {
+            AdminServerUrl = _configService?.PrintServerName ?? "";
+            AdminApiKey = _configService?.ApiKey ?? "";
+        }
+
+        public void ResetAdminPanel()
+        {
+            IsAdminPanelVisible = false;
+            _secretClickCount = 0;
+            TestStatusMessage = "";
+            ReloadConfig();
+        }
 
         private void OnVersionClicked()
         {
@@ -153,6 +169,7 @@ namespace Autoprint.Client.ViewModels
 
             if (_secretClickCount >= 5)
             {
+                ReloadConfig();
                 IsAdminPanelVisible = true;
                 _secretClickCount = 0;
             }

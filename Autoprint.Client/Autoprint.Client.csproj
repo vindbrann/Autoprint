@@ -12,6 +12,12 @@
 		<ApplicationIcon>Autoprint.ico</ApplicationIcon>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<PublishSingleFile>true</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+	</PropertyGroup>
+
   <ItemGroup>
     <None Remove="Autoprint.ico" />
   </ItemGroup>

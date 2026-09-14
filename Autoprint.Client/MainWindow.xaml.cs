@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Input;
 
@@ -9,6 +9,18 @@ namespace Autoprint.Client
         public MainWindow()
         {
             InitializeComponent();
+            this.PreviewKeyDown += MainWindow_PreviewKeyDown;
+        }
+
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // Si l'utilisateur fait Alt+F4, on masque la fenêtre dans la barre des tâches
+            if (e.Key == Key.System && e.SystemKey == Key.F4)
+            {
+                e.Handled = true;
+                (DataContext as ViewModels.MainWindowViewModel)?.OptionsViewModel?.ResetAdminPanel();
+                this.Hide();
+            }
         }
 
         private void Header_MouseDown(object sender, MouseButtonEventArgs e)
@@ -21,13 +33,14 @@ namespace Autoprint.Client
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            e.Cancel = true;
-            this.Hide();
+            // Autorise la fermeture propre lors d'une demande système ou installeur (WM_CLOSE)
             base.OnClosing(e);
+            Application.Current.Shutdown();
         }
 
         private void BtnFermer_Click(object sender, RoutedEventArgs e)
         {
+            (DataContext as ViewModels.MainWindowViewModel)?.OptionsViewModel?.ResetAdminPanel();
             this.Hide();
         }
         private async void BtnActualiser_Click(object sender, RoutedEventArgs e)

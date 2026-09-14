@@ -1,0 +1,173 @@
+<UserControl x:Class="Autoprint.Client.Views.ManagePrintersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:converters="clr-namespace:Autoprint.Client.Converters"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="500" d:DesignWidth="500">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <converters:InvertBooleanConverter x:Key="InvertBooleanConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Barre de chargement / progression -->
+        <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="4" 
+                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" 
+                     Background="Transparent" BorderThickness="0"/>
+
+        <!-- Contrôles et filtres en haut -->
+        <Border Grid.Row="1" Padding="15,10,15,8" Background="{DynamicResource MaterialDesignPaper}">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Imprimantes Détectées" Style="{StaticResource MaterialDesignSubtitle1TextBlock}" Opacity="0.8" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesignBody}"/>
+                <TextBlock Text="Les favoris (★) et les imprimantes locales sont protégés du nettoyage." FontSize="11" Opacity="0.5" FontStyle="Italic" Margin="0,2,0,0" Foreground="{DynamicResource MaterialDesignBody}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste des imprimantes installées -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="15,10">
+            <StackPanel>
+                <!-- État vide -->
+                <TextBlock Text="Aucune imprimante correspondante installée sur ce poste."
+                           Visibility="{Binding HasNoPrinters, Converter={StaticResource BoolToVis}}" 
+                           HorizontalAlignment="Center" Margin="30" Opacity="0.5" FontStyle="Italic"
+                           Foreground="{DynamicResource MaterialDesignBody}"/>
+
+                <ItemsControl ItemsSource="{Binding InstalledPrinters}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <materialDesign:Card Margin="0,0,0,8" Padding="12" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Icône de l'imprimante -->
+                                    <materialDesign:PackIcon Kind="{Binding IconKind}" 
+                                                             Width="26" Height="26" 
+                                                             VerticalAlignment="Center" Margin="0,0,12,0"
+                                                             Opacity="{Binding IconOpacity}">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter Property="Foreground" Value="#FFC107"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+
+                                    <!-- Détails du nom et type -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}"/>
+
+                                            <!-- Badge Type (RÉSEAU / LOCALE / LOCALE (IT)) -->
+                                            <Border CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsNetwork}" Value="True">
+                                                                <Setter Property="Background" Value="#1E88E5"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding RequiresElevation}" Value="True">
+                                                                <Setter Property="Background" Value="#FB8C00"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding TypeBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding SubtitleText}" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                    </StackPanel>
+
+                                    <!-- Bouton de suppression unitaire -->
+                                    <Button Grid.Column="2" 
+                                            Command="{Binding DeleteCommand}"
+                                            IsEnabled="{Binding DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvertBooleanConverter}}"
+                                            ToolTip="{Binding DeleteTooltip}"
+                                            Width="34" Height="34">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignIconButton}">
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesignErrorBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RequiresElevation}" Value="True">
+                                                        <Setter Property="Foreground" Value="#FB8C00"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <materialDesign:PackIcon Kind="{Binding DeleteIconKind}" Width="20" Height="20"/>
+                                    </Button>
+                                </Grid>
+                            </materialDesign:Card>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Barre d'action inférieure de l'onglet -->
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource MaterialDesignDivider}" Padding="15,10" Background="{DynamicResource MaterialDesignPaper}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Bas gauche : Afficher les imprimantes locales -->
+                <CheckBox Grid.Column="0" 
+                          IsChecked="{Binding ShowLocalPrinters}"
+                          ToolTip="Afficher également les imprimantes locales (USB, directes) installées sur ce poste"
+                          VerticalAlignment="Center"
+                          Style="{StaticResource MaterialDesignCheckBox}">
+                    <TextBlock Text="Afficher les imprimantes locales" 
+                               FontSize="12" 
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBody}"/>
+                </CheckBox>
+
+                <!-- Centre : Message de statut -->
+                <TextBlock Grid.Column="1" 
+                           Text="{Binding StatusMessage}" 
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           FontStyle="Italic" Opacity="0.7" FontSize="11" 
+                           TextTrimming="CharacterEllipsis" Margin="10,0"
+                           Foreground="{DynamicResource MaterialDesignBody}"/>
+
+                <!-- Bas droite : Bouton NETTOYER -->
+                <Button Grid.Column="2" 
+                        HorizontalAlignment="Right" 
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Command="{Binding CleanCommand}"
+                        ToolTip="Supprimer les imprimantes réseau non-favorites"
+                        Height="32" Padding="14,0"
+                        Foreground="{DynamicResource MaterialDesignBody}"
+                        BorderBrush="{DynamicResource MaterialDesignDivider}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Broom" Margin="0,0,6,0" VerticalAlignment="Center" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBody}"/>
+                        <TextBlock Text="NETTOYER" FontSize="11" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
