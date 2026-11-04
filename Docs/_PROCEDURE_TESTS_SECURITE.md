@@ -385,6 +385,20 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SB-05 | Tableau de bord › État du service, service `AutoprintSpooler` démarré puis arrêté. | « EN LIGNE » puis « ARRÊTÉ » sous « Service AutoprintSpooler » (B26). | ☐ |
 | SB-06 | Simuler un spouleur bloqué (suspendre le service Spouleur d'impression pendant une synchronisation). | Après 60 s : « Le spouleur Windows n'a pas répondu en 60 s… » ; les synchronisations suivantes ne restent pas bloquées une fois le spouleur relancé (B27). | ☐ |
 
+### 5.7 Améliorations (phase C)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SC-01 | Installation neuve : `appsettings.json`. | `Jwt:ExpireMinutes = 30`. | ☐ |
+| SC-02 | Rester connecté à la console 45 min en l'utilisant normalement. | Aucune déconnexion (F12 › Réseau : un appel `api/auth/refresh` environ toutes les 25 min) (B19). | ☐ |
+| SC-03 | Retirer une permission au rôle d'un utilisateur connecté. | Son prochain renouvellement échoue (session coupée) : il se reconnecte avec ses nouveaux droits (B19, phase 2 #10). | ☐ |
+| SC-04 | Laisser la console ouverte plus de 10 h. | Retour à la page de connexion (durée maximale de session) (B19). | ☐ |
+| SC-05 | Paramètres › Sécurité › « Générer une nouvelle clé » avec 30 jours de transition. | La nouvelle clé s'affiche une fois ; bandeau « l'ancienne clé est encore acceptée jusqu'au… » ; journal d'audit `AGENT_KEY_ROTATE` (B18). | ☐ |
+| SC-06 | Pendant la transition : un poste avec l'ancienne clé, un poste avec la nouvelle. | Les deux fonctionnent (B18). | ☐ |
+| SC-07 | Générer une nouvelle clé avec « Aucune (révocation immédiate) ». | Les postes avec les anciennes clés sont refusés (« Clé refusée par le serveur… » dans le test de connexion du client) ; ceux avec la nouvelle fonctionnent (B18). | ☐ |
+| SC-08 | Rôles › modifier un rôle. | Bandeau expliquant que les sessions des membres seront fermées (B21). | ☐ |
+| SC-09 | Restauration d'une sauvegarde **sans** mot de passe. | Message expliquant la conservation des secrets du serveur et les conséquences sur un nouveau serveur (B24). | ☐ |
+
 ### 5.4 Désinstallation
 
 | ID | Test | Résultat attendu | ✔ |
@@ -404,3 +418,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | #8 (version suivante) | Ajout des tests S8-01 à S8-20 (site sans privilège, service AutoprintSpooler, droits SQL / NTFS). |
 | 04/11/2026 | Phase A | Ajout des tests PA-01 à PA-21 (SQLite, import, nom public, bibliothèques embarquées, proxy, AD, premier login, mot de passe oublié). |
 | 04/11/2026 | Phase B | Ajout des tests SV3-01 à SV3-16 (SNMPv3, identifiants SNMP) et SB-01 à SB-06 (SQLite dans ProgramData, état du service, délais). |
+| 04/11/2026 | Phase C | Ajout des tests SC-01 à SC-09 (renouvellement de session, changement de clé agent, messages). |

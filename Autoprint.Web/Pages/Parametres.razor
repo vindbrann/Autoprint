@@ -116,7 +116,10 @@ else
                                                     }
                                                     else
                                                     {
-                                                        <div style="font-size: 0.8rem;">Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP et la clé agent actuels seront conservés.</div>
+                                                        <div style="font-size: 0.8rem;">
+                                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
+                                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
+                                                        </div>
                                                     }
                                                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                                                         <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
@@ -664,6 +667,20 @@ else
                                 <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
                                     La clé n'est jamais affichée en clair. Chaque copie est enregistrée dans le journal d'audit.
                                 </RadzenText>
+
+                                @* Changement de clé (backlog B18) *@
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap" Class="rz-mt-2">
+                                    <RadzenLabel Text="Ancienne clé encore acceptée pendant" Component="Transition" />
+                                    <RadzenDropDown Name="Transition" TValue="int" @bind-Value="@agentKeyTransitionDays" Data="@agentKeyTransitions" TextProperty="Text" ValueProperty="Value" Style="width: 170px;" />
+                                    <RadzenButton Icon="autorenew" Text="Générer une nouvelle clé" ButtonStyle="ButtonStyle.Warning" Click="@RotateAgentKey" IsBusy="@rotatingAgentKey" />
+                                </RadzenStack>
+                                @if (agentKeyPreviousUntil != null && agentKeyPreviousUntil > DateTime.UtcNow)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
+                                        Période de transition : l'ancienne clé est encore acceptée jusqu'au @agentKeyPreviousUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm").
+                                        Redéployez la nouvelle clé sur les postes (MSI <code>APIKEY=…</code> ou GPO sur <code>HKLM\SOFTWARE\Autoprint\APIKEY</code>) avant cette date.
+                                    </RadzenAlert>
+                                }
                             </RadzenStack>
                         </RadzenCard>
 
@@ -704,6 +721,45 @@ else
     private bool sauvegardeEnCours = false;
     private bool testEnCours = false;
     private bool testAdFilterEnCours = false;
+    private int agentKeyTransitionDays = 30;
+    private bool rotatingAgentKey;
+    private DateTime? agentKeyPreviousUntil;
+    private readonly object[] agentKeyTransitions =
+    {
+        new { Text = "7 jours", Value = 7 },
+        new { Text = "30 jours", Value = 30 },
+        new { Text = "90 jours", Value = 90 },
+        new { Text = "Aucune (révocation immédiate)", Value = 0 }
+    };
+
+    private async Task RotateAgentKey()
+    {
+        var message = agentKeyTransitionDays > 0
+            ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
+            : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
+        if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
+
+        rotatingAgentKey = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays });
+            if (!response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
+                return;
+            }
+            var result = await response.Content.ReadFromJsonAsync<AgentKeyRotationResult>();
+            agentKeyPreviousUntil = result?.PreviousValidUntil;
+            await DialogService.Alert(
+                $"Nouvelle clé : {result?.Key}\n\nCopiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier la clé ».",
+                "Nouvelle clé d'API agent", new AlertOptions { OkButtonText = "J'ai copié la clé" });
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { rotatingAgentKey = false; }
+    }
+
+    private class AgentKeyRotationResult { public string Key { get; set; } = ""; public DateTime? PreviousValidUntil { get; set; } }
+
     private async Task CopyAgentKey()
     {
         try
@@ -779,6 +835,7 @@ else
         {
             var s = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
             model.AgentApiKey = GV(s, "AgentApiKey");
+            agentKeyPreviousUntil = DateTime.TryParse(GV(s, "AgentApiKeyPreviousExpiresAt"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var until) ? until : null;
             model.LogRetentionDays = int.Parse(GV(s, "LogRetentionDays", "180"));
             model.SmtpHost = GV(s, "SmtpHost");
             model.SmtpPort = int.Parse(GV(s, "SmtpPort", "25"));

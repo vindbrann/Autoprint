@@ -531,7 +531,8 @@ namespace Autoprint.Installer.Server.UI
                     Key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
                     Issuer = "AutoprintServer",
                     Audience = "AutoprintClient",
-                    ExpireMinutes = 120
+                    // Jeton court, renouvelé automatiquement par la console (backlog B19)
+                    ExpireMinutes = 30
                 },
                 ConnectionStrings = new
                 {

@@ -17,17 +17,26 @@ namespace Autoprint.Server.Helpers
         {
             if (!request.Headers.TryGetValue(HeaderName, out var received) || string.IsNullOrEmpty(received)) return false;
 
-            var stored = await context.ServerSettings
-                .Where(s => s.Key == "AgentApiKey")
-                .Select(s => s.Value)
-                .FirstOrDefaultAsync();
-            var expected = request.HttpContext.RequestServices.GetRequiredService<Autoprint.Server.Services.SecretProtector>().Unprotect(stored);
-            if (string.IsNullOrEmpty(expected)) return false;
+            var settings = await context.ServerSettings
+                .Where(s => s.Key == "AgentApiKey" || s.Key == "AgentApiKeyPrevious" || s.Key == "AgentApiKeyPreviousExpiresAt")
+                .ToDictionaryAsync(s => s.Key, s => s.Value);
+            var secrets = request.HttpContext.RequestServices.GetRequiredService<Autoprint.Server.Services.SecretProtector>();
 
-            // Comparaison en temps constant (les empreintes ont toujours la même longueur)
             var receivedHash = SHA256.HashData(Encoding.UTF8.GetBytes(received.ToString()));
-            var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected));
-            return CryptographicOperations.FixedTimeEquals(receivedHash, expectedHash);
+
+            // Clé actuelle
+            var current = secrets.Unprotect(settings.GetValueOrDefault("AgentApiKey"));
+            if (!string.IsNullOrEmpty(current) && CryptographicOperations.FixedTimeEquals(receivedHash, SHA256.HashData(Encoding.UTF8.GetBytes(current))))
+                return true;
+
+            // Ancienne clé, acceptée jusqu'à la fin de la période de transition (backlog B18)
+            if (DateTime.TryParse(settings.GetValueOrDefault("AgentApiKeyPreviousExpiresAt"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var until) && until > DateTime.UtcNow)
+            {
+                var previous = secrets.Unprotect(settings.GetValueOrDefault("AgentApiKeyPrevious"));
+                if (!string.IsNullOrEmpty(previous) && CryptographicOperations.FixedTimeEquals(receivedHash, SHA256.HashData(Encoding.UTF8.GetBytes(previous))))
+                    return true;
+            }
+            return false;
         }
     }
 }

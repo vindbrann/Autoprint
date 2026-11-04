@@ -8,6 +8,11 @@
 
 <RadzenTemplateForm TItem="RoleEditDto" Data="@roleEdit" Submit="@OnSubmit">
     <RadzenStack Gap="1rem" Style="height: 100%;">
+        @* Backlog B21 : conséquence de l'enregistrement sur les sessions *@
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
+            Enregistrer ce rôle ferme les sessions ouvertes de tous ses membres : ils devront se reconnecter pour obtenir leurs nouveaux droits.
+            Si vous êtes vous-même membre de ce rôle, vous serez déconnecté.
+        </RadzenAlert>
 
         <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
             <RadzenRow AlignItems="AlignItems.Center">
