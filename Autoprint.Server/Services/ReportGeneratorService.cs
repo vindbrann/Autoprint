@@ -26,8 +26,11 @@ namespace Autoprint.Server.Services
         private readonly ISnmpService _snmpService;
         private readonly IPredictiveService _predictiveService;
 
-        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService, IPredictiveService predictiveService)
+        private readonly SecretProtector _secrets;
+
+        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService, IPredictiveService predictiveService, SecretProtector secrets)
         {
+            _secrets = secrets;
             _context = context;
             _snmpService = snmpService;
             _predictiveService = predictiveService;
@@ -151,6 +154,7 @@ namespace Autoprint.Server.Services
 
             var printers = await query.ToListAsync();
             var printerIds = printers.Select(p => p.Id).ToList();
+            var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(_context);
 
             // Load toner history for all target printers in a single batch query
             var histories = await _context.TonerHistories
@@ -168,8 +172,7 @@ namespace Autoprint.Server.Services
                     var diagnostic = await _snmpService.GetPrinterDiagnosticAsync(
                         printer.AdresseIp,
                         printer.SnmpPort,
-                        printer.SnmpCommunity ?? "public",
-                        printer.SnmpVersion,
+                        SnmpCredentials.Resolve(printer, snmpProfiles, _secrets),
                         printer.Modele?.SnmpProfile
                     );
 

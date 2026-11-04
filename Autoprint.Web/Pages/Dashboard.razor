@@ -150,6 +150,19 @@ else if (stats != null)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ARRÊTÉ" Variant="Variant.Flat" class="rz-px-3 rz-py-1" />
                             }
+                            @if (stats.IsSpoolerServiceRunning.HasValue)
+                            {
+                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mt-2 rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Service AutoprintSpooler</RadzenText>
+                                @if (stats.IsSpoolerServiceRunning.Value)
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="EN LIGNE" Variant="Variant.Flat" class="rz-px-3 rz-py-1" />
+                                }
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ARRÊTÉ" Variant="Variant.Flat" class="rz-px-3 rz-py-1"
+                                                 title="Les modifications des files d'impression ne sont plus appliquées : démarrez le service sur le serveur (services.msc)." />
+                                }
+                            }
                         </RadzenColumn>
 
                         <RadzenColumn Size="4" Class="rz-text-align-center" Style="border-right: 1px solid var(--rz-border-color);">

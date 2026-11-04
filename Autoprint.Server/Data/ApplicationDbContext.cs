@@ -31,6 +31,7 @@ namespace Autoprint.Server.Data
         public DbSet<TonerHistory> TonerHistories { get; set; }
         public DbSet<SnmpProfile> SnmpProfiles { get; set; }
         public DbSet<SnmpProfileItem> SnmpProfileItems { get; set; }
+        public DbSet<SnmpCredential> SnmpCredentials { get; set; }
         public DbSet<IntegrationToken> IntegrationTokens { get; set; }
         public DbSet<ReportSchedule> ReportSchedules { get; set; }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -159,6 +160,19 @@ namespace Autoprint.Server.Data
                 .HasOne(m => m.SnmpProfile)
                 .WithMany()
                 .HasForeignKey(m => m.SnmpProfileId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Identifiants SNMP : supprimer un profil remet le modèle / l'imprimante sur la valeur par défaut
+            modelBuilder.Entity<Modele>()
+                .HasOne<SnmpCredential>()
+                .WithMany()
+                .HasForeignKey(m => m.SnmpCredentialId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Imprimante>()
+                .HasOne<SnmpCredential>()
+                .WithMany()
+                .HasForeignKey(i => i.SnmpCredentialId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<SnmpProfile>()

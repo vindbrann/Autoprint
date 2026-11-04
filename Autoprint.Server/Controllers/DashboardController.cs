@@ -78,6 +78,20 @@ namespace Autoprint.Server.Controllers
             {
                 stats.IsSpoolerRunning = false;
             }
+
+            // Service AutoprintSpooler (backlog B26) : sans lui, aucune modification de file d'impression n'est appliquée
+            if (OperatingSystem.IsWindows() && string.Equals(HttpContext.RequestServices.GetRequiredService<IConfiguration>()["Spooler:Mode"], "Service", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    using var svc = new ServiceController("AutoprintSpooler");
+                    stats.IsSpoolerServiceRunning = svc.Status == ServiceControllerStatus.Running;
+                }
+                catch
+                {
+                    stats.IsSpoolerServiceRunning = false; // service absent
+                }
+            }
             try
             {
                 var assembly = System.Reflection.Assembly.GetEntryAssembly();

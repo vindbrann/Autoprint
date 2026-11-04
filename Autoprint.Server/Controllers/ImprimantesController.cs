@@ -198,6 +198,13 @@ namespace Autoprint.Server.Controllers
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
             dbImprimante.SerialNumber = inputImprimante.SerialNumber;
+            // Profil d'identifiants SNMP propre à l'imprimante (vide = celui du modèle)
+            if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
+                return BadRequest("Profil d'identifiants SNMP introuvable.");
+            dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
+            dbImprimante.SnmpCommunity = inputImprimante.SnmpCommunity;
+            dbImprimante.SnmpVersion = inputImprimante.SnmpVersion;
+            dbImprimante.SnmpPort = inputImprimante.SnmpPort;
             dbImprimante.DateModification = DateTime.UtcNow;
             dbImprimante.ModifiePar = User.Identity?.Name ?? "Système";
 
@@ -382,12 +389,10 @@ namespace Autoprint.Server.Controllers
                 .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();
 
-            var result = await _snmpService.GetPrinterDiagnosticAsync(
-                printer.AdresseIp, 
-                printer.SnmpPort, 
-                printer.SnmpCommunity ?? "public", 
-                printer.SnmpVersion,
-                printer.Modele?.SnmpProfile);
+            var profiles = await SnmpCredentials.LoadProfilesAsync(_context);
+            var credentials = SnmpCredentials.Resolve(printer, profiles, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
+
+            var result = await _snmpService.GetPrinterDiagnosticAsync(printer.AdresseIp, printer.SnmpPort, credentials, printer.Modele?.SnmpProfile);
 
             // Update database status based on diagnostic results
             if (!result.PingSuccess)

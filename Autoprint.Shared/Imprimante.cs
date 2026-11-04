@@ -29,7 +29,10 @@ namespace Autoprint.Shared
         public int SnmpPort { get; set; } = 161;
         [MaxLength(100)]
         public string SnmpCommunity { get; set; } = "public";
-        public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c
+        public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c (ancien mode, sans profil d'identifiants)
+
+        // Profil d'identifiants SNMP propre à cette imprimante ; vide = celui du modèle (cas particuliers)
+        public int? SnmpCredentialId { get; set; }
 
         [MaxLength(20)]
         public string MonitoringStatus { get; set; } = "Inconnu";
