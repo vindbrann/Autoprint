@@ -79,6 +79,7 @@ Toutes les modifications sont faites avant la recette complète. Ordre : du moin
 | **B — SNMPv3 et service** | `feature/serveur-sans-localsystem` (version suivante) | SNMPv3 (profils d'identifiants par modèle, exception par imprimante), B25, B26, B27 |
 | **C — Améliorations** | version suivante | B19, B18, B21, B24 |
 | **D — Dette technique** | version suivante | B2, B3, B4, B9, B10, B11, puis B12 en dernier |
+| **E — Montées de version** | à planifier | B37 (politique), B38, B39, B40, B41, puis les majeures de B12 (Radzen 12, WiX 7, SqlClient 7) — voir `_POLITIQUE_VERSIONS.md` |
 
 ## Repéré pendant la phase A
 
@@ -108,3 +109,15 @@ Toutes les modifications sont faites avant la recette complète. Ordre : du moin
 | # | Type | Constat | Où | Repéré le |
 |---|---|---|---|---|
 | B36 | 🐞 | Rapport PDF : le trait gris sous le bandeau d'en-tête du tableau passe à travers les intitulés de colonnes (mise en page d'origine). Cosmétique. | `ReportGeneratorService.GeneratePdfReportAsync` | 04/11/2026 |
+
+## Montées de version (politique décidée le 04/11/2026)
+
+Règle : toujours rester sur des technologies à jour (correctifs de sécurité immédiats, mineures à chaque version, majeures planifiées sans dépasser une version de retard). Détail et état complet : `Docs/_POLITIQUE_VERSIONS.md`.
+
+| # | Type | Constat | Où | Repéré le |
+|---|---|---|---|---|
+| B37 | 🔧 | **Appliquer la politique de mise à jour** : planifier toutes les montées de version possibles (majeures de B12 : Radzen 8 → 12, WiX 6 → 7, SqlClient 6 → 7 ; PDFsharp 6.5 ; .NET 11 dès sa sortie) et la liste de contrôle avant chaque version. | Solution | 04/11/2026 |
+| B38 | 🔐 | **Hosting Bundle embarqué en 10.0.10** alors que l'application est en 10.0.14 : les serveurs installés reçoivent un runtime ASP.NET Core sans les derniers correctifs. Le fichier n'est pas dans git (ignoré) : le remplacer par la dernière version à chaque publication. | `Autoprint.Installer.Server.UI/Resources/dotnet-hosting-10.exe` | 04/11/2026 |
+| B39 | 🔐 | **L'installeur accepte n'importe quel runtime 10.x** (`Microsoft.AspNetCore.App 10.`) : un serveur existant n'est jamais mis à jour. Exiger une version minimale (celle embarquée) et proposer l'installation du Hosting Bundle si le runtime est plus ancien. | `PrerequisiteService.CheckDotNet10Runtime` | 04/11/2026 |
+| B40 | 🔧 | Bibliothèques web embarquées en retard : Bootstrap 5.3.0 → 5.3.8, Bootstrap Icons 1.11.0 → 1.13.2, Chart.js 4.4.1 → 4.6.1. Non suivies par Dependabot. | `Autoprint.Web/wwwroot/lib` | 04/11/2026 |
+| B41 | 🔧 | Blazored.LocalStorage (4.5.0) n'évolue plus : prévoir un remplacement par un petit service maison (interop JavaScript) pour ne pas dépendre d'un projet tiers inactif. | `Autoprint.Web` | 04/11/2026 |
