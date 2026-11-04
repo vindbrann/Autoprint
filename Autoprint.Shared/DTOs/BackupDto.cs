@@ -28,6 +28,7 @@ namespace Autoprint.Shared.DTOs
         public List<BackupPiloteDto> Pilotes { get; set; } = new();
         public List<BackupImprimanteDto> Imprimantes { get; set; } = new();
         public List<BackupSnmpProfileDto> SnmpProfiles { get; set; } = new();
+        public List<BackupSnmpCredentialDto> SnmpCredentials { get; set; } = new();
         public List<BackupReportScheduleDto> ReportSchedules { get; set; } = new();
         public List<BackupIntegrationTokenDto> IntegrationTokens { get; set; } = new();
         public List<BackupRoleDto> Roles { get; set; } = new();
@@ -43,7 +44,7 @@ namespace Autoprint.Shared.DTOs
     }
 
     public class BackupMarqueDto { public int Id { get; set; } public string Nom { get; set; } = ""; }
-    public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } }
+    public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } public int? SnmpCredentialId { get; set; } }
     public class BackupLieuDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Code { get; set; } = ""; public List<BackupNetworkDto> Networks { get; set; } = new(); }
     public class BackupPiloteDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Version { get; set; } = ""; public bool EstInstalle { get; set; } }
 
@@ -110,6 +111,28 @@ namespace Autoprint.Shared.DTOs
         public string? Localisation { get; set; }
         public string? SerialNumber { get; set; }
         public PrinterStatus Status { get; set; }
+        public bool IsDirectPrintingEnabled { get; set; }
+        public int SnmpPort { get; set; } = 161;
+        public int SnmpVersion { get; set; } = 2;
+        // Communauté (ancien mode) : traitée comme un secret (chiffrée avec le mot de passe de la sauvegarde, ou absente)
+        public string? SnmpCommunity { get; set; }
+        public int? SnmpCredentialId { get; set; }
+    }
+
+    /// <summary>Profil d'identifiants SNMP. Les secrets sont chiffrés avec le mot de passe de la sauvegarde, ou absents.</summary>
+    public class BackupSnmpCredentialDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public int Version { get; set; } = 2;
+        public string? Community { get; set; }
+        public string? V3Username { get; set; }
+        public SnmpV3SecurityLevel V3SecurityLevel { get; set; }
+        public SnmpAuthProtocol V3AuthProtocol { get; set; }
+        public string? V3AuthPassword { get; set; }
+        public SnmpPrivProtocol V3PrivProtocol { get; set; }
+        public string? V3PrivPassword { get; set; }
     }
 
     public class BackupUserDto

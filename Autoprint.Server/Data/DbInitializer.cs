@@ -84,6 +84,48 @@ namespace Autoprint.Server.Data
                 }
                 catch { }
 
+                // Profils d'identifiants SNMP (SNMPv3, phase B)
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF OBJECT_ID('SnmpCredentials') IS NULL
+                        BEGIN
+                            CREATE TABLE SnmpCredentials (
+                                Id int IDENTITY(1,1) NOT NULL CONSTRAINT PK_SnmpCredentials PRIMARY KEY,
+                                Name nvarchar(100) NOT NULL,
+                                Description nvarchar(255) NULL,
+                                Version int NOT NULL CONSTRAINT DF_SnmpCredentials_Version DEFAULT 2,
+                                Community nvarchar(max) NULL,
+                                V3Username nvarchar(100) NULL,
+                                V3SecurityLevel int NOT NULL CONSTRAINT DF_SnmpCredentials_Level DEFAULT 2,
+                                V3AuthProtocol int NOT NULL CONSTRAINT DF_SnmpCredentials_Auth DEFAULT 1,
+                                V3AuthPassword nvarchar(max) NULL,
+                                V3PrivProtocol int NOT NULL CONSTRAINT DF_SnmpCredentials_Priv DEFAULT 0,
+                                V3PrivPassword nvarchar(max) NULL,
+                                DateModification datetime2 NOT NULL CONSTRAINT DF_SnmpCredentials_Date DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL CONSTRAINT DF_SnmpCredentials_Suppr DEFAULT 0
+                            );
+                        END
+
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Modeles') AND name = 'SnmpCredentialId')
+                        BEGIN
+                            ALTER TABLE Modeles ADD SnmpCredentialId int NULL
+                                CONSTRAINT FK_Modeles_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
+                        END
+
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Imprimantes') AND name = 'SnmpCredentialId')
+                        BEGIN
+                            ALTER TABLE Imprimantes ADD SnmpCredentialId int NULL
+                                CONSTRAINT FK_Imprimantes_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
+                        END
+                    ");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DbInitializer] Création des identifiants SNMP (SQL Server) en échec : {ex.Message}");
+                }
+
                 // Colonnes des migrations du 16/07/2026 (sans attribut [Migration], jamais appliquées par EF sur SQL Server)
                 // et colonnes de SnmpProfileItems absentes de la migration du 21/08/2026 (backlog B22). Scripts idempotents.
                 try
@@ -256,6 +298,31 @@ namespace Autoprint.Server.Data
                 }
                 catch { }
 
+
+                // Profils d'identifiants SNMP (SNMPv3, phase B)
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        CREATE TABLE IF NOT EXISTS SnmpCredentials (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Name TEXT NOT NULL,
+                            Description TEXT NULL,
+                            Version INTEGER NOT NULL DEFAULT 2,
+                            Community TEXT NULL,
+                            V3Username TEXT NULL,
+                            V3SecurityLevel INTEGER NOT NULL DEFAULT 2,
+                            V3AuthProtocol INTEGER NOT NULL DEFAULT 1,
+                            V3AuthPassword TEXT NULL,
+                            V3PrivProtocol INTEGER NOT NULL DEFAULT 0,
+                            V3PrivPassword TEXT NULL,
+                            DateModification TEXT NOT NULL DEFAULT (datetime('now')),
+                            ModifiePar TEXT NULL,
+                            EstSupprime INTEGER NOT NULL DEFAULT 0
+                        );");
+                }
+                catch { }
+                try { context.Database.ExecuteSqlRaw("ALTER TABLE Modeles ADD COLUMN SnmpCredentialId INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;"); } catch { }
+                try { context.Database.ExecuteSqlRaw("ALTER TABLE Imprimantes ADD COLUMN SnmpCredentialId INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;"); } catch { }
 
                 // Origine des rôles (AD / manuel) : la mise à jour ne s'exécute que si l'ajout de colonne réussit (première fois)
                 try

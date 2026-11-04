@@ -29,6 +29,9 @@ namespace Autoprint.Installer.Server.UI
         private int _existingPort = 0;
 
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
+        // Base SQLite hors du dossier du programme (backlog B25) : le compte du site n'a pas besoin d'écrire dans Program Files
+        private static readonly string DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autoprint", "Data");
+        private static string SqlitePath => Path.Combine(DataPath, "Autoprint.db");
 
         private const string NamespacePrefix = "Autoprint.Installer.Server.UI.Resources.";
         private const string MsiResourceName = NamespacePrefix + "Autoprint.Server.Setup.msi";
@@ -340,6 +343,7 @@ namespace Autoprint.Installer.Server.UI
                     }
 
                     if (_needsPublicHost) await ApplyPublicHost(configPath);
+                    await MoveSqliteDatabaseToProgramData(configPath);
 
                     TxtInstallLog.Text = "Passage du site en compte sans privilège...";
                     await EnableSpoolerServiceMode();
@@ -498,7 +502,8 @@ namespace Autoprint.Installer.Server.UI
             else
             {
                 provider = "Sqlite";
-                connectionString = "Data Source=Autoprint.db";
+                Directory.CreateDirectory(DataPath);
+                connectionString = $"Data Source={SqlitePath}";
             }
 
             var appSettings = new
@@ -509,7 +514,7 @@ namespace Autoprint.Installer.Server.UI
                     ConnectionStrings = new
                     {
                         SqlServer = (provider == "SqlServer") ? connectionString : "",
-                        Sqlite = "Data Source=Autoprint.db"
+                        Sqlite = provider == "Sqlite" ? connectionString : $"Data Source={SqlitePath}"
                     }
                 },
                 Logging = new
@@ -651,6 +656,45 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
+        // Mise à jour d'une installation SQLite : la base quitte le dossier du programme pour ProgramData (backlog B25)
+        private async Task MoveSqliteDatabaseToProgramData(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            string provider = root["Database"]?["Provider"]?.GetValue<string>() ?? "";
+            if (!provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase)) return;
+
+            string cs = root["Database"]?["ConnectionStrings"]?["Sqlite"]?.GetValue<string>() ?? "Data Source=Autoprint.db";
+            string source = cs.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase) ? cs.Substring("Data Source=".Length).Trim() : "Autoprint.db";
+            string sourcePath = Path.IsPathRooted(source) ? source : Path.Combine(InstallPath, source);
+
+            // Déjà ailleurs que dans le dossier du programme : rien à faire
+            if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(sourcePath))?.TrimEnd('\\'), InstallPath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return;
+
+            Directory.CreateDirectory(DataPath);
+            if (File.Exists(sourcePath))
+            {
+                if (File.Exists(SqlitePath))
+                    throw new Exception($"Une base existe déjà dans {DataPath} : déplacement annulé pour ne rien écraser. Vérifiez manuellement.");
+
+                // Le site doit être arrêté pour libérer la base
+                using (var mgr = new ServerManager())
+                {
+                    var appPool = mgr.ApplicationPools.FirstOrDefault(ap => ap.Name == "Autoprint");
+                    if (appPool != null && appPool.State == ObjectState.Started) appPool.Stop();
+                }
+                await Task.Delay(3000);
+
+                foreach (var suffix in new[] { "", "-wal", "-shm" })
+                {
+                    if (File.Exists(sourcePath + suffix)) File.Move(sourcePath + suffix, SqlitePath + suffix);
+                }
+                TxtInstallLog.Text += $"\nBase SQLite déplacée vers {SqlitePath}";
+            }
+
+            root["Database"]!["ConnectionStrings"]!["Sqlite"] = $"Data Source={SqlitePath}";
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
         // Mise à jour : « AllowedHosts » passe de « * » au nom public saisi (+ localhost)
         private async Task ApplyPublicHost(string configPath)
         {
@@ -699,18 +743,14 @@ namespace Autoprint.Installer.Server.UI
             SecurityIdentifier? pool = null;
             try { pool = (SecurityIdentifier)new NTAccount(PoolIdentity).Translate(typeof(SecurityIdentifier)); } catch { }
 
-            foreach (var file in new[] { "appsettings.json", "Autoprint.db" }.Select(f => Path.Combine(InstallPath, f)).Where(File.Exists))
+            foreach (var file in new[] { Path.Combine(InstallPath, "appsettings.json") }.Where(File.Exists))
             {
                 var fileSecurity = new FileSecurity();
                 fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
                 fileSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, AccessControlType.Allow));
                 fileSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, AccessControlType.Allow));
-                if (pool != null)
-                {
-                    // appsettings.json : lecture seule ; base SQLite : lecture / écriture
-                    var poolRights = file.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ? FileSystemRights.Modify : FileSystemRights.Read;
-                    fileSecurity.AddAccessRule(new FileSystemAccessRule(pool, poolRights, AccessControlType.Allow));
-                }
+                // appsettings.json : lecture seule pour le site
+                if (pool != null) fileSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Read, AccessControlType.Allow));
                 new FileInfo(file).SetAccessControl(fileSecurity);
             }
 
@@ -726,13 +766,29 @@ namespace Autoprint.Installer.Server.UI
             if (pool != null) dirSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
             keysDir.SetAccessControl(dirSecurity);
 
-            // SQLite crée des fichiers temporaires (-wal, -shm) à côté de la base : le pool doit pouvoir écrire dans le dossier.
-            // (backlog : déplacer la base dans ProgramData pour éviter ce droit sur le dossier du programme)
-            if (pool != null && File.Exists(Path.Combine(InstallPath, "Autoprint.db")))
+            // Base SQLite (et ses fichiers -wal / -shm) : dossier dédié, réservé à SYSTEM, aux Administrateurs et au site
+            if (Directory.Exists(DataPath))
+            {
+                var dataSecurity = new DirectorySecurity();
+                dataSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                dataSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+                dataSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+                if (pool != null) dataSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
+                new DirectoryInfo(DataPath).SetAccessControl(dataSecurity);
+                foreach (var dbFile in Directory.GetFiles(DataPath))
+                {
+                    var fs = new FileInfo(dbFile).GetAccessControl();
+                    fs.SetAccessRuleProtection(isProtected: false, preserveInheritance: false); // héritage du dossier
+                    new FileInfo(dbFile).SetAccessControl(fs);
+                }
+            }
+
+            // Aucun droit explicite du site sur le dossier du programme (il ne doit pas pouvoir modifier ses propres DLL)
+            if (pool != null)
             {
                 var installDir = new DirectoryInfo(InstallPath);
                 var installSecurity = installDir.GetAccessControl();
-                installSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, InheritanceFlags.None, PropagationFlags.None, AccessControlType.Allow));
+                installSecurity.PurgeAccessRules(pool);
                 installDir.SetAccessControl(installSecurity);
             }
         }

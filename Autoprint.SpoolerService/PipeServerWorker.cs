@@ -15,6 +15,7 @@ namespace Autoprint.SpoolerService
     public class PipeServerWorker : BackgroundService
     {
         private const int MaxInstances = 4;
+        private static readonly TimeSpan OperationTimeout = TimeSpan.FromSeconds(60);
 
         private readonly ISpoolerAdmin _admin;
         private readonly ILogger<PipeServerWorker> _logger;
@@ -130,10 +131,20 @@ namespace Autoprint.SpoolerService
                     try { request = JsonSerializer.Deserialize<SpoolerRequest>(line); }
                     catch (JsonException) { }
 
-                    // Les opérations du spouleur sont exécutées une par une
+                    // Les opérations du spouleur sont exécutées une par une, avec un délai maximal (backlog B27) :
+                    // une opération WMI bloquée ne doit pas bloquer toutes les suivantes. Elle ne peut pas être annulée
+                    // et se termine en arrière-plan ; le site reçoit une erreur claire.
                     SpoolerResponse response;
                     await _serialize.WaitAsync(stoppingToken);
-                    try { response = await SpoolerProtocol.HandleAsync(_admin, request); }
+                    try
+                    {
+                        response = await SpoolerProtocol.HandleAsync(_admin, request).WaitAsync(OperationTimeout, stoppingToken);
+                    }
+                    catch (TimeoutException)
+                    {
+                        _logger.LogError("Commande {Command} « {Name} » : délai de {Seconds} s dépassé", request?.Command, request?.Name, OperationTimeout.TotalSeconds);
+                        response = SpoolerResponse.Fail($"Le spouleur Windows n'a pas répondu en {OperationTimeout.TotalSeconds} s. Vérifiez le service « Spouleur d'impression » du serveur.");
+                    }
                     finally { _serialize.Release(); }
 
                     // Délai de réponse borné, indépendamment de la durée de l'opération

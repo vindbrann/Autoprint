@@ -66,7 +66,7 @@ namespace Autoprint.Server.Controllers
 
             try
             {
-                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request);
+                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
                 _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", request.IpAddress, discoveredOids.Count);
                 return Ok(discoveredOids);
             }
@@ -91,7 +91,7 @@ namespace Autoprint.Server.Controllers
 
             try
             {
-                var testResults = await _snmpService.TestProfileItemsAsync(request);
+                var testResults = await _snmpService.TestProfileItemsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
                 _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", request.IpAddress, testResults.Count);
                 return Ok(testResults);
             }
@@ -271,6 +271,18 @@ namespace Autoprint.Server.Controllers
         private bool SnmpProfileExists(int id)
         {
             return _context.SnmpProfiles.Any(e => e.Id == id);
+        }
+
+        // Profil d'identifiants enregistré (SNMPv3 possible) ou communauté saisie dans l'écran de test
+        private async Task<SnmpCredentials> ResolveRequestCredentialsAsync(int? credentialId, string community, int version)
+        {
+            if (credentialId != null)
+            {
+                var profile = await _context.SnmpCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.Id == credentialId.Value)
+                              ?? throw new InvalidOperationException("Profil d'identifiants SNMP introuvable.");
+                return SnmpCredentials.FromProfile(profile, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
+            }
+            return SnmpCredentials.Legacy(community, version);
         }
 
         // Validation avant toute journalisation (CodeQL « Log entries created from user input »)

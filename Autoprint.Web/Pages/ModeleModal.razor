@@ -78,6 +78,17 @@
                             Style="width: 100%;" />
         </div>
 
+        <div>
+            <RadzenLabel Text="Identifiants SNMP par défaut (Optionnel)" Component="SnmpCredential" />
+            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
+                Utilisés par toutes les imprimantes de ce modèle, sauf si une imprimante en choisit d'autres. Vide : paramètres de chaque imprimante.
+            </RadzenText>
+            <RadzenDropDown Name="SnmpCredential" @bind-Value="@modeleEdit.SnmpCredentialId"
+                            Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
+                            AllowClear="true" Placeholder="Aucun (paramètres de chaque imprimante)"
+                            Style="width: 100%;" />
+        </div>
+
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
 
             @if (modeleEdit.Id != 0)
@@ -121,7 +132,8 @@
             Nom = ModeleToEdit.Nom,
             MarqueId = ModeleToEdit.MarqueId,
             PiloteId = ModeleToEdit.PiloteId,
-            SnmpProfileId = ModeleToEdit.SnmpProfileId
+            SnmpProfileId = ModeleToEdit.SnmpProfileId,
+            SnmpCredentialId = ModeleToEdit.SnmpCredentialId
         };
 
         canReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
@@ -131,8 +143,20 @@
         if (canReadMarques) tasks.Add(LoadMarques());
         if (canReadPilotes) tasks.Add(LoadPilotes());
         tasks.Add(LoadSnmpProfiles());
+        tasks.Add(LoadSnmpCredentials());
 
         if (tasks.Any()) await Task.WhenAll(tasks);
+    }
+
+    private List<Autoprint.Shared.DTOs.SnmpCredentialViewDto> listeCredentials = new();
+
+    private async Task LoadSnmpCredentials()
+    {
+        try
+        {
+            listeCredentials = await Http.GetFromJsonAsync<List<Autoprint.Shared.DTOs.SnmpCredentialViewDto>>("api/SnmpCredentials") ?? new();
+        }
+        catch { }
     }
 
     private async Task LoadSnmpProfiles()

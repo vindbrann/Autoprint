@@ -14,7 +14,7 @@ namespace Autoprint.Server.Services
 {
     public class SnmpService : ISnmpService
     {
-        public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, string community, int version, SnmpProfile? profile = null)
+        public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, SnmpCredentials credentials, SnmpProfile? profile = null)
         {
             var result = new PrinterDiagnosticResult();
 
@@ -67,8 +67,8 @@ namespace Autoprint.Server.Services
                 return result;
             }
 
-            var communityBytes = new OctetString(string.IsNullOrWhiteSpace(community) ? "public" : community);
-            var versionCode = version == 1 ? VersionCode.V1 : VersionCode.V2;
+            // v1 / v2c / v3 selon le profil d'identifiants résolu (imprimante → modèle → anciens champs)
+            var client = new SnmpClient(endpoint, credentials);
 
             // 3. Traitement SNMP
             try
@@ -119,7 +119,7 @@ namespace Autoprint.Server.Services
                     IList<Variable>? snmpResponses = null;
                     try
                     {
-                        snmpResponses = await Task.Run(() => Messenger.Get(versionCode, endpoint, communityBytes, requestedVariables, 1500));
+                        snmpResponses = await client.GetAsync(requestedVariables, 1500);
                     }
                     catch { }
 
@@ -285,7 +285,7 @@ namespace Autoprint.Server.Services
                     IList<Variable>? legacyResponses = null;
                     try
                     {
-                        legacyResponses = await Task.Run(() => Messenger.Get(versionCode, endpoint, communityBytes, requestedVariables, 1500));
+                        legacyResponses = await client.GetAsync(requestedVariables, 1500);
                     }
                     catch { }
 
@@ -350,7 +350,7 @@ namespace Autoprint.Server.Services
             return result;
         }
 
-        public async Task<List<SnmpTestProfileResultDto>> TestProfileItemsAsync(SnmpTestProfileRequestDto request)
+        public async Task<List<SnmpTestProfileResultDto>> TestProfileItemsAsync(SnmpTestProfileRequestDto request, SnmpCredentials credentials)
         {
             var results = new List<SnmpTestProfileResultDto>();
             if (string.IsNullOrWhiteSpace(request.IpAddress) || request.Items == null || !request.Items.Any())
@@ -374,8 +374,7 @@ namespace Autoprint.Server.Services
             }
 
             var endpoint = new IPEndPoint(ip, request.Port > 0 ? request.Port : 161);
-            var communityBytes = new OctetString(string.IsNullOrWhiteSpace(request.Community) ? "public" : request.Community.Trim());
-            var versionCode = request.Version == 1 ? VersionCode.V1 : VersionCode.V2;
+            var client = new SnmpClient(endpoint, credentials);
 
             // 2. Construction de la liste groupée de variables (sans doublons)
             var variablesToQuery = new List<Variable>();
@@ -413,11 +412,11 @@ namespace Autoprint.Server.Services
             IList<Variable>? responseVariables = null;
             try
             {
-                responseVariables = await Task.Run(() => Messenger.Get(versionCode, endpoint, communityBytes, variablesToQuery, 1200));
+                responseVariables = await client.GetAsync(variablesToQuery, 1200);
             }
             catch (Lextm.SharpSnmpLib.Messaging.TimeoutException)
             {
-                throw new InvalidOperationException($"L'imprimante à l'adresse {request.IpAddress} n'a pas répondu sur le port SNMP {request.Port} (Communauté '{request.Community}'). Vérifiez que la machine est allumée et que le protocole SNMP v1/v2c est activé.");
+                throw new InvalidOperationException($"L'imprimante à l'adresse {request.IpAddress} n'a pas répondu sur le port SNMP {request.Port} ({credentials.Describe()}). Vérifiez que la machine est allumée et que SNMP est activé avec ces identifiants.");
             }
             catch (SocketException ex)
             {
@@ -533,7 +532,7 @@ namespace Autoprint.Server.Services
             return results;
         }
 
-        public async Task<List<DiscoveredOidDto>> ScanPrinterOidsAsync(SnmpScanRequestDto request)
+        public async Task<List<DiscoveredOidDto>> ScanPrinterOidsAsync(SnmpScanRequestDto request, SnmpCredentials credentials)
         {
             var discovered = new List<DiscoveredOidDto>();
             if (string.IsNullOrWhiteSpace(request.IpAddress))
@@ -557,8 +556,7 @@ namespace Autoprint.Server.Services
             }
 
             var endpoint = new IPEndPoint(ip, request.Port > 0 ? request.Port : 161);
-            var communityBytes = new OctetString(string.IsNullOrWhiteSpace(request.Community) ? "public" : request.Community.Trim());
-            var versionCode = request.Version == 1 ? VersionCode.V1 : VersionCode.V2;
+            var client = new SnmpClient(endpoint, credentials);
 
             // 2. Probe initial rapide SNMP (800ms) pour vérifier que le service SNMP est actif
             bool isAlive = false;
@@ -570,7 +568,7 @@ namespace Autoprint.Server.Services
                     new Variable(new ObjectIdentifier("1.3.6.1.2.1.1.1.0")),     // sysDescr
                     new Variable(new ObjectIdentifier("1.3.6.1.2.1.25.3.5.1.1.1")) // hrPrinterStatus
                 };
-                var probeRes = await Task.Run(() => Messenger.Get(versionCode, endpoint, communityBytes, probeVars, 800));
+                var probeRes = await client.GetAsync(probeVars, 800);
                 if (probeRes != null && probeRes.Any(v => !IsNullOrNoSuch(v.Data)))
                 {
                     isAlive = true;
@@ -580,7 +578,7 @@ namespace Autoprint.Server.Services
 
             if (!isAlive)
             {
-                throw new InvalidOperationException($"L'imprimante ({request.IpAddress}) ne répond pas sur le port SNMP {request.Port} avec la communauté '{request.Community}'. Vérifiez que l'imprimante est allumée et accessible.");
+                throw new InvalidOperationException($"L'imprimante ({request.IpAddress}) ne répond pas sur le port SNMP {request.Port} ({credentials.Describe()}). Vérifiez que l'imprimante est allumée et accessible.");
             }
 
             // 3. AUTO-DÉCOUVERTE : Consommables & Cartouches (Printer-MIB 1.3.6.1.2.1.43.11.1.1)
@@ -592,9 +590,9 @@ namespace Autoprint.Server.Services
 
                 await Task.Run(() =>
                 {
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.6"), supplyDescsRaw, 800, WalkMode.WithinSubtree); } catch { }
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.8"), supplyMaxesRaw, 800, WalkMode.WithinSubtree); } catch { }
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.9"), supplyLevelsRaw, 800, WalkMode.WithinSubtree); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.6"), supplyDescsRaw, 800); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.8"), supplyMaxesRaw, 800); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.11.1.1.9"), supplyLevelsRaw, 800); } catch { }
                 });
 
                 const string supplyDescPrefix = "1.3.6.1.2.1.43.11.1.1.6.";
@@ -696,9 +694,9 @@ namespace Autoprint.Server.Services
 
                 await Task.Run(() =>
                 {
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.12"), trayDescsRaw, 800, WalkMode.WithinSubtree); } catch { }
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.10"), trayLevelsRaw, 800, WalkMode.WithinSubtree); } catch { }
-                    try { Messenger.Walk(versionCode, endpoint, communityBytes, new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.9"), trayMaxesRaw, 800, WalkMode.WithinSubtree); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.12"), trayDescsRaw, 800); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.10"), trayLevelsRaw, 800); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.9"), trayMaxesRaw, 800); } catch { }
                 });
 
                 const string trayDescPrefix = "1.3.6.1.2.1.43.8.2.1.12.";
@@ -771,7 +769,7 @@ namespace Autoprint.Server.Services
                     new Variable(new ObjectIdentifier("1.3.6.1.2.1.1.3.0"))             // SysUpTime
                 };
 
-                var stdRes = await Task.Run(() => Messenger.Get(versionCode, endpoint, communityBytes, standardVars, 1000));
+                var stdRes = await client.GetAsync(standardVars, 1000);
                 if (stdRes != null)
                 {
                     var dict = stdRes.ToDictionary(v => v.Id.ToString(), v => v.Data, StringComparer.OrdinalIgnoreCase);

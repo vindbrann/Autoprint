@@ -351,6 +351,40 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | S8-18 | Depuis un **autre poste** : `$p = New-Object System.IO.Pipes.NamedPipeClientStream('NOMSERVEUR', 'AutoprintSpooler'); $p.Connect(2000)`. | Erreur « Accès refusé » (accès réseau interdit). | ☐ |
 | S8-19 | Gestionnaire des tâches › Détails : processus `w3wp.exe` du site. | Nom d'utilisateur : `Autoprint` (et non `SYSTEM`). | ☐ |
 
+### 5.5 SNMPv3 et identifiants SNMP (phase B)
+
+Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un utilisateur `authPriv` (SHA-256 / AES-128), et une imprimante en v2c.
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SV3-01 | Menu › Identifiants SNMP › créer un profil v3 sans utilisateur, puis en `authPriv` sans mot de passe de chiffrement, puis avec un mot de passe de 7 caractères. | Trois refus explicites. | ☐ |
+| SV3-02 | Créer « SNMPv3 Parc » (utilisateur, SHA-256, AES-128, mots de passe de l'imprimante). | Créé ; la liste n'affiche aucun mot de passe. | ☐ |
+| SV3-03 | Base : `SELECT V3AuthPassword, V3PrivPassword FROM SnmpCredentials`. | Valeurs `enc:v1:…` (chiffrées). | ☐ |
+| SV3-04 | Rouvrir le profil, changer uniquement la description, enregistrer. | Mots de passe conservés (supervision toujours OK). | ☐ |
+| SV3-05 | Modèles › attribuer « SNMPv3 Parc » au modèle de l'imprimante v3. Fiche de l'imprimante. | « Identifiants du modèle : SNMPv3 Parc » ; champs communauté / version masqués. | ☐ |
+| SV3-06 | Diagnostic de l'imprimante v3 (modèle avec profil d'OID). | Toners / compteurs remontés. | ☐ |
+| SV3-07 | Attendre un cycle de supervision ; tableau de bord et rapport PDF. | Niveaux et compteurs de l'imprimante v3 à jour. | ☐ |
+| SV3-08 | Modifier le profil avec un **mauvais** mot de passe, lancer le diagnostic / le test de l'éditeur d'OID. | « Identifiants SNMPv3 refusés par l'imprimante… » ou « n'a pas répondu… (SNMPv3, utilisateur « … ») » ; aucun mot de passe dans le message ni dans les journaux. | ☐ |
+| SV3-09 | Une imprimante du même modèle reste en v2c : dans sa fiche, choisir un profil v2c (exception). | Supervision OK pour les deux imprimantes. | ☐ |
+| SV3-10 | Vider le choix de l'exception. | L'imprimante reprend le profil du modèle. | ☐ |
+| SV3-11 | Imprimante sans profil (ni sur elle, ni sur son modèle). | Les champs communauté / version de la fiche s'affichent et sont **bien enregistrés** (avant : ignorés). | ☐ |
+| SV3-12 | Éditeur de profils d'OID › Tester / Auto-détecter avec « Identifiants » = SNMPv3 Parc. | Valeurs lues en v3. | ☐ |
+| SV3-13 | Supprimer un profil utilisé par un modèle et une imprimante. | Message « N modèle(s) et N imprimante(s) utilisent désormais leurs paramètres par défaut » ; supervision toujours fonctionnelle. | ☐ |
+| SV3-14 | Sauvegarde **avec** mot de passe, puis restauration (même serveur puis autre serveur). | Profils et liens modèle / imprimante restaurés, supervision v3 OK. | ☐ |
+| SV3-15 | Sauvegarde **sans** mot de passe, restauration sur le même serveur. | Profils restaurés avec leurs secrets actuels conservés. | ☐ |
+| SV3-16 | Utilisateur avec seulement `PRINTER_READ` : ouvrir une fiche imprimante. | Pas d'erreur ; la liste des identifiants est simplement indisponible. | ☐ |
+
+### 5.6 Base SQLite, état du service, délais (phase B)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SB-01 | **SQLite**, installation neuve. | Base dans `C:\ProgramData\Autoprint\Data\Autoprint.db` ; `appsettings.json` pointe dessus ; aucun fichier `.db` dans `C:\Program Files\Autoprint Server` (B25). | ☐ |
+| SB-02 | **SQLite**, mise à jour d'un serveur dont la base est dans le dossier du programme. | Base (et `-wal` / `-shm`) déplacée dans `ProgramData\Autoprint\Data`, données intactes ; `IIS AppPool\Autoprint` n'a plus de droit sur le dossier du programme (B25). | ☐ |
+| SB-03 | Même mise à jour alors qu'une base existe déjà dans `ProgramData\Autoprint\Data`. | L'installeur s'arrête avec un message, rien n'est écrasé. | ☐ |
+| SB-04 | Droits de `C:\ProgramData\Autoprint\Data` (compte standard). | Accès refusé ; site fonctionnel. | ☐ |
+| SB-05 | Tableau de bord › État du service, service `AutoprintSpooler` démarré puis arrêté. | « EN LIGNE » puis « ARRÊTÉ » sous « Service AutoprintSpooler » (B26). | ☐ |
+| SB-06 | Simuler un spouleur bloqué (suspendre le service Spouleur d'impression pendant une synchronisation). | Après 60 s : « Le spouleur Windows n'a pas répondu en 60 s… » ; les synchronisations suivantes ne restent pas bloquées une fois le spouleur relancé (B27). | ☐ |
+
 ### 5.4 Désinstallation
 
 | ID | Test | Résultat attendu | ✔ |
@@ -369,3 +403,4 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | 04/11/2026 | Correctif B22 | Ajout du test NR-10 (schéma SQL Server : rapports planifiés, profils SNMP, sauvegarde). |
 | 04/11/2026 | #8 (version suivante) | Ajout des tests S8-01 à S8-20 (site sans privilège, service AutoprintSpooler, droits SQL / NTFS). |
 | 04/11/2026 | Phase A | Ajout des tests PA-01 à PA-21 (SQLite, import, nom public, bibliothèques embarquées, proxy, AD, premier login, mot de passe oublié). |
+| 04/11/2026 | Phase B | Ajout des tests SV3-01 à SV3-16 (SNMPv3, identifiants SNMP) et SB-01 à SB-06 (SQLite dans ProgramData, état du service, délais). |

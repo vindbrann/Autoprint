@@ -1,6 +1,6 @@
 # 📐 Conception — Phase 3 : sortie de `LocalSystem` (#8) et SNMPv3 (#14)
 
-**Statut :** #8 développé sur la branche `feature/serveur-sans-localsystem` (version suivante) · SNMPv3 : à valider · **Date :** 04/11/2026
+**Statut :** #8 et SNMPv3 développés sur la branche `feature/serveur-sans-localsystem` (version suivante) · **Date :** 04/11/2026
 Référence : `_AUDIT_SECURITE_2026-11.md`, points #8 et #14.
 
 Ces deux points ne sont pas des correctifs mais des évolutions : ils changent l'installation (#8) ou ajoutent une fonctionnalité (#14). Ce document décrit ce qui serait fait, ce que cela change pour l'exploitation, et les décisions à prendre.
@@ -109,6 +109,15 @@ La supervision des imprimantes utilise SNMP v1 / v2c : la « communauté » circ
 * Sans profil (installations existantes), les champs « communauté / version » actuels de l'imprimante continuent de s'appliquer.
 * Réalisation : phase B, branche `feature/serveur-sans-localsystem`.
 
+
+**Réalisé (phase B) :**
+* Table `SnmpCredentials` (nom, version 1 / 2c / 3, communauté, utilisateur, niveau de sécurité, protocoles d'authentification SHA-1/256/384/512 ou MD5, de chiffrement AES-128/192/256 ou 3DES, mots de passe). Secrets chiffrés (Data Protection), jamais renvoyés à la console.
+* `Modeles.SnmpCredentialId` (valeur par défaut) et `Imprimantes.SnmpCredentialId` (exception) ; suppression d'un profil = retour au défaut (`ON DELETE SET NULL`).
+* Règle unique `SnmpCredentials.Resolve` : profil de l'imprimante → profil du modèle → anciens champs communauté / version. Utilisée par la supervision, les rapports, le diagnostic et l'éditeur de profils d'OID.
+* `SnmpClient` : une seule API Get / Walk pour v1, v2c et v3 (découverte du moteur, requêtes authentifiées / chiffrées, refus d'identifiants détecté).
+* Console : page « Identifiants SNMP », choix dans la fiche modèle et dans la fiche imprimante (avec rappel du profil hérité), choix dans l'éditeur de profils d'OID.
+* Sauvegarde / restauration des profils (secrets chiffrés avec le mot de passe de la sauvegarde, ou absents et alors conservés).
+* **Non testé ici** : l'échange SNMPv3 avec un vrai matériel (aucun agent v3 disponible) — tests SV3-* de la procédure.
 ### 2.5 Questions initiales
 
 1. Vos parcs d'imprimantes supportent-ils SNMPv3 (la plupart des modèles professionnels récents, oui) et est-ce un besoin réel des clients ?

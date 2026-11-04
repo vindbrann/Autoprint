@@ -64,9 +64,9 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 | # | Type | Constat | Où | Repéré le |
 |---|---|---|---|---|
-| B25 | 🔧 | **Base SQLite dans le dossier du programme.** Avec le site sans privilège, SQLite doit pouvoir écrire ses fichiers temporaires (`-wal`, `-shm`) à côté de la base : l'installeur donne donc au pool le droit « Modification » sur `C:\Program Files\Autoprint Server` (installations SQLite uniquement). Proposition : déplacer la base dans `C:\ProgramData\Autoprint\Data` (avec migration du fichier existant). | Installeur (`HardenSensitiveFiles`), `Program.cs` | 04/11/2026 |
-| B26 | 💡 | Le tableau de bord pourrait afficher l'état du service `AutoprintSpooler` (comme il le fait pour le spouleur Windows), pour repérer tout de suite un service arrêté. | `DashboardController` | 04/11/2026 |
-| B27 | 💡 | Une opération du spouleur bloquée (WMI qui ne répond pas) bloque les suivantes dans le service, qui les exécute une par une. Ajouter un délai maximal par opération. | `Autoprint.SpoolerService` | 04/11/2026 |
+| B25 | ✅ | **Corrigé (phase B, 04/11/2026).** Nouvelles installations SQLite : base dans `C:\ProgramData\Autoprint\Data` (dossier réservé à SYSTEM, Administrateurs et au site). Mise à jour : la base (et ses fichiers -wal / -shm) est déplacée automatiquement, site arrêté pendant l'opération, sans jamais écraser une base existante. Le site n'a plus aucun droit d'écriture sur le dossier du programme. — *Constat initial :* **Base SQLite dans le dossier du programme.** Avec le site sans privilège, SQLite doit pouvoir écrire ses fichiers temporaires (`-wal`, `-shm`) à côté de la base : l'installeur donne donc au pool le droit « Modification » sur `C:\Program Files\Autoprint Server` (installations SQLite uniquement). Proposition : déplacer la base dans `C:\ProgramData\Autoprint\Data` (avec migration du fichier existant). | Installeur (`HardenSensitiveFiles`), `Program.cs` | 04/11/2026 |
+| B26 | ✅ | **Corrigé (phase B, 04/11/2026).** Tableau de bord › État du service : statut du service `AutoprintSpooler` (en mode « Service »), avec info-bulle si arrêté. — *Constat initial :* Le tableau de bord pourrait afficher l'état du service `AutoprintSpooler` (comme il le fait pour le spouleur Windows), pour repérer tout de suite un service arrêté. | `DashboardController` | 04/11/2026 |
+| B27 | ✅ | **Corrigé (phase B, 04/11/2026).** 60 s maximum par opération dans le service : au-delà, le site reçoit « Le spouleur Windows n'a pas répondu… » et les opérations suivantes ne sont plus bloquées. — *Constat initial :* Une opération du spouleur bloquée (WMI qui ne répond pas) bloque les suivantes dans le service, qui les exécute une par une. Ajouter un délai maximal par opération. | `Autoprint.SpoolerService` | 04/11/2026 |
 ---
 
 ## 🗓️ Plan de traitement (décidé le 04/11/2026)
@@ -86,3 +86,12 @@ Toutes les modifications sont faites avant la recette complète. Ordre : du moin
 |---|---|---|---|---|
 | B28 | 🔧 | Compilation de la solution complète parfois en échec (« Autoprint.Shared.dll introuvable ») : le MSI client lance un `dotnet publish` Release en parallèle de la compilation. Relancer la compilation suffit. Rendre l'étape de publication dépendante de la compilation de `Autoprint.Shared`. | `Autoprint.Client.Setup.wixproj` | 04/11/2026 |
 | B29 | 🔧 | `index.html` charge la feuille du thème Radzen en double (balise `<link id="theme">` + composant `<RadzenTheme>`). Sans effet visible. | `Autoprint.Web/wwwroot/index.html` | 04/11/2026 |
+
+## Repéré pendant la phase B
+
+| # | Type | Constat | Où | Repéré le |
+|---|---|---|---|---|
+| B30 | 🐞 | ✅ **Corrigé en phase B.** La modification d'une imprimante n'enregistrait pas la communauté, la version ni le port SNMP saisis dans la console (champs absents de la mise à jour). | `ImprimantesController.PutImprimante` | 04/11/2026 |
+| B31 | 🐞 | ✅ **Corrigé en phase B.** La sauvegarde ne contenait ni les paramètres SNMP des imprimantes ni le mode d'impression directe : perdus à la restauration. Ajoutés (communauté traitée comme un secret). Toujours absents : code, commentaire, partage activé ou non, statut de supervision. | `BackupController` | 04/11/2026 |
+| B32 | 🔐 | Communautés SNMP « ancien mode » (champ de l'imprimante, sans profil) toujours en clair en base et visibles dans la liste des imprimantes par tout utilisateur connecté. Recommandation : passer les imprimantes sur des profils d'identifiants (chiffrés, jamais réaffichés), puis supprimer ces champs. | `Imprimante.SnmpCommunity`, `ImprimantesController` | 04/11/2026 |
+| B33 | 💡 | Le diagnostic n'interroge pas l'imprimante en SNMP quand son modèle n'a pas de profil d'OID (« Aucun profil SNMP configuré ») : on ne peut alors pas vérifier les identifiants depuis la fiche. Utiliser le test de l'éditeur de profils d'OID en attendant. | `SnmpService.GetPrinterDiagnosticAsync` | 04/11/2026 |

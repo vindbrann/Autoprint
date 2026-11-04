@@ -53,8 +53,13 @@
                 <RadzenNumeric @bind-Value="@testRequest.Port" Style="width: 100%;" Placeholder="161" />
             </RadzenColumn>
             <RadzenColumn Size="6" SizeMD="2">
-                <RadzenLabel Text="Communauté" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
-                <RadzenTextBox @bind-Value="@testRequest.Community" Style="width: 100%;" Placeholder="public" />
+                <RadzenLabel Text="Identifiants" Style="font-weight: 600; font-size: 0.8rem; color: var(--rz-text-secondary-color);" />
+                <RadzenDropDown @bind-Value="@testRequest.CredentialId" Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
+                                AllowClear="true" Placeholder="Communauté…" Style="width: 100%;" />
+                @if (testRequest.CredentialId == null)
+                {
+                    <RadzenTextBox @bind-Value="@testRequest.Community" Style="width: 100%; margin-top: 4px;" Placeholder="public" />
+                }
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="@(imprimantesDuModele != null && imprimantesDuModele.Any() ? 2 : 2)">
                 <RadzenButton Text="Tester le profil" Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Variant="Variant.Filled" Size="ButtonSize.Medium" Click="@LancerTestDirect" IsBusy="@isTesting" BusyText="Test..." Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isScanning)" Style="width: 100%; font-weight: 600;" Tooltip="Interroge en temps réel tous les OIDs de la liste" />
@@ -191,8 +196,11 @@
     private bool canWrite = false;
     private bool canDelete = false;
 
+    private List<Autoprint.Shared.DTOs.SnmpCredentialViewDto> listeCredentials = new();
+
     protected override async Task OnInitializedAsync()
     {
+        try { listeCredentials = await Http.GetFromJsonAsync<List<Autoprint.Shared.DTOs.SnmpCredentialViewDto>>("api/SnmpCredentials") ?? new(); } catch { }
         canWrite = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_WRITE");
         canDelete = await AuthProvider.HasPermission("Permission", "SNMP_PROFILE_DELETE");
 
@@ -277,6 +285,8 @@
                 testRequest.Port = imp.SnmpPort > 0 ? imp.SnmpPort : 161;
                 testRequest.Community = !string.IsNullOrEmpty(imp.SnmpCommunity) ? imp.SnmpCommunity : "public";
                 testRequest.Version = imp.SnmpVersion > 0 ? imp.SnmpVersion : 2;
+                // Mêmes identifiants que la supervision : profil de l'imprimante, sinon celui de son modèle
+                testRequest.CredentialId = imp.SnmpCredentialId ?? imp.Modele?.SnmpCredentialId;
             }
         }
     }
@@ -458,7 +468,8 @@
             IpAddress = testRequest.IpAddress.Trim(),
             Port = testRequest.Port > 0 ? testRequest.Port : 161,
             Community = !string.IsNullOrWhiteSpace(testRequest.Community) ? testRequest.Community.Trim() : "public",
-            Version = testRequest.Version > 0 ? testRequest.Version : 2
+            Version = testRequest.Version > 0 ? testRequest.Version : 2,
+            CredentialId = testRequest.CredentialId
         };
 
         try
