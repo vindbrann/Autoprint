@@ -84,6 +84,41 @@ namespace Autoprint.Server.Data
                 }
                 catch { }
 
+                // Colonnes des migrations du 16/07/2026 (sans attribut [Migration], jamais appliquées par EF sur SQL Server)
+                // et colonnes de SnmpProfileItems absentes de la migration du 21/08/2026 (backlog B22). Scripts idempotents.
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF OBJECT_ID('ReportSchedules') IS NOT NULL
+                        BEGIN
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'IsActive')
+                                ALTER TABLE ReportSchedules ADD IsActive bit NOT NULL CONSTRAINT DF_ReportSchedules_IsActive DEFAULT 1;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'PredictionThresholdDays')
+                                ALTER TABLE ReportSchedules ADD PredictionThresholdDays int NOT NULL CONSTRAINT DF_ReportSchedules_PredictionThresholdDays DEFAULT 14;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'RunHour')
+                                ALTER TABLE ReportSchedules ADD RunHour int NOT NULL CONSTRAINT DF_ReportSchedules_RunHour DEFAULT 6;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'RunMinute')
+                                ALTER TABLE ReportSchedules ADD RunMinute int NOT NULL CONSTRAINT DF_ReportSchedules_RunMinute DEFAULT 0;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'RunDayOfWeek')
+                                ALTER TABLE ReportSchedules ADD RunDayOfWeek int NULL;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ReportSchedules') AND name = 'RunDayOfMonth')
+                                ALTER TABLE ReportSchedules ADD RunDayOfMonth int NULL;
+                        END
+
+                        IF OBJECT_ID('SnmpProfileItems') IS NOT NULL
+                        BEGIN
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('SnmpProfileItems') AND name = 'ModifiePar')
+                                ALTER TABLE SnmpProfileItems ADD ModifiePar nvarchar(100) NULL;
+                            IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('SnmpProfileItems') AND name = 'EstSupprime')
+                                ALTER TABLE SnmpProfileItems ADD EstSupprime bit NOT NULL CONSTRAINT DF_SnmpProfileItems_EstSupprime DEFAULT 0;
+                        END
+                    ");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DbInitializer] Mise à niveau du schéma SQL Server (ReportSchedules / SnmpProfileItems) en échec : {ex.Message}");
+                }
+
                 try
                 {
                     context.Database.ExecuteSqlRaw(@"
