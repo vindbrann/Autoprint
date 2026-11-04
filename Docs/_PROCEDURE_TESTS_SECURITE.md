@@ -12,7 +12,7 @@ Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur 
 
 | Élément | Détail |
 |---|---|
-| Serveur | Windows Server avec IIS, SQL Server (⚠️ backlog B22 : sur SQL Server neuf, rapports / sauvegarde / profils SNMP en erreur tant que B22 n'est pas corrigé ; SQLite neuf : backlog B1), Autoprint Server installé via l'installeur, site en **HTTPS** avec le nom public (ex. `autoprint.maboite.fr`). |
+| Serveur | Windows Server avec IIS, SQL Server (SQLite neuf : backlog B1), Autoprint Server installé via l'installeur, site en **HTTPS** avec le nom public (ex. `autoprint.maboite.fr`). |
 | Poste client | Windows 10/11 **hors domaine**, client installé via le MSI (`PRINTSERVER` + `APIKEY`). |
 | Active Directory | Un domaine de test avec : un compte de service (lecture annuaire), un groupe `GG_Autoprint_Admins`, un groupe `GG_Autoprint_Lecteurs`, deux utilisateurs `ad.user1` (membre de `GG_Autoprint_Lecteurs`) et `ad.user2` (aucun groupe). |
 | Navigateur | Un navigateur récent avec les outils de développement (F12) pour lire les codes HTTP. |
@@ -49,6 +49,7 @@ Le champ `token` de la réponse s'utilise ensuite avec l'en-tête `Authorization
 | NR-07 | Générer le même rapport au format **CSV**. | CSV lisible dans Excel. | ☐ |
 | NR-08 | Exporter une sauvegarde puis la restaurer. | Restauration sans erreur. | ☐ |
 | NR-09 | Export supervision API (`/api/v1/Monitoring/export` avec un jeton d'intégration). | Réponse JSON correcte. | ☐ |
+| NR-10 | **SQL Server** : après une installation neuve **et** après la mise à jour d'un serveur existant, créer un rapport planifié hebdomadaire (heure, minute, jour), ouvrir Profils SNMP, exporter puis restaurer une sauvegarde. | Aucune erreur « Invalid column name » ; l'heure, le jour et le seuil de prévision du rapport sont conservés (correctif B22). | ☐ |
 
 ---
 
@@ -294,3 +295,4 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | 04/11/2026 | Phase 1 | Création : non-régression générale, tests P1-01 à P1-46. |
 | 04/11/2026 | Phase 2 | Ajout des tests P2-01 à P2-44 (en-têtes, mots de passe, erreurs, sessions, clé agent, service Windows, divers). |
 | 04/11/2026 | Phase 3 | Ajout des tests P3-01 à P3-25 (chiffrement des secrets, sauvegarde, droits NTFS, SMTP, contrôles GitHub). |
+| 04/11/2026 | Correctif B22 | Ajout du test NR-10 (schéma SQL Server : rapports planifiés, profils SNMP, sauvegarde). |
