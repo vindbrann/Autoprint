@@ -19,6 +19,13 @@ namespace Autoprint.Server.Services
         Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
     }
 
+    /// <summary>L'annuaire n'a pas pu être interrogé pendant la connexion d'un utilisateur AD.</summary>
+    public class DirectoryUnavailableException : Exception
+    {
+        public DirectoryUnavailableException(Exception inner)
+            : base("Annuaire Active Directory injoignable : vos droits ne peuvent pas être vérifiés. Réessayez dans quelques minutes.", inner) { }
+    }
+
     public class AuthService : IAuthService
     {
         private readonly ApplicationDbContext _context;
@@ -341,6 +348,8 @@ namespace Autoprint.Server.Services
 
                 SearchResult? userResult = searcher.FindOne();
 
+                // Compte hors de la base de recherche (Base DN) : aucun groupe vérifiable, les rôles AD de groupe sont retirés
+                var adGroupNames = new List<string>();
                 if (userResult != null)
                 {
                     string userDn = userResult.Properties["distinguishedName"][0].ToString()!;
@@ -350,8 +359,6 @@ namespace Autoprint.Server.Services
                     groupSearcher.PropertiesToLoad.Add("sAMAccountName");
                     groupSearcher.PageSize = 1000;
 
-                    var adGroupNames = new List<string>();
-
                     foreach (SearchResult groupRes in groupSearcher.FindAll())
                     {
                         if (groupRes.Properties["sAMAccountName"].Count > 0)
@@ -359,7 +366,9 @@ namespace Autoprint.Server.Services
                             adGroupNames.Add(groupRes.Properties["sAMAccountName"][0].ToString()!);
                         }
                     }
+                }
 
+                {
                     var allMappings = await _context.AdRoleMappings.ToListAsync();
                     var applicableMappings = new List<AdRoleMapping>();
 
@@ -399,9 +408,12 @@ namespace Autoprint.Server.Services
                     await _context.SaveChangesAsync();
                 }
             }
-            catch (Exception ex)
+            catch (System.Runtime.InteropServices.COMException ex) // inclut DirectoryServicesCOMException (serveur LDAP injoignable, délai dépassé…)
             {
+                // Annuaire injoignable : impossible de vérifier les groupes, donc de savoir si des droits ont été retirés.
+                // La connexion est refusée plutôt que d'accorder des rôles peut-être révoqués (backlog B13).
                 Console.WriteLine($"[AD-SYNC-ERROR] {ex.Message}");
+                throw new DirectoryUnavailableException(ex);
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Autoprint.Shared.Enums;
 
@@ -34,6 +34,7 @@ namespace Autoprint.Server.Models.Security
 
         public void RenewSecurityStamp() => SecurityStamp = Guid.NewGuid().ToString("N");
 
+        // « Mot de passe oublié » (backlog B5) : contient l'empreinte SHA-256 du jeton envoyé par e-mail, jamais le jeton lui-même
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpires { get; set; }
     }
