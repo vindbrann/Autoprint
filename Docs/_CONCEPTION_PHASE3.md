@@ -84,7 +84,15 @@ La supervision des imprimantes utilise SNMP v1 / v2c : la « communauté » circ
 * Pour passer une imprimante en v3, il faut d'abord configurer l'utilisateur SNMPv3 **sur l'imprimante** (serveur web embarqué du fabricant), puis dans Autoprint.
 * Le scan réseau de découverte reste en v1 / v2c (il interroge des adresses inconnues).
 
-### 2.4 Décisions à prendre
+### 2.4 Décision (04/11/2026)
+
+* **Profils d'identifiants SNMP** réutilisables (communauté v1 / v2c ou identifiants v3), secrets chiffrés en base.
+* Un profil est rattaché au **modèle d'imprimante** : toutes les imprimantes du modèle l'utilisent par défaut.
+* Chaque **imprimante** peut choisir un autre profil (cas particuliers).
+* Sans profil (installations existantes), les champs « communauté / version » actuels de l'imprimante continuent de s'appliquer.
+* Réalisation : phase B, branche `feature/serveur-sans-localsystem`.
+
+### 2.5 Questions initiales
 
 1. Vos parcs d'imprimantes supportent-ils SNMPv3 (la plupart des modèles professionnels récents, oui) et est-ce un besoin réel des clients ?
 2. Profils d'identifiants partagés (recommandé) ou identifiants par imprimante ?

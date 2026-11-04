@@ -91,6 +91,16 @@ else
                     }
                 </RadzenColumn>
 
+                @if (!editMode)
+                {
+                    <RadzenColumn Size="12">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenCheckBox @bind-Value="@formData.ForceChangePassword" Name="ForceChangeNew" />
+                            <RadzenLabel Text="Changement du mot de passe obligatoire à la première connexion" Component="ForceChangeNew" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                }
+
                 @if (editMode)
                 {
                     <RadzenColumn Size="12" SizeMD="6">
@@ -138,7 +148,7 @@ else
         public string Password { get; set; } = "";
         public int RoleId { get; set; }
         public bool IsActive { get; set; } = true;
-        public bool ForceChangePassword { get; set; }
+        public bool ForceChangePassword { get; set; } = true;
     }
 
     private UserFormData formData = new();
@@ -169,6 +179,8 @@ else
                     DisplayName = UserToEdit.DisplayName,
                     Email = UserToEdit.Email,
                     IsActive = UserToEdit.IsActive,
+                    // Valeur réelle du compte (avant : toujours décochée, donc effacée à chaque enregistrement)
+                    ForceChangePassword = UserToEdit.ForceChangePassword,
                     RoleId = GetRoleIdFromNames(UserToEdit.Roles)
                 };
             }
@@ -250,7 +262,8 @@ else
                     DisplayName = formData.DisplayName,
                     Email = formData.Email,
                     Password = formData.Password,
-                    RoleId = formData.RoleId
+                    RoleId = formData.RoleId,
+                    ForceChangePassword = formData.ForceChangePassword
                 };
                 await UserService.CreateUser(createDto);
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Utilisateur créé.");

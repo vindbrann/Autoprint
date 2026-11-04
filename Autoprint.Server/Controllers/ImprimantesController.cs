@@ -148,7 +148,7 @@ namespace Autoprint.Server.Controllers
         [Authorize]
         public async Task<IActionResult> PutImprimante(int id, Imprimante inputImprimante)
         {
-            if (id != inputImprimante.Id) return BadRequest("ID incohÃ©rent.");
+            if (id != inputImprimante.Id) return BadRequest("ID incohérent.");
 
             var dbImprimante = await _context.Imprimantes.FindAsync(id);
             if (dbImprimante == null) return NotFound();
@@ -181,7 +181,7 @@ namespace Autoprint.Server.Controllers
                 if (nameError != null) return BadRequest(nameError);
             }
 
-            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("ModÃ¨le introuvable.");
+            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("Modèle introuvable.");
             if (!await _context.Emplacements.AnyAsync(e => e.Id == inputImprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
 
             if (dbImprimante.Status == PrinterStatus.Synchronized || dbImprimante.Status == PrinterStatus.SyncError)

@@ -59,26 +59,38 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> ImportPrinters([FromBody] List<ImportPrinterSelectionDto> selection)
         {
             int count = 0;
-            var defaultLieuId = 1;
-            var defaultModeleId = 1;
+            int skipped = 0;
 
-            if (!await _context.Emplacements.AnyAsync(e => e.Id == 1)) defaultLieuId = (await _context.Emplacements.FirstOrDefaultAsync())?.Id ?? 0;
-            if (!await _context.Modeles.AnyAsync(m => m.Id == 1)) defaultModeleId = (await _context.Modeles.FirstOrDefaultAsync())?.Id ?? 0;
+            // Lieu / modèle choisis vérifiés ; à défaut, le premier existant (l'imprimante est marquée « à corriger »)
+            var lieuIds = (await _context.Emplacements.Select(e => e.Id).ToListAsync()).ToHashSet();
+            var modeleIds = (await _context.Modeles.Select(m => m.Id).ToListAsync()).ToHashSet();
+            if (lieuIds.Count == 0 || modeleIds.Count == 0)
+                return BadRequest("Créez au moins un lieu et un modèle avant d'importer des imprimantes.");
+
+            int defaultLieuId = lieuIds.Contains(1) ? 1 : lieuIds.Min();
+            int defaultModeleId = modeleIds.Contains(1) ? 1 : modeleIds.Min();
 
             foreach (var item in selection)
             {
-                if (await _context.Imprimantes.AnyAsync(p => p.NomAffiche == item.Name)) continue;
+                if (string.IsNullOrWhiteSpace(item.Name) || await _context.Imprimantes.AnyAsync(p => p.NomAffiche == item.Name))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                bool modeleOk = modeleIds.Contains(item.SelectedModeleId);
+                bool lieuOk = lieuIds.Contains(item.SelectedLieuId);
 
                 var nouvelleImp = new Imprimante
                 {
                     NomAffiche = item.Name,
-                    AdresseIp = item.PortName,
                     EstPartagee = item.IsShared,
                     NomPartage = item.ShareName,
-                    ModeleId = item.SelectedModeleId > 0 ? item.SelectedModeleId : defaultModeleId,
-                    EmplacementId = item.SelectedLieuId > 0 ? item.SelectedLieuId : defaultLieuId,
+                    AdresseIp = item.PortName ?? string.Empty,
+                    ModeleId = modeleOk ? item.SelectedModeleId : defaultModeleId,
+                    EmplacementId = lieuOk ? item.SelectedLieuId : defaultLieuId,
                     IsDirectPrintingEnabled = item.IsDirectPrintingEnabled,
-                    Status = (item.SelectedModeleId > 0 && item.SelectedLieuId > 0)
+                    Status = (modeleOk && lieuOk)
                              ? PrinterStatus.PendingCreation
                              : PrinterStatus.ImportedNeedsFix
                 };
@@ -100,7 +112,9 @@ namespace Autoprint.Server.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { Message = $"{count} imprimantes importées avec succès." });
+            return Ok(new { Message = skipped > 0
+                ? $"{count} imprimante(s) importée(s), {skipped} ignorée(s) (déjà présentes ou sans nom)."
+                : $"{count} imprimante(s) importée(s) avec succès." });
         }
 
 

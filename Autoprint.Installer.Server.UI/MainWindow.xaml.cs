@@ -24,6 +24,8 @@ namespace Autoprint.Installer.Server.UI
         private readonly PrerequisiteService _prereqService;
         private bool _prereqsValidated = false;
         private bool _isUpgrade = false;
+        // Mise à jour d'une version antérieure à 26.11 : « AllowedHosts » vaut encore « * » (backlog B17)
+        private bool _needsPublicHost = false;
         private int _existingPort = 0;
 
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
@@ -69,6 +71,16 @@ namespace Autoprint.Installer.Server.UI
         {
             if (!ValidateCurrentStep()) return;
 
+            if (_currentStep == 3 && _isUpgrade && _needsPublicHost)
+            {
+                // Seul le nom public est demandé : le port du site existant est conservé
+                if (_existingPort > 0) TxtWebPort.Text = _existingPort.ToString();
+                TxtWebPort.IsEnabled = false;
+                _currentStep = 5;
+                UpdateView();
+                return;
+            }
+
             if (_currentStep == 3 && _isUpgrade)
             {
                 _currentStep = 6;
@@ -98,6 +110,8 @@ namespace Autoprint.Installer.Server.UI
 
         private void BtnPrev_Click(object sender, RoutedEventArgs e)
         {
+            // En mise à jour, l'écran SQL (étape 4) n'est pas proposé
+            if (_isUpgrade && _currentStep == 5) { _currentStep = 3; UpdateView(); return; }
             if (_currentStep > 1) { _currentStep--; UpdateView(); }
         }
 
@@ -324,6 +338,8 @@ namespace Autoprint.Installer.Server.UI
                         TxtInstallLog.Text += $"\n[Erreur] Echec de la fusion : {ex.Message}";
                         await File.WriteAllTextAsync(configPath, oldJsonContent);
                     }
+
+                    if (_needsPublicHost) await ApplyPublicHost(configPath);
                 }
                 else if (!_isUpgrade)
                 {
@@ -638,6 +654,9 @@ namespace Autoprint.Installer.Server.UI
                 {
                     string json = File.ReadAllText(configPath);
                     using var doc = JsonDocument.Parse(json);
+                    string allowedHosts = doc.RootElement.TryGetProperty("AllowedHosts", out var hostsElement) ? hostsElement.GetString() ?? "" : "";
+                    _needsPublicHost = string.IsNullOrWhiteSpace(allowedHosts) || allowedHosts.Trim() == "*";
+
                     if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
                     {
                         string url = urlElement.GetString() ?? "";
@@ -654,6 +673,14 @@ namespace Autoprint.Installer.Server.UI
             {
                 _isUpgrade = false;
             }
+        }
+
+        // Mise à jour : « AllowedHosts » passe de « * » au nom public saisi (+ localhost)
+        private async Task ApplyPublicHost(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            root["AllowedHosts"] = $"{TxtPublicHost.Text.Trim()};localhost";
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
         private void UpdateUiForUpgrade()
