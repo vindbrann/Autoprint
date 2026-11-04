@@ -2,11 +2,25 @@ using Autoprint.Shared.Enums;
 
 namespace Autoprint.Shared.DTOs
 {
+    public class BackupExportRequestDto
+    {
+        // Facultatif : sans mot de passe, les secrets sont exclus du fichier
+        public string? SecretsPassword { get; set; }
+    }
+
     public class BackupRootDto
     {
         public string Version { get; set; } = "1.0";
         public DateTime CreatedAt { get; set; }
         public string CreatedBy { get; set; } = "";
+
+        // true : les secrets (mots de passe AD / SMTP, clé agent) sont chiffrés avec le mot de passe choisi à l'export.
+        // false : ils ne sont pas dans le fichier (les valeurs du serveur sont conservées à la restauration).
+        public bool SecretsProtected { get; set; }
+
+        // Renseigné uniquement dans la requête de restauration, jamais écrit dans le fichier
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public string? SecretsPassword { get; set; }
 
         public List<BackupMarqueDto> Marques { get; set; } = new();
         public List<BackupModeleDto> Modeles { get; set; } = new();

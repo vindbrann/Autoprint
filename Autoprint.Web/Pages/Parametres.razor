@@ -74,6 +74,13 @@ else
                                             <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sauvegarde</RadzenText>
                                         </RadzenStack>
                                         <RadzenText TextStyle="TextStyle.Body2">Exportez la configuration complète au format JSON.</RadzenText>
+                                        <RadzenStack Gap="0.25rem">
+                                            <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" Style="font-size: 0.85rem; font-weight: 600;" />
+                                            <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                                Avec un mot de passe, les mots de passe AD / SMTP et la clé agent sont inclus chiffrés. Sans mot de passe, ils sont exclus du fichier.
+                                            </RadzenText>
+                                        </RadzenStack>
                                         <RadzenButton Text="Télécharger le fichier" Icon="download" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Click="@DownloadBackup" Class="rz-mt-auto" />
                                     </RadzenStack>
                                 </RadzenCard>
@@ -103,6 +110,14 @@ else
                                             <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
                                                 <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
                                                     <div><strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())</div>
+                                                    @if (uploadedBackup.SecretsProtected)
+                                                    {
+                                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="font-size: 0.8rem;">Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP et la clé agent actuels seront conservés.</div>
+                                                    }
                                                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                                                         <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
                                                         <RadzenButton Text="Ecraser" Size="ButtonSize.ExtraSmall" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
@@ -151,6 +166,12 @@ else
                                         <RadzenLabel Text="Activer SSL / TLS" Class="rz-ml-2" />
                                     </RadzenColumn>
                                 </RadzenRow>
+                                @if (!model.SmtpEnableSsl)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false" Class="rz-mt-2">
+                                        Sans TLS, le mot de passe SMTP et le contenu des rapports circulent en clair sur le réseau. À réserver à un relais interne de confiance.
+                                    </RadzenAlert>
+                                }
                             </RadzenFieldset>
                         </RadzenColumn>
 
@@ -809,14 +830,25 @@ else
         finally { sauvegardeEnCours = false; }
     }
 
+    private string? backupSecretsPassword;
+    private string? restoreSecretsPassword;
+
     private async Task DownloadBackup()
     {
-        // Avertissement avant export (audit #9) : le fichier contient des secrets en clair tant qu'ils ne sont pas chiffrés
+        bool withSecrets = !string.IsNullOrEmpty(backupSecretsPassword);
+        if (withSecrets && backupSecretsPassword!.Length < PasswordPolicy.MinLength)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Mot de passe trop court", $"Le mot de passe de protection doit faire au moins {PasswordPolicy.MinLength} caractères.");
+            return;
+        }
+
+        // Avertissement avant export (audit #9)
         var confirmed = await DialogService.Confirm(
-            "Ce fichier de sauvegarde contient des données sensibles EN CLAIR : mot de passe du compte de service Active Directory, " +
-            "mot de passe SMTP, clé d'API agent, ainsi que les empreintes des mots de passe des comptes locaux. " +
-            "Conservez-le dans un emplacement protégé (accès réservé aux administrateurs), ne l'envoyez pas par e-mail " +
-            "et supprimez les copies inutiles. Continuer ?",
+            (withSecrets
+                ? "Les mots de passe AD / SMTP et la clé d'API agent seront inclus, CHIFFRÉS avec votre mot de passe de protection : sans lui, ils ne pourront pas être restaurés. "
+                : "Les mots de passe AD / SMTP et la clé d'API agent ne seront PAS inclus : après une restauration sur un autre serveur, il faudra les ressaisir. ") +
+            "Le fichier contient aussi les empreintes des mots de passe des comptes locaux et toute la configuration : " +
+            "conservez-le dans un emplacement protégé (accès réservé aux administrateurs) et ne l'envoyez pas par e-mail. Continuer ?",
             "Sauvegarde : données sensibles",
             new ConfirmOptions { OkButtonText = "J'ai compris, télécharger", CancelButtonText = "Annuler" });
         if (confirmed != true) return;
@@ -825,7 +857,7 @@ else
         {
             NotificationService.Notify(NotificationSeverity.Info, "Export", "Préparation du téléchargement...");
 
-            var response = await Http.GetAsync("api/Backup/export");
+            var response = await Http.PostAsJsonAsync("api/Backup/export", new Autoprint.Shared.DTOs.BackupExportRequestDto { SecretsPassword = withSecrets ? backupSecretsPassword : null });
 
             if (response.IsSuccessStatusCode)
             {
@@ -866,6 +898,7 @@ else
             isRestoring = true;
             try
             {
+                uploadedBackup.SecretsPassword = uploadedBackup.SecretsProtected ? restoreSecretsPassword : null;
                 var res = await Http.PostAsJsonAsync("api/Backup/restore", uploadedBackup);
                 if (res.IsSuccessStatusCode)
                 {

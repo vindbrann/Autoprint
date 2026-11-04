@@ -19,12 +19,14 @@ namespace Autoprint.Server.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
         private readonly AuditService _auditService;
+        private readonly SecretProtector _secrets;
 
-        public SettingsController(ApplicationDbContext context, IEmailService emailService, AuditService auditService)
+        public SettingsController(ApplicationDbContext context, IEmailService emailService, AuditService auditService, SecretProtector secrets)
         {
             _context = context;
             _emailService = emailService;
             _auditService = auditService;
+            _secrets = secrets;
         }
 
         [HttpGet]
@@ -55,7 +57,7 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> RevealAgentKey()
         {
-            var key = await _context.ServerSettings.Where(s => s.Key == "AgentApiKey").Select(s => s.Value).FirstOrDefaultAsync();
+            var key = _secrets.Unprotect(await _context.ServerSettings.Where(s => s.Key == "AgentApiKey").Select(s => s.Value).FirstOrDefaultAsync());
             if (string.IsNullOrEmpty(key)) return NotFound("Clé agent absente.");
 
             _auditService.LogAction("AGENT_KEY_REVEAL", "Consultation de la clé d'API agent", User.Identity?.Name, "WARNING", resourceName: "AgentApiKey");
@@ -179,6 +181,9 @@ namespace Autoprint.Server.Controllers
 
         private async Task UpdateSetting(string key, string value)
         {
+            // Les secrets sont stockés chiffrés (audit #9)
+            if (SecretProtector.IsSecret(key)) value = _secrets.Protect(value);
+
             var setting = await _context.ServerSettings.FindAsync(key);
             if (setting != null)
                 setting.Value = value ?? "";
@@ -192,7 +197,16 @@ namespace Autoprint.Server.Controllers
         {
             try
             {
-                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, dto.Password, dto.Ssl, dto.From, dto.To);
+                // Mot de passe laissé masqué : on réutilise celui enregistré, uniquement vers le serveur SMTP enregistré
+                string password = dto.Password;
+                if (IsEmptyOrMasked(password))
+                {
+                    var savedHost = _context.ServerSettings.Find("SmtpHost")?.Value;
+                    if (!string.IsNullOrWhiteSpace(savedHost) && !string.Equals(savedHost.Trim(), dto.Host?.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return BadRequest("Pour tester un autre serveur SMTP que celui enregistré, saisissez son mot de passe.");
+                    password = _secrets.Unprotect(_context.ServerSettings.Find("SmtpPass")?.Value);
+                }
+                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
                 return Ok(new { Message = "Connexion SMTP réussie !" });
             }
             catch (Exception ex) { return BadRequest("Echec du test SMTP : " + ex.Message); }
@@ -213,7 +227,7 @@ namespace Autoprint.Server.Controllers
                 if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
-                    if (saved != null) finalPass = saved.Value;
+                    if (saved != null) finalPass = _secrets.Unprotect(saved.Value);
                 }
 
                 string finalUser = dto.ServiceUser;
@@ -252,7 +266,7 @@ namespace Autoprint.Server.Controllers
                 if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
-                    if (saved != null) finalPass = saved.Value;
+                    if (saved != null) finalPass = _secrets.Unprotect(saved.Value);
                 }
 
                 string ldapPath = string.IsNullOrEmpty(dto.BaseDn) ? $"LDAP://{dto.Domain}" : $"LDAP://{dto.Domain}/{dto.BaseDn}";

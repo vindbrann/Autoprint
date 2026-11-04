@@ -1,3 +1,4 @@
+using Autoprint.Server.Services;
 using Autoprint.Server.Helpers;
 using System.Text;
 using System.Text.Json;
@@ -18,15 +19,22 @@ namespace Autoprint.Server.Controllers
     public class BackupController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly SecretProtector _secrets;
 
-        public BackupController(ApplicationDbContext context)
+        public BackupController(ApplicationDbContext context, SecretProtector secrets)
         {
             _context = context;
+            _secrets = secrets;
         }
 
-        [HttpGet("export")]
-        public async Task<IActionResult> Export()
+        // POST : le mot de passe de protection ne doit jamais apparaître dans une URL
+        [HttpPost("export")]
+        public async Task<IActionResult> Export([FromBody] BackupExportRequestDto? request)
         {
+            var secretsPassword = request?.SecretsPassword;
+            if (!string.IsNullOrEmpty(secretsPassword) && secretsPassword.Length < PasswordPolicy.MinLength)
+                return BadRequest($"Le mot de passe de protection doit faire au moins {PasswordPolicy.MinLength} caractères.");
+
             var backup = new BackupRootDto
             {
                 CreatedAt = DateTime.UtcNow,
@@ -149,7 +157,16 @@ namespace Autoprint.Server.Controllers
                     ForceChangePassword = x.ForceChangePassword
                 }).ToListAsync(),
 
-                Settings = await _context.ServerSettings.Select(x => new BackupSettingDto { Key = x.Key, Value = x.Value, Type = x.Type }).ToListAsync(),
+                Settings = (await _context.ServerSettings.AsNoTracking().ToListAsync()).Select(x => new BackupSettingDto
+                {
+                    Key = x.Key,
+                    Type = x.Type,
+                    // Secrets : rechiffrés avec le mot de passe de la sauvegarde, ou exclus (audit #9)
+                    Value = !SecretProtector.IsSecret(x.Key) ? x.Value
+                          : string.IsNullOrEmpty(secretsPassword) || string.IsNullOrEmpty(x.Value) ? ""
+                          : SecretProtector.ProtectForBackup(_secrets.Unprotect(x.Value), secretsPassword)
+                }).ToList(),
+                SecretsProtected = !string.IsNullOrEmpty(secretsPassword),
 
                 AdMappings = await _context.AdRoleMappings.Select(x => new BackupAdMappingDto { Identifier = x.AdIdentifier, Type = (int)x.MappingType, RoleId = x.RoleId }).ToListAsync()
             };
@@ -162,6 +179,36 @@ namespace Autoprint.Server.Controllers
         [HttpPost("restore")]
         public async Task<IActionResult> Restore([FromBody] BackupRootDto backup)
         {
+            // Secrets : déchiffrés AVANT toute suppression, pour qu'un mauvais mot de passe ne laisse pas la base à moitié vidée
+            var currentSecrets = await _context.ServerSettings.AsNoTracking()
+                .Where(s => SecretProtector.SecretKeys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+            var restoredSecrets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in backup.Settings.Where(s => SecretProtector.IsSecret(s.Key)))
+            {
+                if (string.IsNullOrEmpty(s.Value))
+                {
+                    restoredSecrets[s.Key] = currentSecrets.GetValueOrDefault(s.Key) ?? ""; // absent du fichier : on garde la valeur du serveur
+                }
+                else if (SecretProtector.IsBackupProtected(s.Value))
+                {
+                    if (string.IsNullOrEmpty(backup.SecretsPassword))
+                        return BadRequest("Cette sauvegarde contient des secrets protégés : saisissez son mot de passe de protection.");
+                    try
+                    {
+                        restoredSecrets[s.Key] = _secrets.Protect(SecretProtector.UnprotectFromBackup(s.Value, backup.SecretsPassword));
+                    }
+                    catch (System.Security.Cryptography.CryptographicException)
+                    {
+                        return BadRequest("Mot de passe de protection de la sauvegarde incorrect. Aucune donnée n'a été modifiée.");
+                    }
+                }
+                else
+                {
+                    restoredSecrets[s.Key] = _secrets.Protect(s.Value); // ancienne sauvegarde : secret en clair
+                }
+            }
+
             // Sauvegardes antérieures sans hachage : on conserve le mot de passe actuel des comptes locaux de même nom
             var currentHashes = await _context.Users.AsNoTracking()
                 .Where(u => !u.IsAdUser && u.PasswordHash != null)
@@ -369,7 +416,14 @@ namespace Autoprint.Server.Controllers
 
                 foreach (var s in backup.Settings)
                 {
-                    _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = s.Value, Type = s.Type });
+                    var value = SecretProtector.IsSecret(s.Key) ? restoredSecrets.GetValueOrDefault(s.Key, "") : s.Value;
+                    _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = value, Type = s.Type });
+                }
+
+                // Secret absent du fichier : on garde celui du serveur (sinon la clé agent serait régénérée et tous les postes rejetés)
+                foreach (var kv in currentSecrets.Where(kv => !backup.Settings.Any(s => string.Equals(s.Key, kv.Key, StringComparison.OrdinalIgnoreCase))))
+                {
+                    _context.ServerSettings.Add(new ServerSetting { Key = kv.Key, Value = kv.Value, Type = "PASSWORD" });
                 }
 
                 _context.AdRoleMappings.AddRange(backup.AdMappings.Select(x => new AdRoleMapping

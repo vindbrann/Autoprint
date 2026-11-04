@@ -34,6 +34,7 @@
 | 14 | 🟡 Moyen | Protocoles en clair par défaut : SMTP sans TLS, SNMP v1/v2c uniquement | `EmailService`, `SnmpService` | Écoute réseau | **SMTP :** TLS coché par défaut pour les **nouvelles** installations, avec un avertissement si on le décoche. Les relais internes sans TLS (port 25) restent possibles, donc pas de rupture. **SNMPv3 :** nouvelle fonctionnalité (champs utilisateur, authentification et chiffrement dans les profils), facultative ; v1/v2c restent disponibles pour les imprimantes qui n'ont que ça. | 🟡 |
 | 15 | 🟡 Moyen | Fuite de messages d'exception internes vers le client (10 endroits) | Contrôleurs | Variable | Les messages d'erreur de la console seraient moins précis (« Erreur interne, réf. XXXX »), avec le détail dans les logs du serveur. Exception : les boutons de test SMTP/AD (réservés aux admins) garderaient un message de diagnostic utile. | 🟡 |
 | 18 | 🟡 Moyen | Les tests AD réutilisent le mot de passe AD enregistré vers un domaine saisi librement (exfiltration du secret masqué) ; filtre de test LDAP non échappé | `SettingsController.TestAd` / `TestAdFilter` | `SETTINGS_MANAGE` | Tester sans ressaisir le mot de passe ne marcherait que sur le domaine enregistré. Pour tester un **autre** domaine, il faudrait taper le mot de passe. Le champ « utilisateur test » ne pourrait plus contenir de caractères spéciaux LDAP (`*`, `(`, `)`) : une recherche avec joker comme `jdu*` ne serait plus interprétée comme telle. | 🟢 |
+| 19 | 🟠 Élevé | **NETWORK SERVICE dispose du droit « Modification » sur tout le dossier du serveur** (DLL chargées en SYSTEM par le pool IIS) : tout service tournant sous ce compte peut remplacer une DLL et exécuter du code en SYSTEM | Installeur serveur (`ConfigureNtfsPermissions`) | Code exécuté en NETWORK SERVICE sur le serveur | Rien de visible : le pool IIS tourne en `LocalSystem`, ce droit ne servait pas. Corrigé en phase 3. | 🟢 |
 | 16 | 🔵 Faible | Code du service Windows `SYSTEM` vulnérable (LPE) encore présent dans la solution | `Autoprint.Service` | Utilisateur standard (si réinstallé) | Rien : le service n'est plus déployé depuis la 26.08.24.2. On supprime le projet de la solution, on corrige la doc et on nettoie aussi l'ancien nom `AutoprintService` à l'installation du MSI. | 🟢 |
 | 17 | 🔵 Faible | Divers durcissements (voir détail) | Multiples | — | Surtout transparent. Deux effets visibles et positifs : le bouton de purge de l'audit deviendrait réellement utilisable, et une restauration ne laisserait plus les comptes locaux sans mot de passe. | 🟢 |
 
@@ -249,6 +250,18 @@ Résultat de `dotnet list package --vulnerable --include-transitive` :
 | 16 | ✅ Fait : projet `Autoprint.Service` et types IPC supprimés, MSI client supprime aussi `AutoprintService`, README / PROJECT_CONTEXT / PROJECT_MAP corrigés. | Compilé (MSI compris). |
 | 17 | ✅ Fait : `rundll32` en chemin absolu, purge d'audit utilisable (`ADMIN_ACCESS`), hachage plus renvoyé à la création, anciens hachages SHA-256 comparés en temps constant puis changement imposé, sauvegarde/restauration des hachages et de l'origine des rôles, clé API plus journalisée par le client. | Compilé. |
 | 9 | 🟡 Partiel : **avertissement obligatoire avant chaque export** de sauvegarde (contenu sensible, consignes de stockage). Le chiffrement des secrets (base et sauvegarde) et les ACL de l'installeur restent en phase 3. | Compilé. |
+
+---
+
+## ✅ Avancement de la phase 3 (branche `security/phase-1`)
+
+| # | État | Vérification |
+|---|---|---|
+| 9 | ✅ Fait : secrets (`AdServicePassword`, `SmtpPass`, `AgentApiKey`) chiffrés en base (Data Protection, clés dans `C:\ProgramData\Autoprint\Keys` protégées par DPAPI machine) avec migration automatique des valeurs en clair ; sauvegarde : secrets rechiffrés avec un mot de passe choisi à l'export (AES-GCM, PBKDF2 210 000 itérations) ou exclus ; restauration validée **avant** toute suppression ; installeur : `appsettings.json`, `Autoprint.db` et dossier des clés réservés à SYSTEM + Administrateurs. Au passage : le test SMTP envoyait `●●●●●●●●` comme mot de passe (corrigé, avec la même règle que les tests AD). | Installation neuve : secrets en `enc:v1:` ; 11 scénarios export / restauration vérifiés (mauvais mot de passe sans perte de données, ancienne sauvegarde, sauvegarde sans secrets). Droits NTFS : compilé, **non testé** (nécessite l'installeur). |
+| 19 | ✅ Fait : le droit « Modification » de NETWORK SERVICE est retiré (y compris en mise à jour). | Compilé, **non testé** (installeur). |
+| 14 | 🟡 Partiel : TLS SMTP activé par défaut sur les installations neuves (configurations existantes inchangées) + avertissement si désactivé. **SNMPv3 : conception à valider** (`_CONCEPTION_PHASE3.md`). | Installation neuve : `SmtpEnableSsl = true`. |
+| 8 | 📝 **Conception à valider** avant développement (`_CONCEPTION_PHASE3.md`). | — |
+| CI | ✅ Fait : `dependabot.yml` (NuGet hebdomadaire groupé, GitHub Actions mensuel) et workflow « Contrôles de sécurité » (compilation + dépendances vulnérables, à chaque push / PR et chaque lundi). CodeQL reste en configuration par défaut GitHub. | **Non testé** (s'exécute après push). |
 
 ---
 

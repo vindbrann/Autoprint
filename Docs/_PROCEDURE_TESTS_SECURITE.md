@@ -2,7 +2,7 @@
 
 Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur une installation complète. Elle est mise à jour à chaque modification ; chaque test indique la phase et le point de l'audit (`_AUDIT_SECURITE_2026-11.md`) qu'il couvre.
 
-**Dernière mise à jour :** 04/11/2026 — Phase 2
+**Dernière mise à jour :** 04/11/2026 — Phase 3
 
 ---
 
@@ -12,7 +12,7 @@ Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur 
 
 | Élément | Détail |
 |---|---|
-| Serveur | Windows Server avec IIS, SQL Server (ou SQLite — cf. backlog B1 : installation neuve SQLite actuellement cassée), Autoprint Server installé via l'installeur, site en **HTTPS** avec le nom public (ex. `autoprint.maboite.fr`). |
+| Serveur | Windows Server avec IIS, SQL Server (⚠️ backlog B22 : sur SQL Server neuf, rapports / sauvegarde / profils SNMP en erreur tant que B22 n'est pas corrigé ; SQLite neuf : backlog B1), Autoprint Server installé via l'installeur, site en **HTTPS** avec le nom public (ex. `autoprint.maboite.fr`). |
 | Poste client | Windows 10/11 **hors domaine**, client installé via le MSI (`PRINTSERVER` + `APIKEY`). |
 | Active Directory | Un domaine de test avec : un compte de service (lecture annuaire), un groupe `GG_Autoprint_Admins`, un groupe `GG_Autoprint_Lecteurs`, deux utilisateurs `ad.user1` (membre de `GG_Autoprint_Lecteurs`) et `ad.user2` (aucun groupe). |
 | Navigateur | Un navigateur récent avec les outils de développement (F12) pour lire les codes HTTP. |
@@ -231,9 +231,66 @@ Préparer : paramètres AD enregistrés (domaine, compte de service, mot de pass
 
 ---
 
+## 4. Phase 3
+
+### 4.1 Chiffrement des secrets en base — audit #9
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P3-01 | Installation neuve, puis requête SQL : `SELECT [Key], [Value] FROM ServerSettings WHERE [Key] IN ('AgentApiKey','AdServicePassword','SmtpPass')`. | Les valeurs non vides commencent par `enc:v1:`. | ☐ |
+| P3-02 | **Mise à jour** d'un serveur existant (secrets en clair), redémarrer le site, refaire la requête. | Les secrets sont désormais chiffrés (`enc:v1:`) ; journal du serveur : « N secret(s) chiffré(s) en base ». | ☐ |
+| P3-03 | Après P3-02 : connexion d'un utilisateur AD, envoi d'un rapport par e-mail, ouverture du client sur un poste. | Tout fonctionne (mots de passe AD / SMTP et clé agent correctement déchiffrés). | ☐ |
+| P3-04 | Paramètres › AD / SMTP : saisir un nouveau mot de passe, enregistrer, refaire la requête P3-01. | Nouvelle valeur chiffrée ; les tests AD / SMTP fonctionnent. | ☐ |
+| P3-05 | Paramètres › SMTP › « Tester » sans retoucher le mot de passe (masqué). | Le test utilise le mot de passe enregistré (avant : le texte `●●●●●●●●` était envoyé). | ☐ |
+| P3-06 | Même test en changeant uniquement le serveur SMTP. | Refus « saisissez son mot de passe ». | ☐ |
+| P3-07 | Vérifier le dossier `C:\ProgramData\Autoprint\Keys`. | Il contient un fichier `key-….xml` ; voir P3-12 pour ses droits. | ☐ |
+
+### 4.2 Sauvegarde et restauration des secrets — audit #9
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P3-08 | Export **sans** mot de passe de protection ; ouvrir le JSON. | `"SecretsProtected": false` ; valeurs vides pour `AgentApiKey`, `AdServicePassword`, `SmtpPass`. | ☐ |
+| P3-09 | Export avec un mot de passe de moins de 12 caractères. | Refus avant téléchargement. | ☐ |
+| P3-10 | Export **avec** un mot de passe ; ouvrir le JSON. | `"SecretsProtected": true` ; secrets en `bkp:v1:…` ; la clé agent n'apparaît pas en clair. | ☐ |
+| P3-11 | Restaurer ce fichier : sans mot de passe, puis avec un mauvais mot de passe. | Refus clair dans les deux cas ; **aucune donnée modifiée**. | ☐ |
+| P3-12 | Restaurer avec le bon mot de passe. | Succès ; AD, SMTP et postes clients fonctionnent ; comptes locaux avec leur mot de passe habituel. | ☐ |
+| P3-13 | Restaurer le fichier de P3-08 (sans secrets). | Succès ; les secrets **actuels** du serveur sont conservés (clé agent inchangée). | ☐ |
+| P3-14 | Restaurer une **ancienne** sauvegarde (26.08.24.3, secrets en clair). | Succès ; les secrets sont rechiffrés en base (P3-01). | ☐ |
+| P3-15 | Restauration sur un **autre serveur** avec le fichier de P3-10 et son mot de passe. | Les secrets sont repris ; la clé agent est celle du serveur d'origine (les postes existants fonctionnent). | ☐ |
+
+### 4.3 Droits NTFS posés par l'installeur — audit #9 et nouveau constat #19
+
+Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou RDP) :
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P3-16 | Ouvrir `C:\Program Files\Autoprint Server\appsettings.json`. | Accès refusé. | ☐ |
+| P3-17 | (SQLite) Ouvrir `C:\Program Files\Autoprint Server\Autoprint.db`. | Accès refusé. | ☐ |
+| P3-18 | Ouvrir `C:\ProgramData\Autoprint\Keys`. | Accès refusé. | ☐ |
+| P3-19 | En administrateur : Propriétés › Sécurité de `C:\Program Files\Autoprint Server`. | **NETWORK SERVICE n'apparaît plus** (avant : droit « Modification » sur tout le dossier) ; y compris après une **mise à jour**. | ☐ |
+| P3-20 | Après P3-16 à P3-19 : console, rapports, synchronisation spouleur. | Tout fonctionne (le pool IIS, en SYSTEM, garde l'accès). | ☐ |
+
+### 4.4 SMTP — audit #14
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P3-21 | Installation neuve › Paramètres › SMTP. | « Activer SSL / TLS » est coché. | ☐ |
+| P3-22 | Décocher TLS. | Bandeau d'avertissement « Sans TLS, le mot de passe SMTP… circulent en clair ». | ☐ |
+| P3-23 | Mise à jour d'un serveur dont le SMTP était configuré sans TLS. | Le réglage est **inchangé** (pas de rupture d'envoi). | ☐ |
+
+### 4.5 Contrôles automatiques GitHub
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P3-24 | Pousser la branche, onglet **Actions**. | Le workflow « Contrôles de sécurité » passe au vert (compilation + aucune dépendance vulnérable). | ☐ |
+| P3-25 | Onglet **Insights › Dependency graph › Dependabot**. | Dependabot surveille NuGet et GitHub Actions ; les mises à jour Microsoft.* / System.* arrivent groupées. | ☐ |
+
+---
+
 ## Historique des mises à jour
 
 | Date | Phase | Modification |
 |---|---|---|
 | 04/11/2026 | Phase 1 | Création : non-régression générale, tests P1-01 à P1-46. |
 | 04/11/2026 | Phase 2 | Ajout des tests P2-01 à P2-44 (en-têtes, mots de passe, erreurs, sessions, clé agent, service Windows, divers). |
+| 04/11/2026 | Phase 3 | Ajout des tests P3-01 à P3-25 (chiffrement des secrets, sauvegarde, droits NTFS, SMTP, contrôles GitHub). |

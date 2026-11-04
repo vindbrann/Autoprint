@@ -23,11 +23,13 @@ namespace Autoprint.Server.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly SecretProtector _secrets;
 
-        public AuthService(ApplicationDbContext context, IConfiguration configuration)
+        public AuthService(ApplicationDbContext context, IConfiguration configuration, SecretProtector secrets)
         {
             _context = context;
             _configuration = configuration;
+            _secrets = secrets;
         }
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -62,7 +64,7 @@ namespace Autoprint.Server.Services
 
                 string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
                 string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                 if (!string.IsNullOrWhiteSpace(domain) && !string.IsNullOrWhiteSpace(serviceUser) && !string.IsNullOrWhiteSpace(servicePass))
                 {
@@ -175,7 +177,7 @@ namespace Autoprint.Server.Services
             string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
             string customFilter = settings.FirstOrDefault(s => s.Key == "AdLdapFilter")?.Value ?? "";
             string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-            string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+            string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
             if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(serviceUser) || string.IsNullOrWhiteSpace(servicePass))
             {
@@ -242,7 +244,7 @@ namespace Autoprint.Server.Services
                     string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
                     string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                    string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                    string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                     if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(serviceUser) && !string.IsNullOrEmpty(servicePass))
                     {
@@ -319,7 +321,7 @@ namespace Autoprint.Server.Services
                 string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
                 string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                 if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(serviceUser)) return;
 

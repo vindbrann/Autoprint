@@ -4,6 +4,7 @@ using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
 using Autoprint.Web.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
@@ -60,6 +61,20 @@ builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();
 builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 
 builder.Services.AddHostedService<LogCleanupWorker>();
+
+// Chiffrement des secrets en base (audit #9) : clés Data Protection stockées hors du site web et protégées par DPAPI machine.
+// ⚠️ Sans ce dossier, les secrets chiffrés (mots de passe AD / SMTP, clé agent) sont perdus : il fait partie de la sauvegarde du serveur.
+var keysPath = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autoprint", "Keys");
+Directory.CreateDirectory(keysPath);
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("Autoprint")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+if (OperatingSystem.IsWindows())
+{
+    dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
+builder.Services.AddSingleton<SecretProtector>();
 
 // Anti brute-force (CWE-307) : 10 tentatives de connexion par minute et par IP, plus un délai par compte
 builder.Services.AddSingleton<LoginThrottleService>();
@@ -223,6 +238,7 @@ if (args.Contains("--migrate-only"))
                 context.Database.EnsureCreated();
             }
             DbInitializer.Initialize(context);
+            scope.ServiceProvider.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
 
             Console.WriteLine("[MIGRATION_SUCCESS]");
             Environment.Exit(0);
@@ -337,6 +353,9 @@ using (var scope = app.Services.CreateScope())
         }
 
         DbInitializer.Initialize(context);
+
+        int encrypted = services.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
+        if (encrypted > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} secret(s) chiffré(s) en base.", encrypted);
     }
     catch (Exception ex)
     {
