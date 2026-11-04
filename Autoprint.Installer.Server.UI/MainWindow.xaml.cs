@@ -182,6 +182,14 @@ namespace Autoprint.Installer.Server.UI
             UpdatePrereqRow(IconIis, MsgIis, BtnInstallIis, res.IsIisInstalled);
             UpdatePrereqRow(IconPrint, MsgPrint, BtnInstallPrint, res.IsPrintServerRoleInstalled);
             UpdatePrereqRow(IconNet, MsgNet, BtnInstallNet, res.IsNet10Installed);
+            if (res.IsNet10Installed)
+                MsgNet.Text = $"Installé (version {res.InstalledAspNetCoreVersion})";
+            else if (res.InstalledAspNetCoreVersion != null)
+            {
+                // Runtime présent mais plus ancien que celui embarqué : il lui manque des correctifs de sécurité
+                MsgNet.Text = $"Version {res.InstalledAspNetCoreVersion} trop ancienne : {res.RequiredAspNetCoreVersion} requise (correctifs de sécurité)";
+                BtnInstallNet.Content = "Mettre à jour";
+            }
 
             _prereqsValidated = res.IsAllGood;
         }
@@ -222,7 +230,7 @@ namespace Autoprint.Installer.Server.UI
                 BtnInstallNet.Content = "Installation...";
                 await RunProcess(tempExe, "/install /passive /norestart");
 
-                MessageBox.Show("Runtime .NET installé.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Runtime .NET {PrerequisiteService.RequiredAspNetCoreVersion} installé.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
                 RunPrereqCheck();
             }
             catch (Exception ex)

@@ -2,7 +2,6 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Net.Http.Headers;
-using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Timers;
 
