@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 using System.Management;
@@ -12,9 +12,22 @@ namespace Autoprint.Installer.Server.UI.Services
         public bool IsIisInstalled { get; set; }
         public bool IsPrintServerRoleInstalled { get; set; }
         public bool IsNet10Installed { get; set; }
+        /// <summary>Version la plus récente du runtime ASP.NET Core 10 trouvée (null si absent).</summary>
+        public Version? InstalledAspNetCoreVersion { get; set; }
+        /// <summary>Version minimale exigée (= Hosting Bundle embarqué dans l'installeur).</summary>
+        public Version RequiredAspNetCoreVersion { get; set; } = PrerequisiteService.RequiredAspNetCoreVersion;
         public bool IsServerOS { get; set; }
 
         public bool IsAllGood => IsIisInstalled && IsPrintServerRoleInstalled && IsNet10Installed;
+    }
+
+    internal static class PrerequisiteCheckResultExtensions
+    {
+        public static PrerequisiteCheckResult WithRuntimeStatus(this PrerequisiteCheckResult r)
+        {
+            r.IsNet10Installed = r.InstalledAspNetCoreVersion != null && r.InstalledAspNetCoreVersion >= r.RequiredAspNetCoreVersion;
+            return r;
+        }
     }
 
     public class PrerequisiteService
@@ -33,8 +46,23 @@ namespace Autoprint.Installer.Server.UI.Services
                 IsServerOS = _isServerOs,
                 IsIisInstalled = CheckIis(),
                 IsPrintServerRoleInstalled = CheckPrintServer(),
-                IsNet10Installed = CheckDotNet10Runtime()
-            };
+                InstalledAspNetCoreVersion = FindAspNetCore10Runtime(),
+            }.WithRuntimeStatus();
+        }
+
+        /// <summary>
+        /// Version du Hosting Bundle embarqué (propriété HostingBundleVersion du projet). Un runtime plus ancien
+        /// est considéré comme à mettre à jour : il ne contient pas les derniers correctifs de sécurité.
+        /// </summary>
+        public static Version RequiredAspNetCoreVersion { get; } = ReadRequiredVersion();
+
+        private static Version ReadRequiredVersion()
+        {
+            var value = typeof(PrerequisiteService).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+                .OfType<System.Reflection.AssemblyMetadataAttribute>()
+                .FirstOrDefault(a => a.Key == "HostingBundleVersion")?.Value;
+            return Version.TryParse(value, out var v) ? v : new Version(10, 0, 0);
         }
 
         private bool IsWindowsServerEdition()
@@ -81,14 +109,15 @@ namespace Autoprint.Installer.Server.UI.Services
         }
 
 
-        private bool CheckDotNet10Runtime()
+        /// <summary>Plus haute version « Microsoft.AspNetCore.App 10.x » listée par dotnet --list-runtimes.</summary>
+        private Version? FindAspNetCore10Runtime()
         {
             try
             {
                 string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
                 string dotnetPath = Path.Combine(programFiles, "dotnet", "dotnet.exe");
 
-                if (!File.Exists(dotnetPath)) return false;
+                if (!File.Exists(dotnetPath)) return null;
 
                 var psi = new ProcessStartInfo
                 {
@@ -100,22 +129,30 @@ namespace Autoprint.Installer.Server.UI.Services
                 };
 
                 using var process = Process.Start(psi);
-                if (process == null) return false;
+                if (process == null) return null;
 
                 string output = process.StandardOutput.ReadToEnd();
                 process.WaitForExit();
-
-                if (output.Contains("Microsoft.AspNetCore.App 10."))
-                {
-                    return true;
-                }
-
-                return false;
+                return ParseHighestAspNetCore10(output);
             }
             catch
             {
-                return false;
+                return null;
             }
+        }
+
+        /// <summary>Ex. « Microsoft.AspNetCore.App 10.0.14 [C:\Program Files\dotnet\...] » ; les préversions sont ignorées.</summary>
+        internal static Version? ParseHighestAspNetCore10(string listRuntimesOutput)
+        {
+            Version? best = null;
+            foreach (var line in listRuntimesOutput.Split('\n'))
+            {
+                var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2 || parts[0] != "Microsoft.AspNetCore.App") continue;
+                if (!Version.TryParse(parts[1], out var v) || v.Major != 10) continue;
+                if (best == null || v > best) best = v;
+            }
+            return best;
         }
 
         private bool CheckWmiServerFeature(uint featureId)

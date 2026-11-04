@@ -9,7 +9,24 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Version du Hosting Bundle embarqué (Resources\dotnet-hosting-10.exe, non versionné dans git).
+         C'est aussi la version minimale exigée sur le serveur : un runtime plus ancien est signalé et mis à jour.
+         À relever à chaque publication (voir Docs/_POLITIQUE_VERSIONS.md). -->
+    <HostingBundleVersion>10.0.14</HostingBundleVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="HostingBundleVersion" Value="$(HostingBundleVersion)" />
+  </ItemGroup>
+
+  <!-- Empêche de publier un installeur dont le Hosting Bundle embarqué ne correspond pas à la version déclarée -->
+  <Target Name="CheckHostingBundleVersion" BeforeTargets="BeforeBuild" Condition="Exists('Resources\dotnet-hosting-10.exe')">
+    <Exec Command="powershell -NoProfile -Command &quot;(Get-Item 'Resources\dotnet-hosting-10.exe').VersionInfo.ProductVersion&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_EmbeddedBundleVersion" />
+    </Exec>
+    <Error Condition="'$(_EmbeddedBundleVersion.Trim().StartsWith(`$(HostingBundleVersion).`))' != 'True'"
+           Text="Resources\dotnet-hosting-10.exe est en version $(_EmbeddedBundleVersion) alors que HostingBundleVersion vaut $(HostingBundleVersion) : remplacer le fichier ou corriger la propriété." />
+  </Target>
 
   <ItemGroup>
     <None Remove="Resources\dotnet-hosting-10.exe" />

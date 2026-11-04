@@ -330,7 +330,17 @@ app.Use(async (context, next) =>
 
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+// index.html référence les fichiers de la console (versions des bibliothèques, empreintes Blazor) :
+// le navigateur doit le revalider à chaque visite, sinon il garde l'ancienne console après une mise à jour du serveur
+var consoleStaticFiles = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (string.Equals(ctx.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+    }
+};
+app.UseStaticFiles(consoleStaticFiles);
 if (app.Environment.IsDevelopment())
 {
     app.UseCors("AllowBlazorOrigin");
@@ -364,7 +374,7 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 app.MapHub<EventsHub>("/hubs/events");
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", consoleStaticFiles);
 
 using (var scope = app.Services.CreateScope())
 {

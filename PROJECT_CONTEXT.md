@@ -47,8 +47,8 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
   - `PdfSharpCore` (v1.3.67) : Moteur de rendu graphique PDF vectoriel côté serveur pour l'exportation et l'envoi automatisé des rapports d'audit et de santé des consommables.
 - **Interface Utilisateur & Web :**
   - `Radzen.Blazor` (v8.3.8) : Bibliothèque de composants graphiques UI pour le tableau de bord Blazor WebAssembly (grilles de données `RadzenDataGrid`, boîtes de dialogue, notifications).
-  - `Blazored.LocalStorage` (v4.5.0) : Stockage côté client WebAssembly du jeton de session JWT et des préférences de navigation.
-  - `MaterialDesignThemes` & `MaterialDesignColors` (v5.3.0) : Thème graphique Google Material Design pour le client de bureau WPF.
+  - `LocalStorageService` (maison, `Autoprint.Web/Services`) : stockage côté navigateur du jeton de session JWT et des préférences (remplace Blazored.LocalStorage, même format).
+  - `MaterialDesignThemes` & `MaterialDesignColors` (v5.4) : Thème graphique Google Material Design pour le client de bureau WPF.
   - `Hardcodet.NotifyIcon.Wpf` (v2.0.1) : Gestion de l'icône résidente dans la zone de notification Windows (systray), des bulles d'information contextuelles (*BalloonTips*) et du menu contextuel du client.
 - **Système Windows, Administration & Déploiement :**
   - `Microsoft.Web.Administration` (v11.1.0) : Pilotage programmatique d'Internet Information Services (IIS) pour la création, la configuration et le recyclage du pool applicatif et du site web serveur.

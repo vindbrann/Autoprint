@@ -1,7 +1,6 @@
 using Autoprint.Web;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using Autoprint.Web.Services;
 using Radzen;
@@ -12,7 +11,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress), Timeout = TimeSpan.FromMinutes(10) });
 
-builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddScoped<ILocalStorageService, LocalStorageService>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<CustomAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<CustomAuthStateProvider>());
