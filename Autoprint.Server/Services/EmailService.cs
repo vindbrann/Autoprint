@@ -37,7 +37,7 @@ namespace Autoprint.Server.Services
 
                 int port = int.Parse(GetVal(settings, "SmtpPort", "25"));
                 string user = GetVal(settings, "SmtpUser");
-                string pass = GetVal(settings, "SmtpPass");
+                string pass = _serviceProvider.GetRequiredService<SecretProtector>().Unprotect(GetVal(settings, "SmtpPass"));
                 bool ssl = bool.Parse(GetVal(settings, "SmtpEnableSsl", "false"));
                 string from = GetVal(settings, "SmtpFromAddress", "noreply@autoprint.local");
 
@@ -109,7 +109,7 @@ namespace Autoprint.Server.Services
 
                 int port = int.Parse(GetVal(settings, "SmtpPort", "25"));
                 string user = GetVal(settings, "SmtpUser");
-                string pass = GetVal(settings, "SmtpPass");
+                string pass = _serviceProvider.GetRequiredService<SecretProtector>().Unprotect(GetVal(settings, "SmtpPass"));
                 bool ssl = bool.Parse(GetVal(settings, "SmtpEnableSsl", "false"));
                 string from = GetVal(settings, "SmtpFromAddress", "noreply@autoprint.local");
 

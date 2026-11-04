@@ -17,10 +17,11 @@ namespace Autoprint.Server.Helpers
         {
             if (!request.Headers.TryGetValue(HeaderName, out var received) || string.IsNullOrEmpty(received)) return false;
 
-            var expected = await context.ServerSettings
+            var stored = await context.ServerSettings
                 .Where(s => s.Key == "AgentApiKey")
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync();
+            var expected = request.HttpContext.RequestServices.GetRequiredService<Autoprint.Server.Services.SecretProtector>().Unprotect(stored);
             if (string.IsNullOrEmpty(expected)) return false;
 
             // Comparaison en temps constant (les empreintes ont toujours la même longueur)

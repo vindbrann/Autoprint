@@ -278,6 +278,10 @@ namespace Autoprint.Server.Data
 
             if (!context.Users.Any())
             {
+                // Installation neuve : TLS activé par défaut pour le SMTP (audit #14). Les installations existantes ne sont pas modifiées.
+                var smtpSsl = context.ServerSettings.FirstOrDefault(s => s.Key == "SmtpEnableSsl");
+                if (smtpSsl != null) smtpSsl.Value = "true";
+
                 Console.WriteLine("--> Initialisation Admin (admin/admin123)...");
                 var adminUser = new User
                 {

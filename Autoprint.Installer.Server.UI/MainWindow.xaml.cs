@@ -338,8 +338,14 @@ namespace Autoprint.Installer.Server.UI
                     await ConfigureAppSettings();
                 }
 
+                TxtInstallLog.Text = "Protection des fichiers sensibles...";
+                await Task.Run(() => HardenSensitiveFiles());
+
                 TxtInstallLog.Text = "Migration de la base de données...";
                 await RunMigrationProcess();
+
+                // La base SQLite peut avoir été créée par la migration
+                await Task.Run(() => HardenSensitiveFiles());
 
                 if (!_isUpgrade)
                 {
@@ -664,24 +670,46 @@ namespace Autoprint.Installer.Server.UI
         {
             try
             {
+                // Les versions précédentes donnaient « Modification » à NETWORK SERVICE sur tout le dossier : n'importe quel service
+                // tournant sous ce compte pouvait remplacer les DLL chargées en SYSTEM par le pool IIS. Le pool tourne en LocalSystem :
+                // ce droit est inutile, on le retire (y compris lors d'une mise à jour).
                 var dirInfo = new DirectoryInfo(InstallPath);
                 var security = dirInfo.GetAccessControl();
                 var networkService = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
-
-                var rule = new FileSystemAccessRule(
-                    networkService,
-                    FileSystemRights.Modify,
-                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None,
-                    AccessControlType.Allow);
-
-                security.AddAccessRule(rule);
+                security.PurgeAccessRules(networkService);
                 dirInfo.SetAccessControl(security);
             }
             catch (Exception ex)
             {
                 throw new Exception($"Erreur lors de l'application des droits NTFS : {ex.Message}");
             }
+        }
+
+        // Fichiers contenant des secrets (clé JWT, chaîne SQL, base SQLite, clés de chiffrement) : accès réservé à SYSTEM
+        // (identité du pool IIS) et aux Administrateurs, sans héritage des droits « Utilisateurs » de Program Files / ProgramData (audit #9).
+        private void HardenSensitiveFiles()
+        {
+            var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+            var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+
+            foreach (var file in new[] { "appsettings.json", "Autoprint.db" }.Select(f => Path.Combine(InstallPath, f)).Where(File.Exists))
+            {
+                var fileSecurity = new FileSecurity();
+                fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, AccessControlType.Allow));
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, AccessControlType.Allow));
+                new FileInfo(file).SetAccessControl(fileSecurity);
+            }
+
+            // Même emplacement que le serveur (Program.cs, DataProtection:KeysPath par défaut)
+            string keysPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autoprint", "Keys");
+            var keysDir = Directory.CreateDirectory(keysPath);
+            var dirSecurity = new DirectorySecurity();
+            dirSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            var inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+            dirSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+            dirSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+            keysDir.SetAccessControl(dirSecurity);
         }
 
         private void ConfigureIIS()
