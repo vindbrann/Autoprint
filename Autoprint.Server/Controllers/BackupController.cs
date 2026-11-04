@@ -526,20 +526,23 @@ namespace Autoprint.Server.Controllers
             }
         }
 
-        private async Task EnableIdentityInsert(string table)
+        // Un nom de table ne peut pas être paramétré en SQL : il est donc vérifié par liste blanche
+        private static readonly HashSet<string> IdentityTables = new(StringComparer.Ordinal)
         {
-            if (_context.Database.IsSqlServer())
-            {
-                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} ON");
-            }
-        }
+            "Marques", "Pilotes", "SnmpProfiles", "SnmpProfileItems", "SnmpCredentials", "Emplacements", "EmplacementNetworks",
+            "Modeles", "Imprimantes", "ReportSchedules", "IntegrationTokens", "Roles", "Users", "AdRoleMappings"
+        };
 
-        private async Task DisableIdentityInsert(string table)
+        private Task EnableIdentityInsert(string table) => SetIdentityInsert(table, "ON");
+        private Task DisableIdentityInsert(string table) => SetIdentityInsert(table, "OFF");
+
+        private async Task SetIdentityInsert(string table, string state)
         {
-            if (_context.Database.IsSqlServer())
-            {
-                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} OFF");
-            }
+            if (!_context.Database.IsSqlServer()) return;
+            if (!IdentityTables.Contains(table)) throw new ArgumentException($"Table non autorisée : {table}");
+#pragma warning disable EF1002, EF1003 // nom de table issu de la liste blanche ci-dessus
+            await _context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT [" + table + "] " + state);
+#pragma warning restore EF1002, EF1003
         }
     }
 }

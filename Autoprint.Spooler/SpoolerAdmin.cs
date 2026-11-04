@@ -29,7 +29,12 @@ namespace Autoprint.Spooler
                 newPort["PortNumber"] = 9100;
                 newPort["SNMPEnabled"] = false;
 
-                try { newPort.Put(); } catch { }
+                try { newPort.Put(); }
+                catch (Exception ex)
+                {
+                    // Avant : échec ignoré, la création de l'imprimante échouait ensuite avec un message obscur (backlog B3)
+                    if (!PortExists(targetPortName)) throw new Exception($"Création du port {targetPortName} impossible : {ex.Message}");
+                }
             });
         }
 
@@ -190,7 +195,11 @@ namespace Autoprint.Spooler
                 using var searcher = new ManagementObjectSearcher(query);
                 foreach (ManagementObject printer in searcher.Get()) printer.Delete();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Avant : échec ignoré, la synchronisation croyait la file supprimée (backlog B3)
+                throw new Exception($"Suppression de '{name}' impossible : {ex.Message}");
+            }
             return Task.CompletedTask;
         }
 

@@ -180,6 +180,8 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddOpenApi();
 
+// CORS : utile seulement en développement (console lancée séparément sur un autre port).
+// En production, la console est servie par le même site : aucune origine tierce n'est autorisée (backlog B10).
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorOrigin", policy =>
@@ -329,7 +331,10 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
-app.UseCors("AllowBlazorOrigin");
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowBlazorOrigin");
+}
 app.UseRateLimiter();
 
 app.UseAuthentication();

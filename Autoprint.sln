@@ -25,6 +25,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Server", "_Server", "{5834BBF7-F1AE-4BFE-A4AD-46494DA99757}"
 EndProject
 Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Autoprint.Client.Setup", "Autoprint.Client.Setup\Autoprint.Client.Setup.wixproj", "{68EFDF3D-2953-4361-AC99-5E7FDA058916}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B7DA8C1F-978A-42AE-BB80-261E73D66462} = {B7DA8C1F-978A-42AE-BB80-261E73D66462}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Éléments de solution", "Éléments de solution", "{466BE042-2313-4009-A441-5676D6469455}"
 	ProjectSection(SolutionItems) = preProject

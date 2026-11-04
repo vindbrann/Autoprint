@@ -82,7 +82,7 @@ namespace Autoprint.Server.Services
 
             var report = Discover(timeoutMs);
             var request = new GetRequestMessage(VersionCode.V3, Messenger.NextMessageId, Messenger.NextRequestId,
-                new OctetString(_credentials.V3Username ?? ""), variables, GetPrivacy(), Messenger.MaxMessageSize, report);
+                new OctetString(_credentials.V3Username ?? ""), OctetString.Empty, variables, GetPrivacy(), Messenger.MaxMessageSize, report);
             return ReadV3Reply(request.GetResponse(timeoutMs, _endpoint));
         }
 
@@ -102,7 +102,7 @@ namespace Autoprint.Server.Services
             for (int i = 0; i < 10_000; i++) // garde-fou contre un agent qui bouclerait
             {
                 var request = new GetNextRequestMessage(VersionCode.V3, Messenger.NextMessageId, Messenger.NextRequestId,
-                    new OctetString(_credentials.V3Username ?? ""), new List<Variable> { current }, GetPrivacy(), Messenger.MaxMessageSize, report);
+                    new OctetString(_credentials.V3Username ?? ""), OctetString.Empty, new List<Variable> { current }, GetPrivacy(), Messenger.MaxMessageSize, report);
                 var next = ReadV3Reply(request.GetResponse(timeoutMs, _endpoint)).FirstOrDefault();
                 if (next == null || next.Data.TypeCode == SnmpType.EndOfMibView || !IsInSubtree(next.Id, root)) return;
                 results.Add(next);
@@ -133,6 +133,8 @@ namespace Autoprint.Server.Services
                 throw new InvalidOperationException("Profil SNMPv3 incomplet : mot de passe d'authentification manquant (8 caractères minimum).");
 
             var authPassword = new OctetString(c.V3AuthPassword);
+            // SHA-1, MD5 et 3DES : obsolètes, proposés uniquement pour les anciens matériels (signalés « déconseillé » dans la console)
+#pragma warning disable CS0618
             IAuthenticationProvider auth = c.V3AuthProtocol switch
             {
                 SnmpAuthProtocol.Sha1 => new SHA1AuthenticationProvider(authPassword),
@@ -156,6 +158,7 @@ namespace Autoprint.Server.Services
                 SnmpPrivProtocol.TripleDes => new TripleDESPrivacyProvider(privPassword, auth),
                 _ => new AESPrivacyProvider(privPassword, auth)
             };
+#pragma warning restore CS0618
         }
 
         private static IList<Variable> ReadV3Reply(ISnmpMessage reply)

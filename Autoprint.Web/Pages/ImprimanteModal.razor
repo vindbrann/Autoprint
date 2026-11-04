@@ -42,7 +42,7 @@
                     {
                         <RadzenDropDown Name="Emplacement" @bind-Value="@imprimanteEdit.EmplacementId"
                                         Data="@listeEmplacements" TextProperty="Nom" ValueProperty="Id"
-                                        Change="@(args => OnLieuChanged((int)args))"
+                                        Change="@(async args => await OnLieuChanged((int)args))"
                                         Style="width: 100%;"
                                         Placeholder="Choisir un emplacement..."
                                         AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
@@ -316,12 +316,12 @@
         }
     }
 
-    private void OnMarqueChange(object value)
+    private async Task OnMarqueChange(object value)
     {
         selectedMarqueId = (int)value;
         FilterModeles();
         imprimanteEdit.ModeleId = 0;
-        GenerateNameIfEnabled();
+        await GenerateNameIfEnabled();
     }
 
     private void FilterModeles()
@@ -330,11 +330,11 @@
             listeModelesFiltres = listeTousModeles.Where(m => m.MarqueId == selectedMarqueId).ToList();
     }
 
-    private void OnLieuChanged(int id)
+    private async Task OnLieuChanged(int id)
     {
         imprimanteEdit.EmplacementId = id;
         CalculerPrefixe(id);
-        GenerateNameIfEnabled();
+        await GenerateNameIfEnabled();
     }
 
     private void CalculerPrefixe(int emplacementId)
@@ -361,7 +361,7 @@
         }
     }
 
-    private void OnSuffixChanged(ChangeEventArgs e)
+    private async Task OnSuffixChanged(ChangeEventArgs e)
     {
         ipSuffix = e.Value?.ToString() ?? "";
         if (!string.IsNullOrEmpty(prefixeReseau))
@@ -373,7 +373,7 @@
         {
             imprimanteEdit.AdresseIp = ipSuffix;
         }
-        GenerateNameIfEnabled();
+        await GenerateNameIfEnabled();
     }
 
     private async Task LoadSettingsAsync()
