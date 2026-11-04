@@ -1,3 +1,4 @@
+using Autoprint.Server.Helpers;
 using System.Text;
 using System.Text.Json;
 using Autoprint.Server.Data;
@@ -141,7 +142,11 @@ namespace Autoprint.Server.Controllers
                     Email = x.Email,
                     IsAdUser = x.IsAdUser,
                     IsActive = x.IsActive,
-                    RoleIds = x.UserRoles.Select(ur => ur.RoleId).ToList()
+                    RoleIds = x.UserRoles.Select(ur => ur.RoleId).ToList(),
+                    AdRoleIds = x.UserRoles.Where(ur => ur.IsFromAd).Select(ur => ur.RoleId).ToList(),
+                    PasswordHash = x.PasswordHash,
+                    LastPasswordChangeDate = x.LastPasswordChangeDate,
+                    ForceChangePassword = x.ForceChangePassword
                 }).ToListAsync(),
 
                 Settings = await _context.ServerSettings.Select(x => new BackupSettingDto { Key = x.Key, Value = x.Value, Type = x.Type }).ToListAsync(),
@@ -157,6 +162,11 @@ namespace Autoprint.Server.Controllers
         [HttpPost("restore")]
         public async Task<IActionResult> Restore([FromBody] BackupRootDto backup)
         {
+            // Sauvegardes antérieures sans hachage : on conserve le mot de passe actuel des comptes locaux de même nom
+            var currentHashes = await _context.Users.AsNoTracking()
+                .Where(u => !u.IsAdUser && u.PasswordHash != null)
+                .ToDictionaryAsync(u => u.Username, u => u.PasswordHash!, StringComparer.OrdinalIgnoreCase);
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -336,13 +346,25 @@ namespace Autoprint.Server.Controllers
                 }
 
                 await EnableIdentityInsert("Users");
-                foreach (var u in backup.Users) _context.Users.Add(new User { Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive });
+                foreach (var u in backup.Users)
+                {
+                    var restoredUser = new User
+                    {
+                        Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive,
+                        PasswordHash = !string.IsNullOrEmpty(u.PasswordHash) ? u.PasswordHash : currentHashes.GetValueOrDefault(u.Username),
+                        LastPasswordChangeDate = u.LastPasswordChangeDate,
+                        ForceChangePassword = u.ForceChangePassword
+                    };
+                    // Les sessions ouvertes avant la restauration ne sont plus valables
+                    restoredUser.RenewSecurityStamp();
+                    _context.Users.Add(restoredUser);
+                }
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Users");
 
                 foreach (var u in backup.Users)
                 {
-                    foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid });
+                    foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid, IsFromAd = u.AdRoleIds.Contains(rid) });
                 }
 
                 foreach (var s in backup.Settings)
@@ -368,7 +390,7 @@ namespace Autoprint.Server.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return BadRequest($"Erreur Restauration : {ex.Message}");
+                return BadRequest(ApiErrors.LogAndDescribe(HttpContext, ex, "Erreur pendant la restauration, aucune donnée n'a été modifiée."));
             }
         }
 

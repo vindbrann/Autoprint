@@ -83,7 +83,7 @@ else
                     @if (!editMode && !isAdUser)
                     {
                         <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                        <RadzenLengthValidator Component="Password" Min="6" Text="Le mot de passe doit faire au moins 6 caractères" Popup="false" Style="display: block; margin-top: 5px;" />
+                        <RadzenLengthValidator Component="Password" Min="@PasswordPolicy.MinLength" Text="@PasswordPolicy.MinLengthMessage" Popup="false" Style="display: block; margin-top: 5px;" />
                     }
                     @if (!string.IsNullOrEmpty(passwordError))
                     {
@@ -206,9 +206,9 @@ else
         {
             if (editMode)
             {
-                if (!string.IsNullOrEmpty(formData.Password) && formData.Password.Length < 6)
+                if (!string.IsNullOrEmpty(formData.Password) && formData.Password.Length < PasswordPolicy.MinLength)
                 {
-                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    passwordError = PasswordPolicy.MinLengthMessage;
                     return;
                 }
             }
@@ -218,9 +218,9 @@ else
                 {
                     return;
                 }
-                if (formData.Password.Length < 6)
+                if (formData.Password.Length < PasswordPolicy.MinLength)
                 {
-                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    passwordError = PasswordPolicy.MinLengthMessage;
                     return;
                 }
             }

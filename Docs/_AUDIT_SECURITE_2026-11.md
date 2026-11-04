@@ -237,6 +237,21 @@ Résultat de `dotnet list package --vulnerable --include-transitive` :
 
 ---
 
+## ✅ Avancement de la phase 2 (branche `security/phase-1`)
+
+| # | État | Vérification |
+|---|---|---|
+| 12 | ✅ Fait : en-têtes HSTS (hors dév.), CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`. Scripts en ligne de `index.html` déplacés dans `js/app.js`. **Chart.js n'avait pas de version figée** (chargeait toujours la dernière) : versions figées + contrôle d'intégrité SRI pour les 4 fichiers jsDelivr. L'installeur demande le nom public et remplit `AllowedHosts`. | En-têtes présents ; console parcourue sans violation CSP. |
+| 13 | ✅ Fait : 12 caractères minimum (API + console), refus du mot de passe = identifiant ou = actuel, `--reset-admin` génère un mot de passe aléatoire. | 400 sur 8 caractères et sur mot de passe = identifiant ; message 12 caractères dans la console ; `--reset-admin` testé. |
+| 15 | ✅ Fait : messages génériques avec référence (détail dans les journaux) ; diagnostics SNMP / SMTP / AD conservés pour les admins ; IP SNMP et CIDR validés avant journalisation (alertes CodeQL #1 à #7). | Compilé. |
+| 10 | ✅ Fait : empreinte de sécurité par utilisateur, vérifiée à chaque requête (cache 30 s) ; renouvelée sur mot de passe, statut, rôle, permissions du rôle, rôles AD, restauration. « Retenir l'identifiant » retiré. | Compte désactivé → jeton refusé en moins de 30 s ; reconnexion immédiate après changement de mot de passe OK. |
+| 11 | ✅ Fait : comparaison en temps constant ; vue réduite pour les postes (**la communauté SNMP de chaque imprimante était envoyée à tous les postes**) ; clé masquée dans le client avec test de connexion détaillé ; bouton « Copier la clé » audité dans la console (le bouton existant copiait `●●●●●●●●`). | Vue agent sans IP / communauté / commentaire / n° de série ; mauvaise clé → 401 ; `AGENT_KEY_REVEAL` dans l'audit. |
+| 16 | ✅ Fait : projet `Autoprint.Service` et types IPC supprimés, MSI client supprime aussi `AutoprintService`, README / PROJECT_CONTEXT / PROJECT_MAP corrigés. | Compilé (MSI compris). |
+| 17 | ✅ Fait : `rundll32` en chemin absolu, purge d'audit utilisable (`ADMIN_ACCESS`), hachage plus renvoyé à la création, anciens hachages SHA-256 comparés en temps constant puis changement imposé, sauvegarde/restauration des hachages et de l'origine des rôles, clé API plus journalisée par le client. | Compilé. |
+| 9 | 🟡 Partiel : **avertissement obligatoire avant chaque export** de sauvegarde (contenu sensible, consignes de stockage). Le chiffrement des secrets (base et sauvegarde) et les ACL de l'installeur restent en phase 3. | Compilé. |
+
+---
+
 ## 📋 Plan de Remédiation Recommandé
 
 1. **Phase 1 — Immédiat (corrections ciblées, faible risque de régression)**

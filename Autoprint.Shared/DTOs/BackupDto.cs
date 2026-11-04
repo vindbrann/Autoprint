@@ -107,6 +107,12 @@ namespace Autoprint.Shared.DTOs
         public bool IsAdUser { get; set; }
         public bool IsActive { get; set; }
         public List<int> RoleIds { get; set; } = new();
+
+        // Hachage PBKDF2 (jamais le mot de passe) : sans lui, les comptes locaux restaurés ne pourraient plus se connecter
+        public string? PasswordHash { get; set; }
+        public DateTime? LastPasswordChangeDate { get; set; }
+        public bool ForceChangePassword { get; set; }
+        public List<int> AdRoleIds { get; set; } = new();
     }
 
     public class BackupRoleDto

@@ -72,6 +72,9 @@ namespace Autoprint.Server.Controllers
             if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
                 return StatusCode(403, "Vous ne pouvez pas attribuer un rôle disposant de droits que vous n'avez pas.");
 
+            if (string.Equals(request.Password, request.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
+
             var newUser = new User
             {
                 Username = request.Username,
@@ -102,7 +105,8 @@ namespace Autoprint.Server.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, newUser);
+            // On ne renvoie jamais le hachage du mot de passe
+            return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, new { newUser.Id, newUser.Username, newUser.DisplayName, newUser.Email, newUser.IsActive });
         }
 
         [HttpPut("{id}")]
@@ -133,6 +137,8 @@ namespace Autoprint.Server.Controllers
             };
 
             bool isPasswordReset = !string.IsNullOrWhiteSpace(request.NewPassword);
+            if (isPasswordReset && string.Equals(request.NewPassword, user.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
             bool isForceChangeToggled = user.ForceChangePassword != request.ForceChangePassword;
             bool isStatusChanged = user.IsActive != request.IsActive;
 
@@ -148,6 +154,13 @@ namespace Autoprint.Server.Controllers
             }
 
             int currentRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
+            bool isRoleChanged = request.RoleId > 0 && request.RoleId != currentRoleId;
+
+            // Toute modification sensible coupe les sessions ouvertes de ce compte (audit #10)
+            if (isPasswordReset || isStatusChanged || isRoleChanged || (isForceChangeToggled && request.ForceChangePassword))
+            {
+                user.RenewSecurityStamp();
+            }
 
             if (request.RoleId > 0 && request.RoleId != currentRoleId)
             {
@@ -279,8 +292,15 @@ namespace Autoprint.Server.Controllers
             if (!SecurityHelper.VerifyPassword(user.PasswordHash ?? "", request.CurrentPassword))
                 return BadRequest("Le mot de passe actuel est incorrect.");
 
+            if (request.NewPassword == request.CurrentPassword)
+                return BadRequest("Le nouveau mot de passe doit être différent de l'actuel.");
+
+            if (string.Equals(request.NewPassword, user.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
+
             user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword);
             user.LastPasswordChangeDate = DateTime.UtcNow;
+            user.RenewSecurityStamp();
 
             user.ForceChangePassword = false;
 

@@ -2,7 +2,7 @@
 
 Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur une installation complète. Elle est mise à jour à chaque modification ; chaque test indique la phase et le point de l'audit (`_AUDIT_SECURITE_2026-11.md`) qu'il couvre.
 
-**Dernière mise à jour :** 04/11/2026 — Phase 1
+**Dernière mise à jour :** 04/11/2026 — Phase 2
 
 ---
 
@@ -148,8 +148,92 @@ Préparer : paramètres AD enregistrés (domaine, compte de service, mot de pass
 
 ---
 
+## 3. Phase 2
+
+### 3.1 En-têtes HTTP et nom d'accès — audit #12
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-01 | **Installation neuve** : à l'étape « Configuration Web », laisser « Nom public de la console » vide, puis saisir `https://autoprint` ou `autoprint:443`. | Refus « Nom public de la console invalide ». | ☐ |
+| P2-02 | Saisir `autoprint.maboite.fr`, terminer l'installation, ouvrir `appsettings.json`. | `"AllowedHosts": "autoprint.maboite.fr;localhost"`. | ☐ |
+| P2-03 | Ouvrir `https://autoprint.maboite.fr`. | Console fonctionnelle. | ☐ |
+| P2-04 | Ouvrir la console par l'adresse IP du serveur (`https://10.x.x.x`) ou un autre alias DNS. | Page « Bad Request - Invalid Hostname » (400). | ☐ |
+| P2-05 | Ouvrir `http://localhost:<port>` depuis le serveur. | Console fonctionnelle. | ☐ |
+| P2-06 | F12 › Réseau › document principal › en-têtes de réponse. | Présents : `Strict-Transport-Security` (en HTTPS), `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. | ☐ |
+| P2-07 | **Parcourir toutes les pages** de la console (cf. NR-03), avec F12 › Console ouverte. | Aucune erreur « Refused to load / execute … Content Security Policy ». Seule erreur connue tolérée : 404 sur `css/-base.css` (backlog B20). | ☐ |
+| P2-08 | Tableau de bord avec au moins deux modèles d'imprimantes. | Le graphique en anneau s'affiche (Chart.js chargé avec contrôle d'intégrité). | ☐ |
+| P2-09 | Exporter un rapport ou une sauvegarde depuis la console. | Le fichier se télécharge (fonction JS déplacée dans `js/app.js`). | ☐ |
+| P2-10 | Créer une page HTML locale contenant `<iframe src="https://autoprint.maboite.fr">` et l'ouvrir. | La console ne s'affiche pas dans l'iframe. | ☐ |
+| P2-11 | **Mise à jour d'un serveur existant** : vérifier `appsettings.json`. | `AllowedHosts` est resté `*` (backlog B17) : le renseigner à la main, redémarrer le site, refaire P2-03 à P2-05. | ☐ |
+| P2-12 | Sur un poste client configuré avec le **nom public**, ouvrir le client. | Les imprimantes s'affichent. Un poste configuré avec l'IP échoue (cf. P2-31). | ☐ |
+
+### 3.2 Politique de mot de passe — audit #13
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-13 | Créer un utilisateur local avec un mot de passe de 11 caractères. | Refus « au moins 12 caractères » (dans la fenêtre, avant envoi). | ☐ |
+| P2-14 | Créer un utilisateur dont le mot de passe est égal à l'identifiant (12 caractères ou plus). | Refus « identique au nom d'utilisateur ». | ☐ |
+| P2-15 | Changer son mot de passe en remettant le même. | Refus « doit être différent de l'actuel ». | ☐ |
+| P2-16 | Un compte existant avec un mot de passe de 6 à 11 caractères se connecte. | Connexion acceptée (les anciens mots de passe restent valables jusqu'au prochain changement). | ☐ |
+| P2-17 | Sur le serveur : `Autoprint.Server.exe --reset-admin` (dans le dossier d'installation, en administrateur). | Affiche un mot de passe temporaire aléatoire de 16 caractères ; la connexion avec ce mot de passe impose un changement. `admin123` ne fonctionne plus. | ☐ |
+
+### 3.3 Messages d'erreur — audit #15
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-18 | Restaurer un fichier de sauvegarde corrompu (JSON modifié à la main). | Message « Erreur pendant la restauration… (réf. XXXXXXXX…) » sans détail technique ; la même référence apparaît dans les journaux du serveur avec le détail. | ☐ |
+| P2-19 | Profils SNMP › tester un profil sur une IP sans imprimante. | Message de diagnostic clair (« n'a pas répondu sur le port SNMP… ») conservé. | ☐ |
+| P2-20 | Profils SNMP › tester avec l'adresse `10.0.0.1; rm` ou `<script>`. | Refus « Adresse IP ou nom d'hôte de l'imprimante invalide ». | ☐ |
+| P2-21 | Tests SMTP et AD avec de mauvais paramètres. | Le message garde le détail utile au diagnostic (réservé aux admins). | ☐ |
+
+### 3.4 Sessions — audit #10
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-22 | Page de connexion. | Plus de case « Retenir l'identifiant » ; le champ identifiant est vide à chaque ouverture. | ☐ |
+| P2-23 | Ouvrir la console avec un compte A dans un navigateur ; avec `admin` dans un autre, **désactiver** A. | Dans les 30 s, le navigateur de A est renvoyé à la connexion (ou ses actions échouent). | ☐ |
+| P2-24 | Même test en **changeant le rôle** de A, puis en **réinitialisant son mot de passe**. | Même résultat. | ☐ |
+| P2-25 | Modifier les permissions d'un rôle dont A est membre. | Même résultat pour A (et pour l'admin s'il est membre du rôle : backlog B21). | ☐ |
+| P2-26 | A change lui-même son mot de passe puis se reconnecte immédiatement. | Reconnexion et navigation **sans erreur** (pas de 401 sur le tableau de bord). | ☐ |
+
+### 3.5 Clé agent et client — audit #11
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-27 | Client › Options › cliquer 5 fois sur la version (zone technique). | La clé est masquée (`••••••••` + 4 derniers caractères). | ☐ |
+| P2-28 | « Tester la connexion serveur » avec une configuration correcte. | « ✅ Connexion réussie ! » | ☐ |
+| P2-29 | Modifier `HKLM\SOFTWARE\Autoprint\APIKEY` avec une clé fausse, relancer le client, tester. | « Clé refusée par le serveur… ». | ☐ |
+| P2-30 | Mettre un nom de serveur inexistant dans `PRINTSERVER`, tester. | « Serveur injoignable… ». | ☐ |
+| P2-31 | Mettre l'adresse IP du serveur dans `PRINTSERVER`, tester. | « Nom de serveur non autorisé… » (ou « Certificat du serveur refusé » si le certificat ne couvre pas l'IP). | ☐ |
+| P2-32 | Poste sans le certificat de l'autorité interne, tester. | « Certificat du serveur refusé… ». | ☐ |
+| P2-33 | Console › Paramètres › Sécurité. | La clé est masquée ; plus d'interrupteur « Modification autorisée » ; bouton « Copier la clé ». | ☐ |
+| P2-34 | Cliquer « Copier la clé », coller dans un éditeur. | La clé complète est collée ; ses 4 derniers caractères correspondent à P2-27. | ☐ |
+| P2-35 | Journal d'audit. | Une entrée `AGENT_KEY_REVEAL` par copie, avec l'utilisateur. | ☐ |
+| P2-36 | **[API]** `GET /api/imprimantes` avec l'en-tête `X-Agent-Secret: <clé>`. | Réponse sans adresse IP, communauté SNMP, commentaire ni numéro de série ; le client continue d'afficher et d'installer les imprimantes (NR-05). | ☐ |
+
+### 3.6 Retrait du service Windows — audit #16
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-37 | Sur un poste ayant une ancienne version avec le service `AutoprintService` (ou `AutoprintWorker`), installer le nouveau MSI. | Le service est arrêté et supprimé (`sc query AutoprintService` : introuvable). | ☐ |
+| P2-38 | Sur ce poste, en PowerShell : `Get-ChildItem \\.\pipe\ \| Where-Object Name -like '*Autoprint*'`. | Seul le tube de réveil du client (`AutoprintClient_WakeUp_…`) peut apparaître, plus `AutoprintPipe`. | ☐ |
+
+### 3.7 Durcissements divers — audit #17
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| P2-39 | Journal d'audit › purger les anciens journaux (compte `admin`). | Purge effectuée (avant : refus systématique). | ☐ |
+| P2-40 | Sauvegarde exportée **avec cette version**, puis restauration. | Les comptes locaux se connectent avec leur mot de passe habituel ; les rôles AD / manuels sont conservés. | ☐ |
+| P2-41 | Restaurer une **ancienne** sauvegarde (version 26.08.24.3). | Les comptes locaux existant encore gardent leur mot de passe actuel ; tout le monde doit se reconnecter. | ☐ |
+| P2-42 | Compte local migré depuis une très ancienne version (hachage SHA-256 hérité), se connecter. | Connexion acceptée puis changement de mot de passe imposé. | ☐ |
+| P2-43 | GitHub › Security › Code scanning après push. | Alertes #1 à #11 fermées ; #12 à #15 à fermer manuellement comme « faux positif » si CodeQL les signale encore. | ☐ |
+| P2-44 | Paramètres › Maintenance › exporter une sauvegarde. | Une fenêtre d'avertissement (données sensibles en clair) s'affiche ; « Annuler » n'exporte rien, « J'ai compris, télécharger » lance le téléchargement. | ☐ |
+
+---
+
 ## Historique des mises à jour
 
 | Date | Phase | Modification |
 |---|---|---|
 | 04/11/2026 | Phase 1 | Création : non-régression générale, tests P1-01 à P1-46. |
+| 04/11/2026 | Phase 2 | Ajout des tests P2-01 à P2-44 (en-têtes, mots de passe, erreurs, sessions, clé agent, service Windows, divers). |

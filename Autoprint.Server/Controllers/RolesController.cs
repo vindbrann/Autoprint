@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Autoprint.Server.Data;
@@ -135,6 +135,9 @@ namespace Autoprint.Server.Controllers
                 Permissions = newPermissionCodes
             };
 
+            // Les droits portés par les jetons des membres de ce rôle ne sont plus à jour : on coupe leurs sessions (audit #10)
+            await RenewStampsOfRoleMembersAsync(role.Id);
+
             _auditService.LogCustomAudit(
                 "ROLE_UPDATE",
                 $"Modification rôle : {role.Name}",
@@ -161,6 +164,7 @@ namespace Autoprint.Server.Controllers
 
             _auditService.LogAction("ROLE_DELETE", $"Suppression rôle : {role.Name}", User.Identity?.Name, "WARNING", role.Name);
 
+            await RenewStampsOfRoleMembersAsync(role.Id);
             _context.Roles.Remove(role);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -216,6 +220,12 @@ namespace Autoprint.Server.Controllers
             _context.AdRoleMappings.Remove(mapping);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private async Task RenewStampsOfRoleMembersAsync(int roleId)
+        {
+            var members = await _context.Users.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleId)).ToListAsync();
+            foreach (var member in members) member.RenewSecurityStamp();
         }
     }
 }

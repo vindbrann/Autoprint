@@ -1,3 +1,4 @@
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Microsoft.AspNetCore.Authorization;
@@ -175,7 +176,7 @@ namespace Autoprint.Server.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = ApiErrors.LogAndDescribe(HttpContext, ex, "Échec de la génération ou de l'envoi du rapport.") });
             }
         }
 

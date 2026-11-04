@@ -10,7 +10,6 @@ namespace Autoprint.Shared.DTOs
         public string Username { get; set; } = string.Empty;
         [Required]
         public string Password { get; set; } = string.Empty;
-        public bool RememberMe { get; set; } = false;
     }
 
     public class LoginResponse
@@ -46,7 +45,7 @@ namespace Autoprint.Shared.DTOs
     {
         [Required]
         public string Username { get; set; } = string.Empty;
-        [Required, MinLength(6)]
+        [Required, MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.MinLengthMessage)]
         public string Password { get; set; } = string.Empty;
         [Required]
         public string DisplayName { get; set; } = string.Empty;
@@ -62,7 +61,7 @@ namespace Autoprint.Shared.DTOs
         [EmailAddress]
         public string? Email { get; set; }
         public bool IsActive { get; set; }
-        [MinLength(6, ErrorMessage = "Le mot de passe doit faire au moins 6 caractères.")]
+        [MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.MinLengthMessage)]
         public string? NewPassword { get; set; }
         public int RoleId { get; set; }
         public bool ForceChangePassword { get; set; }
@@ -93,7 +92,7 @@ namespace Autoprint.Shared.DTOs
     {
         [Required]
         public string CurrentPassword { get; set; } = string.Empty;
-        [Required, MinLength(6)]
+        [Required, MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.MinLengthMessage)]
         public string NewPassword { get; set; } = string.Empty;
         [Compare("NewPassword")]
         public string ConfirmPassword { get; set; } = string.Empty;
@@ -103,7 +102,7 @@ namespace Autoprint.Shared.DTOs
         [Required]
         public string Token { get; set; } = string.Empty; // Le jeton reçu par mail
 
-        [Required, MinLength(6, ErrorMessage = "6 caractères minimum")]
+        [Required, MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.MinLengthMessage)]
         public string NewPassword { get; set; } = string.Empty;
 
         [Compare("NewPassword", ErrorMessage = "La confirmation ne correspond pas")]

@@ -47,7 +47,10 @@ namespace Autoprint.Server.Services
 
                     if (SecurityHelper.IsRehashNeeded(localUser.PasswordHash ?? ""))
                     {
+                        // Ancien hachage SHA-256 non salé : on migre, et on impose un nouveau mot de passe
+                        // (l'ancien a pu être exposé sous une forme facilement cassable)
                         localUser.PasswordHash = SecurityHelper.HashPassword(request.Password);
+                        localUser.ForceChangePassword = true;
                     }
                 }
             }
@@ -149,7 +152,7 @@ namespace Autoprint.Server.Services
             user.LastLogin = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            var token = GenerateJwtToken(user, permissions, passwordExpired, request.RememberMe);
+            var token = GenerateJwtToken(user, permissions, passwordExpired);
 
             return new LoginResponse
             {
@@ -379,15 +382,17 @@ namespace Autoprint.Server.Services
                     var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
                     var targetAdRoleIds = applicableMappings.Select(m => m.RoleId).Distinct().ToHashSet();
 
-                    foreach (var adRole in currentRoles.Where(ur => ur.IsFromAd && !targetAdRoleIds.Contains(ur.RoleId)))
-                    {
-                        _context.UserRoles.Remove(adRole);
-                    }
+                    var rolesToRemove = currentRoles.Where(ur => ur.IsFromAd && !targetAdRoleIds.Contains(ur.RoleId)).ToList();
+                    var rolesToAdd = targetAdRoleIds.Where(id => !currentRoles.Any(ur => ur.RoleId == id)).ToList();
 
-                    foreach (var roleId in targetAdRoleIds.Where(id => !currentRoles.Any(ur => ur.RoleId == id)))
+                    _context.UserRoles.RemoveRange(rolesToRemove);
+                    foreach (var roleId in rolesToAdd)
                     {
                         _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleId, IsFromAd = true });
                     }
+
+                    // Les autres sessions ouvertes de cet utilisateur portent d'anciens droits : on les coupe
+                    if (rolesToRemove.Count > 0 || rolesToAdd.Count > 0) user.RenewSecurityStamp();
 
                     await _context.SaveChangesAsync();
                 }
@@ -408,14 +413,16 @@ namespace Autoprint.Server.Services
                 .ToListAsync();
         }
 
-        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired, bool rememberMe)
+        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired)
         {
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim("DisplayName", user.DisplayName ?? "")
+                new Claim("DisplayName", user.DisplayName ?? ""),
+                // Vérifiée à chaque requête (Program.cs, OnTokenValidated) pour pouvoir révoquer les sessions
+                new Claim("sstamp", user.SecurityStamp ?? "")
             };
 
             if (passwordExpired) claims.Add(new Claim("ForcePasswordChange", "true"));

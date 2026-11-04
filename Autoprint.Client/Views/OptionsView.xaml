@@ -86,7 +86,7 @@
                          Margin="0,0,0,10"/>
 
                 <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                         materialDesign:HintAssist.Hint="Clé API (Agent)"
+                         materialDesign:HintAssist.Hint="Clé API (Agent), 4 derniers caractères"
                          Text="{Binding AdminApiKey, UpdateSourceTrigger=PropertyChanged}"
                          IsReadOnly="True"
                          FontFamily="Consolas"

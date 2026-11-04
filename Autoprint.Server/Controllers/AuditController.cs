@@ -1,4 +1,4 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -84,8 +84,8 @@ namespace Autoprint.Server.Controllers
         }
 
         [HttpDelete("cleanup")]
-
-        [Authorize(Roles = "SuperAdmin")]
+        // Le rôle « SuperAdmin » n'est jamais émis dans le jeton : on s'appuie sur la permission d'administration
+        [Authorize(Policy = "ADMIN_ACCESS")]
         public async Task<IActionResult> CleanupOldLogs()
         {
             var limitDate = DateTime.UtcNow.AddDays(-30);

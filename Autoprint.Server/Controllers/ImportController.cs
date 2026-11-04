@@ -1,4 +1,5 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Helpers;
+using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
@@ -49,7 +50,7 @@ namespace Autoprint.Server.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(ApiErrors.LogAndDescribe(HttpContext, ex, "Impossible de lire le spouleur local."));
             }
         }
 

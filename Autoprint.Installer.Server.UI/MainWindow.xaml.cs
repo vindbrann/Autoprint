@@ -149,6 +149,11 @@ namespace Autoprint.Installer.Server.UI
                 MessageBox.Show("Port Web invalide.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
+            if (_currentStep == 5 && !System.Text.RegularExpressions.Regex.IsMatch(TxtPublicHost.Text.Trim(), @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$"))
+            {
+                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
             return true;
         }
 
@@ -515,7 +520,8 @@ namespace Autoprint.Installer.Server.UI
                 {
                     LogLevel = new { Default = "Information", Microsoft = "Warning" }
                 },
-                AllowedHosts = "*",
+                // Seuls le nom public et localhost sont acceptés (protection contre l'usurpation d'en-tête Host)
+                AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
                 ClientUrl = $"http://localhost:{TxtWebPort.Text}",
                 Jwt = new
                 {

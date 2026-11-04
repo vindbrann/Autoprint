@@ -185,6 +185,10 @@
                     <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" Padding="5" MaxLength="5"/>
                 </Grid>
                 <TextBlock Text="Note : L'installeur configurera le pare-feu automatiquement." FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+
+                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5"/>
+                <TextBox x:Name="TxtPublicHost" Padding="5" Width="350" HorizontalAlignment="Left"/>
+                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé)." FontSize="11" Foreground="Gray" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel x:Name="View6_Install" Visibility="Collapsed" VerticalAlignment="Center">

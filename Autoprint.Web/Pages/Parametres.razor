@@ -632,20 +632,17 @@ else
                                     <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning); font-size: 2rem;" />
                                     <RadzenStack Gap="0">
                                         <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
-                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux agents Autoprint de s'identifier. Ne la modifiez qu'en cas de sinistre.</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux postes clients de s'identifier. Elle est demandée à l'installation du MSI client (APIKEY=...).</RadzenText>
                                     </RadzenStack>
                                 </RadzenStack>
 
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mt-2">
-                                    <RadzenSwitch @bind-Value="@isAgentKeyEditable" />
-                                    <RadzenLabel Text="@(isAgentKeyEditable ? "Modification AUTORISÉE (DANGER)" : "Verrouillé (Lecture seule)")"
-                                                 Style="@(isAgentKeyEditable ? "color: var(--rz-danger); font-weight: bold;" : "color: var(--rz-text-disabled-color);")" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                    <RadzenTextBox Value="@model.AgentApiKey" Disabled="true" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
+                                    <RadzenButton Icon="content_copy" Text="Copier la clé" ButtonStyle="ButtonStyle.Secondary" Click="@CopyAgentKey" Tooltip="Copie la clé en clair dans le presse-papiers (action tracée dans l'audit)" />
                                 </RadzenStack>
-
-                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                    <RadzenTextBox @bind-Value="@model.AgentApiKey" Disabled="@(!isAgentKeyEditable)" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
-                                    <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await JS.InvokeVoidAsync("navigator.clipboard.writeText", model.AgentApiKey))" Tooltip="Copier" />
-                                </RadzenStack>
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                    La clé n'est jamais affichée en clair. Chaque copie est enregistrée dans le journal d'audit.
+                                </RadzenText>
                             </RadzenStack>
                         </RadzenCard>
 
@@ -686,7 +683,29 @@ else
     private bool sauvegardeEnCours = false;
     private bool testEnCours = false;
     private bool testAdFilterEnCours = false;
-    private bool isAgentKeyEditable = false;
+    private async Task CopyAgentKey()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<AgentKeyResponse>("api/Settings/agent-key");
+            if (string.IsNullOrEmpty(response?.Key)) throw new InvalidOperationException("Clé introuvable.");
+            try
+            {
+                await JS.InvokeVoidAsync("navigator.clipboard.writeText", response.Key);
+                NotificationService.Notify(NotificationSeverity.Success, "Copiée", "La clé d'API agent est dans le presse-papiers.");
+            }
+            catch (JSException)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Copie impossible", "Le navigateur a refusé l'accès au presse-papiers (la console doit être ouverte en HTTPS).");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de récupérer la clé : " + ex.Message);
+        }
+    }
+
+    private class AgentKeyResponse { public string Key { get; set; } = ""; }
     private string testEmailTo = "";
     private string testAdQuery = "";
     private string builderGroupName = "";
@@ -792,6 +811,16 @@ else
 
     private async Task DownloadBackup()
     {
+        // Avertissement avant export (audit #9) : le fichier contient des secrets en clair tant qu'ils ne sont pas chiffrés
+        var confirmed = await DialogService.Confirm(
+            "Ce fichier de sauvegarde contient des données sensibles EN CLAIR : mot de passe du compte de service Active Directory, " +
+            "mot de passe SMTP, clé d'API agent, ainsi que les empreintes des mots de passe des comptes locaux. " +
+            "Conservez-le dans un emplacement protégé (accès réservé aux administrateurs), ne l'envoyez pas par e-mail " +
+            "et supprimez les copies inutiles. Continuer ?",
+            "Sauvegarde : données sensibles",
+            new ConfirmOptions { OkButtonText = "J'ai compris, télécharger", CancelButtonText = "Annuler" });
+        if (confirmed != true) return;
+
         try
         {
             NotificationService.Notify(NotificationSeverity.Info, "Export", "Préparation du téléchargement...");

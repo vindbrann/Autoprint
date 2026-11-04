@@ -84,6 +84,17 @@ namespace Autoprint.Server.Data
                 }
                 catch { }
 
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'SecurityStamp')
+                        BEGIN
+                            ALTER TABLE Users ADD SecurityStamp nvarchar(64) NULL;
+                        END
+                    ");
+                }
+                catch { }
+
                 // Origine des rôles (AD / manuel). À la création de la colonne, les rôles des utilisateurs AD
                 // correspondant à un mapping de groupe sont considérés comme issus de l'AD.
                 try
@@ -201,6 +212,12 @@ namespace Autoprint.Server.Data
                 try
                 {
                     context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_SnmpProfileItems_SnmpProfileId ON SnmpProfileItems(SnmpProfileId);");
+                }
+                catch { }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN SecurityStamp TEXT NULL;");
                 }
                 catch { }
 

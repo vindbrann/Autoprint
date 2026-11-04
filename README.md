@@ -59,7 +59,7 @@ Dans les parcs informatiques d'entreprise modernes (multi-sites, réseaux hybrid
 - **Géolocalisation réseau sans intervention :** L'agent de bureau analyse en temps réel l'adresse IPv4 active du poste de travail et ses correspondances CIDR pour présenter instantanément les imprimantes du site physique visité.
 - **Découplage contrôle / données (Branch Office Direct Printing) :** Le serveur d'impression central orchestre les configurations, les autorisations et les politiques, tandis que les flux de données d'impression transitent directement du poste utilisateur vers le port TCP/IP de l'imprimante locale.
 - **Maintenance proactive par télémétrie SNMP :** Surveillance continue de l'ensemble du parc via les MIB standard (RFC 3805) et propriétaires, couplée à un moteur de régression linéaire prédisant la date exacte de rupture de chaque cartouche.
-- **Architecture à privilèges scindés :** L'agent client s'exécute exclusivement en droits utilisateur standard, déléguant les opérations système machine (installation silencieuse de pilotes système via `printui.dll`) à un service Windows dédié via un tube nommé IPC sécurisé.
+- **Zéro privilège sur le poste :** L'agent client s'exécute exclusivement en droits utilisateur standard, sans service Windows privilégié. Les pilotes d'impression sont pré-déployés par les outils managés (Intune, SCCM, GPO).
 
 ---
 
@@ -111,12 +111,11 @@ La solution se compose de projets complémentaires articulés autour du framewor
 | :--- | :--- | :--- |
 | **Serveur & API**<br/>`Autoprint.Server` | ASP.NET Core 10, EF Core 10, SignalR | Cœur de la solution : héberge l'API REST, les contrôleurs de spouleur Windows, le hub temps réel, les tâches de fond périodiques (monitoring, découverte réseau, purge d'audit) et la persistance. Hébergé sous IIS ou en CLI autonome. |
 | **Console Web Admin**<br/>`Autoprint.Web` | Blazor WebAssembly (.NET 10), Radzen.Blazor 8.3.8, Chart.js, Bootstrap 5.3 | Application Web monopage (SPA) exécutée côté client dans le navigateur. Offre la gestion complète du parc, des lieux, des profils SNMP, des rôles et des paramètres système. |
-| **Client Bureau Utilisateur**<br/>`Autoprint.Client` | WPF (.NET 10-windows), MaterialDesignThemes 5.3.0, Hardcodet.NotifyIcon 2.0.1, SQLite Local | Agent de bureau résident en barre des tâches. Géolocalise le poste via sous-réseau IP CIDR, met en cache les imprimantes, pilote l'imprimante par défaut et communique avec le serveur et le service Windows local. |
-| **Service Système Machine**<br/>`Autoprint.Service` | .NET 10 Windows Service (`BackgroundService`), Named Pipe IPC ACL | Service Windows d'arrière-plan exécuté en compte `LocalSystem`. Écoute sur `\\.\pipe\AutoprintPipe` pour réaliser les installations silencieuses de pilotes d'impression système via `printui.dll` et les écritures dans `HKLM`. |
+| **Client Bureau Utilisateur**<br/>`Autoprint.Client` | WPF (.NET 10-windows), MaterialDesignThemes 5.3.0, Hardcodet.NotifyIcon 2.0.1, SQLite Local | Agent de bureau résident en barre des tâches. Géolocalise le poste via sous-réseau IP CIDR, met en cache les imprimantes, pilote l'imprimante par défaut et communique avec le serveur. |
 | **Contrats & Modèles Partagés**<br/>`Autoprint.Shared` | .NET 10 Class Library, EF Core Annotations | Référentiel commun contenant les entités ORM, les DTOs d'API, les énumérations système, les contrats IPC et les modèles de sauvegarde partagés entre le serveur, le web et le client. |
 | **Assistant Installateur Serveur**<br/>`Autoprint.Installer.Server.UI` | WPF (.NET 10-windows), Microsoft.Web.Administration | Assistant graphique d'installation serveur : configure le pool d'application IIS en `LocalSystem`, teste les connexions SQL Server, génère les clés JWT et exécute les migrations initiales. |
 | **Paquet MSI Serveur**<br/>`Autoprint.Server.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) pour le déploiement automatisé du serveur d'impression. |
-| **Paquet MSI Client**<br/>`Autoprint.Client.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) déployable par GPO, Microsoft Intune ou SCCM pour installer l'agent client et le service Windows. |
+| **Paquet MSI Client**<br/>`Autoprint.Client.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) déployable par GPO, Microsoft Intune ou SCCM pour installer l'agent client. |
 
 ---
 
@@ -152,8 +151,6 @@ Autoprint/
 │
 ├── Autoprint.Server.Setup/               # Projet d'installeur WiX v5 (MSI) pour le serveur d'impression
 │
-├── Autoprint.Service/                    # Service Windows (.NET 10) privilégié en compte LocalSystem
-│   ├── Services/                         # NamedPipeServer (\\.\pipe\AutoprintPipe) et PrinterEngine
 │   ├── Program.cs                        # Configuration de l'hôte Windows Service
 │   └── Worker.cs                         # Boucle d'exécution d'arrière-plan du service
 │
@@ -189,8 +186,8 @@ Autoprint/
 
 ### 5.1. Modèle Zéro-Privilège Utilisateur & Isolation IPC
 - L'application de bureau [`Autoprint.Client`](Autoprint.Client/App.xaml.cs) s'exécute exclusivement dans le contexte de la session utilisateur connectée, sans nécessiter de droits d'administration locale.
-- Les opérations système requérant de hauts privilèges (installation de pilotes de périphériques dans le magasin Windows via `rundll32 printui.dll`, écriture des paramètres machine dans `HKLM\SOFTWARE\Autoprint`) sont déléguées au service Windows local [`Autoprint.Service`](Autoprint.Service/Worker.cs).
-- La communication inter-processus s'effectue via un tube nommé sécurisé (`\\.\pipe\AutoprintPipe`) dont la liste de contrôle d'accès (`PipeSecurity`) restreint explicitement les connexions aux comptes authentifiés locaux (`AuthenticatedUserSid`).
+- Aucun composant privilégié n'est installé sur les postes : l'ancien service Windows `LocalSystem` (tube nommé `AutoprintPipe`) a été retiré en 26.08.24.2, car il permettait une élévation locale de privilèges. Le MSI désinstalle les anciennes versions du service.
+- Les pilotes d'impression doivent être pré-déployés sur les postes par les outils managés (Intune, SCCM, GPO).
 
 ### 5.2. Cryptographie, Gestion des Sessions & Authentification
 - **Hachage des Mots de Passe :** Utilisation de **PBKDF2 avec sel cryptographique** via `Microsoft.AspNetCore.Identity.PasswordHasher<string>`. Détection et migration transparente automatique des anciennes empreintes SHA-256 lors de la connexion réussie d'un utilisateur.
@@ -349,7 +346,7 @@ Le binaire serveur [`Autoprint.Server.exe`](Autoprint.Server/Program.cs) dispose
 :: 1. Exécuter uniquement les migrations EF Core et l'initialisation de base (sans démarrer le serveur Web)
 Autoprint.Server.exe --migrate-only
 
-:: 2. Réinitialiser le compte administrateur local par défaut (identifiant 'admin', mot de passe 'admin123', avec obligation de changement)
+:: 2. Réinitialiser le compte administrateur local 'admin' : un mot de passe temporaire aléatoire est affiché une seule fois (changement obligatoire à la connexion)
 Autoprint.Server.exe --reset-admin
 ```
 

@@ -13,7 +13,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | **Serveur d'API & Hôte Web** | `Autoprint.Server` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Program.cs) | `dotnet run --project Autoprint.Server`<br/>Production : Hébergé sous IIS (`w3wp.exe`) via le module ASP.NET Core Hosting Bundle.<br/>CLI Maintenance : `Autoprint.Server.exe --migrate-only` ou `Autoprint.Server.exe --reset-admin` |
 | **Frontend Web Admin** | `Autoprint.Web` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Web/Program.cs) | Téléchargé et exécuté dans le navigateur client via WebAssembly depuis l'hôte serveur (`_framework/blazor.webassembly.js`). En dev local : `dotnet watch --project Autoprint.Web` |
 | **Client Bureau Utilisateur** | `Autoprint.Client` | [`App.xaml.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/App.xaml.cs) | `Autoprint.Client.exe`<br/>Arguments optionnels : `--firstrun`, `--silent`, `--api-key <CLE>`, `--print-server <SERVEUR>`, `--config-path <DOSSIER>` |
-| **Service Système Windows** | `Autoprint.Service` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Program.cs) | Géré par le Windows Service Control Manager (`sc.exe start AutoprintService`). En debug console : exécution directe du binaire. |
 | **Installateur Serveur** | `Autoprint.Installer.Server.UI` | [`App.xaml.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Installer.Server.UI/App.xaml.cs) | `Autoprint.Installer.Server.UI.exe` (Exécute avec élévation UAC `requireAdministrator`). |
 
 ---
@@ -36,7 +35,7 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
    - Authentification (`UseAuthentication`) et Autorisation (`UseAuthorization`).
    - Routage : Razor Pages, Contrôleurs API, Hub SignalR [`EventsHub`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Hubs/EventsHub.cs) sur `/hubs/events`, et page de repli `index.html`.
 10. **Amorçage Automatique de la Base au Démarrage :** Portée de service temporaire pour exécuter les migrations EF Core et [`DbInitializer.Initialize()`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Data/DbInitializer.cs) (création des tables, injection des permissions, création du compte `admin` initial si absent, synchronisation des clés de configuration par défaut).
-11. **Interception `--reset-admin` :** Si spécifié en ligne de commande, réinitialisation du mot de passe `admin` à `admin123` avec `ForceChangePassword = true`, puis arrêt.
+11. **Interception `--reset-admin` :** Si spécifié en ligne de commande, réinitialisation du mot de passe `admin` avec un mot de passe temporaire aléatoire affiché une seule fois dans la console, `ForceChangePassword = true`, puis arrêt.
 12. **Exécution continue :** `app.Run()`.
 
 #### B. Initialisation du Client Desktop (`Autoprint.Client`)
@@ -53,13 +52,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 6. **Liaison Temps Réel SignalR :** [`RealTimeService`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/RealTimeService.cs) se connecte au hub `/hubs/events` du serveur distant et déclenche `RafraichirDonneesAsync` lors de la réception de `RefreshPrinters`.
 7. **Surveillance Réseau :** Abonnement à `NetworkChange.NetworkAddressChanged` pour déclencher une détection automatique avec temporisation anti-rebond de 3 secondes.
 8. **Premier Scan :** Appel de `RafraichirDonneesAsync(estDemarrage: true)` avec détection de l'IP active, matching CIDR, lecture du cache/API et application de l'imprimante par défaut.
-
-#### C. Initialisation du Service Windows (`Autoprint.Service`)
-1. [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Program.cs) configure le worker d'hôte avec `AddWindowsService(ServiceName = "AutoprintService")`.
-2. [`Worker.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Worker.cs) démarre et instancie [`PrinterEngine`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/PrinterEngine.cs) et [`NamedPipeServer`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/NamedPipeServer.cs).
-3. Le serveur de tube nommé écoute sur `\\.\pipe\AutoprintPipe` avec des permissions sécurisées restreintes aux utilisateurs authentifiés (`AuthenticatedUserSid`), prêt à exécuter l'installation machine de pilotes (`printui.dll /ia`) et les écritures dans `HKLM\SOFTWARE\Autoprint`.
-
----
 
 ## 2. Cadastre des Composants & Logique Métier
 
@@ -104,8 +96,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | [`Autoprint.Client/Services/IpHelper.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/IpHelper.cs) | `IpHelper` | Mathématiques réseau binaire | Vérification d'appartenance d'une adresse IPv4 à un bloc de sous-réseau CIDR (`IsIpInCidr`). |
 | [`Autoprint.Client/Services/RealTimeService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/RealTimeService.cs) | `RealTimeService` | `HubConnection` (SignalR) | Maintien de la connexion WebSocket avec le serveur et notification de rafraîchissement au client WPF. |
 | [`Autoprint.Client/Services/ApiService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/ApiService.cs) | `ApiService` | `HttpClient`, JSON | Appels HTTP vers les contrôleurs `/api/emplacements` et `/api/imprimantes` avec jeton secret machine. |
-| [`Autoprint.Service/Services/NamedPipeServer.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/NamedPipeServer.cs) | `NamedPipeServer` | `NamedPipeServerStreamAcl` | Écoute IPC sur `AutoprintPipe`, réception des commandes `INSTALL_DRIVER` et `UPDATE_CONFIG`. |
-| [`Autoprint.Service/Services/PrinterEngine.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/PrinterEngine.cs) | `PrinterEngine` | `rundll32 printui.dll` | Exécution privilégiée en compte SYSTEM de l'installation silencieuse de pilotes d'impression machine. |
 
 ---
 
