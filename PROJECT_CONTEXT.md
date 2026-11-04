@@ -30,7 +30,6 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 | **Backend API & Hôte Web** | `Autoprint.Server` | `.NET 10.0` (`net10.0`) | ASP.NET Core Web API / Minimal API / SignalR / Razor Pages |
 | **Frontend Web d'Administration** | `Autoprint.Web` | `.NET 10.0` (`net10.0`) | Blazor WebAssembly (Standalone WASM hébergé) |
 | **Client Bureau Utilisateur** | `Autoprint.Client` | `.NET 10.0 Windows` (`net10.0-windows`) | Application Windows WPF (Desktop Systray) |
-| **Service d'Arrière-Plan Windows** | `Autoprint.Service` | `.NET 10.0 Windows` (`net10.0-windows`) | Windows Service Worker (`AutoprintService`) |
 | **Modèles Partagés & Contrats** | `Autoprint.Shared` | `.NET 10.0` (`net10.0`) | Bibliothèque de classes C# partagée (DTOs, Entités, IPC) |
 | **Installateur Serveur UI** | `Autoprint.Installer.Server.UI` | `.NET 10.0 Windows` (`net10.0-windows`) | Assistant d'installation / Assistant de migration WPF |
 | **Packages Déploiement** | `*.Setup` | WiX Toolset v4/v5 | Projets d'installation MSI (`Package.wxs`) |
@@ -68,8 +67,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
   - Service Windows Spouleur d'impression actif (`spoolsv.exe`).
 - **Droits et Privilèges d'Exécution :**
   - **Serveur :** Le pool d'application IIS d'Autoprint (`Autoprint`) est configuré pour tourner sous l'identité **`LocalSystem`** (`ProcessModelIdentityType.LocalSystem`) avec un `IdleTimeout` de zéro. Ce niveau de privilège est obligatoire pour autoriser le processus web à créer des ports TCP/IP réseau via WMI, modifier les files du Spouleur Windows via P/Invoke (`winspool.drv`), et configurer les paramètres de pilotes d'impression dans le Registre Windows.
-  - **Service Windows :** `Autoprint.Service` s'exécute sous le compte `NT AUTHORITY\SYSTEM`.
-  - **Client :** S'exécute sous la session utilisateur standard. Les opérations requérant des privilèges administrateur (installation de pilote machine) sont déléguées au service d'arrière-plan via le tube nommé sécurisé `\\.\pipe\AutoprintPipe`.
+  - **Client :** S'exécute sous la session utilisateur standard, sans service Windows privilégié (l'ancien `Autoprint.Service` a été retiré). Les pilotes d'impression sont pré-déployés par les outils managés.
 - **Binaires Système & Fichiers Externes :**
   - `winspool.drv` (bibliothèque native Windows Print Spooler).
   - `rundll32.exe printui.dll,PrintUIEntry` (commandes natives Windows d'installation/connexion/suppression de files et pilotes).
@@ -298,7 +296,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 
 ### Droits Système & Élévation de Privilèges
 - **Backend / Serveur IIS :** Tourne sous l'identité **`LocalSystem`**. Cette élévation est obligatoire pour interagir avec le sous-système d'impression Windows sans blocage de sécurité UAC ou d'accès mémoire protégé.
-- **Service Windows (`Autoprint.Service`) :** S'exécute sous `NT AUTHORITY\SYSTEM` et contrôle le tube nommé `AutoprintPipe` avec une ACL restreinte aux utilisateurs authentifiés (`WellKnownSidType.AuthenticatedUserSid`).
+- **Service Windows client :** Aucun. L'ancien service `Autoprint.Service` (SYSTEM, tube nommé `AutoprintPipe`) a été retiré pour cause d'élévation locale de privilèges ; le MSI client supprime les services `AutoprintWorker` et `AutoprintService` s'ils sont présents.
 - **Client Utilisateur :** Tourne sans privilèges administrateur (droits utilisateur standard).
 
 ### Gestion des Secrets & Chiffrement

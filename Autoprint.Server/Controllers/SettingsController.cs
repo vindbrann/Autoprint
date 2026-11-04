@@ -50,6 +50,20 @@ namespace Autoprint.Server.Controllers
             return settings;
         }
 
+        // Lecture de la clé agent en clair, à la demande et tracée dans l'audit (la liste des paramètres la masque)
+        [HttpGet("agent-key")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> RevealAgentKey()
+        {
+            var key = await _context.ServerSettings.Where(s => s.Key == "AgentApiKey").Select(s => s.Value).FirstOrDefaultAsync();
+            if (string.IsNullOrEmpty(key)) return NotFound("Clé agent absente.");
+
+            _auditService.LogAction("AGENT_KEY_REVEAL", "Consultation de la clé d'API agent", User.Identity?.Name, "WARNING", resourceName: "AgentApiKey");
+            await _context.SaveChangesAsync();
+
+            return Ok(new { key });
+        }
+
         [HttpPost("Save")]
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)

@@ -33,7 +33,14 @@ namespace Autoprint.Server.Services
 
             var knownIps = await _context.Imprimantes.Select(p => p.AdresseIp).ToListAsync();
 
-            _logger.LogInformation($"[Import Scan] Démarrage sur {cidr} ({ipsToScan.Count} IPs)");
+            // On journalise le réseau effectivement calculé, jamais la saisie brute (CodeQL « Log entries created from user input »)
+            if (ipsToScan.Count == 0)
+            {
+                _logger.LogWarning("[Import Scan] Plage réseau invalide, scan annulé.");
+                return results;
+            }
+            var network = ipsToScan[0].GetAddressBytes();
+            _logger.LogInformation("[Import Scan] Démarrage sur {Network} ({Count} IPs)", $"{network[0]}.{network[1]}.{network[2]}.0/24", ipsToScan.Count);
 
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
 

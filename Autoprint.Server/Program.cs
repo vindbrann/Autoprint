@@ -5,6 +5,7 @@ using Autoprint.Server.Services;
 using Autoprint.Web.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 
 // PDFsharp 6 (build "Core") : utilise les polices installées sous Windows pour les rapports PDF
@@ -106,7 +107,43 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+
+    // Révocation des sessions (audit #10) : compte désactivé / supprimé ou empreinte de sécurité changée
+    // (mot de passe, statut, rôles) => le jeton est refusé. Résultat mis en cache 30 s par utilisateur.
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var principal = context.Principal;
+            if (!int.TryParse(principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out int userId))
+            {
+                context.Fail("Jeton sans identifiant utilisateur.");
+                return;
+            }
+
+            // Clé de cache = utilisateur + empreinte du jeton : un nouveau jeton (nouvelle empreinte) est vérifié tout de suite,
+            // un ancien jeton révoqué l'est au plus tard 30 s après le changement
+            var tokenStamp = principal!.FindFirst("sstamp")?.Value ?? "";
+            var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+            var isValid = await cache.GetOrCreateAsync($"user-session-{userId}-{tokenStamp}", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                var state = await db.Users.AsNoTracking()
+                    .Where(u => u.Id == userId)
+                    .Select(u => new { u.IsActive, Stamp = u.SecurityStamp ?? "" })
+                    .FirstOrDefaultAsync();
+                return state != null && state.IsActive && state.Stamp == tokenStamp;
+            });
+
+            if (!isValid)
+            {
+                context.Fail("Session révoquée.");
+            }
+        }
+    };
 });
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
@@ -212,6 +249,40 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+// En-têtes de sécurité (audit #12). La console n'est jamais affichée dans un iframe.
+// CSP : Blazor WebAssembly exige 'wasm-unsafe-eval' ; Radzen utilise des styles en ligne ; Bootstrap / Chart.js viennent de jsDelivr (versions figées + SRI).
+const string ContentSecurityPolicy =
+    "default-src 'self'; " +
+    "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+    "font-src 'self' data: https://cdn.jsdelivr.net; " +
+    "img-src 'self' data: blob:; " +
+    "connect-src 'self'; " +
+    "frame-ancestors 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'self'; " +
+    "object-src 'none'";
+
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    // Swagger UI (développement uniquement) utilise des scripts en ligne
+    if (!(app.Environment.IsDevelopment() && context.Request.Path.StartsWithSegments("/swagger")))
+    {
+        headers["Content-Security-Policy"] = ContentSecurityPolicy;
+    }
+    await next();
+});
+
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
@@ -289,11 +360,19 @@ if (args.Contains("--reset-admin"))
         var admin = context.Users.FirstOrDefault(u => u.Username == "admin");
         if (admin != null)
         {
-            admin.PasswordHash = Autoprint.Server.Helpers.SecurityHelper.HashPassword("admin123");
+            // Mot de passe temporaire aléatoire, affiché une seule fois (audit #13)
+            const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+            var tempPassword = new string(Enumerable.Range(0, 16)
+                .Select(_ => alphabet[System.Security.Cryptography.RandomNumberGenerator.GetInt32(alphabet.Length)])
+                .ToArray());
+
+            admin.PasswordHash = Autoprint.Server.Helpers.SecurityHelper.HashPassword(tempPassword);
             admin.ForceChangePassword = true;
             admin.IsActive = true;
+            admin.RenewSecurityStamp();
             context.SaveChanges();
-            Console.WriteLine("SUCCES : Mot de passe reinitialise a 'admin123'.");
+            Console.WriteLine($"SUCCES : Mot de passe temporaire de 'admin' : {tempPassword}");
+            Console.WriteLine("Il devra etre change a la premiere connexion. Il ne sera plus affiche.");
         }
         else Console.WriteLine("ERREUR : Admin introuvable.");
     }

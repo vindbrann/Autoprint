@@ -1,7 +1,6 @@
 using Autoprint.Client.Models;
 using Autoprint.Client.Services;
 using Autoprint.Shared;
-using Autoprint.Shared.IPC;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -426,9 +425,10 @@ namespace Autoprint.Client.ViewModels
         {
             try
             {
+                // Chemin absolu : évite qu'un rundll32.exe placé dans le dossier courant soit exécuté à la place
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "rundll32.exe",
+                    FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "rundll32.exe"),
                     Arguments = arguments,
                     UseShellExecute = false
                 };

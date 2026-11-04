@@ -124,9 +124,11 @@
 				<RegistryValue Root="HKCU" Key="Software\Autoprint\Shortcut" Name="installed" Type="integer" Value="1" KeyPath="yes" />
 			</Component>
 
-			<!-- Nettoyage et arrêt de l'ancien service Windows AutoprintWorker (V1) -->
+			<!-- Nettoyage et arrêt des anciens services Windows (AutoprintWorker V1, AutoprintService) -->
 			<Component Id="CleanupOldService" Guid="{A17C1744-8846-4B82-B268-F02A0BB6D672}" Directory="INSTALLFOLDER">
 				<ServiceControl Id="StopOldWorker" Name="AutoprintWorker" Stop="both" Remove="both" Wait="yes" />
+				<!-- Service AutoprintService (26.08.24.1 et antérieures) : tube nommé ouvert à tous les utilisateurs, élévation de privilèges possible -->
+				<ServiceControl Id="StopOldAutoprintService" Name="AutoprintService" Stop="both" Remove="both" Wait="yes" />
 			</Component>
 		</ComponentGroup>
 

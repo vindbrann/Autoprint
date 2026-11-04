@@ -1,3 +1,4 @@
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
@@ -34,13 +35,44 @@ namespace Autoprint.Server.Controllers
             if (User.Identity != null && User.Identity.IsAuthenticated)
                 return await GetImprimantesListWithIncludes(includeArchived);
 
-            if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
-            {
-                var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
-                if (setting != null && receivedSecret == setting.Value)
-                    return await GetImprimantesListWithIncludes(includeArchived);
-            }
+            if (await AgentAuth.IsValidAgentRequestAsync(Request, _context))
+                return await GetImprimantesForAgent();
+
             return Unauthorized(new { message = "Accès refusé." });
+        }
+
+        // Vue réduite pour les postes clients (audit #11) : la clé agent est lisible par tout utilisateur d'un poste,
+        // on ne renvoie donc que ce dont le client a besoin (ni IP, ni communauté SNMP, ni commentaires, ni n° de série).
+        private async Task<List<Imprimante>> GetImprimantesForAgent()
+        {
+            return await _context.Imprimantes
+                .AsNoTracking()
+                .Where(i => !i.IsArchived)
+                .Select(i => new Imprimante
+                {
+                    Id = i.Id,
+                    NomAffiche = i.NomAffiche,
+                    Code = i.Code,
+                    AdresseIp = string.Empty,
+                    SnmpCommunity = string.Empty,
+                    EstPartagee = i.EstPartagee,
+                    NomPartage = i.NomPartage,
+                    IsDirectPrintingEnabled = i.IsDirectPrintingEnabled,
+                    EmplacementId = i.EmplacementId,
+                    Localisation = i.Localisation,
+                    ModeleId = i.ModeleId,
+                    Status = i.Status,
+                    Modele = i.Modele == null ? null : new Modele
+                    {
+                        Id = i.Modele.Id,
+                        Nom = i.Modele.Nom,
+                        MarqueId = i.Modele.MarqueId,
+                        Marque = i.Modele.Marque == null ? null : new Marque { Id = i.Modele.Marque.Id, Nom = i.Modele.Marque.Nom },
+                        PiloteId = i.Modele.PiloteId,
+                        Pilote = i.Modele.Pilote == null ? null : new Pilote { Id = i.Modele.Pilote.Id, Nom = i.Modele.Pilote.Nom, Version = i.Modele.Pilote.Version }
+                    }
+                })
+                .ToListAsync();
         }
 
         private async Task<List<Imprimante>> GetImprimantesListWithIncludes(bool includeArchived)

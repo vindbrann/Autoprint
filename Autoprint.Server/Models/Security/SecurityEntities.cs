@@ -28,6 +28,12 @@ namespace Autoprint.Server.Models.Security
 
         public bool ForceChangePassword { get; set; } = false;
 
+        // Change à chaque modification sensible (mot de passe, statut, rôles) : les jetons émis avant sont alors refusés
+        [MaxLength(64)]
+        public string? SecurityStamp { get; set; }
+
+        public void RenewSecurityStamp() => SecurityStamp = Guid.NewGuid().ToString("N");
+
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpires { get; set; }
     }
