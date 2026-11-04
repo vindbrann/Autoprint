@@ -14,7 +14,7 @@ namespace Autoprint.Server.Services
     public class SecretProtector
     {
         // Tableau simple : traduisible en SQL par EF Core (Where(s => SecretKeys.Contains(s.Key)))
-        public static readonly string[] SecretKeys = { "AdServicePassword", "SmtpPass", "AgentApiKey" };
+        public static readonly string[] SecretKeys = { "AdServicePassword", "SmtpPass", "AgentApiKey", "AgentApiKeyPrevious" };
 
         private const string DbPrefix = "enc:v1:";
         private const string BackupPrefix = "bkp:v1:";

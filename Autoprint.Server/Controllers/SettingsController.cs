@@ -34,16 +34,10 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<ServerSetting>>> GetSettings()
         {
             var settings = await _context.ServerSettings.AsNoTracking().ToListAsync();
-            var sensitiveKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "AdServicePassword",
-                "SmtpPass",
-                "AgentApiKey"
-            };
-
             foreach (var s in settings)
             {
-                if (sensitiveKeys.Contains(s.Key) && !string.IsNullOrEmpty(s.Value))
+                // Liste unique des secrets (SecretProtector) : tout nouveau secret est masqué automatiquement
+                if (SecretProtector.IsSecret(s.Key) && !string.IsNullOrEmpty(s.Value))
                 {
                     s.Value = "●●●●●●●●";
                 }
@@ -64,6 +58,48 @@ namespace Autoprint.Server.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { key });
+        }
+
+        public class AgentKeyRotationDto { public int TransitionDays { get; set; } = 30; }
+
+        // Nouvelle clé agent (backlog B18). L'ancienne reste acceptée pendant la période de transition (0 à 90 jours),
+        // le temps de redéployer la nouvelle clé sur les postes (MSI APIKEY=..., GPO, registre HKLM\SOFTWARE\Autoprint).
+        [HttpPost("agent-key/rotate")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> RotateAgentKey([FromBody] AgentKeyRotationDto dto)
+        {
+            if (dto.TransitionDays is < 0 or > 90) return BadRequest("Période de transition : de 0 à 90 jours.");
+
+            var current = await _context.ServerSettings.FindAsync("AgentApiKey");
+            if (current == null) return NotFound("Clé agent absente.");
+
+            var newKey = Guid.NewGuid().ToString();
+            if (dto.TransitionDays > 0)
+            {
+                await UpsertSetting("AgentApiKeyPrevious", current.Value, "PASSWORD", "Ancienne clé API agent (période de transition)");
+                await UpsertSetting("AgentApiKeyPreviousExpiresAt", DateTime.UtcNow.AddDays(dto.TransitionDays).ToString("o"), "STRING", "Fin de validité de l'ancienne clé agent");
+            }
+            else
+            {
+                await UpsertSetting("AgentApiKeyPrevious", "", "PASSWORD", "Ancienne clé API agent (période de transition)");
+                await UpsertSetting("AgentApiKeyPreviousExpiresAt", "", "STRING", "Fin de validité de l'ancienne clé agent");
+            }
+            current.Value = _secrets.Protect(newKey);
+
+            _auditService.LogAction("AGENT_KEY_ROTATE",
+                dto.TransitionDays > 0 ? $"Nouvelle clé API agent (ancienne clé acceptée encore {dto.TransitionDays} jour(s))" : "Nouvelle clé API agent (ancienne clé révoquée immédiatement)",
+                User.Identity?.Name, "WARNING", resourceName: "AgentApiKey");
+            await _context.SaveChangesAsync();
+
+            return Ok(new { key = newKey, previousValidUntil = dto.TransitionDays > 0 ? DateTime.UtcNow.AddDays(dto.TransitionDays) : (DateTime?)null });
+        }
+
+        // Valeur déjà chiffrée (ou non secrète) : écrite telle quelle
+        private async Task UpsertSetting(string key, string value, string type, string description)
+        {
+            var setting = await _context.ServerSettings.FindAsync(key);
+            if (setting == null) _context.ServerSettings.Add(new ServerSetting { Key = key, Value = value, Type = type, Description = description });
+            else setting.Value = value;
         }
 
         [HttpPost("Save")]

@@ -16,6 +16,7 @@ namespace Autoprint.Server.Services
     public interface IAuthService
     {
         Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<LoginResponse?> RefreshAsync(int userId, long authTime);
         Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
     }
 
@@ -161,7 +162,7 @@ namespace Autoprint.Server.Services
             user.LastLogin = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            var token = GenerateJwtToken(user, permissions, passwordExpired);
+            var token = GenerateJwtToken(user, permissions, passwordExpired, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
             return new LoginResponse
             {
@@ -427,7 +428,46 @@ namespace Autoprint.Server.Services
                 .ToListAsync();
         }
 
-        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired)
+        // Durée maximale d'une session, renouvellements compris : au-delà, reconnexion obligatoire (backlog B19)
+        private static readonly TimeSpan MaxSessionLifetime = TimeSpan.FromHours(10);
+
+        /// <summary>
+        /// Renouvellement silencieux du jeton par la console (backlog B19) : droits et statut relus en base,
+        /// date de connexion d'origine conservée pour appliquer la durée maximale de session.
+        /// </summary>
+        public async Task<LoginResponse?> RefreshAsync(int userId, long authTime)
+        {
+            if (DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(authTime) > MaxSessionLifetime) return null;
+
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null || !user.IsActive) return null;
+
+            var permissions = await GetUserPermissionsAsync(user);
+            if (!permissions.Any()) return null;
+
+            bool passwordExpired = !user.IsAdUser && (user.ForceChangePassword || await IsPasswordExpiredAsync(user));
+            return new LoginResponse
+            {
+                Token = GenerateJwtToken(user, permissions, passwordExpired, authTime),
+                Username = user.Username,
+                DisplayName = user.DisplayName,
+                Permissions = permissions,
+                PasswordExpired = passwordExpired
+            };
+        }
+
+        private async Task<bool> IsPasswordExpiredAsync(User user)
+        {
+            int maxDays = 90;
+            var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
+            if (setting != null && int.TryParse(setting.Value, out int days)) maxDays = days;
+            if (maxDays <= 0) return false;
+            return user.LastPasswordChangeDate == null || DateTime.UtcNow > user.LastPasswordChangeDate.Value.AddDays(maxDays);
+        }
+
+        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired, long authTime)
         {
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
             var claims = new List<Claim>
@@ -436,7 +476,9 @@ namespace Autoprint.Server.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim("DisplayName", user.DisplayName ?? ""),
                 // Vérifiée à chaque requête (Program.cs, OnTokenValidated) pour pouvoir révoquer les sessions
-                new Claim("sstamp", user.SecurityStamp ?? "")
+                new Claim("sstamp", user.SecurityStamp ?? ""),
+                // Date de la connexion d'origine (conservée lors des renouvellements)
+                new Claim("auth_time", authTime.ToString(), ClaimValueTypes.Integer64)
             };
 
             if (passwordExpired) claims.Add(new Claim("ForcePasswordChange", "true"));

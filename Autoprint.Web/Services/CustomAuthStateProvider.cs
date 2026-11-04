@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Net.Http.Headers;
 using Blazored.LocalStorage;
@@ -80,6 +81,10 @@ namespace Autoprint.Web.Services
             NotifyAuthenticationStateChanged(authState);
         }
 
+        // Renouvellement silencieux du jeton 5 minutes avant son expiration (backlog B19) ;
+        // en cas d'échec (session de plus de 10 h, compte désactivé, droits retirés…), déconnexion à l'expiration.
+        private static readonly TimeSpan RefreshBeforeExpiry = TimeSpan.FromMinutes(5);
+
         private void StartAuthTimer(DateTimeOffset expDate)
         {
             var timeUntilExpiry = expDate - DateTimeOffset.UtcNow;
@@ -87,22 +92,54 @@ namespace Autoprint.Web.Services
             {
                 _authTimer.Stop();
                 _authTimer.Dispose();
+                _authTimer = null;
             }
 
-            if (timeUntilExpiry.TotalMilliseconds > 0)
+            if (timeUntilExpiry.TotalMilliseconds <= 0)
             {
-                _authTimer = new System.Timers.Timer(timeUntilExpiry.TotalMilliseconds);
-                _authTimer.AutoReset = false;
-                _authTimer.Elapsed += (sender, e) =>
+                MarkUserAsLoggedOut();
+                return;
+            }
+
+            var refreshIn = timeUntilExpiry - RefreshBeforeExpiry;
+            if (refreshIn < TimeSpan.FromSeconds(10)) refreshIn = TimeSpan.FromMilliseconds(timeUntilExpiry.TotalMilliseconds / 2);
+
+            _authTimer = new System.Timers.Timer(Math.Max(1000, refreshIn.TotalMilliseconds));
+            _authTimer.AutoReset = false;
+            _authTimer.Elapsed += async (sender, e) =>
+            {
+                if (await TryRefreshAsync()) return;
+
+                // Renouvellement refusé : la session se termine à l'expiration du jeton actuel
+                var remaining = expDate - DateTimeOffset.UtcNow;
+                if (remaining.TotalMilliseconds <= 0) { MarkUserAsLoggedOut(); return; }
+                _authTimer = new System.Timers.Timer(remaining.TotalMilliseconds) { AutoReset = false };
+                _authTimer.Elapsed += (s2, e2) =>
                 {
                     Console.WriteLine("Session expirée : Déconnexion automatique.");
                     MarkUserAsLoggedOut();
                 };
                 _authTimer.Start();
-            }
-            else
+            };
+            _authTimer.Start();
+        }
+
+        private async Task<bool> TryRefreshAsync()
+        {
+            try
             {
-                MarkUserAsLoggedOut();
+                var response = await _http.PostAsync("api/auth/refresh", null);
+                if (!response.IsSuccessStatusCode) return false;
+                var result = await response.Content.ReadFromJsonAsync<Autoprint.Shared.DTOs.LoginResponse>();
+                if (string.IsNullOrEmpty(result?.Token)) return false;
+
+                await _localStorage.SetItemAsync("authToken", result.Token);
+                MarkUserAsAuthenticated(result.Token); // relance le minuteur et met à jour les droits affichés
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 

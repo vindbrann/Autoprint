@@ -76,6 +76,20 @@ namespace Autoprint.Server.Controllers
             }
         }
 
+        // Renouvellement silencieux par la console avant expiration (backlog B19).
+        // Le jeton présenté est déjà validé (signature, expiration, empreinte de sécurité, compte actif).
+        [HttpPost("refresh")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<LoginResponse>> Refresh()
+        {
+            if (!int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out int userId)
+                || !long.TryParse(User.FindFirst("auth_time")?.Value, out long authTime))
+                return Unauthorized("Session à renouveler : reconnectez-vous.");
+
+            var result = await _authService.RefreshAsync(userId, authTime);
+            return result == null ? Unauthorized("Session expirée : reconnectez-vous.") : Ok(result);
+        }
+
         // Réponse toujours identique : on ne révèle pas si le compte existe (backlog B5)
         private const string ForgotPasswordGenericAnswer =
             "Si un compte local avec une adresse e-mail correspond, un lien de réinitialisation valable 30 minutes vient d'être envoyé.";
