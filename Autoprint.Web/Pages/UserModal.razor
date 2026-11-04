@@ -6,6 +6,7 @@
 @inject IRoleService RoleService
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
 
 @if (isLoading)
 {
@@ -151,6 +152,15 @@ else
         try
         {
             availableRoles = await RoleService.GetRoles();
+
+            // Seuls les rôles dont les droits sont inclus dans ceux de l'utilisateur connecté sont proposés (règle appliquée aussi par le serveur)
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var myPermissions = authState.User.Claims.Where(c => c.Type == "Permission").Select(c => c.Value).ToHashSet();
+            var currentRoleNames = UserToEdit?.Roles ?? new List<string>();
+            availableRoles = availableRoles
+                .Where(r => r.PermissionCodes.All(myPermissions.Contains) || currentRoleNames.Contains(r.Name))
+                .ToList();
+
             if (editMode)
             {
                 formData = new UserFormData

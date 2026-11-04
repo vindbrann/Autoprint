@@ -11,7 +11,7 @@ namespace Autoprint.Server.Services
         Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? shareName, bool isShared, string? forcePortIp = null);
         Task<string?> RecupererNomImprimanteParIp(string ipAddress);
         Task RenommerImprimante(string ancienNom, string nouveauNom);
-        Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password);
+        Task<List<DiscoveredPrinterDto>> ScanLocalPrintersAsync();
         Task<List<Pilote>> GetInstalledDriversAsync();
         Task<bool> VerifierModeDirect(string nomImprimante, bool modeAttendu);
         Task<ServerAuditSnapshot> GetServerSnapshotAsync();

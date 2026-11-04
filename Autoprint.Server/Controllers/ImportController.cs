@@ -22,13 +22,14 @@ namespace Autoprint.Server.Controllers
             _context = context;
         }
 
+        // Limité au spouleur local : aucun hôte cible ni identifiant, pour empêcher toute coercition NTLM du compte machine
         [HttpPost("Scan/Printers")]
-        [Authorize(Policy = "PRINTER_READ")]
-        public async Task<ActionResult<List<DiscoveredPrinterDto>>> ScanPrinters([FromBody] RemoteScanRequestDto request)
+        [Authorize(Policy = "PRINTER_WRITE")]
+        public async Task<ActionResult<List<DiscoveredPrinterDto>>> ScanPrinters()
         {
             try
             {
-                var windowsPrinters = await _spoolerService.ScanPrintersAsync(request.TargetHost, request.Username, request.Password);
+                var windowsPrinters = await _spoolerService.ScanLocalPrintersAsync();
                 var dbPrinters = await _context.Imprimantes.ToListAsync();
 
                 foreach (var wp in windowsPrinters)

@@ -341,7 +341,7 @@ namespace Autoprint.Server.Services
                     string userDn = userResult.Properties["distinguishedName"][0].ToString()!;
 
                     using DirectorySearcher groupSearcher = new DirectorySearcher(entry);
-                    groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={userDn}))";
+                    groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={SecurityHelper.EscapeLdapFilter(userDn)}))";
                     groupSearcher.PropertiesToLoad.Add("sAMAccountName");
                     groupSearcher.PageSize = 1000;
 
@@ -374,20 +374,22 @@ namespace Autoprint.Server.Services
                         if (match) applicableMappings.Add(mapping);
                     }
 
-                    if (applicableMappings.Any())
-                    {
-                        var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
-                        if (currentRoles.Any()) _context.UserRoles.RemoveRange(currentRoles);
+                    // Les rôles issus de l'AD sont recalculés à chaque connexion (retrait du groupe = retrait du rôle).
+                    // Les rôles attribués manuellement (IsFromAd = false) sont conservés.
+                    var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
+                    var targetAdRoleIds = applicableMappings.Select(m => m.RoleId).Distinct().ToHashSet();
 
-                        foreach (var map in applicableMappings)
-                        {
-                            if (!_context.UserRoles.Local.Any(ur => ur.UserId == user.Id && ur.RoleId == map.RoleId))
-                            {
-                                _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = map.RoleId });
-                            }
-                        }
-                        await _context.SaveChangesAsync();
+                    foreach (var adRole in currentRoles.Where(ur => ur.IsFromAd && !targetAdRoleIds.Contains(ur.RoleId)))
+                    {
+                        _context.UserRoles.Remove(adRole);
                     }
+
+                    foreach (var roleId in targetAdRoleIds.Where(id => !currentRoles.Any(ur => ur.RoleId == id)))
+                    {
+                        _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleId, IsFromAd = true });
+                    }
+
+                    await _context.SaveChangesAsync();
                 }
             }
             catch (Exception ex)
