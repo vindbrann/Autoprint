@@ -2,8 +2,7 @@ using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -357,199 +356,150 @@ namespace Autoprint.Server.Services
             List<string> metrics = new();
             try { metrics = JsonSerializer.Deserialize<List<string>>(schedule.SelectedMetricsJson) ?? new(); } catch { }
 
-            using (var document = new PdfDocument())
+            const float left = 20f;
+            const float right = PdfReportWriter.PageWidth - 20f;
+            const float sizeTitle = 18f, sizeSubtitle = 11f, sizeText = 8.5f;
+            var black = SKColors.Black;
+            var gray = SKColors.Gray;
+            var slate = SKColors.DarkSlateGray;
+
+            using var pdf = new PdfReportWriter($"Rapport Autoprint - {schedule.ReportName}");
+
+            // 1. Bandeau de titre
+            pdf.FillRect(left, 20, right - left, 50, new SKColor(13, 110, 253)); // bleu « primary » de Bootstrap
+            pdf.TextTop("AUTOPRINT - RAPPORT D'ACTIVITÉ", 30, 30, sizeTitle, SKColors.White, bold: true);
+
+            // 2. Résumé
+            pdf.Text($"Rapport : {schedule.ReportName}", left, 95, sizeSubtitle, black, bold: true);
+            pdf.Text($"Généré le : {DateTime.Now:dd/MM/yyyy HH:mm}", left, 115, sizeText, gray);
+            pdf.Text($"Fréquence : {schedule.Frequency}", left, 130, sizeText, gray);
+
+            int totalCount = data.Count;
+            int onlineCount = data.Count(d => d.PingSuccess);
+            int offlineCount = totalCount - onlineCount;
+            int alertCount = data.Count(d => d.Alerts.Any());
+
+            float summaryY = 150;
+
+            if (metrics.Contains("FleetSummary") || !metrics.Contains("TotalPages"))
             {
-                document.Info.Title = $"Rapport Autoprint - {schedule.ReportName}";
-                var page = document.AddPage();
-                var gfx = XGraphics.FromPdfPage(page);
+                pdf.Text($"Total imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}",
+                    left, summaryY, sizeText, slate, bold: true);
+                summaryY += 16;
+            }
 
-                // Fonts
-                var fontTitle = new XFont("Arial", 18, XFontStyleEx.Bold);
-                var fontSubtitle = new XFont("Arial", 11, XFontStyleEx.Bold);
-                var fontRegular = new XFont("Arial", 8.5, XFontStyleEx.Regular);
-                var fontBold = new XFont("Arial", 8.5, XFontStyleEx.Bold);
+            if (metrics.Contains("TotalPages"))
+            {
+                long totalPages = data.Where(d => d.PingSuccess).Sum(d => d.PageCounter);
+                pdf.Text($"Volume total d'impressions du parc : {totalPages:N0} pages", left, summaryY, sizeText, SKColors.DarkBlue, bold: true);
+                summaryY += 16;
+            }
 
-                // 1. Draw Title Header Band
-                var headerRect = new XRect(20, 20, page.Width.Point - 40, 50);
-                var headerBrush = new XSolidBrush(XColor.FromArgb(13, 110, 253)); // Blue bootstrap primary
-                gfx.DrawRectangle(headerBrush, headerRect);
+            if (metrics.Contains("Predictions"))
+            {
+                int predictionThreshold = schedule.PredictionThresholdDays;
+                int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
+                pdf.Text($"Alertes épuisement toner proche (<= {predictionThreshold} jours) : {nearExhaustionCount}", left, summaryY, sizeText, SKColors.DarkRed, bold: true);
+                summaryY += 16;
+            }
 
-                gfx.DrawString("AUTOPRINT - RAPPORT D'ACTIVITE", fontTitle, XBrushes.White, new XRect(30, 30, page.Width.Point - 60, 30), XStringFormats.TopLeft);
+            // Positions des colonnes (page de 595 points, marges de 20)
+            const float colName = 20, colSerial = 125, colIp = 210, colLocation = 290, colStatus = 370, colMetric1 = 430, colMetric2 = 505;
 
-                // 2. Draw Report Summary Card
-                gfx.DrawString($"Rapport : {schedule.ReportName}", fontSubtitle, XBrushes.Black, 20, 95);
-                gfx.DrawString($"Genere le : {DateTime.Now.ToString("dd/MM/yyyy HH:mm")}", fontRegular, XBrushes.Gray, 20, 115);
-                gfx.DrawString($"Frequence : {schedule.Frequency}", fontRegular, XBrushes.Gray, 20, 130);
+            // Mesures affichées dans les deux dernières colonnes : toujours dans cet ordre, pour les intitulés
+            // comme pour les valeurs (avant : intitulés dans l'ordre de sélection, valeurs dans l'ordre fixe → colonnes inversées)
+            var columnMetrics = new[] { "Pages", "Toner", "Trays", "Availability", "Alerts", "Predictions" }
+                .Where(metrics.Contains).Take(2).ToList();
 
-                int totalCount = data.Count;
-                int onlineCount = data.Count(d => d.PingSuccess);
-                int offlineCount = totalCount - onlineCount;
-                int alertCount = data.Count(d => d.Alerts.Any());
+            // En-tête du tableau, répété en haut de chaque page (le trait gris est au-dessus des intitulés : B36)
+            float DrawTableHeader(float top)
+            {
+                pdf.Line(left, top, right, top, SKColors.DarkGray);
+                float baseline = top + 12;
+                pdf.Text("Nom imprimante", colName, baseline, sizeText, black, bold: true);
+                pdf.Text("N° série", colSerial, baseline, sizeText, black, bold: true);
+                pdf.Text("Adresse IP", colIp, baseline, sizeText, black, bold: true);
+                pdf.Text("Emplacement", colLocation, baseline, sizeText, black, bold: true);
+                pdf.Text("Statut", colStatus, baseline, sizeText, black, bold: true);
+                if (columnMetrics.Count > 0) pdf.Text(MapMetricHeader(columnMetrics[0]), colMetric1, baseline, sizeText, black, bold: true);
+                if (columnMetrics.Count > 1) pdf.Text(MapMetricHeader(columnMetrics[1]), colMetric2, baseline, sizeText, black, bold: true);
+                float bottom = baseline + 5;
+                pdf.Line(left, bottom, right, bottom, black);
+                return bottom;
+            }
 
-                int summaryY = 150;
+            // 3. En-tête du tableau
+            float y = DrawTableHeader(summaryY + 10);
 
-                if (metrics.Contains("FleetSummary") || !metrics.Contains("TotalPages"))
+            // 4. Lignes
+            for (int index = 0; index < data.Count; index++)
+            {
+                var item = data[index];
+                y += 15;
+                if (y > PdfReportWriter.PageHeight - 40)
                 {
-                    string summaryText = $"Total Imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}";
-                    gfx.DrawString(summaryText, fontBold, XBrushes.DarkSlateGray, 20, summaryY);
-                    summaryY += 16;
+                    pdf.NewPage();
+                    y = DrawTableHeader(30) + 15;
                 }
 
-                if (metrics.Contains("TotalPages"))
-                {
-                    long totalPages = data.Where(d => d.PingSuccess).Sum(d => d.PageCounter);
-                    string totalText = $"Volume Total d'Impressions du Parc : {totalPages:N0} pages";
-                    gfx.DrawString(totalText, fontBold, XBrushes.DarkBlue, 20, summaryY);
-                    summaryY += 16;
-                }
+                // Fond alterné
+                if (index % 2 == 1) pdf.FillRect(left, y - 11, right - left, 15, new SKColor(245, 245, 245));
 
+                string printName = item.Printer.NomAffiche.Length > 16 ? item.Printer.NomAffiche.Substring(0, 14) + ".." : item.Printer.NomAffiche;
+                pdf.Text(printName, colName, y, sizeText, black);
+
+                string snDisplay = !string.IsNullOrWhiteSpace(item.SerialNumber)
+                    ? item.SerialNumber
+                    : (!string.IsNullOrWhiteSpace(item.Printer.SerialNumber) ? item.Printer.SerialNumber : "-");
+                if (snDisplay.Length > 13) snDisplay = snDisplay.Substring(0, 11) + "..";
+                pdf.Text(snDisplay, colSerial, y, sizeText, slate);
+
+                pdf.Text(item.Printer.AdresseIp, colIp, y, sizeText, black);
+
+                string locName = item.Printer.Emplacement?.Nom ?? "Non défini";
+                if (locName.Length > 12) locName = locName.Substring(0, 10) + "..";
+                pdf.Text(locName, colLocation, y, sizeText, black);
+
+                pdf.Text(item.PingSuccess ? "En ligne" : "Hors ligne", colStatus, y, sizeText, item.PingSuccess ? SKColors.Green : SKColors.Red, bold: true);
+
+                // Deux premières mesures choisies, dans l'ordre
+                var values = new List<string>();
+                if (metrics.Contains("Pages"))
+                    values.Add(item.PingSuccess ? item.PageCounter.ToString("N0") : "-");
+                if (metrics.Contains("Toner"))
+                    values.Add(item.PingSuccess && item.Toners.Any()
+                        ? string.Join(" ", item.Toners.Select(t => $"{t.Color.Substring(0, 1)}:{(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "OK")}"))
+                        : "-");
+                if (metrics.Contains("Trays"))
+                    values.Add(item.PingSuccess && item.Trays.Any()
+                        ? string.Join(" ", item.Trays.Select(t => $"{t.Name.Replace("Bac", "B").Trim()}:{(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel}f") : "?")}"))
+                        : "-");
+                if (metrics.Contains("Availability"))
+                    values.Add(item.PingSuccess ? "100%" : "0%");
+                if (metrics.Contains("Alerts"))
+                    values.Add(item.Alerts.Any() ? $"{item.Alerts.Count} alerte(s)" : "Aucune");
                 if (metrics.Contains("Predictions"))
                 {
-                    int predictionThreshold = schedule.PredictionThresholdDays;
-                    int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
-                    string predText = $"Alertes epuisement toner proche (<= {predictionThreshold} jours) : {nearExhaustionCount}";
-                    gfx.DrawString(predText, fontBold, XBrushes.DarkRed, 20, summaryY);
-                    summaryY += 16;
+                    string val = "-";
+                    if (item.PingSuccess && item.Toners.Any())
+                    {
+                        var list = item.Toners
+                            .Where(t => t.EstimatedDaysRemaining.HasValue)
+                            .Select(t =>
+                            {
+                                var days = t.EstimatedDaysRemaining!.Value;
+                                return days == -99 ? $"{t.Color.Substring(0, 1)}:Stab" : $"{t.Color.Substring(0, 1)}:{days}j";
+                            })
+                            .ToList();
+                        if (list.Count > 0) val = string.Join(" ", list);
+                    }
+                    values.Add(val);
                 }
-
-                // 3. Draw Table Headers
-                int y = summaryY + 10;
-                gfx.DrawLine(XPens.DarkGray, 20, y, page.Width.Point - 20, y);
-                y += 5;
-
-                // Column X positions (Page Width ~ 595, Margins 20/20)
-                int colName = 20;
-                int colSerial = 125;
-                int colIp = 210;
-                int colLocation = 290;
-                int colStatus = 370;
-                int colMetric1 = 430;
-                int colMetric2 = 505;
-
-                gfx.DrawString("Nom Imprimante", fontBold, XBrushes.Black, colName, y);
-                gfx.DrawString("N° Série", fontBold, XBrushes.Black, colSerial, y);
-                gfx.DrawString("Adresse IP", fontBold, XBrushes.Black, colIp, y);
-                gfx.DrawString("Emplacement", fontBold, XBrushes.Black, colLocation, y);
-                gfx.DrawString("Statut", fontBold, XBrushes.Black, colStatus, y);
-
-                // Metric Headers
-                string mHeader1 = "";
-                string mHeader2 = "";
-
-                var activeMetrics = metrics.Where(m => m == "Pages" || m == "Toner" || m == "Trays" || m == "Availability" || m == "Alerts" || m == "Predictions").ToList();
-                if (activeMetrics.Count > 0) mHeader1 = MapMetricHeader(activeMetrics[0]);
-                if (activeMetrics.Count > 1) mHeader2 = MapMetricHeader(activeMetrics[1]);
-
-                if (!string.IsNullOrEmpty(mHeader1)) gfx.DrawString(mHeader1, fontBold, XBrushes.Black, colMetric1, y);
-                if (!string.IsNullOrEmpty(mHeader2)) gfx.DrawString(mHeader2, fontBold, XBrushes.Black, colMetric2, y);
-
-                y += 12;
-                gfx.DrawLine(XPens.Black, 20, y, page.Width.Point - 20, y);
-
-                // 4. Draw Rows
-                foreach (var item in data)
-                {
-                    y += 15;
-                    // If near end of page, add a page
-                    if (y > page.Height.Point - 40)
-                    {
-                        page = document.AddPage();
-                        gfx = XGraphics.FromPdfPage(page);
-                        y = 40;
-                        gfx.DrawLine(XPens.Black, 20, y, page.Width.Point - 20, y);
-                        y += 15;
-                    }
-
-                    // Alternating background
-                    var bgRect = new XRect(20, y - 11, page.Width.Point - 40, 15);
-                    if (data.IndexOf(item) % 2 == 1)
-                    {
-                        gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(245, 245, 245)), bgRect);
-                    }
-
-                    // Print printer base details
-                    string printName = item.Printer.NomAffiche.Length > 16 ? item.Printer.NomAffiche.Substring(0, 14) + ".." : item.Printer.NomAffiche;
-                    gfx.DrawString(printName, fontRegular, XBrushes.Black, colName, y);
-
-                    // Print Serial Number
-                    string snDisplay = !string.IsNullOrWhiteSpace(item.SerialNumber)
-                        ? item.SerialNumber
-                        : (!string.IsNullOrWhiteSpace(item.Printer.SerialNumber) ? item.Printer.SerialNumber : "-");
-                    if (snDisplay.Length > 13) snDisplay = snDisplay.Substring(0, 11) + "..";
-                    gfx.DrawString(snDisplay, fontRegular, XBrushes.DarkSlateGray, colSerial, y);
-
-                    gfx.DrawString(item.Printer.AdresseIp, fontRegular, XBrushes.Black, colIp, y);
-
-                    string locName = item.Printer.Emplacement?.Nom ?? "Non défini";
-                    if (locName.Length > 12) locName = locName.Substring(0, 10) + "..";
-                    gfx.DrawString(locName, fontRegular, XBrushes.Black, colLocation, y);
-
-                    // Status display
-                    var statusColor = item.PingSuccess ? XBrushes.Green : XBrushes.Red;
-                    gfx.DrawString(item.PingSuccess ? "En ligne" : "Hors ligne", fontBold, statusColor, colStatus, y);
-
-                    // Print selected metrics
-                    int printedMetrics = 0;
-                    if (metrics.Contains("Pages"))
-                    {
-                        string val = item.PingSuccess ? item.PageCounter.ToString("N0") : "-";
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                    if (metrics.Contains("Toner"))
-                    {
-                        string val = "-";
-                        if (item.PingSuccess && item.Toners.Any())
-                        {
-                            var list = item.Toners.Select(t => $"{t.Color.Substring(0, 1)}:{(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "OK")}");
-                            val = string.Join(" ", list);
-                        }
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                    if (metrics.Contains("Trays"))
-                    {
-                        string val = "-";
-                        if (item.PingSuccess && item.Trays.Any())
-                        {
-                            var list = item.Trays.Select(t => $"{t.Name.Replace("Bac", "B").Trim()}:{(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel}f") : "?")}");
-                            val = string.Join(" ", list);
-                        }
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                    if (metrics.Contains("Availability"))
-                    {
-                        string val = item.PingSuccess ? "100%" : "0%";
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                    if (metrics.Contains("Alerts"))
-                    {
-                        string val = item.Alerts.Any() ? $"{item.Alerts.Count} alerte(s)" : "Aucune";
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                    if (metrics.Contains("Predictions"))
-                    {
-                        string val = "-";
-                        if (item.PingSuccess && item.Toners.Any())
-                        {
-                            var list = item.Toners
-                                .Where(t => t.EstimatedDaysRemaining.HasValue)
-                                .Select(t =>
-                                {
-                                    var days = t.EstimatedDaysRemaining!.Value;
-                                    if (days == -99) return $"{t.Color.Substring(0, 1)}:Stab";
-                                    return $"{t.Color.Substring(0, 1)}:{days}j";
-                                });
-                            if (list.Any()) val = string.Join(" ", list);
-                        }
-                        DrawMetricValue(gfx, val, fontRegular, ref printedMetrics, colMetric1, colMetric2, y);
-                    }
-                }
-
-                using (var ms = new MemoryStream())
-                {
-                    document.Save(ms);
-                    return ms.ToArray();
-                }
+                if (values.Count > 0) pdf.Text(values[0], colMetric1, y, sizeText, black);
+                if (values.Count > 1) pdf.Text(values[1], colMetric2, y, sizeText, black);
             }
+
+            return pdf.ToArray();
         }
 
         private string MapMetricHeader(string metric)
@@ -558,26 +508,12 @@ namespace Autoprint.Server.Services
             {
                 "Pages" => "Compteur",
                 "Toner" => "Toners",
-                "Trays" => "Bacs Papier",
+                "Trays" => "Bacs papier",
                 "Availability" => "Dispo",
                 "Alerts" => "Pannes",
                 "Predictions" => "Prévision",
                 _ => ""
             };
-        }
-
-        private void DrawMetricValue(XGraphics gfx, string val, XFont font, ref int printedMetrics, int col1, int col2, int y)
-        {
-            if (printedMetrics == 0)
-            {
-                gfx.DrawString(val, font, XBrushes.Black, col1, y);
-                printedMetrics++;
-            }
-            else if (printedMetrics == 1)
-            {
-                gfx.DrawString(val, font, XBrushes.Black, col2, y);
-                printedMetrics++;
-            }
         }
 
         private string EscapeCsv(string? field)

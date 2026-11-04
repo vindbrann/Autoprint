@@ -12,11 +12,6 @@ updates:
         patterns:
           - "Microsoft.*"
           - "System.*"
-    ignore:
-      # PDFsharp 6.5+ passe de MIT à AGPL-3.0 avec contrôle de licence (refus de générer les PDF) :
-      # rester en 6.2.x tant que la décision n'est pas prise (backlog B42)
-      - dependency-name: "PDFsharp"
-        versions: [">= 6.3.0"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
