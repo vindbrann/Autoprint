@@ -5,12 +5,15 @@
 		<MediaTemplate EmbedCab="yes" />
 
 		<StandardDirectory Id="ProgramFiles64Folder">
-			<Directory Id="INSTALLFOLDER" Name="Autoprint Server" />
+			<Directory Id="INSTALLFOLDER" Name="Autoprint Server">
+				<Directory Id="SPOOLERFOLDER" Name="Spooler" />
+			</Directory>
 		</StandardDirectory>
 
 		<Feature Id="Main">
 			<ComponentGroupRef Id="AppFiles" />
 			<ComponentGroupRef Id="ConfigFiles" />
+			<ComponentGroupRef Id="SpoolerServiceFiles" />
 		</Feature>
 
 		<ui:WixUI Id="WixUI_InstallDir" />

@@ -43,6 +43,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Autoprint.Shared\Autoprint.Shared.csproj" />
+		<ProjectReference Include="..\Autoprint.Spooler\Autoprint.Spooler.csproj" />
 
 		<ProjectReference Include="..\Autoprint.Web\Autoprint.Web.csproj" />
 	</ItemGroup>

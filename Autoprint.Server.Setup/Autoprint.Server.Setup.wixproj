@@ -22,6 +22,8 @@
 
 	<Target Name="PublishApp" BeforeTargets="BeforeBuild">
 		<Exec Command="dotnet publish ..\Autoprint.Server\Autoprint.Server.csproj -c Release -f net10.0" />
+		<!-- Service Windows AutoprintSpooler (exécutable unique) : seul composant privilégié du serveur -->
+		<Exec Command="dotnet publish ..\Autoprint.SpoolerService\Autoprint.SpoolerService.csproj -c Release -o ..\Autoprint.SpoolerService\bin\Release\publish" />
 	</Target>
 
 </Project>

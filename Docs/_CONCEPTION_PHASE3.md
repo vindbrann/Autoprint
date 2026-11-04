@@ -1,6 +1,6 @@
 # 📐 Conception — Phase 3 : sortie de `LocalSystem` (#8) et SNMPv3 (#14)
 
-**Statut :** à valider avant développement · **Date :** 04/11/2026
+**Statut :** #8 développé sur la branche `feature/serveur-sans-localsystem` (version suivante) · SNMPv3 : à valider · **Date :** 04/11/2026
 Référence : `_AUDIT_SECURITE_2026-11.md`, points #8 et #14.
 
 Ces deux points ne sont pas des correctifs mais des évolutions : ils changent l'installation (#8) ou ajoutent une fonctionnalité (#14). Ce document décrit ce qui serait fait, ce que cela change pour l'exploitation, et les décisions à prendre.
@@ -61,6 +61,23 @@ Le reste (base SQL, SNMP, SMTP, LDAP avec compte de service, rapports PDF) n'a b
 3. **Calendrier** : l'évolution touche l'installeur, l'installation et la mise à jour ; elle mérite une **version dédiée** (ex. 26.11) testée séparément.
 
 **Estimation :** nouveau projet service + client du tube + adaptation de l'installeur (identité du pool, service, SQL, NTFS) : environ 2 à 3 jours de développement, plus la recette d'installation et de mise à jour.
+
+### 1.5 Décisions prises (04/11/2026) et réalisation
+
+* **Compte du site :** compte automatique IIS (`ApplicationPoolIdentity`, `IIS AppPool\Autoprint`).
+* **SQL Server :** les trois cas sont gérés par l'installeur :
+  * SQL **local** en authentification Windows → accès `db_owner` donné à `IIS AppPool\Autoprint` ;
+  * SQL **distant** en authentification Windows → accès donné au compte machine `DOMAINE\SERVEUR$` ;
+  * authentification **SQL** (identifiant / mot de passe) → rien à faire.
+  En mise à jour, l'installeur tente de donner ces droits avec le compte qui l'exécute ; en cas d'échec, il affiche le script SQL à faire exécuter par un administrateur SQL.
+* **Livraison :** version dédiée, après celle des phases 1 à 3.
+
+**Réalisé :**
+* `Autoprint.Spooler` (bibliothèque) : déclarations Win32, les 5 opérations privilégiées avec leurs propres contrôles (nom, partage, adresse IPv4 ou nom DNS, **pilote déjà installé**), protocole et client du tube.
+* `Autoprint.SpoolerService` (service Windows `AutoprintSpooler`, LocalSystem, démarrage automatique) : tube local `AutoprintSpooler`, ACL limitée à `IIS AppPool\Autoprint` + SYSTEM, accès réseau refusé, messages bornés à 16 Ko, commandes exécutées une par une, délais de lecture / réponse, journal de chaque commande.
+* Site : lectures inchangées ; les 5 écritures passent par `ISpoolerAdmin`. Paramètre `Spooler:Mode` : `Service` (écrit par l'installeur) ou `InProcess` (défaut : développement et serveurs non migrés).
+* MSI serveur : installe et démarre le service (`Spooler\Autoprint.SpoolerService.exe`).
+* Installeur : pool en `ApplicationPoolIdentity` (installation et mise à jour), `Spooler:Mode = Service`, droits SQL selon le cas, droits NTFS de l'identité du pool (lecture de `appsettings.json`, modification du dossier des clés et de la base SQLite), redémarrage du service une fois le pool créé.
 
 ---
 
