@@ -9,6 +9,42 @@ namespace Autoprint.Server.Data
 {
     public static class DbInitializer
     {
+        // SQLite n'a pas de « ADD COLUMN IF NOT EXISTS » : on vérifie d'abord, pour ne pas remplir les journaux d'erreurs attendues.
+        // Renvoie true si la colonne vient d'être ajoutée.
+        private static bool SqliteAddColumn(ApplicationDbContext context, string table, string column, string definition)
+        {
+            var connection = context.Database.GetDbConnection();
+            bool wasClosed = connection.State != System.Data.ConnectionState.Open;
+            if (wasClosed) connection.Open();
+            try
+            {
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'";
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) > 0) return false;
+                }
+#pragma warning disable EF1002 // noms de table / colonne en dur dans ce fichier, jamais issus d'une saisie
+                context.Database.ExecuteSqlRaw($"ALTER TABLE {table} ADD COLUMN {column} {definition};");
+#pragma warning restore EF1002
+                return true;
+            }
+            finally
+            {
+                if (wasClosed) connection.Close();
+            }
+        }
+
+        // Mises à niveau du schéma (backlog B3) : une colonne / table / index déjà présent est normal (SQLite n'a pas de
+        // « IF NOT EXISTS » pour ADD COLUMN) ; toute autre erreur est affichée au lieu d'être ignorée.
+        private static void LogSchemaError(Exception ex)
+        {
+            var message = ex.InnerException?.Message ?? ex.Message;
+            if (message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                return;
+            Console.WriteLine($"[DbInitializer] Mise à niveau du schéma en échec : {message}");
+        }
+
         public static void Initialize(ApplicationDbContext context)
         {
             // Mise à jour de la structure (SQL Server & SQLite) lors des mises à niveau
@@ -23,7 +59,7 @@ namespace Autoprint.Server.Data
                         END
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
@@ -56,7 +92,7 @@ namespace Autoprint.Server.Data
                         END
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
@@ -82,7 +118,7 @@ namespace Autoprint.Server.Data
                         END
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 // Profils d'identifiants SNMP (SNMPv3, phase B)
                 try
@@ -119,6 +155,11 @@ namespace Autoprint.Server.Data
                             ALTER TABLE Imprimantes ADD SnmpCredentialId int NULL
                                 CONSTRAINT FK_Imprimantes_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
                         END
+
+                        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Modeles_SnmpCredentialId')
+                            EXEC('CREATE INDEX IX_Modeles_SnmpCredentialId ON Modeles(SnmpCredentialId)');
+                        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Imprimantes_SnmpCredentialId')
+                            EXEC('CREATE INDEX IX_Imprimantes_SnmpCredentialId ON Imprimantes(SnmpCredentialId)');
                     ");
                 }
                 catch (Exception ex)
@@ -170,7 +211,7 @@ namespace Autoprint.Server.Data
                         END
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 // Origine des rôles (AD / manuel). À la création de la colonne, les rôles des utilisateurs AD
                 // correspondant à un mapping de groupe sont considérés comme issus de l'AD.
@@ -186,51 +227,51 @@ namespace Autoprint.Server.Data
                         END
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
             }
             else if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;");
+                    SqliteAddColumn(context, "ReportSchedules", "IsActive", "INTEGER NOT NULL DEFAULT 1");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN PredictionThresholdDays INTEGER NOT NULL DEFAULT 14;");
+                    SqliteAddColumn(context, "ReportSchedules", "PredictionThresholdDays", "INTEGER NOT NULL DEFAULT 14");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunHour INTEGER NOT NULL DEFAULT 6;");
+                    SqliteAddColumn(context, "ReportSchedules", "RunHour", "INTEGER NOT NULL DEFAULT 6");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunMinute INTEGER NOT NULL DEFAULT 0;");
+                    SqliteAddColumn(context, "ReportSchedules", "RunMinute", "INTEGER NOT NULL DEFAULT 0");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunDayOfWeek INTEGER NULL;");
+                    SqliteAddColumn(context, "ReportSchedules", "RunDayOfWeek", "INTEGER NULL");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE ReportSchedules ADD COLUMN RunDayOfMonth INTEGER NULL;");
+                    SqliteAddColumn(context, "ReportSchedules", "RunDayOfMonth", "INTEGER NULL");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE Imprimantes ADD COLUMN SerialNumber TEXT NULL;");
+                    SqliteAddColumn(context, "Imprimantes", "SerialNumber", "TEXT NULL");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
@@ -250,19 +291,19 @@ namespace Autoprint.Server.Data
                         );
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE SnmpProfiles ADD COLUMN IsColor INTEGER NOT NULL DEFAULT 0;");
+                    SqliteAddColumn(context, "SnmpProfiles", "IsColor", "INTEGER NOT NULL DEFAULT 0");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE Modeles ADD COLUMN SnmpProfileId INTEGER NULL;");
+                    SqliteAddColumn(context, "Modeles", "SnmpProfileId", "INTEGER NULL");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
@@ -284,19 +325,19 @@ namespace Autoprint.Server.Data
                         );
                     ");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
                     context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_SnmpProfileItems_SnmpProfileId ON SnmpProfileItems(SnmpProfileId);");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN SecurityStamp TEXT NULL;");
+                    SqliteAddColumn(context, "Users", "SecurityStamp", "TEXT NULL");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
 
 
                 // Profils d'identifiants SNMP (SNMPv3, phase B)
@@ -320,20 +361,22 @@ namespace Autoprint.Server.Data
                             EstSupprime INTEGER NOT NULL DEFAULT 0
                         );");
                 }
-                catch { }
-                try { context.Database.ExecuteSqlRaw("ALTER TABLE Modeles ADD COLUMN SnmpCredentialId INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;"); } catch { }
-                try { context.Database.ExecuteSqlRaw("ALTER TABLE Imprimantes ADD COLUMN SnmpCredentialId INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;"); } catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
+                try { SqliteAddColumn(context, "Modeles", "SnmpCredentialId", "INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL"); } catch (Exception ex) { LogSchemaError(ex); }
+                try { SqliteAddColumn(context, "Imprimantes", "SnmpCredentialId", "INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL"); } catch (Exception ex) { LogSchemaError(ex); }
+                try { context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Modeles_SnmpCredentialId ON Modeles(SnmpCredentialId);"); } catch (Exception ex) { LogSchemaError(ex); }
+                try { context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Imprimantes_SnmpCredentialId ON Imprimantes(SnmpCredentialId);"); } catch (Exception ex) { LogSchemaError(ex); }
 
                 // Origine des rôles (AD / manuel) : la mise à jour ne s'exécute que si l'ajout de colonne réussit (première fois)
                 try
                 {
-                    context.Database.ExecuteSqlRaw("ALTER TABLE UserRoles ADD COLUMN IsFromAd INTEGER NOT NULL DEFAULT 0;");
-                    context.Database.ExecuteSqlRaw(@"
+                    if (SqliteAddColumn(context, "UserRoles", "IsFromAd", "INTEGER NOT NULL DEFAULT 0"))
+                        context.Database.ExecuteSqlRaw(@"
                         UPDATE UserRoles SET IsFromAd = 1
                         WHERE UserId IN (SELECT Id FROM Users WHERE IsAdUser = 1)
                           AND RoleId IN (SELECT RoleId FROM AdRoleMappings);");
                 }
-                catch { }
+                catch (Exception ex) { LogSchemaError(ex); }
             }
 
             if (!context.ServerSettings.Any(s => s.Key == "Monitoring_IncludeOffline"))

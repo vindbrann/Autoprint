@@ -152,9 +152,12 @@ namespace Autoprint.Server.Data
                 new ServerSetting { Key = "Monitoring_IncludeArchived", Value = "false", Description = "Inclure les imprimantes archivées dans l'export API", Type = "BOOL" }
             );
 
-            modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI" });
+            // Date fixe : avec DateTime.UtcNow (valeur par défaut de BaseEntity), le modèle changeait à chaque démarrage
+            // et EF voyait toujours des « modifications en attente » (backlog B2)
+            var seedDate = new DateTime(2025, 12, 11, 0, 0, 0, DateTimeKind.Utc);
+            modelBuilder.Entity<Marque>().HasData(new Marque { Id = 1, Nom = "NON DÉFINI", DateModification = seedDate });
 
-            modelBuilder.Entity<Modele>().HasData(new Modele { Id = 1, Nom = "GÉNÉRIQUE", MarqueId = 1 });
+            modelBuilder.Entity<Modele>().HasData(new Modele { Id = 1, Nom = "GÉNÉRIQUE", MarqueId = 1, DateModification = seedDate });
 
             modelBuilder.Entity<Modele>()
                 .HasOne(m => m.SnmpProfile)

@@ -189,7 +189,7 @@ else
                 formData.RoleId = availableRoles.FirstOrDefault()?.Id ?? 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de charger les rôles.");
         }

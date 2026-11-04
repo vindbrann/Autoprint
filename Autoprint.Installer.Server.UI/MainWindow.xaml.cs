@@ -525,7 +525,6 @@ namespace Autoprint.Installer.Server.UI
                 AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
                 // Opérations du spouleur déléguées au service AutoprintSpooler (le site tourne sans privilège)
                 Spooler = new { Mode = "Service" },
-                ClientUrl = $"http://localhost:{TxtWebPort.Text}",
                 Jwt = new
                 {
                     Key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
@@ -639,7 +638,16 @@ namespace Autoprint.Installer.Server.UI
                     string allowedHosts = doc.RootElement.TryGetProperty("AllowedHosts", out var hostsElement) ? hostsElement.GetString() ?? "" : "";
                     _needsPublicHost = string.IsNullOrWhiteSpace(allowedHosts) || allowedHosts.Trim() == "*";
 
-                    if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
+                    // Port du site existant : liaison IIS en priorité (backlog B11), à défaut l'ancien paramètre ClientUrl
+                    try
+                    {
+                        using var mgr = new ServerManager();
+                        var binding = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint")?.Bindings.FirstOrDefault(b => b.EndPoint != null);
+                        if (binding != null) _existingPort = binding.EndPoint.Port;
+                    }
+                    catch { }
+
+                    if (_existingPort == 0 && doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
                     {
                         string url = urlElement.GetString() ?? "";
                         var parts = url.Split(':');

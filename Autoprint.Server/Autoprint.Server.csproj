@@ -22,7 +22,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
 
 		<PackageReference Include="PDFsharp" Version="6.2.4" />
-		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.6.2" />
+		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
 
 		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.14" />
 		<PackageReference Include="System.Management" Version="10.0.14" />

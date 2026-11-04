@@ -150,7 +150,7 @@
         }
         else
         {
-            ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+            await ((Autoprint.Web.Services.AuthService)AuthService).Logout();
         }
     }
 
@@ -178,7 +178,7 @@
             else
             {
                 ErrorMessage = "Erreur : " + await res.Content.ReadAsStringAsync();
-                ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+                await ((Autoprint.Web.Services.AuthService)AuthService).Logout();
             }
         }
         catch (Exception ex) { ErrorMessage = "Erreur technique : " + ex.Message; }

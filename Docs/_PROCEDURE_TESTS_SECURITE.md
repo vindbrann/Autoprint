@@ -399,6 +399,22 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SC-08 | Rôles › modifier un rôle. | Bandeau expliquant que les sessions des membres seront fermées (B21). | ☐ |
 | SC-09 | Restauration d'une sauvegarde **sans** mot de passe. | Message expliquant la conservation des secrets du serveur et les conséquences sur un nouveau serveur (B24). | ☐ |
 
+### 5.8 Dette technique (phase D)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SD-01 | Installation neuve SQL Server, puis mise à jour d'un serveur existant : journal de démarrage du site (ou de `--migrate-only`). | Migration `AlignModelSnapshot` appliquée ; aucune ligne « [DbInitializer] Mise à niveau du schéma en échec » (B2, B3). | ☐ |
+| SD-02 | Installation neuve SQLite : journal de démarrage. | Aucune erreur « duplicate column » ni ligne `fail:` liée au schéma (B3). | ☐ |
+| SD-03 | Supprimer une imprimante dont la file Windows ne peut pas être supprimée (droits retirés, file en cours d'utilisation), synchroniser. | La synchronisation signale l'échec (avant : file considérée comme supprimée) (B3). | ☐ |
+| SD-04 | Créer une imprimante avec une adresse refusée par le spouleur, synchroniser. | Message « Création du port … impossible : … » (B3). | ☐ |
+| SD-05 | Rôles › liaison AD › rechercher un groupe contenant `&`, `#` ou un espace. | Résultats corrects (paramètre désormais encodé) (B9). | ☐ |
+| SD-06 | Page de connexion › mot de passe expiré › annuler la fenêtre de changement. | Retour propre à la page de connexion, plus de jeton dans le stockage du navigateur (B9). | ☐ |
+| SD-07 | Console publiée (production) : depuis une autre origine, requête `fetch` vers l'API. | Pas d'en-tête `Access-Control-Allow-Origin` : requête bloquée par le navigateur (B10). | ☐ |
+| SD-08 | Mise à jour d'un serveur : port proposé par l'installeur. | Port du site IIS existant (B11). | ☐ |
+| SD-09 | Client : thème clair / sombre, fenêtre unique, liste des imprimantes. | Affichage correct avec MaterialDesign 5.4 (B12). | ☐ |
+| SD-10 | Compilation complète de la solution (`dotnet build Autoprint.sln`) deux fois de suite. | Réussie à chaque fois (B28). | ☐ |
+| SD-11 | Rapport planifié PDF : envoi manuel. | PDF reçu et lisible : bandeau, titre, tableau, accents (contrôlé ici sur base de test). | ☐ |
+
 ### 5.4 Désinstallation
 
 | ID | Test | Résultat attendu | ✔ |
@@ -419,3 +435,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | Phase A | Ajout des tests PA-01 à PA-21 (SQLite, import, nom public, bibliothèques embarquées, proxy, AD, premier login, mot de passe oublié). |
 | 04/11/2026 | Phase B | Ajout des tests SV3-01 à SV3-16 (SNMPv3, identifiants SNMP) et SB-01 à SB-06 (SQLite dans ProgramData, état du service, délais). |
 | 04/11/2026 | Phase C | Ajout des tests SC-01 à SC-09 (renouvellement de session, changement de clé agent, messages). |
+| 04/11/2026 | Phase D | Ajout des tests SD-01 à SD-11 (schéma, erreurs remontées, avertissements, CORS, installeur, mises à jour). |

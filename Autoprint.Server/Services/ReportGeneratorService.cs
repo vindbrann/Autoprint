@@ -232,7 +232,11 @@ namespace Autoprint.Server.Services
                 {
                     await _context.SaveChangesAsync();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // Le rapport est quand même produit ; l'historique (prévisions d'épuisement) n'est simplement pas mis à jour
+                    Console.WriteLine($"[ReportGenerator] Enregistrement de l'historique des toners impossible : {ex.Message}");
+                }
             }
 
             return results.ToList();
@@ -366,11 +370,11 @@ namespace Autoprint.Server.Services
                 var fontBold = new XFont("Arial", 8.5, XFontStyleEx.Bold);
 
                 // 1. Draw Title Header Band
-                var headerRect = new XRect(20, 20, page.Width - 40, 50);
+                var headerRect = new XRect(20, 20, page.Width.Point - 40, 50);
                 var headerBrush = new XSolidBrush(XColor.FromArgb(13, 110, 253)); // Blue bootstrap primary
                 gfx.DrawRectangle(headerBrush, headerRect);
 
-                gfx.DrawString("AUTOPRINT - RAPPORT D'ACTIVITE", fontTitle, XBrushes.White, new XRect(30, 30, page.Width - 60, 30), XStringFormats.TopLeft);
+                gfx.DrawString("AUTOPRINT - RAPPORT D'ACTIVITE", fontTitle, XBrushes.White, new XRect(30, 30, page.Width.Point - 60, 30), XStringFormats.TopLeft);
 
                 // 2. Draw Report Summary Card
                 gfx.DrawString($"Rapport : {schedule.ReportName}", fontSubtitle, XBrushes.Black, 20, 95);
@@ -410,7 +414,7 @@ namespace Autoprint.Server.Services
 
                 // 3. Draw Table Headers
                 int y = summaryY + 10;
-                gfx.DrawLine(XPens.DarkGray, 20, y, page.Width - 20, y);
+                gfx.DrawLine(XPens.DarkGray, 20, y, page.Width.Point - 20, y);
                 y += 5;
 
                 // Column X positions (Page Width ~ 595, Margins 20/20)
@@ -440,24 +444,24 @@ namespace Autoprint.Server.Services
                 if (!string.IsNullOrEmpty(mHeader2)) gfx.DrawString(mHeader2, fontBold, XBrushes.Black, colMetric2, y);
 
                 y += 12;
-                gfx.DrawLine(XPens.Black, 20, y, page.Width - 20, y);
+                gfx.DrawLine(XPens.Black, 20, y, page.Width.Point - 20, y);
 
                 // 4. Draw Rows
                 foreach (var item in data)
                 {
                     y += 15;
                     // If near end of page, add a page
-                    if (y > page.Height - 40)
+                    if (y > page.Height.Point - 40)
                     {
                         page = document.AddPage();
                         gfx = XGraphics.FromPdfPage(page);
                         y = 40;
-                        gfx.DrawLine(XPens.Black, 20, y, page.Width - 20, y);
+                        gfx.DrawLine(XPens.Black, 20, y, page.Width.Point - 20, y);
                         y += 15;
                     }
 
                     // Alternating background
-                    var bgRect = new XRect(20, y - 11, page.Width - 40, 15);
+                    var bgRect = new XRect(20, y - 11, page.Width.Point - 40, 15);
                     if (data.IndexOf(item) % 2 == 1)
                     {
                         gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(245, 245, 245)), bgRect);

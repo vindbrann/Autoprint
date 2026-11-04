@@ -1,4 +1,4 @@
-﻿@using Autoprint.Shared.DTOs
+@using Autoprint.Shared.DTOs
 @using Autoprint.Shared.Enums
 @using Autoprint.Web.Services
 @using Radzen
@@ -25,7 +25,7 @@
             <RadzenStack Gap="0" Style="flex: 1;">
                 <RadzenLabel Text="Recherche (AD)" Component="Search" Style="font-size: 0.8rem;" />
                 <RadzenTextBox @bind-Value="searchQuery" Name="Search" Placeholder="Nom du groupe ou login..."
-                               @onkeyup="@(args => { if (args.Key == "Enter") SearchAd(); })" Style="width: 100%;" />
+                               @onkeyup="@(async args => { if (args.Key == "Enter") await SearchAd(); })" Style="width: 100%;" />
             </RadzenStack>
 
             <RadzenButton Icon="search" Text="Chercher" Click="SearchAd" IsBusy="@isSearching" ButtonStyle="ButtonStyle.Primary" />
@@ -106,10 +106,10 @@
         isSearching = true; hasSearched = true; searchResults.Clear();
         try
         {
-            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={searchQuery}&type={searchType}");
+            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={Uri.EscapeDataString(searchQuery ?? "")}&type={searchType}");
             if (res != null) searchResults = res;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             NotificationService.Notify(NotificationSeverity.Error, "Erreur AD", "Vérifiez la connexion au domaine.");
         }
