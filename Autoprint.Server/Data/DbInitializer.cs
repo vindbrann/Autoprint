@@ -256,6 +256,7 @@ namespace Autoprint.Server.Data
                 }
                 catch { }
 
+
                 // Origine des rôles (AD / manuel) : la mise à jour ne s'exécute que si l'ajout de colonne réussit (première fois)
                 try
                 {

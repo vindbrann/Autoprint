@@ -39,6 +39,7 @@ namespace Autoprint.Server.Controllers
                     Email = u.Email,
                     IsAdUser = u.IsAdUser,
                     IsActive = u.IsActive,
+                    ForceChangePassword = u.ForceChangePassword,
                     LastLogin = u.LastLogin,
                     Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
                 })
@@ -82,7 +83,10 @@ namespace Autoprint.Server.Controllers
                 Email = request.Email,
                 IsAdUser = false,
                 IsActive = true,
-                LastLogin = DateTime.MinValue
+                LastLogin = DateTime.MinValue,
+                // Choix explicite de l'administrateur (avant : changement toujours imposé, faute de date de dernier changement)
+                ForceChangePassword = request.ForceChangePassword,
+                LastPasswordChangeDate = DateTime.UtcNow
             };
 
             if (!string.IsNullOrEmpty(request.Password))

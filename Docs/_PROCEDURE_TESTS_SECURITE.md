@@ -288,6 +288,31 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 
 ---
 
+## 4bis. Phase A — Correctifs du backlog (1re version)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| PA-01 | **SQLite** : installation neuve. | Installation sans erreur ; console, rapports, profils SNMP, sauvegarde fonctionnels (B1). | ☐ |
+| PA-02 | **SQLite** : serveur dont l'installation précédente a échoué (base sans tables), relancer la mise à jour. | Les tables sont créées ; la console fonctionne (B1). | ☐ |
+| PA-03 | Imprimantes › modifier une imprimante avec un identifiant incohérent (API) ou un modèle supprimé. | Messages « ID incohérent » / « Modèle introuvable » correctement accentués (B8). | ☐ |
+| PA-04 | F12 › Console sur chaque page. | Plus d'erreur 404 sur `css/-base.css` (B20). | ☐ |
+| PA-05 | Importer depuis le spouleur local une imprimante sans choisir de lieu ni de modèle. | Importée avec le statut « à corriger » ; réimporter la même : « 1 ignorée(s) » (B7). | ☐ |
+| PA-06 | Base sans aucun lieu (ou sans modèle) : tenter un import. | Message « Créez au moins un lieu et un modèle… » (B7). | ☐ |
+| PA-07 | **Mise à jour** d'un serveur dont `AllowedHosts` vaut `*`. | L'installeur demande le nom public (port grisé) ; `AllowedHosts` est renseigné après la mise à jour (B17). | ☐ |
+| PA-08 | Mise à jour d'un serveur dont `AllowedHosts` est déjà renseigné. | L'écran n'est pas proposé ; valeur conservée. | ☐ |
+| PA-09 | **Poste sans accès Internet** (ou pare-feu bloquant jsdelivr.net) : ouvrir la console. | Mise en forme, icônes et graphique du tableau de bord affichés (B16). F12 › Réseau : aucune requête vers jsdelivr. | ☐ |
+| PA-10 | Sans `ReverseProxy:KnownProxies` : 11 connexions d'affilée en changeant l'en-tête `X-Forwarded-For` à chaque fois ([API]). | Blocage à la 11ᵉ (l'en-tête est ignoré) (B15). | ☐ |
+| PA-11 | Avec un reverse proxy déclaré dans `ReverseProxy:KnownProxies` : journal d'audit / limitation. | L'IP réelle du client est utilisée (B15). | ☐ |
+| PA-12 | Couper l'accès au contrôleur de domaine (pare-feu) puis connexion d'un utilisateur AD **déjà authentifié par Windows** (si les identifiants sont mis en cache) ou pendant une coupure transitoire. | Message « Annuaire Active Directory injoignable… » ; pas de connexion avec des droits non vérifiés (B13). | ☐ |
+| PA-13 | Utilisateur AD hors de la base de recherche (Base DN) mais avec un rôle **manuel**. | Connexion avec le rôle manuel ; rôles de groupe AD retirés (B13). | ☐ |
+| PA-14 | Créer un utilisateur en **décochant** « Changement du mot de passe obligatoire… ». | Première connexion sans demande de changement (B6). | ☐ |
+| PA-15 | Créer un utilisateur sans toucher à la case (cochée par défaut). | Changement demandé à la première connexion (B6). | ☐ |
+| PA-16 | Modifier un utilisateur ayant « Forcer changement MDP » coché (changer seulement son nom). | La case reste cochée après enregistrement (avant : décochée à chaque modification) (B6). | ☐ |
+| PA-17 | Page de connexion › « Mot de passe oublié » avec l'identifiant d'un compte local ayant une adresse e-mail. | Message générique ; e-mail reçu avec un lien `https://<nom public>/reset-password?token=…` (B5). | ☐ |
+| PA-18 | Même demande avec un identifiant inexistant, puis avec un compte AD. | Même message générique ; aucun e-mail (B5). | ☐ |
+| PA-19 | Ouvrir le lien, saisir un mot de passe de moins de 12 caractères puis un mot de passe valide. | Refus puis « Mot de passe modifié » ; connexion avec le nouveau mot de passe ; journal d'audit : `USER_PWD_RESET_REQUEST`, `USER_PWD_RESET` (B5). | ☐ |
+| PA-20 | Rouvrir le même lien, ou un lien de plus de 30 minutes. | « Lien de réinitialisation invalide ou expiré » (B5). | ☐ |
+| PA-21 | Base de données : `SELECT PasswordResetToken FROM Users` pendant qu'une demande est en cours. | Valeur hexadécimale (empreinte), différente du jeton du lien (B5). | ☐ |
 ## 5. Version suivante — Site sans privilège (#8)
 
 ⚠️ À dérouler sur la **branche `feature/serveur-sans-localsystem`**, après la recette des phases 1 à 3. Tests à faire en **installation neuve** et en **mise à jour** (depuis la version des phases 1 à 3).
@@ -343,3 +368,4 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | 04/11/2026 | Phase 3 | Ajout des tests P3-01 à P3-25 (chiffrement des secrets, sauvegarde, droits NTFS, SMTP, contrôles GitHub). |
 | 04/11/2026 | Correctif B22 | Ajout du test NR-10 (schéma SQL Server : rapports planifiés, profils SNMP, sauvegarde). |
 | 04/11/2026 | #8 (version suivante) | Ajout des tests S8-01 à S8-20 (site sans privilège, service AutoprintSpooler, droits SQL / NTFS). |
+| 04/11/2026 | Phase A | Ajout des tests PA-01 à PA-21 (SQLite, import, nom public, bibliothèques embarquées, proxy, AD, premier login, mot de passe oublié). |

@@ -128,7 +128,9 @@
         {
             var request = new ForgotPasswordRequest { EmailOrUsername = forgotEmailOrUser };
             await Http.PostAsJsonAsync("api/auth/forgot-password", request);
-            NotificationService.Notify(NotificationSeverity.Success, "Demande envoyée", "Vérifiez vos emails.");
+            // Message identique dans tous les cas : on ne révèle pas si le compte existe
+            NotificationService.Notify(NotificationSeverity.Info, "Demande enregistrée",
+                "Si un compte local avec une adresse e-mail correspond, un lien valable 30 minutes vient d'être envoyé. Les comptes Active Directory se réinitialisent avec la procédure Windows habituelle.");
             forgotPasswordMode = false;
         }
         catch { ErrorMessage = "Impossible de contacter le serveur."; }
