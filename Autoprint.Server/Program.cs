@@ -225,7 +225,31 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("NETWORK_SCAN", policy => policy.RequireClaim("Permission", "NETWORK_SCAN"));
 });
 
+// Reverse proxy / répartiteur devant IIS (backlog B15) : l'IP réelle du client (limitation des connexions, journaux)
+// n'est lue dans X-Forwarded-For que si la requête vient d'un proxy déclaré. Sans déclaration, l'en-tête est ignoré
+// (sinon n'importe qui pourrait choisir son IP et contourner la limite de tentatives).
+var knownProxies = builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? Array.Empty<string>();
+if (knownProxies.Length > 0)
+{
+    builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+        foreach (var proxy in knownProxies)
+        {
+            if (System.Net.IPAddress.TryParse(proxy.Trim(), out var ip)) options.KnownProxies.Add(ip);
+        }
+        options.ForwardLimit = 1;
+    });
+}
+
 var app = builder.Build();
+
+if (knownProxies.Length > 0)
+{
+    app.UseForwardedHeaders();
+}
 
 if (args.Contains("--migrate-only"))
 {
@@ -238,14 +262,7 @@ if (args.Contains("--migrate-only"))
             var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var currentProvider = config["Database:Provider"];
 
-            try
-            {
-                context.Database.Migrate();
-            }
-            catch
-            {
-                context.Database.EnsureCreated();
-            }
+            DatabaseSchema.Ensure(context);
             DbInitializer.Initialize(context);
             scope.ServiceProvider.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
 
@@ -280,12 +297,13 @@ if (!app.Environment.IsDevelopment())
 }
 
 // En-têtes de sécurité (audit #12). La console n'est jamais affichée dans un iframe.
-// CSP : Blazor WebAssembly exige 'wasm-unsafe-eval' ; Radzen utilise des styles en ligne ; Bootstrap / Chart.js viennent de jsDelivr (versions figées + SRI).
+// CSP : Blazor WebAssembly exige 'wasm-unsafe-eval' ; Radzen utilise des styles en ligne ; Bootstrap / Chart.js sont embarqués (wwwroot/lib) :
+// aucune ressource externe, la console fonctionne sans accès Internet.
 const string ContentSecurityPolicy =
     "default-src 'self'; " +
-    "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; " +
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-    "font-src 'self' data: https://cdn.jsdelivr.net; " +
+    "script-src 'self' 'wasm-unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "font-src 'self' data:; " +
     "img-src 'self' data: blob:; " +
     "connect-src 'self'; " +
     "frame-ancestors 'none'; " +
@@ -352,14 +370,7 @@ using (var scope = app.Services.CreateScope())
         var config = services.GetRequiredService<IConfiguration>();
         var currentProvider = config["Database:Provider"];
 
-        try
-        {
-            context.Database.Migrate();
-        }
-        catch
-        {
-            context.Database.EnsureCreated();
-        }
+        DatabaseSchema.Ensure(context, services.GetRequiredService<ILogger<Program>>());
 
         DbInitializer.Initialize(context);
 

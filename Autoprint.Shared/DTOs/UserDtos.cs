@@ -37,6 +37,7 @@ namespace Autoprint.Shared.DTOs
         public string? Email { get; set; }
         public bool IsAdUser { get; set; }
         public bool IsActive { get; set; }
+        public bool ForceChangePassword { get; set; }
         public DateTime LastLogin { get; set; }
         public List<string> Roles { get; set; } = new();
     }
@@ -52,6 +53,8 @@ namespace Autoprint.Shared.DTOs
         [EmailAddress]
         public string? Email { get; set; }
         public int RoleId { get; set; }
+        // Coché par défaut : le mot de passe choisi par l'administrateur est provisoire (backlog B6)
+        public bool ForceChangePassword { get; set; } = true;
     }
 
     public class UpdateUserDto
@@ -99,7 +102,7 @@ namespace Autoprint.Shared.DTOs
     }
     public class ResetPasswordDto
     {
-        [Required]
+        [Required, MaxLength(128)]
         public string Token { get; set; } = string.Empty; // Le jeton reçu par mail
 
         [Required, MinLength(PasswordPolicy.MinLength, ErrorMessage = PasswordPolicy.MinLengthMessage)]
