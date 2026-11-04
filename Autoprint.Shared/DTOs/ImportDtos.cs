@@ -2,14 +2,6 @@
 
 namespace Autoprint.Shared.DTOs
 {
-    public class RemoteScanRequestDto
-    {
-        [Required]
-        public string TargetHost { get; set; } = "localhost";
-        public string? Username { get; set; }
-        public string? Password { get; set; }
-    }
-
     public class DiscoveredPrinterDto
     {
         public string Name { get; set; } = "";

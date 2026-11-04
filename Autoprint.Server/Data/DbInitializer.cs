@@ -83,6 +83,22 @@ namespace Autoprint.Server.Data
                     ");
                 }
                 catch { }
+
+                // Origine des rôles (AD / manuel). À la création de la colonne, les rôles des utilisateurs AD
+                // correspondant à un mapping de groupe sont considérés comme issus de l'AD.
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('UserRoles') AND name = 'IsFromAd')
+                        BEGIN
+                            ALTER TABLE UserRoles ADD IsFromAd bit NOT NULL DEFAULT 0;
+                            EXEC('UPDATE UserRoles SET IsFromAd = 1
+                                  WHERE UserId IN (SELECT Id FROM Users WHERE IsAdUser = 1)
+                                    AND RoleId IN (SELECT RoleId FROM AdRoleMappings)');
+                        END
+                    ");
+                }
+                catch { }
             }
             else if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
             {
@@ -185,6 +201,17 @@ namespace Autoprint.Server.Data
                 try
                 {
                     context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_SnmpProfileItems_SnmpProfileId ON SnmpProfileItems(SnmpProfileId);");
+                }
+                catch { }
+
+                // Origine des rôles (AD / manuel) : la mise à jour ne s'exécute que si l'ajout de colonne réussit (première fois)
+                try
+                {
+                    context.Database.ExecuteSqlRaw("ALTER TABLE UserRoles ADD COLUMN IsFromAd INTEGER NOT NULL DEFAULT 0;");
+                    context.Database.ExecuteSqlRaw(@"
+                        UPDATE UserRoles SET IsFromAd = 1
+                        WHERE UserId IN (SELECT Id FROM Users WHERE IsAdUser = 1)
+                          AND RoleId IN (SELECT RoleId FROM AdRoleMappings);");
                 }
                 catch { }
             }

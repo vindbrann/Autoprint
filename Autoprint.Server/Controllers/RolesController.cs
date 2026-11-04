@@ -66,6 +66,9 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "ROLE_WRITE")]
         public async Task<IActionResult> CreateRole(RoleEditDto request)
         {
+            if (!await PermissionGuard.CanGrantPermissionIdsAsync(_context, User, request.PermissionIds ?? new()))
+                return StatusCode(403, "Vous ne pouvez pas accorder des droits que vous n'avez pas.");
+
             var newRole = new Role { Name = request.Name, Description = request.Description };
             _context.Roles.Add(newRole);
 
@@ -93,6 +96,12 @@ namespace Autoprint.Server.Controllers
 
             if (role == null) return NotFound();
             if (role.Name == "SuperAdmin" && request.Name != "SuperAdmin") return BadRequest("Impossible de renommer SuperAdmin.");
+
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { id }))
+                return StatusCode(403, "Ce rôle dispose de droits que vous n'avez pas : vous ne pouvez pas le modifier.");
+
+            if (!await PermissionGuard.CanGrantPermissionIdsAsync(_context, User, request.PermissionIds ?? new()))
+                return StatusCode(403, "Vous ne pouvez pas accorder des droits que vous n'avez pas.");
 
             var snapshotBefore = new
             {
@@ -147,6 +156,9 @@ namespace Autoprint.Server.Controllers
             if (role == null) return NotFound();
             if (role.Name == "SuperAdmin") return BadRequest("Impossible de supprimer SuperAdmin.");
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { id }))
+                return StatusCode(403, "Ce rôle dispose de droits que vous n'avez pas : vous ne pouvez pas le supprimer.");
+
             _auditService.LogAction("ROLE_DELETE", $"Suppression rôle : {role.Name}", User.Identity?.Name, "WARNING", role.Name);
 
             _context.Roles.Remove(role);
@@ -177,6 +189,9 @@ namespace Autoprint.Server.Controllers
             if (await _context.AdRoleMappings.AnyAsync(m => m.AdIdentifier == dto.AdIdentifier && m.RoleId == dto.RoleId))
                 return BadRequest("Mapping existant.");
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { dto.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas lier un groupe AD à un rôle disposant de droits que vous n'avez pas.");
+
             var mapping = new AdRoleMapping { AdIdentifier = dto.AdIdentifier, MappingType = dto.MappingType, RoleId = dto.RoleId };
             _context.AdRoleMappings.Add(mapping);
 
@@ -192,6 +207,9 @@ namespace Autoprint.Server.Controllers
         {
             var mapping = await _context.AdRoleMappings.FindAsync(id);
             if (mapping == null) return NotFound();
+
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { mapping.RoleId }))
+                return StatusCode(403, "Ce lien AD concerne un rôle disposant de droits que vous n'avez pas.");
 
             _auditService.LogAction("ROLE_MAP_DEL", $"Suppression lien AD : {mapping.AdIdentifier}", User.Identity?.Name, "INFO", mapping.AdIdentifier);
 

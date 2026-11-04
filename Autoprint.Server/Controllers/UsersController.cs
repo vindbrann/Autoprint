@@ -69,6 +69,9 @@ namespace Autoprint.Server.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                 return BadRequest("Ce nom d'utilisateur existe déjà.");
 
+            if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle disposant de droits que vous n'avez pas.");
+
             var newUser = new User
             {
                 Username = request.Username,
@@ -112,6 +115,12 @@ namespace Autoprint.Server.Controllers
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null) return NotFound();
+
+            if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
+                return StatusCode(403, "Ce compte dispose de droits que vous n'avez pas : vous ne pouvez pas le modifier.");
+
+            if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle disposant de droits que vous n'avez pas.");
 
             var snapshotBefore = new
             {
@@ -205,6 +214,9 @@ namespace Autoprint.Server.Controllers
             if (user == null) return NotFound();
 
             if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
+
+            if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
+                return StatusCode(403, "Ce compte dispose de droits que vous n'avez pas : vous ne pouvez pas le supprimer.");
 
             _auditService.LogAction(
                 "USER_DELETE",

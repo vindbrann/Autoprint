@@ -83,6 +83,9 @@ namespace Autoprint.Server.Models.Security
         public User User { get; set; } = null!;
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
+
+        // true = rôle attribué par un mapping de groupe AD (retiré si l'utilisateur quitte le groupe) ; false = rôle attribué manuellement
+        public bool IsFromAd { get; set; }
     }
 
     public class RolePermission

@@ -1,4 +1,5 @@
 using Autoprint.Server.Data;
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
@@ -53,6 +54,9 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)
         {
+            if (!string.IsNullOrWhiteSpace(dto.AdLdapFilter) && !IsWellFormedLdapFilter(dto.AdLdapFilter))
+                return BadRequest("Filtre LDAP invalide : il doit commencer par '(' , finir par ')' et avoir des parenthèses équilibrées.");
+
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
 
             var modifiedCategories = new HashSet<string>();
@@ -185,11 +189,14 @@ namespace Autoprint.Server.Controllers
         public IActionResult TestAd([FromBody] TestAdDto dto)
         {
             if (!OperatingSystem.IsWindows()) return BadRequest("Le serveur doit tourner sous Windows.");
+            var domainError = CheckAdTestTarget(dto.Domain, dto.UseServiceAccount, dto.ServicePassword);
+            if (domainError != null) return BadRequest(domainError);
+
             try
             {
                 ContextType contextType = ContextType.Domain;
                 string finalPass = dto.ServicePassword;
-                if (dto.UseServiceAccount && string.IsNullOrEmpty(finalPass))
+                if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
                     if (saved != null) finalPass = saved.Value;
@@ -218,10 +225,17 @@ namespace Autoprint.Server.Controllers
         public IActionResult TestAdFilter([FromBody] TestAdFilterDto dto)
         {
             if (!OperatingSystem.IsWindows()) return Ok(new { Success = false, Message = "Windows requis." });
+
+            var domainError = CheckAdTestTarget(dto.Domain, dto.UseServiceAccount, dto.ServicePassword);
+            if (domainError != null) return Ok(new { Success = false, Message = domainError });
+
+            if (!string.IsNullOrWhiteSpace(dto.Filter) && !IsWellFormedLdapFilter(dto.Filter))
+                return Ok(new { Success = false, Message = "Filtre LDAP invalide : parenthèses manquantes ou déséquilibrées." });
+
             try
             {
                 string finalPass = dto.ServicePassword;
-                if (dto.UseServiceAccount && string.IsNullOrEmpty(finalPass))
+                if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
                     if (saved != null) finalPass = saved.Value;
@@ -243,7 +257,7 @@ namespace Autoprint.Server.Controllers
                 string configFilter = string.IsNullOrWhiteSpace(dto.Filter) ? "(objectClass=user)" : dto.Filter;
 
                 if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
-                    searcher.Filter = $"(&{configFilter}(sAMAccountName={dto.TestUserQuery}))";
+                    searcher.Filter = $"(&{configFilter}(sAMAccountName={SecurityHelper.EscapeLdapFilter(dto.TestUserQuery)}))";
                 else
                     searcher.Filter = configFilter;
 
@@ -256,6 +270,39 @@ namespace Autoprint.Server.Controllers
                 return Ok(new { Success = true, Message = $"✅ SUCCÈS : Objet '{name}' trouvé !" });
             }
             catch (Exception ex) { return Ok(new { Success = false, Message = $"💥 Erreur LDAP : {ex.Message}" }); }
+        }
+
+        private static bool IsEmptyOrMasked(string? value) => string.IsNullOrEmpty(value) || value == "●●●●●●●●";
+
+        // Sans mot de passe saisi, le test s'authentifie avec un secret du serveur (mot de passe AD enregistré ou compte machine) :
+        // il est alors limité au domaine enregistré, pour qu'on ne puisse pas envoyer ce secret vers un serveur tiers.
+        private string? CheckAdTestTarget(string? domain, bool useServiceAccount, string? typedPassword)
+        {
+            if (string.IsNullOrWhiteSpace(domain) || !System.Text.RegularExpressions.Regex.IsMatch(domain, @"^[A-Za-z0-9]([A-Za-z0-9.-]{0,252})$"))
+                return "Nom de domaine invalide.";
+
+            bool usesServerSecret = !useServiceAccount || IsEmptyOrMasked(typedPassword);
+            if (!usesServerSecret) return null;
+
+            var savedDomain = _context.ServerSettings.Find("AdDomain")?.Value;
+            if (!string.IsNullOrWhiteSpace(savedDomain) && !string.Equals(savedDomain.Trim(), domain.Trim(), StringComparison.OrdinalIgnoreCase))
+                return "Pour tester un autre domaine que celui enregistré, saisissez le mot de passe du compte de service.";
+
+            return null;
+        }
+
+        private static bool IsWellFormedLdapFilter(string filter)
+        {
+            filter = filter.Trim();
+            if (!filter.StartsWith("(") || !filter.EndsWith(")")) return false;
+            int depth = 0;
+            for (int i = 0; i < filter.Length; i++)
+            {
+                if (filter[i] == '\\') { i++; continue; }
+                if (filter[i] == '(') depth++;
+                else if (filter[i] == ')' && --depth < 0) return false;
+            }
+            return depth == 0;
         }
     }
 

@@ -76,6 +76,8 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
+            var nameError = ValidatePrinterNames(imprimante.NomAffiche, imprimante.NomPartage);
+            if (nameError != null) return BadRequest(nameError);
             if (imprimante.ModeleId == 0) return BadRequest("Modèle obligatoire.");
             if (imprimante.EmplacementId == 0) return BadRequest("Emplacement obligatoire.");
 
@@ -139,6 +141,12 @@ namespace Autoprint.Server.Controllers
                 {
                     return Forbid();
                 }
+            }
+
+            if (dbImprimante.NomAffiche != inputImprimante.NomAffiche || dbImprimante.NomPartage != inputImprimante.NomPartage)
+            {
+                var nameError = ValidatePrinterNames(inputImprimante.NomAffiche, inputImprimante.NomPartage);
+                if (nameError != null) return BadRequest(nameError);
             }
 
             if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("ModÃ¨le introuvable.");
@@ -436,5 +444,19 @@ namespace Autoprint.Server.Controllers
         }
 
         private bool ImprimanteExists(int id) => _context.Imprimantes.Any(e => e.Id == id);
+
+        // Règles du spouleur Windows : nom d'imprimante (220 car., sans \ ni ,) et nom de partage (80 car., jeu restreint)
+        private static string? ValidatePrinterNames(string? nomAffiche, string? nomPartage)
+        {
+            if (string.IsNullOrWhiteSpace(nomAffiche)) return "Nom d'imprimante obligatoire.";
+            if (nomAffiche.Length > 220 || nomAffiche.Any(char.IsControl) || nomAffiche.IndexOfAny(new[] { '\\', ',' }) >= 0)
+                return "Nom d'imprimante invalide : 220 caractères maximum, sans \\ ni virgule.";
+
+            if (!string.IsNullOrEmpty(nomPartage) &&
+                (nomPartage.Length > 80 || nomPartage.Any(char.IsControl) || nomPartage.IndexOfAny("\\/[]:|<>+=;,?*\"".ToCharArray()) >= 0))
+                return "Nom de partage invalide : 80 caractères maximum, sans \\ / [ ] : | < > + = ; , ? * \"";
+
+            return null;
+        }
     }
 }

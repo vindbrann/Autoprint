@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
+// PDFsharp 6 (build "Core") : utilise les polices installées sous Windows pour les rapports PDF
+PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -56,6 +59,24 @@ builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();
 builder.Services.AddHostedService<Autoprint.Server.Services.DiscoveryWorker>();
 
 builder.Services.AddHostedService<LogCleanupWorker>();
+
+// Anti brute-force (CWE-307) : 10 tentatives de connexion par minute et par IP, plus un délai par compte
+builder.Services.AddSingleton<LoginThrottleService>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (ctx, token) =>
+        await ctx.HttpContext.Response.WriteAsync("Trop de tentatives de connexion. Réessayez dans une minute.", token);
+    options.AddPolicy("login", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 builder.Services.AddHostedService<Autoprint.Server.Services.PrinterMonitoringWorker>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Clé JWT introuvable !");
@@ -195,8 +216,30 @@ app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 app.UseCors("AllowBlazorOrigin");
+app.UseRateLimiter();
 
 app.UseAuthentication();
+
+// Mot de passe expiré / à changer : seul le changement de mot de passe est autorisé côté API (CWE-602)
+app.Use(async (context, next) =>
+{
+    if (context.User.HasClaim("ForcePasswordChange", "true"))
+    {
+        var path = context.Request.Path;
+        bool allowed = path.StartsWithSegments("/api/users/change-password", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWithSegments("/api/users/profile", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase);
+
+        if (!allowed && (path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs")))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync("Changement de mot de passe obligatoire avant toute autre action.");
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapRazorPages();

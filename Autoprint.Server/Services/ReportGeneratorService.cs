@@ -2,8 +2,8 @@ using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
-using PdfSharpCore.Drawing;
-using PdfSharpCore.Pdf;
+using PdfSharp.Drawing;
+using PdfSharp.Pdf;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -357,10 +357,10 @@ namespace Autoprint.Server.Services
                 var gfx = XGraphics.FromPdfPage(page);
 
                 // Fonts
-                var fontTitle = new XFont("Arial", 18, XFontStyle.Bold);
-                var fontSubtitle = new XFont("Arial", 11, XFontStyle.Bold);
-                var fontRegular = new XFont("Arial", 8.5, XFontStyle.Regular);
-                var fontBold = new XFont("Arial", 8.5, XFontStyle.Bold);
+                var fontTitle = new XFont("Arial", 18, XFontStyleEx.Bold);
+                var fontSubtitle = new XFont("Arial", 11, XFontStyleEx.Bold);
+                var fontRegular = new XFont("Arial", 8.5, XFontStyleEx.Regular);
+                var fontBold = new XFont("Arial", 8.5, XFontStyleEx.Bold);
 
                 // 1. Draw Title Header Band
                 var headerRect = new XRect(20, 20, page.Width - 40, 50);

@@ -255,11 +255,17 @@ namespace Autoprint.Server.Services
             });
         }
 
+        // Échappement des littéraux WQL (CWE-943) : sans cela, un nom contenant ' peut élargir la requête à toutes les imprimantes
+        private static string EscapeWql(string value)
+        {
+            return (value ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
+        }
+
         private bool PortExistsNative(string portName)
         {
             try
             {
-                var query = new SelectQuery("Win32_TCPIPPrinterPort", $"Name = '{portName}'");
+                var query = new SelectQuery("Win32_TCPIPPrinterPort", $"Name = '{EscapeWql(portName)}'");
                 using var searcher = new ManagementObjectSearcher(query);
                 return searcher.Get().Count > 0;
             }
@@ -289,7 +295,7 @@ namespace Autoprint.Server.Services
         {
             try
             {
-                var query = new SelectQuery("Win32_Printer", $"Name = '{nom}'");
+                var query = new SelectQuery("Win32_Printer", $"Name = '{EscapeWql(nom)}'");
                 using var searcher = new ManagementObjectSearcher(query);
                 foreach (ManagementObject printer in searcher.Get()) printer.Delete();
             }
@@ -416,7 +422,7 @@ namespace Autoprint.Server.Services
         {
             try
             {
-                var query = new SelectQuery("Win32_Printer", $"Name = '{ancienNom}'");
+                var query = new SelectQuery("Win32_Printer", $"Name = '{EscapeWql(ancienNom)}'");
                 using var searcher = new ManagementObjectSearcher(query);
                 foreach (ManagementObject printer in searcher.Get())
                 {
@@ -431,16 +437,14 @@ namespace Autoprint.Server.Services
         }
 
 
-        public Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password)
+        public Task<List<DiscoveredPrinterDto>> ScanLocalPrintersAsync()
         {
             var results = new List<DiscoveredPrinterDto>();
             ManagementScope scope;
             try
             {
-                var options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Authentication = AuthenticationLevel.PacketPrivacy, Timeout = TimeSpan.FromSeconds(10) };
-                if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password)) { options.Username = username; options.Password = password; }
-                string path = $@"\\{targetHost}\root\cimv2";
-                scope = new ManagementScope(path, options);
+                var options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Timeout = TimeSpan.FromSeconds(10) };
+                scope = new ManagementScope(@"\\.\root\cimv2", options);
                 scope.Connect();
 
                 var portMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -473,8 +477,8 @@ namespace Autoprint.Server.Services
                     });
                 }
             }
-            catch (UnauthorizedAccessException) { throw new Exception("Accès refusé au serveur distant (Erreur WMI)."); }
-            catch (Exception ex) { throw new Exception($"Erreur WMI ({targetHost}): {ex.Message}"); }
+            catch (UnauthorizedAccessException) { throw new Exception("Accès refusé au spouleur local (Erreur WMI)."); }
+            catch (Exception ex) { throw new Exception($"Erreur WMI (spouleur local): {ex.Message}"); }
             return Task.FromResult(results);
         }
 

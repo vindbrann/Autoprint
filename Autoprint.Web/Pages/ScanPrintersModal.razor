@@ -13,24 +13,12 @@
 
     <RadzenTabs RenderMode="TabRenderMode.Client" @bind-SelectedIndex="@selectedTabIndex">
         <Tabs>
-            <RadzenTabsItem Text="Serveur Windows (RPC)">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.End" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-p-2">
-                    <RadzenStack Gap="0.2rem">
-                        <RadzenLabel Text="Serveur Cible" Component="Host" Style="font-size: 0.8rem; font-weight: bold;" />
-                        <RadzenTextBox Name="Host" @bind-Value="@request.TargetHost" Placeholder="localhost ou IP" Style="width: 200px;" />
-                    </RadzenStack>
-
-                    <RadzenStack Gap="0.2rem">
-                        <RadzenLabel Text="Utilisateur (Admin)" Component="User" Style="font-size: 0.8rem; font-weight: bold;" />
-                        <RadzenTextBox Name="User" @bind-Value="@request.Username" Placeholder="DOMAIN\Admin" Style="width: 150px;" />
-                    </RadzenStack>
-
-                    <RadzenStack Gap="0.2rem">
-                        <RadzenLabel Text="Mot de passe" Component="Pwd" Style="font-size: 0.8rem; font-weight: bold;" />
-                        <RadzenPassword Name="Pwd" @bind-Value="@request.Password" Style="width: 150px;" />
-                    </RadzenStack>
-
-                    <RadzenButton Text="Scanner le Serveur" Icon="dns" Click="@LancerScanWindows" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenTabsItem Text="Ce serveur (Spouleur Windows)">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap" Class="rz-p-2">
+                    <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                        Liste les imprimantes déjà installées sur le serveur qui héberge Autoprint.
+                    </RadzenText>
+                    <RadzenButton Text="Lister les imprimantes de ce serveur" Icon="dns" Click="@LancerScanWindows" IsBusy="@scanEnCours" ButtonStyle="ButtonStyle.Primary" />
                 </RadzenStack>
             </RadzenTabsItem>
 
@@ -234,7 +222,6 @@
     private bool _defaultDirectMode = false;
     private bool _forceShare = false;
 
-    private RemoteScanRequestDto request = new() { TargetHost = "localhost" };
     private List<ImportPrinterViewModel>? resultats;
     private List<Modele> listeModeles = new();
     private List<Emplacement> listeLieux = new();
@@ -276,7 +263,7 @@
         resultats = null;
         try
         {
-            var response = await Http.PostAsJsonAsync("api/Import/Scan/Printers", request);
+            var response = await Http.PostAsync("api/Import/Scan/Printers", null);
             if (response.IsSuccessStatusCode)
             {
                 resultats = await response.Content.ReadFromJsonAsync<List<ImportPrinterViewModel>>();
