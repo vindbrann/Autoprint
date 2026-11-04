@@ -113,8 +113,9 @@ La solution se compose de projets complémentaires articulés autour du framewor
 | **Console Web Admin**<br/>`Autoprint.Web` | Blazor WebAssembly (.NET 10), Radzen.Blazor 8.3.8, Chart.js, Bootstrap 5.3 | Application Web monopage (SPA) exécutée côté client dans le navigateur. Offre la gestion complète du parc, des lieux, des profils SNMP, des rôles et des paramètres système. |
 | **Client Bureau Utilisateur**<br/>`Autoprint.Client` | WPF (.NET 10-windows), MaterialDesignThemes 5.3.0, Hardcodet.NotifyIcon 2.0.1, SQLite Local | Agent de bureau résident en barre des tâches. Géolocalise le poste via sous-réseau IP CIDR, met en cache les imprimantes, pilote l'imprimante par défaut et communique avec le serveur. |
 | **Contrats & Modèles Partagés**<br/>`Autoprint.Shared` | .NET 10 Class Library, EF Core Annotations | Référentiel commun contenant les entités ORM, les DTOs d'API, les énumérations système, les contrats IPC et les modèles de sauvegarde partagés entre le serveur, le web et le client. |
-| **Assistant Installateur Serveur**<br/>`Autoprint.Installer.Server.UI` | WPF (.NET 10-windows), Microsoft.Web.Administration | Assistant graphique d'installation serveur : configure le pool d'application IIS en `LocalSystem`, teste les connexions SQL Server, génère les clés JWT et exécute les migrations initiales. |
-| **Paquet MSI Serveur**<br/>`Autoprint.Server.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) pour le déploiement automatisé du serveur d'impression. |
+| **Assistant Installateur Serveur**<br/>`Autoprint.Installer.Server.UI` | WPF (.NET 10-windows), Microsoft.Web.Administration | Assistant graphique d'installation serveur : configure le pool d'application IIS en compte sans privilège (`ApplicationPoolIdentity`), installe le service `AutoprintSpooler`, donne les droits SQL au compte du site, teste les connexions SQL Server, génère les clés JWT et exécute les migrations initiales. |
+| **Service Spouleur Serveur**<br/>`Autoprint.SpoolerService` + `Autoprint.Spooler` | .NET 10 Windows Service, tube nommé local à ACL | Seul composant du serveur exécuté en `LocalSystem` : applique les 5 opérations d'administration du spouleur (port, création, modification, renommage, suppression de file) demandées par le site, après contrôle des paramètres. Tube réservé à l'identité du pool IIS, accès réseau refusé. |
+| **Paquet MSI Serveur**<br/>`Autoprint.Server.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) pour le déploiement automatisé du serveur d'impression et du service `AutoprintSpooler`. |
 | **Paquet MSI Client**<br/>`Autoprint.Client.Setup` | WiX Toolset v5 | Projet de création de package Windows Installer (MSI) déployable par GPO, Microsoft Intune ou SCCM pour installer l'agent client. |
 
 ---
@@ -154,6 +155,8 @@ Autoprint/
 │   ├── Program.cs                        # Configuration de l'hôte Windows Service
 │   └── Worker.cs                         # Boucle d'exécution d'arrière-plan du service
 │
+├── Autoprint.Spooler/                    # Opérations privilégiées du spouleur + protocole du tube (bibliothèque)
+├── Autoprint.SpoolerService/             # Service Windows AutoprintSpooler (LocalSystem) du serveur
 ├── Autoprint.Shared/                     # Bibliothèque partagée (.NET 10) entre tous les projets
 │   ├── DTOs/                             # Contrats de données typés par domaine fonctionnel
 │   ├── IPC/                              # Structures de messages inter-processus (IpcRequest, IpcResponse)
@@ -217,7 +220,7 @@ Autoprint/
 - **Rôles Windows :** Rôle *Serveur d'impression et de numérisation de documents* (Spouleur d'impression Windows `spoolsv.exe` actif), Service IIS 10.0+ avec module ASP.NET Core Hosting Bundle.
 - **Runtime :** [.NET 10.0 ASP.NET Core Hosting Bundle](https://dotnet.microsoft.com/).
 - **Base de Données :** Microsoft SQL Server 2016+ (Standard, Enterprise ou Express) ou SQLite (intégré par défaut).
-- **Droits Système :** Le pool d'application IIS exécutant `Autoprint.Server` doit être configuré avec l'identité `LocalSystem` (requis pour interagir avec le spouleur d'impression Windows `winspool.drv` et WMI).
+- **Droits Système :** Le pool d'application IIS exécutant `Autoprint.Server` tourne sous `ApplicationPoolIdentity` (aucun privilège). Les modifications des files d'impression sont réalisées par le service Windows `AutoprintSpooler` (installé par le MSI). En développement, `Spooler:Mode = InProcess` (valeur par défaut) les exécute directement dans le site.
 
 #### Postes Clients
 - **Système d'Exploitation :** Windows 10 ou Windows 11 (64-bit).
@@ -231,7 +234,7 @@ Autoprint/
 #### Déploiement du Serveur via l'Assistant Graphique
 1. Exécuter [`Autoprint.Installer.Server.UI.exe`](Autoprint.Installer.Server.UI/) avec élévation de privilèges administrateur.
 2. Renseigner les paramètres de la base de données (sélectionner SQL Server avec authentification Windows ou saisir une chaîne de connexion personnalisée).
-3. L'assistant crée le site IIS, configure le pool d'application sur `LocalSystem`, génère une clé de signature JWT de 512 bits aléatoire et exécute les migrations initiales (`Autoprint.Server.exe --migrate-only`).
+3. L'assistant crée le site IIS, configure le pool d'application en `ApplicationPoolIdentity`, démarre le service `AutoprintSpooler`, génère une clé de signature JWT de 512 bits aléatoire et exécute les migrations initiales (`Autoprint.Server.exe --migrate-only`).
 
 #### Déploiement Silencieux du Client Bureau (Intune, GPO, SCCM)
 L'installeur MSI généré par [`Autoprint.Client.Setup`](Autoprint.Client.Setup/) s'installe en mode silencieux en transmettant les propriétés machine requises dans `HKLM\SOFTWARE\Autoprint` :

@@ -6,6 +6,18 @@
 			</Files>
 		</ComponentGroup>
 
+		<!-- Service Windows AutoprintSpooler (audit #8) : réalise les 5 opérations d'administration du spouleur pour le site,
+		     qui tourne sans privilège. LocalSystem est requis pour créer / modifier / supprimer des files d'impression. -->
+		<ComponentGroup Id="SpoolerServiceFiles" Directory="SPOOLERFOLDER">
+			<Component Id="SpoolerServiceComp" Guid="{3C1F5B2E-8E4A-4C7B-9A61-2D5F0E7B9C14}">
+				<File Id="SpoolerServiceExe" Source="$(var.SolutionDir)Autoprint.SpoolerService\bin\Release\publish\Autoprint.SpoolerService.exe" KeyPath="yes" />
+				<ServiceInstall Id="SpoolerServiceInstall" Name="AutoprintSpooler" DisplayName="Autoprint Spooler"
+				                Description="Applique les modifications des files d'impression demandées par Autoprint Server."
+				                Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" Vital="yes" />
+				<ServiceControl Id="SpoolerServiceControl" Name="AutoprintSpooler" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+			</Component>
+		</ComponentGroup>
+
 		<ComponentGroup Id="ConfigFiles" Directory="INSTALLFOLDER">
 			<Component Id="AppSettingsComp" Guid="{59DF8E04-34C9-4EE7-AFE6-31395DD0D386}" KeyPath="yes" NeverOverwrite="yes">
 				<File Id="AppSettingsJson" Source="$(var.SolutionDir)Autoprint.Server\bin\Release\net10.0\publish\appsettings.json" />

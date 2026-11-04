@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Web.Administration" Version="11.1.0" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageReference Include="System.Management" Version="10.0.14" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>

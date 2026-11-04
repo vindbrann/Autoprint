@@ -66,7 +66,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
   - Rôle Serveur d'impression (`Print-Server` ou fonctionnalité `Printing-Foundation-Features`).
   - Service Windows Spouleur d'impression actif (`spoolsv.exe`).
 - **Droits et Privilèges d'Exécution :**
-  - **Serveur :** Le pool d'application IIS d'Autoprint (`Autoprint`) est configuré pour tourner sous l'identité **`LocalSystem`** (`ProcessModelIdentityType.LocalSystem`) avec un `IdleTimeout` de zéro. Ce niveau de privilège est obligatoire pour autoriser le processus web à créer des ports TCP/IP réseau via WMI, modifier les files du Spouleur Windows via P/Invoke (`winspool.drv`), et configurer les paramètres de pilotes d'impression dans le Registre Windows.
+  - **Serveur :** Le pool d'application IIS d'Autoprint (`Autoprint`) tourne sous **`ApplicationPoolIdentity`** (`IIS AppPool\Autoprint`, aucun privilège) avec un `IdleTimeout` de zéro. Les opérations qui exigent des droits d'administrateur (création de ports TCP/IP via WMI, création / modification / renommage / suppression de files via `winspool.drv`, mode direct) sont déléguées au service Windows **`AutoprintSpooler`** (LocalSystem) par le tube nommé local `\\.\pipe\AutoprintSpooler` (ACL : identité du pool + SYSTEM, accès réseau refusé). Paramètre `Spooler:Mode` : `Service` (production) ou `InProcess` (développement).
   - **Client :** S'exécute sous la session utilisateur standard, sans service Windows privilégié (l'ancien `Autoprint.Service` a été retiré). Les pilotes d'impression sont pré-déployés par les outils managés.
 - **Binaires Système & Fichiers Externes :**
   - `winspool.drv` (bibliothèque native Windows Print Spooler).
@@ -295,7 +295,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 ## 4. Modèle de Sécurité, Permissions & Concurrence
 
 ### Droits Système & Élévation de Privilèges
-- **Backend / Serveur IIS :** Tourne sous l'identité **`LocalSystem`**. Cette élévation est obligatoire pour interagir avec le sous-système d'impression Windows sans blocage de sécurité UAC ou d'accès mémoire protégé.
+- **Backend / Serveur IIS :** Tourne sous **`ApplicationPoolIdentity`**. Seul le service `AutoprintSpooler` (5 commandes typées, paramètres revalidés, pilote obligatoirement déjà installé) dispose de `LocalSystem`.
 - **Service Windows client :** Aucun. L'ancien service `Autoprint.Service` (SYSTEM, tube nommé `AutoprintPipe`) a été retiré pour cause d'élévation locale de privilèges ; le MSI client supprime les services `AutoprintWorker` et `AutoprintService` s'ils sont présents.
 - **Client Utilisateur :** Tourne sans privilèges administrateur (droits utilisateur standard).
 
@@ -348,7 +348,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 2. **Migrations de structure SQLite manuelles dans `DbInitializer` :**
    Pour les déploiements utilisant le moteur SQLite, les évolutions de schéma sont exécutées par des requêtes DDL brutes (`ALTER TABLE ... ADD COLUMN`, `CREATE TABLE IF NOT EXISTS`) capturées dans des blocs `try/catch` vides au sein de `DbInitializer.cs`, au lieu d'exploiter un pipeline de migration formel EF Core identique à celui de SQL Server.
 3. **Sur-privilège du processus serveur web sous IIS :**
-   L'exécution du pool IIS sous l'identité `LocalSystem` est imposée par les besoins d'accès au Spouleur Windows et à WMI. Cela confère au processus web des privilèges très élevés sur la machine hôte.
+   Résolu : le pool IIS ne tourne plus en `LocalSystem` ; seul le service `AutoprintSpooler` conserve ce compte pour les 5 opérations d'administration du spouleur.
 4. **Absence de file d'attente de réessais (Retry Queue avec Exponential Backoff) :**
    En cas d'échec d'envoi d'un e-mail SMTP (rapport planifié ou alerte de découverte) ou d'une notification SignalR, l'exception est consignée dans les logs mais le message n'est pas réinjecté dans une file de retry persistante pour rejeu différé.
 5. **Supervision séquentielle dans `PrinterMonitoringWorker` :**
@@ -391,7 +391,7 @@ strict_limitations:
   - "No external message broker: SignalR in-memory and local Named Pipes IPC"
   - "Single-tenant infrastructure model"
 known_debt:
-  - "IIS application pool requires LocalSystem identity for spooler/WMI access"
+  - "IIS application pool runs as ApplicationPoolIdentity; privileged spooler writes go through the AutoprintSpooler Windows service (named pipe, 5 typed commands)"
   - "Manual raw SQL schema patching in DbInitializer for SQLite runtime updates"
   - "Sequential printer polling loop in PrinterMonitoringWorker"
   - "No persistent retry queue for failed SMTP email deliveries"

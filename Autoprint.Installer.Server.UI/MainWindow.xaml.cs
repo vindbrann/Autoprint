@@ -324,6 +324,10 @@ namespace Autoprint.Installer.Server.UI
                         TxtInstallLog.Text += $"\n[Erreur] Echec de la fusion : {ex.Message}";
                         await File.WriteAllTextAsync(configPath, oldJsonContent);
                     }
+
+                    TxtInstallLog.Text = "Passage du site en compte sans privilège...";
+                    await EnableSpoolerServiceMode();
+                    await GrantSqlAccessForUpgrade();
                 }
                 else if (!_isUpgrade)
                 {
@@ -331,7 +335,7 @@ namespace Autoprint.Installer.Server.UI
                     {
                         TxtInstallLog.Text = "Configuration droits SQL...";
                         string adminString = GetSqlConnectionString(60);
-                        await GrantAccessToLocalSystem(adminString);
+                        await GrantSqlAccessToSite(adminString, TxtSqlDb.Text, GetSqlLoginForSite(adminString));
                     }
 
                     TxtInstallLog.Text = "Génération configuration (JSON)...";
@@ -344,14 +348,21 @@ namespace Autoprint.Installer.Server.UI
                 TxtInstallLog.Text = "Migration de la base de données...";
                 await RunMigrationProcess();
 
-                // La base SQLite peut avoir été créée par la migration
-                await Task.Run(() => HardenSensitiveFiles());
-
                 if (!_isUpgrade)
                 {
                     TxtInstallLog.Text = "Configuration finale IIS...";
                     ConfigureIIS();
                 }
+                else
+                {
+                    SwitchPoolToApplicationPoolIdentity();
+                }
+
+                // Le pool existe maintenant : droits NTFS de son identité (et base SQLite créée par la migration)
+                await Task.Run(() => HardenSensitiveFiles());
+
+                TxtInstallLog.Text = "Démarrage du service AutoprintSpooler...";
+                await Task.Run(() => RestartSpoolerService());
 
                 _currentStep = 7;
                 UpdateView();
@@ -426,43 +437,6 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
-        private async Task GrantAccessToLocalSystem(string adminConnectionString)
-        {
-            string[] systemAccountNames = { @"NT AUTHORITY\SYSTEM", @"AUTORITE NT\Système" };
-
-            using var connection = new SqlConnection(adminConnectionString);
-            await connection.OpenAsync();
-
-            foreach (var accountName in systemAccountNames)
-            {
-                try
-                {
-                    string sql = $@"
-                        USE [master];
-                        IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '{accountName}')
-                        BEGIN
-                            CREATE LOGIN [{accountName}] FROM WINDOWS;
-                        END
-                        
-                        USE [{TxtSqlDb.Text}];
-                        IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = '{accountName}')
-                        BEGIN
-                            CREATE USER [{accountName}] FOR LOGIN [{accountName}];
-                        END
-                        
-                        ALTER ROLE db_owner ADD MEMBER [{accountName}];
-                    ";
-
-                    using var cmd = new SqlCommand(sql, connection);
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-        }
-
         private Task ExtractResource(string resource, string dest)
         {
             return Task.Run(() =>
@@ -528,6 +502,8 @@ namespace Autoprint.Installer.Server.UI
                 },
                 // Seuls le nom public et localhost sont acceptés (protection contre l'usurpation d'en-tête Host)
                 AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
+                // Opérations du spouleur déléguées au service AutoprintSpooler (le site tourne sans privilège)
+                Spooler = new { Mode = "Service" },
                 ClientUrl = $"http://localhost:{TxtWebPort.Text}",
                 Jwt = new
                 {
@@ -692,12 +668,22 @@ namespace Autoprint.Installer.Server.UI
             var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
             var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
 
+            // Identité du pool IIS (existe une fois le pool créé)
+            SecurityIdentifier? pool = null;
+            try { pool = (SecurityIdentifier)new NTAccount(PoolIdentity).Translate(typeof(SecurityIdentifier)); } catch { }
+
             foreach (var file in new[] { "appsettings.json", "Autoprint.db" }.Select(f => Path.Combine(InstallPath, f)).Where(File.Exists))
             {
                 var fileSecurity = new FileSecurity();
                 fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
                 fileSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, AccessControlType.Allow));
                 fileSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, AccessControlType.Allow));
+                if (pool != null)
+                {
+                    // appsettings.json : lecture seule ; base SQLite : lecture / écriture
+                    var poolRights = file.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ? FileSystemRights.Modify : FileSystemRights.Read;
+                    fileSecurity.AddAccessRule(new FileSystemAccessRule(pool, poolRights, AccessControlType.Allow));
+                }
                 new FileInfo(file).SetAccessControl(fileSecurity);
             }
 
@@ -709,7 +695,19 @@ namespace Autoprint.Installer.Server.UI
             var inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
             dirSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
             dirSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+            // Le site crée et renouvelle ses clés de chiffrement (rotation automatique tous les 90 jours)
+            if (pool != null) dirSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
             keysDir.SetAccessControl(dirSecurity);
+
+            // SQLite crée des fichiers temporaires (-wal, -shm) à côté de la base : le pool doit pouvoir écrire dans le dossier.
+            // (backlog : déplacer la base dans ProgramData pour éviter ce droit sur le dossier du programme)
+            if (pool != null && File.Exists(Path.Combine(InstallPath, "Autoprint.db")))
+            {
+                var installDir = new DirectoryInfo(InstallPath);
+                var installSecurity = installDir.GetAccessControl();
+                installSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, InheritanceFlags.None, PropagationFlags.None, AccessControlType.Allow));
+                installDir.SetAccessControl(installSecurity);
+            }
         }
 
         private void ConfigureIIS()
@@ -729,7 +727,9 @@ namespace Autoprint.Installer.Server.UI
 
             var newPool = mgr.ApplicationPools.Add(poolName);
             newPool.ManagedRuntimeVersion = "";
-            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.LocalSystem;
+            // Compte automatique IIS (« IIS AppPool\Autoprint ») : le site n'a plus aucun privilège local (audit #8).
+            // Les opérations sur les files d'impression passent par le service Windows AutoprintSpooler.
+            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.ApplicationPoolIdentity;
             newPool.ProcessModel.IdleTimeout = TimeSpan.Zero;
             newPool.ProcessModel.LoadUserProfile = true;
 
@@ -737,6 +737,130 @@ namespace Autoprint.Installer.Server.UI
             newSite.ApplicationDefaults.ApplicationPoolName = poolName;
 
             mgr.CommitChanges();
+        }
+
+        private const string PoolIdentity = @"IIS AppPool\Autoprint";
+
+        // Mise à jour : les anciennes versions faisaient tourner le pool en LocalSystem
+        private void SwitchPoolToApplicationPoolIdentity()
+        {
+            using var mgr = new ServerManager();
+            var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+            if (pool == null) return;
+            if (pool.ProcessModel.IdentityType != ProcessModelIdentityType.ApplicationPoolIdentity)
+            {
+                pool.ProcessModel.IdentityType = ProcessModelIdentityType.ApplicationPoolIdentity;
+                mgr.CommitChanges();
+            }
+        }
+
+        // Le service peut avoir démarré avant la création du pool : on le redémarre pour qu'il autorise immédiatement son identité
+        private static void RestartSpoolerService()
+        {
+            try
+            {
+                using var sc = new System.ServiceProcess.ServiceController("AutoprintSpooler");
+                if (sc.Status != System.ServiceProcess.ServiceControllerStatus.Stopped)
+                {
+                    sc.Stop();
+                    sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                }
+                sc.Start();
+                sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Le service AutoprintSpooler n'a pas pu être démarré : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Compte Windows sous lequel le site se connecte à SQL Server en authentification Windows :
+        /// SQL sur ce serveur => identité du pool ; SQL sur une autre machine => compte machine de ce serveur (DOMAINE\SERVEUR$).
+        /// </summary>
+        private static string GetSqlLoginForSite(string connectionString)
+        {
+            var dataSource = new SqlConnectionStringBuilder(connectionString).DataSource ?? "";
+            string host = dataSource.Replace("tcp:", "", StringComparison.OrdinalIgnoreCase).Split('\\', ',')[0].Trim();
+
+            bool isLocal = host is "." or "" || host.StartsWith("(local", StringComparison.OrdinalIgnoreCase)
+                           || host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "::1"
+                           || host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)
+                           || host.StartsWith(Environment.MachineName + ".", StringComparison.OrdinalIgnoreCase);
+            if (isLocal) return PoolIdentity;
+
+            // Compte machine résolu par l'annuaire (nom NetBIOS du domaine), à défaut domaine de l'utilisateur courant
+            try
+            {
+                var sid = (SecurityIdentifier)new NTAccount(Environment.MachineName + "$").Translate(typeof(SecurityIdentifier));
+                return ((NTAccount)sid.Translate(typeof(NTAccount))).Value;
+            }
+            catch
+            {
+                return $"{Environment.UserDomainName}\\{Environment.MachineName}$";
+            }
+        }
+
+        /// <summary>Donne au site l'accès db_owner à sa base (authentification Windows uniquement).</summary>
+        private static async Task GrantSqlAccessToSite(string adminConnectionString, string databaseName, string login)
+        {
+            string safeLogin = login.Replace("]", "]]");
+            string safeLoginLiteral = login.Replace("'", "''");
+            string safeDb = databaseName.Replace("]", "]]");
+
+            string sql = $@"
+                USE [master];
+                IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = N'{safeLoginLiteral}')
+                    CREATE LOGIN [{safeLogin}] FROM WINDOWS;
+
+                USE [{safeDb}];
+                IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'{safeLoginLiteral}')
+                    CREATE USER [{safeLogin}] FOR LOGIN [{safeLogin}];
+
+                ALTER ROLE db_owner ADD MEMBER [{safeLogin}];
+            ";
+
+            using var connection = new SqlConnection(adminConnectionString);
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(sql, connection);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // Mise à jour : droits SQL du nouveau compte du site, avec la chaîne de connexion existante (exécutée sous le compte de l'installeur)
+        private async Task GrantSqlAccessForUpgrade()
+        {
+            string configPath = Path.Combine(InstallPath, "appsettings.json");
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath));
+            string provider = root?["Database"]?["Provider"]?.GetValue<string>() ?? "SqlServer";
+            string? cs = root?["Database"]?["ConnectionStrings"]?["SqlServer"]?.GetValue<string>();
+            if (!provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(cs)) return;
+
+            var builder = new SqlConnectionStringBuilder(cs);
+            if (!builder.IntegratedSecurity) return; // authentification SQL : rien à faire
+
+            string login = GetSqlLoginForSite(cs);
+            try
+            {
+                await GrantSqlAccessToSite(cs, builder.InitialCatalog, login);
+            }
+            catch (Exception ex)
+            {
+                TxtInstallLog.Text += $"\n[Attention] Droits SQL à accorder manuellement à [{login}] (db_owner sur [{builder.InitialCatalog}]) : {ex.Message}";
+                MessageBox.Show(
+                    $"Le compte de l'installeur n'a pas pu donner l'accès à la base au site web.\n\n" +
+                    $"Un administrateur SQL doit exécuter sur le serveur SQL :\n\n" +
+                    $"CREATE LOGIN [{login}] FROM WINDOWS;\nUSE [{builder.InitialCatalog}];\nCREATE USER [{login}] FOR LOGIN [{login}];\nALTER ROLE db_owner ADD MEMBER [{login}];",
+                    "Droits SQL", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // Mise à jour : passage en mode « Service » (l'ancienne configuration, conservée par la fusion, n'a pas cette clé)
+        private async Task EnableSpoolerServiceMode()
+        {
+            string configPath = Path.Combine(InstallPath, "appsettings.json");
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            root["Spooler"] = new JsonObject { ["Mode"] = "Service" };
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
         private void BtnOpenIis_Click(object sender, RoutedEventArgs e)

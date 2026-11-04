@@ -47,6 +47,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 });
 
 builder.Services.AddScoped<IPrintSpoolerService, WindowsPrintSpoolerService>();
+
+// Opérations d'administration du spouleur (audit #8) :
+//  - « Service » (installations à partir de cette version) : déléguées au service Windows AutoprintSpooler, le site tourne sans privilège ;
+//  - « InProcess » (défaut : développement, serveurs pas encore migrés) : exécutées dans le site, qui doit alors tourner en LocalSystem.
+var spoolerMode = builder.Configuration["Spooler:Mode"] ?? "InProcess";
+if (spoolerMode.Equals("Service", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<Autoprint.Spooler.ISpoolerAdmin, Autoprint.Spooler.PipeSpoolerAdmin>();
+else
+    builder.Services.AddSingleton<Autoprint.Spooler.ISpoolerAdmin, Autoprint.Spooler.SpoolerAdmin>();
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<INamingService, NamingService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IAuthService, Autoprint.Server.Services.AuthService>();

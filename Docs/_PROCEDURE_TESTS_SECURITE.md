@@ -287,6 +287,52 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 
 ---
 
+## 5. Version suivante — Site sans privilège (#8)
+
+⚠️ À dérouler sur la **branche `feature/serveur-sans-localsystem`**, après la recette des phases 1 à 3. Tests à faire en **installation neuve** et en **mise à jour** (depuis la version des phases 1 à 3).
+
+### 5.1 Installation
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| S8-01 | Installation neuve, puis `services.msc`. | Service « Autoprint Spooler » présent, démarré, démarrage automatique, compte « Système local ». | ☐ |
+| S8-02 | Gestionnaire IIS › Pools d'applications › Autoprint › Paramètres avancés. | Identité : `ApplicationPoolIdentity`. | ☐ |
+| S8-03 | `appsettings.json`. | `"Spooler": { "Mode": "Service" }`. | ☐ |
+| S8-04 | SQL **local**, authentification Windows : SSMS › Sécurité › Connexions. | Connexion `IIS AppPool\Autoprint`, `db_owner` sur la base Autoprint. | ☐ |
+| S8-05 | SQL **distant**, authentification Windows. | Connexion `DOMAINE\NOMSERVEUR$` sur le serveur SQL distant, `db_owner` sur la base. | ☐ |
+| S8-06 | Authentification **SQL** (identifiant / mot de passe). | Installation sans erreur, aucune connexion Windows ajoutée. | ☐ |
+| S8-07 | Droits NTFS : `appsettings.json` et `C:\ProgramData\Autoprint\Keys`. | `IIS AppPool\Autoprint` : lecture sur `appsettings.json`, modification sur `Keys` ; aucun autre utilisateur non administrateur. | ☐ |
+| S8-08 | (SQLite) dossier du programme. | `IIS AppPool\Autoprint` : modification sur le dossier (backlog B25). | ☐ |
+
+### 5.2 Mise à jour
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| S8-09 | Mettre à jour un serveur dont le pool tourne en `LocalSystem`. | Pool passé en `ApplicationPoolIdentity`, service installé et démarré, `Spooler:Mode = Service`, autres réglages conservés. | ☐ |
+| S8-10 | Même mise à jour avec SQL en authentification Windows, installeur lancé par un compte **sans** droit d'administration SQL. | Message affichant le script SQL à exécuter ; après exécution par un DBA, la console fonctionne. | ☐ |
+| S8-11 | Après mise à jour : secrets toujours lisibles (connexion AD, test SMTP, postes clients). | Tout fonctionne (le pool lit les clés de chiffrement). | ☐ |
+
+### 5.3 Fonctionnement
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| S8-12 | Créer, modifier (nom, partage, mode direct), renommer, supprimer une imprimante, avec synchronisation à chaque étape. | Les files Windows suivent. Observateur d'événements › Journaux Windows › Application, source `AutoprintSpooler` : une ligne par commande. | ☐ |
+| S8-13 | Créer une imprimante dont le modèle a un pilote **non installé** sur le serveur, synchroniser. | Échec de synchronisation « Pilote … non installé sur le serveur ». | ☐ |
+| S8-14 | Arrêter le service `AutoprintSpooler`, synchroniser une modification. | Message clair « Service Windows AutoprintSpooler injoignable… » ; le reste de la console fonctionne. Redémarrer le service : la synchronisation passe. | ☐ |
+| S8-15 | Lecture seule pendant que le service est arrêté : tableau de bord, liste des imprimantes, scan du spouleur local, prévisualisation de synchronisation. | Tout fonctionne (les lectures n'utilisent pas le service). | ☐ |
+| S8-16 | Rapports PDF / CSV, supervision SNMP, envoi d'e-mails, connexion AD. | Tout fonctionne sous le compte du pool. | ☐ |
+| S8-17 | Depuis une session d'un **autre** utilisateur du serveur (non administrateur), PowerShell : `$p = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'AutoprintSpooler'); $p.Connect(2000)`. | Erreur « Accès refusé ». | ☐ |
+| S8-18 | Depuis un **autre poste** : `$p = New-Object System.IO.Pipes.NamedPipeClientStream('NOMSERVEUR', 'AutoprintSpooler'); $p.Connect(2000)`. | Erreur « Accès refusé » (accès réseau interdit). | ☐ |
+| S8-19 | Gestionnaire des tâches › Détails : processus `w3wp.exe` du site. | Nom d'utilisateur : `Autoprint` (et non `SYSTEM`). | ☐ |
+
+### 5.4 Désinstallation
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| S8-20 | Désinstaller Autoprint Server. | Le service `AutoprintSpooler` est arrêté et supprimé. | ☐ |
+
+---
+
 ## Historique des mises à jour
 
 | Date | Phase | Modification |
@@ -294,3 +340,4 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | 04/11/2026 | Phase 1 | Création : non-régression générale, tests P1-01 à P1-46. |
 | 04/11/2026 | Phase 2 | Ajout des tests P2-01 à P2-44 (en-têtes, mots de passe, erreurs, sessions, clé agent, service Windows, divers). |
 | 04/11/2026 | Phase 3 | Ajout des tests P3-01 à P3-25 (chiffrement des secrets, sauvegarde, droits NTFS, SMTP, contrôles GitHub). |
+| 04/11/2026 | #8 (version suivante) | Ajout des tests S8-01 à S8-20 (site sans privilège, service AutoprintSpooler, droits SQL / NTFS). |
