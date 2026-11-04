@@ -44,7 +44,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 ### Bibliothèques Tierces Clés & Rôle Exact
 - **Réseau, SNMP & Impression :**
   - `Lextm.SharpSnmpLib` (v12.5.7) : Envoi de requêtes UDP SNMP v1/v2c (paquets `Messenger.Get`, parcours arborescent `Messenger.Walk`) sur le port 161 pour le diagnostic, la découverte automatique des tables MIB consommables/bacs, et la supervision.
-  - `PdfSharpCore` (v1.3.67) : Moteur de rendu graphique PDF vectoriel côté serveur pour l'exportation et l'envoi automatisé des rapports d'audit et de santé des consommables.
+  - `SkiaSharp` (v4.154, Microsoft, MIT) : dessin vectoriel des rapports PDF (`PdfReportWriter`), police embarquée « Autoprint Sans » (sous-ensemble de Liberation Sans, OFL). Remplace PDFsharp, passé en AGPL à partir de la 6.5.
 - **Interface Utilisateur & Web :**
   - `Radzen.Blazor` (v8.3.8) : Bibliothèque de composants graphiques UI pour le tableau de bord Blazor WebAssembly (grilles de données `RadzenDataGrid`, boîtes de dialogue, notifications).
   - `LocalStorageService` (maison, `Autoprint.Web/Services`) : stockage côté navigateur du jeton de session JWT et des préférences (remplace Blazored.LocalStorage, même format).
@@ -269,7 +269,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
                 ├─► Filtrage des imprimantes selon ScopeFilterJson
                 ├─► Pour chaque toner : PredictiveService.PredictDaysRemaining(historique)
                 │      └─► Calcul régression linéaire sur la consommation
-                ├─► Génération du document PDF (PdfSharpCore) ou CSV
+                ├─► Génération du document PDF (SkiaSharp) ou CSV
                 ├─► Expédition par e-mail SMTP avec pièce jointe (EmailService)
                 └─► Recalcul de l'horodatage NextRunAt (Quotidien / Hebdomadaire / Mensuel)
 ```

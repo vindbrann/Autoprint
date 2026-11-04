@@ -10,7 +10,7 @@
 | Type de mise à jour | Exemple | Délai | Comment |
 |---|---|---|---|
 | **Correctif de sécurité** (vulnérabilité publiée) | ASP.NET Core 10.0.x, ImageSharp | **Immédiat** : dans la semaine | Dependabot + workflow « Contrôles de sécurité » (bloquant). Publication d'une version corrective. |
-| **Version corrective / mineure** | 10.0.13 → 10.0.14, PDFsharp 6.2 → 6.5 | À **chaque version** d'Autoprint | Revue `dotnet list package --outdated` avant chaque publication. |
+| **Version corrective / mineure** | 10.0.13 → 10.0.14, Chart.js 4.4 → 4.6 | À **chaque version** d'Autoprint | Revue `dotnet list package --outdated` avant chaque publication. |
 | **Version majeure** d'une bibliothèque | Radzen 8 → 12, WiX 6 → 7 | **Planifiée** : jamais plus d'une version majeure de retard | Chantier dédié (notes de version, adaptation du code, recette complète). |
 | **Plateforme .NET** | .NET 10 → .NET 11 / 12 | Dans les **6 mois** suivant la sortie d'une nouvelle version | Toujours rester sur une version supportée par Microsoft ; ne jamais atteindre la fin de support. |
 | **Runtime installé sur les serveurs** (Hosting Bundle) | 10.0.10 → 10.0.14 | À **chaque version** d'Autoprint | Embarquer la dernière version dans l'installeur ; l'installeur doit mettre à jour un runtime trop ancien. |
@@ -29,7 +29,7 @@ Exception possible : une mise à jour **bloquée** par une autre dépendance (ex
 | **SDK et runtime du poste de build** | SDK 10.0.100 / runtime 10.0.0 | SDK 10.0.403 / runtime 10.0.14 | ⚠️ le poste de développement exécute et teste Autoprint sur le runtime 10.0.0 (sans un an de correctifs) | Installer le SDK 10.0.403 sur le poste de build (action manuelle, backlog B44). Le workflow GitHub utilise déjà la dernière 10.0.x. |
 | **Hosting Bundle embarqué dans l'installeur** | 10.0.14 | 10.0.14 | ✅ phase E | Fichier vérifié (empreinte SHA-512 publiée par Microsoft, signature Microsoft). La compilation échoue si le fichier ne correspond pas à `HostingBundleVersion` (B38). |
 | **Détection du runtime par l'installeur** | version minimale = Hosting Bundle embarqué | — | ✅ phase E | Un runtime plus ancien est signalé « trop ancien » avec un bouton « Mettre à jour » (B39). |
-| PDFsharp | 6.2.4 | 6.5.0 | ⛔ **licence** | La 6.5 passe de MIT à **AGPL-3.0** et refuse de générer les PDF sans licence. 6.2.4 = dernière version MIT ; Dependabot ignore les versions ≥ 6.3. Décision à prendre (backlog B42). |
+| ~~PDFsharp~~ → **SkiaSharp** | 4.154.0 | 4.154.0 | ✅ phase E | PDFsharp 6.5 passé en AGPL-3.0 : remplacé par SkiaSharp (Microsoft, MIT). Police embarquée « Autoprint Sans » (Liberation Sans 2.1.5, OFL ; police stable, régénération décrite dans `Autoprint.Server/Resources/Fonts/README.md`). B42. |
 | Radzen.Blazor | 8.3.8 | 12.1.11 | 🔴 4 majeures de retard | Chantier dédié + recette complète de la console (backlog B12). |
 | WiX Toolset (MSI) | 6.0.2 | 7.0.1 | 🔴 majeure | Vérifier d'abord les conditions de licence de WiX 7 (backlog B12). |
 | Microsoft.Data.SqlClient (installeur) | 6.1.3 | 7.1.1 | 🔴 majeure | Chantier dédié avec recette de l'installeur (backlog B12). |

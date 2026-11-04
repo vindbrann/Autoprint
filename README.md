@@ -84,7 +84,7 @@ Dans les parcs informatiques d'entreprise modernes (multi-sites, réseaux hybrid
 - **Balayage Périodique en Tâche de Fond :** Worker d'arrière-plan (`PrinterMonitoringWorker`) interrogeant le parc pendant les plages horaires configurées, avec archivage automatique des périphériques hors-ligne depuis plus de 30 jours.
 
 ### 2.4. Rapports Planifiés Vectoriels & API d'Intégration
-- **Génération Vectorielle PDF (`ReportGeneratorService`) :** Création de rapports d'état complets incluant métriques de santé, jauges de consommables colorées, estimations prédictives et alertes matérielles, compilés via `PdfSharpCore`.
+- **Génération Vectorielle PDF (`ReportGeneratorService`) :** Création de rapports d'état complets incluant métriques de santé, jauges de consommables colorées, estimations prédictives et alertes matérielles, dessinés avec `SkiaSharp` (Microsoft, MIT) et la police embarquée « Autoprint Sans » (OFL).
 - **Expédition Automatique SMTP :** Planificateur de rapports périodiques (`ReportSchedule`) par e-mail avec support des protocoles chiffrés SSL/TLS.
 - **Exports Données Assainis :** Téléchargement direct d'inventaires au format CSV avec neutralisation proactive des injections de formules (CWE-1236).
 - **API Monitoring Tiers (`/api/v1/Monitoring/export`) :** Point d'accès dédié aux systèmes de supervision externes (PRTG, Zabbix, GLPI) authentifié par jeton d'intégration cryptographique (`X-Api-Token`).

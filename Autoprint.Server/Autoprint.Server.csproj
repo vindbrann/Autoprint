@@ -21,7 +21,7 @@
 
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
 
-		<PackageReference Include="PDFsharp" Version="6.2.4" />
+		<PackageReference Include="SkiaSharp" Version="4.154.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
 
 		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.14" />
@@ -47,5 +47,23 @@
 
 		<ProjectReference Include="..\Autoprint.Web\Autoprint.Web.csproj" />
 	</ItemGroup>
+
+	<!-- Police des rapports PDF : sous-ensemble latin de Liberation Sans (licence OFL), renommé « Autoprint Sans ».
+	     Embarquée dans l'assembly : PDF légers (~25 Ko par style) et indépendants des polices installées sur le serveur.
+	     Régénération : tools/fonts/make_autoprint_sans.py (voir Resources/Fonts/README.md). -->
+	<ItemGroup>
+		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Regular.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Regular.ttf" />
+		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Bold.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Bold.ttf" />
+		<None Include="Resources\Fonts\OFL-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\AutoprintSans-OFL-LICENSE.txt" />
+	</ItemGroup>
+
+	<!-- SkiaSharp (rapports PDF) livre sa bibliothèque native pour toutes les plateformes, avec ~100 Mo de symboles chacune :
+	     le serveur étant x64 sous Windows, seul runtimes\win-x64
+ative\libSkiaSharp.dll est publié (et donc mis dans le MSI). -->
+	<Target Name="TrimSkiaSharpNativeAssets" AfterTargets="ComputeResolvedFilesToPublishList">
+		<ItemGroup>
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('libSkiaSharp')) And ('%(Extension)' == '.pdb' Or !$([System.String]::Copy('%(RelativePath)').Replace('/', '').StartsWith('runtimes\win-x64')))" />
+		</ItemGroup>
+	</Target>
 
 </Project>

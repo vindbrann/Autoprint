@@ -9,9 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 
-// PDFsharp 6 (build "Core") : utilise les polices installées sous Windows pour les rapports PDF
-PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
-
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,

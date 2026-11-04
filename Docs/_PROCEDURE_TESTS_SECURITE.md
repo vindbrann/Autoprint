@@ -426,7 +426,8 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SE-05 | Console : changer de thème, trier / masquer des colonnes de la grille Imprimantes, recharger la page, se déconnecter. | Préférences conservées après rechargement ; jeton supprimé à la déconnexion (contrôlé ici, B41). | ☐ |
 | SE-06 | Console après mise à jour : outils de développement › Réseau. | `index.html` avec `Cache-Control: no-cache` ; bibliothèques chargées en `?v=5.3.8`, `?v=1.13.2`, `?v=4.6.1` (contrôlé ici, B40, B43). | ☐ |
 | SE-07 | Tableau de bord : graphique de répartition, icônes, info-bulles et menus déroulants Bootstrap. | Affichage et comportement inchangés (B40). | ☐ |
-| SE-08 | Rapport planifié PDF : envoi manuel. | PDF reçu et lisible (PDFsharp 6.2.4 conservé, contrôlé ici, B42). | ☐ |
+| SE-08 | Rapport planifié PDF (plus de 45 imprimantes, mesures « Compteur » et « Pannes » cochées dans un ordre quelconque) : envoi manuel. | PDF reçu (quelques dizaines de Ko), accents corrects, en-tête du tableau sur chaque page, intitulés des deux dernières colonnes conformes aux valeurs (contrôlé ici avec 62 imprimantes : 40 Ko, 2 pages, B42). | ☐ |
+| SE-09 | Serveur installé : rapport PDF planifié, exécuté par le site (compte du pool d'applications, sans profil chargé). | PDF généré ; pas d'erreur `libSkiaSharp` dans les journaux ; dossier du site : `runtimes\win-x64\native\libSkiaSharp.dll` présent, `Licenses\AutoprintSans-OFL-LICENSE.txt` présent (B42). | ☐ |
 
 ### 5.4 Désinstallation
 
@@ -449,4 +450,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | Phase B | Ajout des tests SV3-01 à SV3-16 (SNMPv3, identifiants SNMP) et SB-01 à SB-06 (SQLite dans ProgramData, état du service, délais). |
 | 04/11/2026 | Phase C | Ajout des tests SC-01 à SC-09 (renouvellement de session, changement de clé agent, messages). |
 | 04/11/2026 | Phase D | Ajout des tests SD-01 à SD-11 (schéma, erreurs remontées, avertissements, CORS, installeur, mises à jour). |
-| 04/11/2026 | Phase E | Ajout des tests SE-01 à SE-08 (runtime exigé par l'installeur, stockage du navigateur, bibliothèques web, cache, PDF). |
+| 04/11/2026 | Phase E | Ajout des tests SE-01 à SE-09 (runtime exigé par l'installeur, stockage du navigateur, bibliothèques web, cache, rapports PDF avec SkiaSharp). |
