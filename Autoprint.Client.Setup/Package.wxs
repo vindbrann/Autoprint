@@ -10,7 +10,7 @@
 			 Scope="perMachine"
 			 Compressed="yes"
 			 InstallerVersion="200">
-		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." Schedule="afterInstallInitialize" />
+		<MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="Une version plus récente est déjà installée." Schedule="afterInstallInitialize" />
 		<MediaTemplate EmbedCab="yes" />
 
 		<!-- Fermeture des processus client et arrêt de l'ancien service avant validation -->

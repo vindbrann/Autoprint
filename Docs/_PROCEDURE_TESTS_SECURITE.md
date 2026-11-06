@@ -433,10 +433,10 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 
 | ID | Test | Résultat attendu | ✔ |
 |---|---|---|---|
-| SM-01 | Serveur 1.1.0 en SQLite (instantané) : mise à jour avec l'installeur 26.11.6.1. | « Mise à jour terminée » ; base déplacée dans `C:\ProgramData\Autoprint\Data` (contrôlé ici sur la base du serveur de test). | ☐ |
+| SM-01 | Serveur 1.1.0 en SQLite (instantané) : mise à jour avec l'installeur 26.11.6.2 (ou plus récent). | « Mise à jour terminée » ; base déplacée dans `C:\ProgramData\Autoprint\Data` (contrôlé ici sur la base du serveur de test). | ☐ |
 | SM-02 | Après SM-01 : tableau de bord, Imprimantes, Lieux, Modèles, Rapports, Profils SNMP. | Aucune erreur 500 ; imprimantes et lieux existants présents ; chaque lieu garde son réseau (contrôlé ici). | ☐ |
 | SM-03 | Après SM-01 : créer un lieu et une imprimante, modifier une imprimante. | Enregistrement sans erreur (contrôlé ici). | ☐ |
-| SM-04 | Serveur déjà passé en 26.11.4.1 avec erreurs 500 : installer la 26.11.6.1 par-dessus. | Mêmes résultats que SM-02 et SM-03, sans restaurer d'instantané (contrôlé ici sur la base d'après la mise à jour ratée). | ☐ |
+| SM-04 | Serveur déjà passé en 26.11.4.1 avec erreurs 500 : installer la 26.11.6.2 par-dessus. | Mêmes résultats que SM-02 et SM-03, sans restaurer d'instantané (contrôlé ici sur la base d'après la mise à jour ratée). | ☐ |
 | SM-05 | Après la mise à jour, compte d'un rôle qui avait « Administration » en 1.1.x (ex. Infra) : page Découverte, Rapports, Profils SNMP, Archivage. | Accès direct, sans rien cocher : « Administration » donne toutes les permissions, y compris les nouvelles (B50, contrôlé ici sur ta base). | ☐ |
 | SM-06 | Rôle sans Administration mais avec « Rôles - écriture » : Rôles > ce rôle, cocher Scan réseau, Enregistrer, se reconnecter. | « Rôle enregistré » ; après reconnexion, la page Découverte s'ouvre (B50, contrôlé ici). | ☐ |
 | SM-07 | Même compte : forcer l'enregistrement d'« Administration » (API) sur son rôle. | Refus 403 avec message affiché ; rien n'est modifié (B49/B50, contrôlé ici). | ☐ |
