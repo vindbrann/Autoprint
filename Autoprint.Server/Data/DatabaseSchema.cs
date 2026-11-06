@@ -27,6 +27,11 @@ namespace Autoprint.Server.Data
                     context.Database.ExecuteSqlRaw("DROP TABLE IF EXISTS \"__EFMigrationsHistory\";");
                     context.GetService<IRelationalDatabaseCreator>().CreateTables();
                 }
+
+                // Base créée par une ancienne version (schéma figé à sa version d'origine) : tables et colonnes manquantes
+                var (tables, columns) = SqliteSchemaReconciler.Reconcile(context, logger);
+                if (tables + columns > 0)
+                    logger?.LogWarning("Mise à niveau SQLite : {Tables} table(s) et {Columns} colonne(s) ajoutée(s).", tables, columns);
                 return;
             }
 
