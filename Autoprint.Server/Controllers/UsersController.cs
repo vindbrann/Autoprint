@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
@@ -71,7 +71,7 @@ namespace Autoprint.Server.Controllers
                 return BadRequest("Ce nom d'utilisateur existe déjà.");
 
             if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
-                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle disposant de droits que vous n'avez pas.");
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle qui a « Administration » ou « Paramètres ».");
 
             if (string.Equals(request.Password, request.Username, StringComparison.OrdinalIgnoreCase))
                 return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
@@ -125,10 +125,10 @@ namespace Autoprint.Server.Controllers
             if (user == null) return NotFound();
 
             if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
-                return StatusCode(403, "Ce compte dispose de droits que vous n'avez pas : vous ne pouvez pas le modifier.");
+                return StatusCode(403, "Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier.");
 
             if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
-                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle disposant de droits que vous n'avez pas.");
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle qui a « Administration » ou « Paramètres ».");
 
             var snapshotBefore = new
             {
@@ -139,6 +139,13 @@ namespace Autoprint.Server.Controllers
                 user.ForceChangePassword,
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             };
+
+            // Désactiver le dernier administrateur, ou lui retirer son rôle d'administrateur, rendrait l'application ingérable
+            int previousRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
+            bool losesAdmin = (user.IsActive && !request.IsActive)
+                || (request.RoleId > 0 && request.RoleId != previousRoleId && !await PermissionGuard.RoleHasAdminAsync(_context, request.RoleId));
+            if (losesAdmin && await PermissionGuard.UserIsAdminAsync(_context, id) && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeUserId: id))
+                return BadRequest("Impossible : ce compte est le dernier administrateur actif.");
 
             bool isPasswordReset = !string.IsNullOrWhiteSpace(request.NewPassword);
             if (isPasswordReset && string.Equals(request.NewPassword, user.Username, StringComparison.OrdinalIgnoreCase))
@@ -233,7 +240,10 @@ namespace Autoprint.Server.Controllers
             if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
 
             if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
-                return StatusCode(403, "Ce compte dispose de droits que vous n'avez pas : vous ne pouvez pas le supprimer.");
+                return StatusCode(403, "Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le supprimer.");
+
+            if (await PermissionGuard.UserIsAdminAsync(_context, id) && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeUserId: id))
+                return BadRequest("Impossible : ce compte est le dernier administrateur actif.");
 
             _auditService.LogAction(
                 "USER_DELETE",

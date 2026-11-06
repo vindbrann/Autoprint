@@ -1,10 +1,11 @@
-@using Autoprint.Shared.DTOs
+﻿@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
 @inject IRoleService RoleService
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <RadzenTemplateForm TItem="RoleEditDto" Data="@roleEdit" Submit="@OnSubmit">
     <RadzenStack Gap="1rem" Style="height: 100%;">
@@ -30,7 +31,9 @@
         </RadzenCard>
 
         <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
-            Cochez les cases pour accorder les permissions.
+            Cochez les cases pour accorder les permissions. « Administration » donne tous les droits et ne peut être accordée que par un administrateur ;
+            « Système » (paramètres du serveur, dont l'Active Directory) ne peut être accordé que par un compte qui l'a déjà.
+            « Rôles - écriture » permet de créer, modifier et supprimer des rôles.
         </RadzenAlert>
 
         <RadzenDataGrid Data="@ModuleRows" TItem="ModulePermissionRow" AllowSorting="false" Density="Density.Compact"
@@ -48,7 +51,7 @@
                         @if (m.ReadId > 0)
                         {
                             <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.ReadId)"
-                                            Change="@(args => TogglePermission(m.ReadId, args))" TriState="false" />
+                                            Change="@(args => TogglePermission(m.ReadId, args))" TriState="false" Disabled="@IsLocked(m.ReadId)" />
                         }
                         else
                         {
@@ -62,7 +65,7 @@
                         @if (m.WriteId > 0)
                         {
                             <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.WriteId)"
-                                            Change="@(args => TogglePermission(m.WriteId, args))" TriState="false" />
+                                            Change="@(args => TogglePermission(m.WriteId, args))" TriState="false" Disabled="@IsLocked(m.WriteId)" />
                         }
                         else
                         {
@@ -76,7 +79,7 @@
                         @if (m.DeleteId > 0)
                         {
                             <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.DeleteId)"
-                                            Change="@(args => TogglePermission(m.DeleteId, args))" TriState="false" />
+                                            Change="@(args => TogglePermission(m.DeleteId, args))" TriState="false" Disabled="@IsLocked(m.DeleteId)" />
                         }
                         else
                         {
@@ -92,7 +95,7 @@
                             {
                                 <div style="display: flex; align-items: center; gap: 4px;">
                                     <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(perm.Id)"
-                                                    Change="@(args => TogglePermission(perm.Id, args))" TriState="false" />
+                                                    Change="@(args => TogglePermission(perm.Id, args))" TriState="false" Disabled="@IsLocked(perm.Id)" />
                                     <span style="font-size: 0.85em;">@perm.Description.Replace(m.Title, "").Trim()</span>
                                 </div>
                             }
@@ -129,8 +132,21 @@
         public List<PermissionDto> Others { get; set; } = new();
     }
 
+    private HashSet<string> callerPermissions = new(StringComparer.OrdinalIgnoreCase);
+
+    // Même règle que le serveur (PermissionGuard.CanGrant) : la case est grisée si le serveur refuserait la modification
+    private bool IsLocked(int permissionId)
+    {
+        var code = AllPermissions.FirstOrDefault(p => p.Id == permissionId)?.Code;
+        return code != null && !Autoprint.Shared.PermissionRules.CanGrant(callerPermissions, code);
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        callerPermissions = authState.User.Claims.Where(c => c.Type == "Permission").Select(c => c.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         if (RoleId != 0)
         {
             roleEdit = await RoleService.GetRoleForEdit(RoleId);

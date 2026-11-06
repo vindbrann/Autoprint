@@ -78,7 +78,7 @@ namespace Autoprint.Server.Migrations
                         {
                             Id = 1,
                             Code = "ADMIN_ACCESS",
-                            Description = "Accès complet (SuperAdmin)"
+                            Description = "Accès complet : tous les droits"
                         },
                         new
                         {
@@ -168,13 +168,7 @@ namespace Autoprint.Server.Migrations
                         {
                             Id = 16,
                             Code = "ROLE_WRITE",
-                            Description = "Créer/Modifier des rôles"
-                        },
-                        new
-                        {
-                            Id = 17,
-                            Code = "ROLE_DELETE",
-                            Description = "Supprimer des rôles"
+                            Description = "Créer/Modifier/Supprimer des rôles"
                         },
                         new
                         {
@@ -373,11 +367,6 @@ namespace Autoprint.Server.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 16
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 17
                         },
                         new
                         {

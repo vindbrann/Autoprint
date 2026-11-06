@@ -312,15 +312,15 @@ La version globale de l'ensemble de la solution est **26.11.6.1** (définie de m
 - **Attribution Dynamique des Rôles par Groupes AD (`AdRoleMappings`) :**
   - Lors de la connexion d'un utilisateur de domaine, le serveur interroge Active Directory avec le filtre d'appartenance récursive `(member:1.2.840.113556.1.4.1941:={userDn})`. Tous les groupes de sécurité parents directs et indirects sont résolus et confrontés à la table `AdRoleMappings` pour affecter automatiquement les rôles applicatifs correspondants.
 - **Matrice Granulaire des Permissions :**
-  L'application implémente 29 permissions unitaires (`Permission`) portées par les rôles (`Role`) et injectées sous forme de claims (`Permission: <CODE>`) dans le token JWT :
-  - `ADMIN_ACCESS` : Accès SuperAdmin total.
+  L'application implémente 29 permissions unitaires (28 + `NETWORK_SCAN`) (`Permission`) portées par les rôles (`Role`) et injectées sous forme de claims (`Permission: <CODE>`) dans le token JWT :
+  - `ADMIN_ACCESS` : tous les droits (le jeton reçoit toutes les permissions) ; accordable uniquement par un administrateur.
   - `PRINTER_READ`, `PRINTER_WRITE`, `PRINTER_DELETE`, `PRINTER_SYNC`, `PRINTER_ARCHIVE`.
   - `LOCATION_READ`, `LOCATION_WRITE`, `LOCATION_DELETE`.
   - `BRAND_READ`, `BRAND_WRITE`, `BRAND_DELETE`.
   - `MODEL_READ`, `MODEL_WRITE`, `MODEL_DELETE`.
   - `DRIVER_READ`, `DRIVER_SCAN`.
   - `USER_READ`, `USER_WRITE`, `USER_DELETE`.
-  - `ROLE_READ`, `ROLE_WRITE`, `ROLE_DELETE`.
+  - `ROLE_READ`, `ROLE_WRITE` (créer, modifier, supprimer ; accorde tout sauf `ADMIN_ACCESS`, et `SETTINGS_MANAGE` seulement si on l'a déjà : `Autoprint.Shared/PermissionRules.cs`).
   - `SETTINGS_MANAGE`, `AUDIT_READ`, `REPORT_MANAGE`, `NETWORK_SCAN`.
   - `SNMP_PROFILE_READ`, `SNMP_PROFILE_WRITE`, `SNMP_PROFILE_DELETE`.
 - **Authentification Machine Agent Client :**

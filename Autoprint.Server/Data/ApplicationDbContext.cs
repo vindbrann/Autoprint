@@ -1,4 +1,4 @@
-using Autoprint.Server.Models.Security;
+﻿using Autoprint.Server.Models.Security;
 using Autoprint.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -81,7 +81,7 @@ namespace Autoprint.Server.Data
 
             var permissionsList = new List<Permission>
             {
-                new Permission { Id = 1, Code = "ADMIN_ACCESS", Description = "Accès complet (SuperAdmin)" },
+                new Permission { Id = 1, Code = "ADMIN_ACCESS", Description = "Accès complet : tous les droits" },
                 new Permission { Id = 2, Code = "PRINTER_READ", Description = "Voir les imprimantes" },
                 new Permission { Id = 3, Code = "PRINTER_WRITE", Description = "Ajouter/Modifier des imprimantes" },
                 new Permission { Id = 4, Code = "PRINTER_DELETE", Description = "Supprimer des imprimantes" },
@@ -96,8 +96,7 @@ namespace Autoprint.Server.Data
                 new Permission { Id = 13, Code = "USER_DELETE", Description = "Supprimer utilisateurs" },
                 new Permission { Id = 14, Code = "SETTINGS_MANAGE", Description = "Gérer la configuration serveur" },
                 new Permission { Id = 15, Code = "ROLE_READ", Description = "Voir les rôles et permissions" },
-                new Permission { Id = 16, Code = "ROLE_WRITE", Description = "Créer/Modifier des rôles" },
-                new Permission { Id = 17, Code = "ROLE_DELETE", Description = "Supprimer des rôles" },
+                new Permission { Id = 16, Code = "ROLE_WRITE", Description = "Créer/Modifier/Supprimer des rôles" },
                 new Permission { Id = 18, Code = "BRAND_READ", Description = "Voir les marques" },
                 new Permission { Id = 19, Code = "BRAND_WRITE", Description = "Ajouter/Modifier des marques" },
                 new Permission { Id = 20, Code = "BRAND_DELETE", Description = "Supprimer des marques" },

@@ -1,4 +1,4 @@
-using Autoprint.Server.Helpers;
+﻿using Autoprint.Server.Helpers;
 using Autoprint.Server.Models.Security;
 using Autoprint.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -483,6 +483,35 @@ namespace Autoprint.Server.Data
                         context.RolePermissions.Add(new RolePermission { RoleId = 1, PermissionId = existingPerm.Id });
                     }
                 }
+            }
+            context.SaveChanges();
+
+            ApplyPermissionModelChanges(context);
+        }
+
+        /// <summary>
+        /// Novembre 2026 : « Rôles - suppression » fusionnée dans « Rôles - écriture » (même effet, un seul droit à gérer).
+        /// La migration SQL Server fait la même chose ; ce code couvre les bases SQLite (pas de migrations).
+        /// </summary>
+        private static void ApplyPermissionModelChanges(ApplicationDbContext context)
+        {
+            var obsolete = context.Permissions.FirstOrDefault(p => p.Code == "ROLE_DELETE");
+            if (obsolete != null)
+            {
+                Console.WriteLine("--> Fusion de la permission ROLE_DELETE dans ROLE_WRITE");
+                context.RolePermissions.RemoveRange(context.RolePermissions.Where(rp => rp.PermissionId == obsolete.Id));
+                context.Permissions.Remove(obsolete);
+            }
+
+            var descriptions = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["ROLE_WRITE"] = "Créer/Modifier/Supprimer des rôles",
+                ["ADMIN_ACCESS"] = "Accès complet : tous les droits"
+            };
+            foreach (var (code, description) in descriptions)
+            {
+                var permission = context.Permissions.FirstOrDefault(p => p.Code == code);
+                if (permission != null && permission.Description != description) permission.Description = description;
             }
             context.SaveChanges();
         }
