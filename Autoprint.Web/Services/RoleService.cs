@@ -42,17 +42,27 @@ namespace Autoprint.Web.Services
 
         public async Task CreateRole(RoleEditDto role)
         {
-            await _http.PostAsJsonAsync("api/roles", role);
+            await EnsureSuccess(await _http.PostAsJsonAsync("api/roles", role));
         }
 
         public async Task UpdateRole(int id, RoleEditDto role)
         {
-            await _http.PutAsJsonAsync($"api/roles/{id}", role);
+            await EnsureSuccess(await _http.PutAsJsonAsync($"api/roles/{id}", role));
         }
 
         public async Task DeleteRole(int id)
         {
-            await _http.DeleteAsync($"api/roles/{id}");
+            await EnsureSuccess(await _http.DeleteAsync($"api/roles/{id}"));
+        }
+
+        // Un refus du serveur (403 anti-escalade, 400...) doit remonter à l'écran au lieu d'afficher « Succès »
+        internal static async Task EnsureSuccess(HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode) return;
+            var message = (await response.Content.ReadAsStringAsync()).Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(message) || message.StartsWith("{"))
+                message = $"Le serveur a refusé l'opération (code {(int)response.StatusCode}).";
+            throw new Exception(message);
         }
     }
 }

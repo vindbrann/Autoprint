@@ -137,9 +137,13 @@ else
         var confirm = await DialogService.Confirm($"Supprimer le rôle {role.Name} ?", "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
         if (confirm == true)
         {
-            await RoleService.DeleteRole(role.Id);
+            try
+            {
+                await RoleService.DeleteRole(role.Id);
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
+            }
+            catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
             await LoadData();
-            NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
         }
     }
 
