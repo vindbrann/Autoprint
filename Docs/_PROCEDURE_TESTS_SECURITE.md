@@ -429,6 +429,16 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SE-08 | Rapport planifié PDF (plus de 45 imprimantes, mesures « Compteur » et « Pannes » cochées dans un ordre quelconque) : envoi manuel. | PDF reçu (quelques dizaines de Ko), accents corrects, en-tête du tableau sur chaque page, intitulés des deux dernières colonnes conformes aux valeurs (contrôlé ici avec 62 imprimantes : 40 Ko, 2 pages, B42). | ☐ |
 | SE-09 | Serveur installé : rapport PDF planifié, exécuté par le site (compte du pool d'applications, sans profil chargé). | PDF généré ; pas d'erreur `libSkiaSharp` dans les journaux ; dossier du site : `runtimes\win-x64\native\libSkiaSharp.dll` présent, `Licenses\AutoprintSans-OFL-LICENSE.txt` présent (B42). | ☐ |
 
+### 5.10 Mise à jour d'un serveur SQLite 1.1.x (B47)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SM-01 | Serveur 1.1.0 en SQLite (instantané) : mise à jour avec l'installeur 26.11.6.1. | « Mise à jour terminée » ; base déplacée dans `C:\ProgramData\Autoprint\Data` (contrôlé ici sur la base du serveur de test). | ☐ |
+| SM-02 | Après SM-01 : tableau de bord, Imprimantes, Lieux, Modèles, Rapports, Profils SNMP. | Aucune erreur 500 ; imprimantes et lieux existants présents ; chaque lieu garde son réseau (contrôlé ici). | ☐ |
+| SM-03 | Après SM-01 : créer un lieu et une imprimante, modifier une imprimante. | Enregistrement sans erreur (contrôlé ici). | ☐ |
+| SM-04 | Serveur déjà passé en 26.11.4.1 avec erreurs 500 : installer la 26.11.6.1 par-dessus. | Mêmes résultats que SM-02 et SM-03, sans restaurer d'instantané (contrôlé ici sur la base d'après la mise à jour ratée). | ☐ |
+| SM-05 | Compte d'un rôle autre que SuperAdmin (ex. Infra) : page Découverte. | Refus (403) tant que la permission « Lancer des scans réseau » n'est pas accordée au rôle ; accès après l'avoir accordée et s'être reconnecté (B48). | ☐ |
+
 ### 5.4 Désinstallation
 
 | ID | Test | Résultat attendu | ✔ |
@@ -451,3 +461,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | Phase C | Ajout des tests SC-01 à SC-09 (renouvellement de session, changement de clé agent, messages). |
 | 04/11/2026 | Phase D | Ajout des tests SD-01 à SD-11 (schéma, erreurs remontées, avertissements, CORS, installeur, mises à jour). |
 | 04/11/2026 | Phase E | Ajout des tests SE-01 à SE-09 (runtime exigé par l'installeur, stockage du navigateur, bibliothèques web, cache, rapports PDF avec SkiaSharp). |
+| 06/11/2026 | Correctif B47 | Ajout des tests SM-01 à SM-05 (mise à jour d'un serveur SQLite 1.1.x). |

@@ -23,7 +23,7 @@ Pour prévenir toute mauvaise supposition architecturale ou fonctionnelle :
 ## 2. Stack Technique & Dépendances
 
 ### Langages, Frameworks & Versions Cibles
-La version globale de l'ensemble de la solution est **26.11.4.1** (définie de manière centralisée dans [`Directory.Build.props`](file:///C:/Git/Developpement/Autoprint/Autoprint/Directory.Build.props)).
+La version globale de l'ensemble de la solution est **26.11.6.1** (définie de manière centralisée dans [`Directory.Build.props`](file:///C:/Git/Developpement/Autoprint/Autoprint/Directory.Build.props)).
 
 | Composant | Projet | Framework Cible | Type d'Application |
 | :--- | :--- | :--- | :--- |
@@ -362,7 +362,7 @@ La version globale de l'ensemble de la solution est **26.11.4.1** (définie de m
 
 ```yaml
 project_name: "Autoprint"
-version: "26.11.4.1"
+version: "26.11.6.1"
 runtime: ".NET 10.0 (C# 13)"
 target_environment: "Windows Server (2016-2025) / Windows 10/11 x64"
 architecture:

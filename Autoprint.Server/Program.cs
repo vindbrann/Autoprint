@@ -261,7 +261,7 @@ if (args.Contains("--migrate-only"))
             var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var currentProvider = config["Database:Provider"];
 
-            DatabaseSchema.Ensure(context);
+            DatabaseSchema.Ensure(context, scope.ServiceProvider.GetRequiredService<ILogger<Program>>());
             DbInitializer.Initialize(context);
             scope.ServiceProvider.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
 
