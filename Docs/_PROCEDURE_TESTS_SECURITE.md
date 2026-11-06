@@ -438,6 +438,8 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SM-03 | Après SM-01 : créer un lieu et une imprimante, modifier une imprimante. | Enregistrement sans erreur (contrôlé ici). | ☐ |
 | SM-04 | Serveur déjà passé en 26.11.4.1 avec erreurs 500 : installer la 26.11.6.1 par-dessus. | Mêmes résultats que SM-02 et SM-03, sans restaurer d'instantané (contrôlé ici sur la base d'après la mise à jour ratée). | ☐ |
 | SM-05 | Compte d'un rôle autre que SuperAdmin (ex. Infra) : page Découverte. | Refus (403) tant que la permission « Lancer des scans réseau » n'est pas accordée au rôle ; accès après l'avoir accordée et s'être reconnecté (B48). | ☐ |
+| SM-06 | Connecté avec un compte du rôle Infra : Rôles > Infra, cocher une nouvelle permission (ex. Scan Réseau), Enregistrer. | Message d'erreur « Vous ne pouvez pas accorder des droits que vous n'avez pas. » ; rien n'est modifié (B49, contrôlé ici). | ☐ |
+| SM-07 | Connecté avec `admin` (SuperAdmin) : même opération sur Infra, puis reconnexion avec un compte Infra. | « Rôle enregistré » ; les membres d'Infra sont déconnectés ; après reconnexion, la page Découverte s'ouvre (contrôlé ici). | ☐ |
 
 ### 5.4 Désinstallation
 
@@ -462,3 +464,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | Phase D | Ajout des tests SD-01 à SD-11 (schéma, erreurs remontées, avertissements, CORS, installeur, mises à jour). |
 | 04/11/2026 | Phase E | Ajout des tests SE-01 à SE-09 (runtime exigé par l'installeur, stockage du navigateur, bibliothèques web, cache, rapports PDF avec SkiaSharp). |
 | 06/11/2026 | Correctif B47 | Ajout des tests SM-01 à SM-05 (mise à jour d'un serveur SQLite 1.1.x). |
+| 06/11/2026 | Correctif B49 | Ajout des tests SM-06 et SM-07 (refus d'accorder des droits affiché à l'écran). |
