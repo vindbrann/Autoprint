@@ -76,7 +76,7 @@ else
                                     <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
                                 </Authorized>
                             </AuthorizeView>
-                            <AuthorizeView Policy="ROLE_DELETE">
+                            <AuthorizeView Policy="ROLE_WRITE">
                                 <Authorized Context="authDelete">
                                     <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
                                 </Authorized>

@@ -1,4 +1,4 @@
-using System.DirectoryServices.AccountManagement;
+﻿using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -420,12 +420,18 @@ namespace Autoprint.Server.Services
 
         private async Task<List<string>> GetUserPermissionsAsync(User user)
         {
-            return await _context.UserRoles
+            var permissions = await _context.UserRoles
                 .Where(ur => ur.UserId == user.Id)
                 .SelectMany(ur => ur.Role.RolePermissions)
                 .Select(rp => rp.Permission.Code)
                 .Distinct()
                 .ToListAsync();
+
+            // « Administration » donne tous les droits, y compris ceux ajoutés par une mise à jour
+            if (permissions.Contains(PermissionGuard.AdminPermission))
+                permissions = await _context.Permissions.Select(p => p.Code).ToListAsync();
+
+            return permissions;
         }
 
         // Durée maximale d'une session, renouvellements compris : au-delà, reconnexion obligatoire (backlog B19)

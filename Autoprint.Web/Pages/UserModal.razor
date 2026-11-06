@@ -1,4 +1,4 @@
-@using Autoprint.Shared.DTOs
+﻿@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
@@ -163,12 +163,12 @@ else
         {
             availableRoles = await RoleService.GetRoles();
 
-            // Seuls les rôles dont les droits sont inclus dans ceux de l'utilisateur connecté sont proposés (règle appliquée aussi par le serveur)
+            // Seuls les rôles que l'utilisateur connecté peut attribuer sont proposés (même règle que le serveur : PermissionRules)
             var authState = await AuthProvider.GetAuthenticationStateAsync();
-            var myPermissions = authState.User.Claims.Where(c => c.Type == "Permission").Select(c => c.Value).ToHashSet();
+            var myPermissions = authState.User.Claims.Where(c => c.Type == "Permission").Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var currentRoleNames = UserToEdit?.Roles ?? new List<string>();
             availableRoles = availableRoles
-                .Where(r => r.PermissionCodes.All(myPermissions.Contains) || currentRoleNames.Contains(r.Name))
+                .Where(r => r.PermissionCodes.All(c => Autoprint.Shared.PermissionRules.CanGrant(myPermissions, c)) || currentRoleNames.Contains(r.Name))
                 .ToList();
 
             if (editMode)

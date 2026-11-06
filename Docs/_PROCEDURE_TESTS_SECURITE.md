@@ -88,13 +88,13 @@ Préparer le rôle `Helpdesk` et le compte `helpdesk` avec `admin`, puis se conn
 
 | ID | Test | Résultat attendu | ✔ |
 |---|---|---|---|
-| P1-13 | Utilisateurs › Créer : ouvrir la liste déroulante des rôles. | Seuls les rôles dont les droits sont inclus dans ceux de Helpdesk sont proposés (pas de SuperAdmin). | ☐ |
+| P1-13 | Utilisateurs › Créer : ouvrir la liste déroulante des rôles. | Tous les rôles sont proposés **sauf** ceux qui ont « Administration » ou « Paramètres » (Helpdesk a « Rôles - écriture », B50). | ☐ |
 | P1-14 | Créer un utilisateur avec le rôle `Helpdesk`. | Création OK. | ☐ |
-| P1-15 | Modifier le compte `admin` (nom, mot de passe ou statut). | Refus : « Ce compte dispose de droits que vous n'avez pas ». | ☐ |
+| P1-15 | Modifier le compte `admin` (nom, mot de passe ou statut). | Refus : « Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier. » | ☐ |
 | P1-16 | Supprimer un compte SuperAdmin (autre que `admin`). | Refus. | ☐ |
-| P1-17 | Rôles › modifier `Helpdesk` en lui ajoutant `SETTINGS_MANAGE`. | Refus : « Vous ne pouvez pas accorder des droits que vous n'avez pas ». | ☐ |
+| P1-17 | Rôles › modifier `Helpdesk` en lui ajoutant `SETTINGS_MANAGE` (ligne « Système »). | Case grisée ; **[API]** refus 403 « Vous ne pouvez pas accorder ces droits… ». | ☐ |
 | P1-18 | Rôles › modifier ou supprimer `SuperAdmin`. | Refus. | ☐ |
-| P1-19 | Rôles › créer un rôle avec `PRINTER_DELETE`. | Refus. | ☐ |
+| P1-19 | Rôles › créer un rôle avec `PRINTER_DELETE`, puis un rôle avec « Administration ». | Le premier est accepté (« Rôles - écriture » permet d'accorder tout sauf Administration et Paramètres, B50) ; pour le second, la case est grisée et l'API répond 403. | ☐ |
 | P1-20 | Rôles › lier un groupe AD au rôle `SuperAdmin`. | Refus. | ☐ |
 | P1-21 | **[API]** Avec le jeton `helpdesk` : `POST /api/users` avec `"roleId": 1`. | **403**. | ☐ |
 | P1-22 | Reconnecté en `admin` : refaire P1-15 à P1-20. | Tout est autorisé. | ☐ |
@@ -437,9 +437,14 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SM-02 | Après SM-01 : tableau de bord, Imprimantes, Lieux, Modèles, Rapports, Profils SNMP. | Aucune erreur 500 ; imprimantes et lieux existants présents ; chaque lieu garde son réseau (contrôlé ici). | ☐ |
 | SM-03 | Après SM-01 : créer un lieu et une imprimante, modifier une imprimante. | Enregistrement sans erreur (contrôlé ici). | ☐ |
 | SM-04 | Serveur déjà passé en 26.11.4.1 avec erreurs 500 : installer la 26.11.6.1 par-dessus. | Mêmes résultats que SM-02 et SM-03, sans restaurer d'instantané (contrôlé ici sur la base d'après la mise à jour ratée). | ☐ |
-| SM-05 | Compte d'un rôle autre que SuperAdmin (ex. Infra) : page Découverte. | Refus (403) tant que la permission « Lancer des scans réseau » n'est pas accordée au rôle ; accès après l'avoir accordée et s'être reconnecté (B48). | ☐ |
-| SM-06 | Connecté avec un compte du rôle Infra : Rôles > Infra, cocher une nouvelle permission (ex. Scan Réseau), Enregistrer. | Message d'erreur « Vous ne pouvez pas accorder des droits que vous n'avez pas. » ; rien n'est modifié (B49, contrôlé ici). | ☐ |
-| SM-07 | Connecté avec `admin` (SuperAdmin) : même opération sur Infra, puis reconnexion avec un compte Infra. | « Rôle enregistré » ; les membres d'Infra sont déconnectés ; après reconnexion, la page Découverte s'ouvre (contrôlé ici). | ☐ |
+| SM-05 | Après la mise à jour, compte d'un rôle qui avait « Administration » en 1.1.x (ex. Infra) : page Découverte, Rapports, Profils SNMP, Archivage. | Accès direct, sans rien cocher : « Administration » donne toutes les permissions, y compris les nouvelles (B50, contrôlé ici sur ta base). | ☐ |
+| SM-06 | Rôle sans Administration mais avec « Rôles - écriture » : Rôles > ce rôle, cocher Scan réseau, Enregistrer, se reconnecter. | « Rôle enregistré » ; après reconnexion, la page Découverte s'ouvre (B50, contrôlé ici). | ☐ |
+| SM-07 | Même compte : forcer l'enregistrement d'« Administration » (API) sur son rôle. | Refus 403 avec message affiché ; rien n'est modifié (B49/B50, contrôlé ici). | ☐ |
+| SR-01 | Rôles : ouvrir un rôle. | Plus de colonne « Suppr. » pour la ligne Rôles : « Rôles - écriture » permet aussi de supprimer (B50). La permission « Supprimer des rôles » n'existe plus. | ☐ |
+| SR-02 | Compte avec « Rôles - écriture » sans Administration : ouvrir un rôle. | Cases « Administration » grisées ; « Système » grisée si le compte n'a pas Paramètres (contrôlé côté serveur ici). | ☐ |
+| SR-03 | Même compte : modifier ou supprimer SuperAdmin, lui lier un groupe AD, modifier le compte `admin`, attribuer SuperAdmin à un compte. | Refus avec message pour chaque opération (contrôlé ici). | ☐ |
+| SR-04 | Avec `admin` seul administrateur actif : se désactiver, ou retirer « Administration » au rôle SuperAdmin. | Refus : « dernier administrateur actif » (contrôlé ici). | ☐ |
+| SR-05 | Mise à jour d'un serveur SQL Server. | Migration `FusionPermissionsRoles` appliquée sans erreur (contrôlé ici sur LocalDB). | ☐ |
 
 ### 5.4 Désinstallation
 
@@ -465,3 +470,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 04/11/2026 | Phase E | Ajout des tests SE-01 à SE-09 (runtime exigé par l'installeur, stockage du navigateur, bibliothèques web, cache, rapports PDF avec SkiaSharp). |
 | 06/11/2026 | Correctif B47 | Ajout des tests SM-01 à SM-05 (mise à jour d'un serveur SQLite 1.1.x). |
 | 06/11/2026 | Correctif B49 | Ajout des tests SM-06 et SM-07 (refus d'accorder des droits affiché à l'écran). |
+| 06/11/2026 | B50 (règles des rôles) | SM-05 à SM-07 réécrits ; P1-13, P1-15, P1-17, P1-19 adaptés ; ajout de SR-01 à SR-05. |
