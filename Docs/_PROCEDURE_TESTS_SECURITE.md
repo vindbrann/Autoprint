@@ -448,6 +448,15 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SR-04 | Avec `admin` seul administrateur actif : se désactiver, ou retirer « Administration » au rôle SuperAdmin. | Refus : « dernier administrateur actif » (contrôlé ici). | ☐ |
 | SR-05 | Mise à jour d'un serveur SQL Server. | Migration `FusionPermissionsRoles` appliquée sans erreur (contrôlé ici sur LocalDB). | ☐ |
 
+### 5.11 Installation neuve sur serveur français (B51, B52)
+
+| ID | Test | Résultat attendu | ✔ |
+|---|---|---|---|
+| SI-01 | Installation **neuve** (SQLite) sur un Windows Server en français, puis ouvrir la console **depuis un autre poste**. | La console s'affiche (en 26.11.6.2 : délai dépassé, puis erreur 500 une fois le port ouvert). | ☐ |
+| SI-02 | Sur le serveur : droits de `C:\Program Files\Autoprint Server\appsettings.json`, `C:\ProgramData\Autoprint\Data` et `...\Keys`. | `IIS APPPOOL\Autoprint` présent (lecture sur `appsettings.json`, modification sur `Data` et `Keys`), en plus de Système et Administrateurs (B51). | ☐ |
+| SI-03 | Pare-feu Windows du serveur. | Règle entrante « Autoprint Server », TCP, port du site ; recréée avec le même port après une mise à jour (B52). | ☐ |
+| SI-04 | Journal Application juste après l'installation. | Aucune erreur « IIS AspNetCore Module » ni « UnauthorizedAccessException » ; pas d'avertissement `AutoprintSpooler` « Identité IIS AppPool\Autoprint introuvable ». | ☐ |
+
 ### 5.4 Désinstallation
 
 | ID | Test | Résultat attendu | ✔ |
@@ -473,3 +482,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 06/11/2026 | Correctif B47 | Ajout des tests SM-01 à SM-05 (mise à jour d'un serveur SQLite 1.1.x). |
 | 06/11/2026 | Correctif B49 | Ajout des tests SM-06 et SM-07 (refus d'accorder des droits affiché à l'écran). |
 | 06/11/2026 | B50 (règles des rôles) | SM-05 à SM-07 réécrits ; P1-13, P1-15, P1-17, P1-19 adaptés ; ajout de SR-01 à SR-05. |
+| 08/11/2026 | B51, B52 (recette en labo) | Ajout de SI-01 à SI-04 (installation neuve sur serveur français : droits du pool IIS, pare-feu). Labo Hyper-V décrit au § 0.1. |

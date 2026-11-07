@@ -93,7 +93,7 @@ namespace Autoprint.SpoolerService
 
             try
             {
-                var clientSid = (SecurityIdentifier)new NTAccount(_allowedClient).Translate(typeof(SecurityIdentifier));
+                var clientSid = ResolveClientSid(_allowedClient);
                 security.AddAccessRule(new PipeAccessRule(clientSid, PipeAccessRights.ReadWrite, AccessControlType.Allow));
                 clientResolved = true;
             }
@@ -108,6 +108,22 @@ namespace Autoprint.SpoolerService
             }
 
             return security;
+        }
+
+        /// <summary>
+        /// « IIS AppPool\&lt;pool&gt; » : SID calculé (S-1-5-82 + SHA-1 du nom du pool en minuscules, UTF-16), valable avant même
+        /// la création du pool et indépendant de la langue. Tout autre compte : résolution par nom.
+        /// </summary>
+        internal static SecurityIdentifier ResolveClientSid(string account)
+        {
+            const string prefix = @"IIS AppPool\";
+            if (account.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                byte[] hash = System.Security.Cryptography.SHA1.HashData(
+                    System.Text.Encoding.Unicode.GetBytes(account.Substring(prefix.Length).ToLowerInvariant()));
+                return new SecurityIdentifier("S-1-5-82-" + string.Join("-", Enumerable.Range(0, 5).Select(i => BitConverter.ToUInt32(hash, i * 4))));
+            }
+            return (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
         }
 
         private async Task HandleConnectionAsync(NamedPipeServerStream pipe, CancellationToken stoppingToken)
