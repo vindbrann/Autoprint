@@ -386,6 +386,10 @@ namespace Autoprint.Installer.Server.UI
                     SwitchPoolToApplicationPoolIdentity();
                 }
 
+                TxtInstallLog.Text = "Ouverture du port dans le pare-feu...";
+                int sitePort = _isUpgrade ? _existingPort : int.Parse(TxtWebPort.Text);
+                await Task.Run(() => EnsureFirewallRule(sitePort));
+
                 // Le pool existe maintenant : droits NTFS de son identité (et base SQLite créée par la migration)
                 await Task.Run(() => HardenSensitiveFiles());
 
@@ -749,6 +753,17 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
+        /// <summary>
+        /// SID du compte virtuel « IIS AppPool\&lt;pool&gt; » : S-1-5-82 suivi du SHA-1 du nom du pool en minuscules (UTF-16).
+        /// Identique sur tous les serveurs et indépendant de la langue ; disponible avant même la création du pool.
+        /// </summary>
+        internal static SecurityIdentifier AppPoolSid(string poolName)
+        {
+            byte[] hash = SHA1.HashData(System.Text.Encoding.Unicode.GetBytes(poolName.ToLowerInvariant()));
+            var parts = Enumerable.Range(0, 5).Select(i => BitConverter.ToUInt32(hash, i * 4));
+            return new SecurityIdentifier("S-1-5-82-" + string.Join("-", parts));
+        }
+
         // Fichiers contenant des secrets (clé JWT, chaîne SQL, base SQLite, clés de chiffrement) : accès réservé à SYSTEM
         // (identité du pool IIS) et aux Administrateurs, sans héritage des droits « Utilisateurs » de Program Files / ProgramData (audit #9).
         private void HardenSensitiveFiles()
@@ -756,9 +771,9 @@ namespace Autoprint.Installer.Server.UI
             var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
             var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
 
-            // Identité du pool IIS (existe une fois le pool créé)
-            SecurityIdentifier? pool = null;
-            try { pool = (SecurityIdentifier)new NTAccount(PoolIdentity).Translate(typeof(SecurityIdentifier)); } catch { }
+            // Identité du pool IIS : SID calculé, car la résolution par nom échoue tant qu'IIS n'a pas pris en compte
+            // le pool (installation neuve : le site n'avait alors aucun droit sur appsettings.json et plantait, B51)
+            SecurityIdentifier pool = AppPoolSid(PoolIdentity.Substring(PoolIdentity.IndexOf('\\') + 1));
 
             foreach (var file in new[] { Path.Combine(InstallPath, "appsettings.json") }.Where(File.Exists))
             {
@@ -840,6 +855,27 @@ namespace Autoprint.Installer.Server.UI
         }
 
         private const string PoolIdentity = @"IIS AppPool\Autoprint";
+        private const string FirewallRuleName = "Autoprint Server";
+
+        /// <summary>
+        /// Ouvre le port du site dans le pare-feu Windows (B52 : sans cette règle, la console n'était joignable que depuis le serveur).
+        /// La règle est recréée à chaque installation ou mise à jour pour suivre le port configuré.
+        /// </summary>
+        private static void EnsureFirewallRule(int port)
+        {
+            if (port < 1) return;
+            RunNetsh($"advfirewall firewall delete rule name=\"{FirewallRuleName}\"", ignoreErrors: true);
+            RunNetsh($"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow protocol=TCP localport={port} profile=any", ignoreErrors: false);
+        }
+
+        private static void RunNetsh(string args, bool ignoreErrors)
+        {
+            using var p = Process.Start(new ProcessStartInfo { FileName = "netsh.exe", Arguments = args, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })
+                          ?? throw new Exception("netsh introuvable");
+            string output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            if (p.ExitCode != 0 && !ignoreErrors) throw new Exception($"Règle de pare-feu non créée (netsh {p.ExitCode}) : {output.Trim()}");
+        }
 
         // Mise à jour : les anciennes versions faisaient tourner le pool en LocalSystem
         private void SwitchPoolToApplicationPoolIdentity()

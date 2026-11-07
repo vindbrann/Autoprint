@@ -2,7 +2,7 @@
 
 **Solution centralisée de déploiement dynamique, d'automatisation du spouleur d'impression Windows et de supervision télémétrique SNMP pour parcs d'entreprise multi-sites.**
 
-[![Version](https://img.shields.io/badge/version-26.11.6.2-blue.svg?style=for-the-badge&logo=github)](Directory.Build.props)
+[![Version](https://img.shields.io/badge/version-26.11.8.1-blue.svg?style=for-the-badge&logo=github)](Directory.Build.props)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
 [![ASP.NET Core](https://img.shields.io/badge/Backend-ASP.NET%20Core%20Web%20API-512BD4.svg?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/apps/aspnet)
 [![Blazor WASM](https://img.shields.io/badge/WebAdmin-Blazor%20WebAssembly-7852FF.svg?style=for-the-badge&logo=blazor)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
@@ -176,7 +176,7 @@ Autoprint/
 │   └── Program.cs                        # Point d'entrée WebAssembly et enregistrement des services
 │
 ├── Docs/                                 # Manuels utilisateurs, guides d'installation et audits de sécurité
-├── Directory.Build.props                 # Version globale centralisée de la solution (26.11.6.2)
+├── Directory.Build.props                 # Version globale centralisée de la solution (26.11.8.1)
 ├── Autoprint.sln                         # Solution unifiée Visual Studio 2026
 ├── PROJECT_CONTEXT.md                    # Synthèse architecturale et fonctionnelle de référence
 ├── PROJECT_MAP.md                        # Cadastre technique exhaustif de l'arborescence et des flux
@@ -400,5 +400,5 @@ Pour approfondir l'architecture, l'exploitation et la maintenance du projet, con
 ---
 
 <div align="center">
-  <sub>Autoprint (Version 26.11.6.2) - Solution d'impression et supervision pour environnements d'entreprise.</sub>
+  <sub>Autoprint (Version 26.11.8.1) - Solution d'impression et supervision pour environnements d'entreprise.</sub>
 </div>
