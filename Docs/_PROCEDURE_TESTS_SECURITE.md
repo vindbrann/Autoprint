@@ -10,6 +10,8 @@ Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur 
 
 ### 0.1 Matériel et comptes
 
+> **Labo prêt à l'emploi :** `tools/lab/Deploy-Lab.ps1` crée sous Hyper-V le domaine de test, un serveur membre vierge, le poste client hors domaine et une fausse imprimante qui capture les travaux (voir `tools/lab/README.md`).
+
 | Élément | Détail |
 |---|---|
 | Serveur | Windows Server avec IIS, SQL Server (SQLite neuf : backlog B1), Autoprint Server installé via l'installeur, site en **HTTPS** avec le nom public (ex. `autoprint.maboite.fr`). |
