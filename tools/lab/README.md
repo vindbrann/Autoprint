@@ -44,6 +44,12 @@ Restore-VMSnapshot -VMName SRV-PRINT -Name 'Labo configuré' -Confirm:$false    
 
 E-mails de test : Autoprint › Paramètres › SMTP : `srv-ad.lab.autoprint.test`, port 25, TLS (STARTTLS) et identifiant au choix ; les messages arrivent dans `SRV-AD:C:\SmtpCapture\Mails` (`.eml`, journal `C:\SmtpCapture\capture.log` ; le mot de passe SMTP n'est jamais enregistré).
 
+SQL Server (tests NR-01, NR-10, S8-04 à S8-06, SD-04) : `.\Install-LabSql.ps1` installe SQL Server 2025 Express sur SRV-PRINT (instance `SQLEXPRESS`, TCP 1433, mode mixte, identifiant `autoprint.sql` pour S8-06). Installeur à télécharger depuis download.microsoft.com (`SQLEXPR_x64_ENU.exe`) dans `%USERPROFILE%\.autoprint-lab\dl\sql2025`. Redémarrer SRV-PRINT avant d'installer Autoprint.
+
+SNMP (tests SV3-*) : `.\Install-LabSnmp.ps1` installe snmpsim sur SRV-AD (Python portable : `%USERPROFILE%\.autoprint-lab\dl\pybundle.zip`, avec snmpsim, pysmi et cryptography). Imprimantes simulées : `192.168.99.10` en SNMPv3 authPriv SHA-256 / AES-128 (utilisateur `autoprint.v3`, mots de passe chiffrés dans `recette-secrets.xml`) et `192.168.99.11` en v2c (communauté `parc`). Données : `snmpsim\data`. `snmpsim\run_snmpsim.py` sert les requêtes v3 sans nom de contexte (comme une vraie imprimante).
+
+Après une restauration d'instantané, réactiver « Interface de services d'invité » sur la VM (nécessaire à `Copy-VMFile`).
+
 Impression de test : sur `SRV-PRINT`, port TCP/IP standard vers `192.168.99.10`, RAW, port 9100 ; les travaux arrivent dans `SRV-AD:C:\PrintCapture\Jobs` (journal `C:\PrintCapture\capture.log`).
 
 Les versions d'évaluation expirent (180 jours pour Windows Server) : revenir à l'instantané ne prolonge pas la licence.

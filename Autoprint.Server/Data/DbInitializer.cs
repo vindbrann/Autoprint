@@ -194,6 +194,10 @@ namespace Autoprint.Server.Data
                                 ALTER TABLE SnmpProfileItems ADD ModifiePar nvarchar(100) NULL;
                             IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('SnmpProfileItems') AND name = 'EstSupprime')
                                 ALTER TABLE SnmpProfileItems ADD EstSupprime bit NOT NULL CONSTRAINT DF_SnmpProfileItems_EstSupprime DEFAULT 0;
+                            -- Colonne DateCreation (NOT NULL) créée par la migration du 21/08/2026 mais absente du modèle :
+                            -- EF ne la renseigne pas, toute création d'élément de profil d'OID échouait (backlog B60)
+                            IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('SnmpProfileItems') AND name = 'DateCreation' AND default_object_id = 0)
+                                ALTER TABLE SnmpProfileItems ADD CONSTRAINT DF_SnmpProfileItems_DateCreation DEFAULT SYSUTCDATETIME() FOR DateCreation;
                         END
                     ");
                 }

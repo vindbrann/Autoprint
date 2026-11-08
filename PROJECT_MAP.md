@@ -1,6 +1,6 @@
 # PROJECT_MAP.md
 
-Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appels et des flux de données de la solution **Autoprint** (Version `26.11.8.1`).
+Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appels et des flux de données de la solution **Autoprint** (Version `26.11.8.2`).
 
 ---
 

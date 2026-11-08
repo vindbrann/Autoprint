@@ -3,35 +3,46 @@
 Recette de `Docs/_PROCEDURE_TESTS_SECURITE.md` sur le labo Hyper-V (`tools/lab/README.md`) : Windows Server 2022 **français**, domaine `lab.autoprint.test`, poste Windows 11 hors domaine.
 Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main ou dans le navigateur.
 
-## ▶️ Reprise de la recette (état au 08/11/2026, fin de soirée)
+## ▶️ Reprise de la recette (état au 08/11/2026, soir)
 
-**État du labo** : instantané « Fin de session 08-11 (recette en cours) » sur chacune des 3 VM ; SRV-PRINT : aussi « Avant tests sauvegarde 09-11 ». Le service AutoprintSpooler de SRV-PRINT est la version corrigée B56 (original : `C:\Windows\Temp\AutoprintSpooler.exe.orig`).
-Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, réseau, avant Autoprint), `Autoprint 26.11.8.1 installé` (SRV-PRINT seul, juste après l'installation, avant les tests).
+**État du labo** :
+- SRV-PRINT : installation **SQL Server** (Autoprint 26.11.8.2, build du 08/11 à 19:28, avant B60 ; défaut `DateCreation` de B60 posé à la main dans la base). Instantanés : « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
+- SRV-AD : simulateur SNMP (tâche « Autoprint-SnmpSim », 192.168.99.10 v3 / .11 v2c), faux SMTP, fausse imprimante 9100.
+- Après une restauration d'instantané : réactiver « Interface de services d'invité » (`Copy-VMFile`) ; l'installation SQL Server n'a ni HTTPS ni pare-feu « Partage de fichiers » (tests CLT-TEST des lots Clé et Serveur : en SQLite seulement).
 
 **Pour reprendre** :
 1. Hyper-V : démarrer `SRV-AD`, attendre ~1 min, puis `SRV-PRINT` et `CLT-TEST` (ou demander à Claude : « reprends la recette du labo »).
-2. Console : `https://srv-print.lab.autoprint.test` (certificat auto-signé du labo : non reconnu par le navigateur de l'hôte ; reconnu sur CLT-TEST). En HTTP, `:8080` redirige vers HTTPS.
-3. Tests API : `tools\lab\Recette-Api.ps1 -Lot <Lot>` (session normale). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Limitation`.
+2. Console : `http://srv-print.lab.autoprint.test:8080` (installation SQL Server) ; `https://srv-print.lab.autoprint.test` sur l'instantané SQLite.
+3. Tests API : `tools\lab\Recette-Api.ps1 -Lot <Lot>` (SQLite, HTTPS) ou `-BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (SQL Server). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Cle`, `Donnees`, `Serveur`, `Email`, `Snmp`, `Limitation`.
 
 **Fichiers locaux (hors dépôt, chiffrés pour le compte Windows, jamais affichés)** dans `%USERPROFILE%\.autoprint-lab\` :
-`labadmin.cred` (Administrateur des VM / `LAB\Administrateur`, `CLT-TEST\LabAdmin`), `recette-secrets.xml` (mots de passe de `admin`, `helpdesk`, `lecteur`, `svc.autoprint`, `ad.user1`, `ad.user2`…), `srv-print.cer` (certificat du labo, accepté par empreinte par le script).
-
-**Configuré à la main pendant la recette (pas encore dans `Configure-Lab.ps1`)** : liaison HTTPS 443 sur le site Autoprint avec un certificat auto-signé `srv-print.lab.autoprint.test`, règle de pare-feu « LABO : Autoprint HTTPS 443 », certificat ajouté aux autorités racine de CLT-TEST ; client Autoprint 26.11.8.1 (MSI corrigé B54) installé sur CLT-TEST sous SYSTEM ; dans Autoprint : rôles `Helpdesk`, `Lecteur`, `HD-Suppr`, comptes `helpdesk`, `lecteur`, `hd.cree`, `ad.user2` (rôle Lecteur manuel), liaisons `GG_Autoprint_Lecteurs` → Lecteur et `GG_Autoprint_Admins` → SuperAdmin, AD configuré (`svc.autoprint`), lieu `Labo` (192.168.99.0/24), imprimante `Labo-Texte` → fausse imprimante 192.168.99.10:9100. Dans l'AD : `ad.user1` n'est plus dans `GG_Autoprint_Lecteurs` (retiré par P1-36).
-
-**À faire en premier** : ~~changer la clé agent~~ fait le 08/11 (SC-07).
-
-**Ancienne consigne** :
-- **Changer la clé agent** (Paramètres › Sécurité) : la clé du labo a été affichée par erreur dans une sortie de commande pendant la vérification de B54. Puis mettre à jour `HKLM\SOFTWARE\Autoprint\APIKEY` sur CLT-TEST (tests SC de changement de clé).
+`labadmin.cred`, `recette-secrets.xml` (comptes du labo et de l'installation SQLite ; `sql.sa`, `sql.autoprint`, `snmp.v3.auth`, `snmp.v3.priv`), `recette-secrets-sql.xml` (comptes Autoprint de l'installation SQL Server), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim), `snmpsim-venv\`.
 
 **Reste à tester** :
-- Non-régression : NR-05 (client : lieu détecté, imprimantes listées et installées : **sur un poste Intune réel**, cf. B55), NR-01/NR-10 (SQL Server : non installé dans le labo).
-- Phase 1 : P1-03, P1-05, P1-12, P1-13 (écran), P1-27, P1-28, P1-39 (mise à jour d'un serveur existant).
-- Phase 2 : P2-01, P2-02, P2-05, P2-07 à P2-12, P2-16 à P2-22, P2-27 à P2-35, P2-37 à P2-44.
-- Phase 3 et suivantes : sections 4 à 5.10 de la procédure (secrets chiffrés, sauvegarde des secrets, droits NTFS, SMTP, phases A à E, SNMPv3, mises à jour depuis 1.1.x, SM-*, SR-01 à SR-03, SR-05), désinstallation S8-20.
-- À l'écran : compteurs de la synchronisation du spouleur (voir plus bas).
+- **Mise à jour 26.11.8.2 (avec B60) sur l'installation SQL Server** : SD-04, SR-05 / NR-10 / SD-01 « après mise à jour » (retirer d'abord le défaut posé à la main).
+- S8-06 (authentification SQL : identifiant `autoprint.sql` prêt), S8-05 (SQL distant).
+- Mises à jour depuis 1.1.x / 26.08.24.3 : NR-02, SM-*, P1-39, P2-41, P3-02, P3-14 (installeurs anciens à fournir).
+- Poste Intune réel : NR-05, installation d'imprimante (B55).
+- À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), puis une livraison 26.11.8.x avec le MSI client corrigé (la livraison `Livraison-26.11.8.1` contient encore l'ancien MSI client).
+**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59, B60).
+## Version 26.11.8.2 (en cours), installation neuve SQL Server 2025 Express — 08/11/2026
 
+SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Express (instance `SQLEXPRESS`, TCP 1433, mode mixte) installé par `tools/lab/Install-LabSql.ps1` ; Autoprint installé par l'installeur graphique (SQL Server, authentification Windows). Tests API : `Recette-Api.ps1 -BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (comptes Autoprint propres à cette installation : `recette-secrets-sql.xml`).
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| SI-05, NR-01 | ✅ après correctif (B59) | 26.11.8.1 : « Tester la connexion » en échec (base inexistante), puis installation en échec (« IIS AppPool\Autoprint not found »). 26.11.8.2 : base créée, installation sans erreur, console OK. |
+| S8-04 | ✅ | Connexion `IIS AppPool\Autoprint`, `db_owner` sur la base `Autoprint`. |
+| SD-01, SR-05 | ✅ (installation neuve) | 14 migrations, dont `AlignModelSnapshot` et `FusionPermissionsRoles` ; aucune erreur `[DbInitializer]`. |
+| P1-06, P1-14 à P1-26, SR-04, P2-23 à P2-26, P2-03 à P2-06, P2-13 à P2-15 | ✅ | Mêmes résultats qu'en SQLite. |
+| P1-34 à P1-46 | ✅ | AD (B53 inchangé : `badPwdCount` = 5). |
+| SC-05 à SC-07, P2-35 | ✅ | Rotation de la clé agent. |
+| P1-04, P1-07 à P1-11, NR-04, S8-13 | ✅ | Après redémarrage de SRV-PRINT : juste après l'installation de SQL Server (redémarrage en attente), la création de file par WMI en SYSTEM renvoyait « Accès refusé » (aussi hors Autoprint) ; non reproduit ensuite. |
+| P3-08 à P3-13, NR-08, P2-39, NR-09 | ✅ | Sauvegarde / restauration sur SQL Server. P2-18 : refus 400 avec détail technique (B57, comme en SQLite). |
+| S8-01 à S8-03, S8-12, S8-14 à S8-19, P3-01 | ✅ | B56 confirmé dans le build 26.11.8.2 (une ligne par commande du service). Secrets `enc:v1:` en base SQL. |
+| P3-04 à P3-06, NR-06, NR-07, NR-10, PA-17 à PA-21 | ✅ | NR-10 sur SQL Server : planifications PDF / CSV conservées (7:30, hebdomadaire, seuil 14). |
+| SV3-01 à SV3-16 | ✅ après correctif (B60) | Simulateur snmpsim sur SRV-AD (`tools/lab/Install-LabSnmp.ps1`) : .10 en SNMPv3 authPriv SHA-256/AES-128, .11 en v2c. Création du profil d'OID en 500 sur SQL Server (B60). Mot de passe v3 erroné : « Identifiants SNMPv3 refusés… », mot de passe absent des messages et journaux. SV3-05, SV3-07 (affichage, cycle, PDF) et SV3-14 sur un autre serveur : à l'écran / non joués. |
 ## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
 
 | ID | Résultat | Remarque |
@@ -100,4 +111,6 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | B56 | Corrigé (prochaine livraison) | Aucune ligne par commande du service dans le journal Windows. |
 | B58 | Mineur | Affichage : heures en UTC, dernière connexion perdue à la restauration, `admin` sans e-mail, bouton « LIER AD » sur SuperAdmin. |
 | B57 | Mineur | Message technique pour une sauvegarde mal formée. |
+| B59 | Corrigé en 26.11.8.2 | Installation neuve impossible sur un SQL Server vierge (base inexistante, droits accordés avant la création du pool). |
+| B60 | Corrigé en 26.11.8.2 | SQL Server : création d'un profil d'OID avec éléments en erreur 500 (colonne DateCreation). |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
