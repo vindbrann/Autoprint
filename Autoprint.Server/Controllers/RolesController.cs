@@ -69,7 +69,10 @@ namespace Autoprint.Server.Controllers
             if (!await PermissionGuard.CanGrantPermissionIdsAsync(_context, User, request.PermissionIds ?? new()))
                 return StatusCode(403, "Vous ne pouvez pas accorder ces droits : « Administration » est réservée aux administrateurs, et « Paramètres » ne peut être accordé que par un compte qui l'a déjà.");
 
-            var newRole = new Role { Name = request.Name, Description = request.Description };
+            var nameError = await ValidateRoleNameAsync(request.Name, null);
+            if (nameError != null) return BadRequest(nameError);
+
+            var newRole = new Role { Name = request.Name.Trim(), Description = request.Description };
             _context.Roles.Add(newRole);
 
             _auditService.LogAction("ROLE_CREATE", $"Création rôle : {newRole.Name}", User.Identity?.Name, "WARNING", newRole.Name);
@@ -117,7 +120,10 @@ namespace Autoprint.Server.Controllers
                 Permissions = role.RolePermissions.Select(rp => rp.Permission.Code).OrderBy(c => c).ToList()
             };
 
-            role.Name = request.Name;
+            var nameError = await ValidateRoleNameAsync(request.Name, id);
+            if (nameError != null) return BadRequest(nameError);
+
+            role.Name = request.Name.Trim();
             role.Description = request.Description;
 
             _context.RolePermissions.RemoveRange(role.RolePermissions);
@@ -230,6 +236,18 @@ namespace Autoprint.Server.Controllers
             _context.AdRoleMappings.Remove(mapping);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        // Nom obligatoire et unique (sans tenir compte de la casse) : plusieurs écrans et contrôles reconnaissent SuperAdmin
+        // par son nom ; deux rôles « SuperAdmin » (ou deux « Lecteur ») ne doivent pas pouvoir coexister (B69)
+        private async Task<string?> ValidateRoleNameAsync(string? name, int? currentId)
+        {
+            var clean = name?.Trim();
+            if (string.IsNullOrEmpty(clean)) return "Nom du rôle obligatoire.";
+            if (clean.Length > 100) return "Nom du rôle trop long (100 caractères au maximum).";
+            var lower = clean.ToLower();
+            bool exists = await _context.Roles.AnyAsync(r => r.Name.ToLower() == lower && (currentId == null || r.Id != currentId));
+            return exists ? $"Un rôle nommé « {clean} » existe déjà." : null;
         }
 
         private async Task RenewStampsOfRoleMembersAsync(int roleId)

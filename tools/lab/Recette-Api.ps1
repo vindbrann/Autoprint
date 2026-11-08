@@ -197,8 +197,12 @@ function Lot-Escalade {
     $r = Invoke-Api DELETE "/api/roles/$super" -Token $th
     Check 'P1-18' 'helpdesk supprime SuperAdmin (refus)' $r.Code { param($x) $x -in 400, 403 } $r.Text
 
+    foreach ($old in @((Invoke-Api GET '/api/roles' -Token $ta).Json | Where-Object name -eq 'HD-Suppr')) { Invoke-Api DELETE "/api/roles/$($old.id)" -Token $ta | Out-Null }
     $r = Invoke-Api POST '/api/roles' @{ name = 'HD-Suppr'; description = 'Recette'; permissionIds = @($perms['PRINTER_DELETE']) } $th
     Check 'P1-19' 'helpdesk crée un rôle avec PRINTER_DELETE' $r.Code 200 $r.Text
+    $dup = Invoke-Api POST '/api/roles' @{ name = 'hd-suppr '; description = 'Doublon'; permissionIds = @($perms['PRINTER_READ']) } $th
+    $fake = Invoke-Api POST '/api/roles' @{ name = 'SuperAdmin'; description = 'Faux'; permissionIds = @($perms['PRINTER_READ']) } $th
+    Check 'B69' 'nom de rôle déjà utilisé (casse, espaces) ou « SuperAdmin » : refus' "$($dup.Code)/$($fake.Code)" '400/400' "$($dup.Text) | $($fake.Text)"
     $r = Invoke-Api POST '/api/roles' @{ name = 'HD-Admin'; description = 'Recette'; permissionIds = @($perms['ADMIN_ACCESS']) } $th
     Check 'P1-19' 'helpdesk crée un rôle avec Administration' $r.Code 403 $r.Text
 

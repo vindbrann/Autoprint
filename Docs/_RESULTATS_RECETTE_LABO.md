@@ -21,8 +21,25 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 **Reste à tester** :
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B68).
+**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B69).
 
+## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
+
+Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| P2-08, SE-07 | ✅ | Graphique en anneau « Répartition par modèle » (2 modèles), icônes, info-bulles ; Bootstrap et Chart.js chargés. |
+| PA-04 | ✅ | 13 pages parcourues : aucune erreur dans la console du navigateur (seulement les messages « Authorization failed » de niveau information, B58 5). |
+| PA-09, SE-06 | ✅ | Aucune ressource externe ni requête vers jsdelivr ; `index.html` en `Cache-Control: no-cache` ; bibliothèques en `?v=5.3.8`, `?v=1.13.2`, `?v=4.6.1`. |
+| P2-10 | ✅ | `X-Frame-Options: DENY` et CSP `frame-ancestors 'none'` : affichage dans une iframe impossible. |
+| SE-05 | ✅ | Thème sombre et tri de la grille Imprimantes conservés après rechargement ; jeton supprimé à la déconnexion (préférences conservées). |
+| SD-06 | ✅ | Compte à changement imposé : fenêtre « Sécurité requise », Échap : retour à la page de connexion, aucun jeton stocké. |
+| P2-09, P2-44 | ✅ | Avertissement « Sauvegarde : données sensibles » puis fichier `Autoprint_Backup_…json` (12,9 Ko) transmis à la fonction de téléchargement. |
+| B57 (console) | ✅ | Fichier mal formé : « Ce fichier n'est pas une sauvegarde Autoprint lisible (fichier modifié ou endommagé ?) ». |
+| SC-09 | ✅ | Sauvegarde sans secrets chargée : message sur la conservation des secrets du serveur et les conséquences sur un nouveau serveur (restauration non lancée). |
+| B58 | ✅ | « Dernière connexion » en heure locale (00:04 pour une connexion à 00:04) ; compte Helpdesk : pas de bouton « Lier AD » sur SuperAdmin (présent sur les autres rôles). Constaté et corrigé : tableau de bord « 1 h » au lieu de « 1 min », « 1 erreurs ». |
+| B69 | ✅ après correctif | Doublon de nom de rôle (« hd-suppr ») et faux « SuperAdmin » : refus 400. |
 ## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
 
 Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
@@ -181,4 +198,6 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B66 | Corrigé en 26.11.8.2 | La synchronisation pouvait renommer puis supprimer la file d'une autre imprimante de même IP. |
 | B67 | Corrigé en 26.11.8.2 | Spouleur bloqué : 60 s par opération et message technique. |
 | B68 | Corrigé en 26.11.8.2 | DC injoignable : « Identifiants incorrects » et échec compté. |
+| B69 | Corrigé en 26.11.8.2 | Plusieurs rôles du même nom (dont un faux « SuperAdmin »). |
+| B70 | Mineur | Liste de débogage des pilotes en avertissement dans le journal. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
