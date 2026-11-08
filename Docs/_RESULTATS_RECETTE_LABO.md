@@ -26,7 +26,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 | P2-36 | ✅ | Clé agent depuis CLT-TEST : ni adresse IP, ni communauté SNMP, ni commentaire, ni numéro de série. |
 | Client (Intune simulé) | ✅ | MSI silencieux sous SYSTEM avec `PRINTSERVER` et `APIKEY` : code 0, registre renseigné, HTTPS vers le serveur OK. |
 | Journal MSI client | ⚠️ | Clé agent en clair dans `msiexec /l*v` (B54, partiellement corrigé). |
-| `\srv-print\print$` depuis CLT-TEST | ⚠️ | Inaccessible sans identifiants (poste hors domaine) : installation d'imprimantes par le client à confirmer (B55). |
+| `\\srv-print\print$` depuis CLT-TEST | ✅ / à finir | Refusé sans identifiants, accessible avec un compte AD (cas Entra ID hybride, B55). Connexion à l'imprimante à valider sur un vrai poste Intune (impossible depuis une session à distance). |
 
 ### À vérifier à l'écran
 
@@ -40,4 +40,4 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 | B52 | Corrigé en 26.11.8.1 | Port du site non ouvert dans le pare-feu. |
 | B53 | À décider | 5 mauvais mots de passe dans Autoprint verrouillent le compte AD (seuil de domaine à 5). |
 | B54 | Partiellement corrigé | Clé agent dans le journal d'installation du client. |
-| B55 | À confirmer | Accès à `print$` depuis un poste hors domaine. |
+| B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
