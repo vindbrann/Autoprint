@@ -26,9 +26,28 @@
 		              Execute="immediate"
 		              Return="ignore" />
 
+		<!-- Clé agent (B54) : écrite par une action différée masquée (HideTarget) et non par RegistryValue, que Windows Installer
+		     journalise en clair (RegAddValue) dans msiexec /l*v, journal souvent conservé par Intune. Exécutée en SYSTEM. -->
+		<CustomAction Id="WriteApiKey"
+		              Directory="SystemFolder"
+		              ExeCommand="&quot;[SystemFolder]reg.exe&quot; add &quot;HKLM\SOFTWARE\Autoprint&quot; /v APIKEY /t REG_SZ /d &quot;[APIKEY]&quot; /f /reg:64"
+		              Execute="deferred"
+		              Impersonate="no"
+		              HideTarget="yes"
+		              Return="check" />
+
+		<CustomAction Id="RemoveApiKey"
+		              Directory="SystemFolder"
+		              ExeCommand="&quot;[SystemFolder]reg.exe&quot; delete &quot;HKLM\SOFTWARE\Autoprint&quot; /v APIKEY /f /reg:64"
+		              Execute="deferred"
+		              Impersonate="no"
+		              Return="ignore" />
+
 		<InstallExecuteSequence>
 			<Custom Action="StopOldWorkerService" Before="CloseRunningClient" />
 			<Custom Action="CloseRunningClient" Before="InstallValidate" />
+			<Custom Action="WriteApiKey" After="WriteRegistryValues" Condition="APIKEY AND NOT REMOVE~=&quot;ALL&quot;" />
+			<Custom Action="RemoveApiKey" After="RemoveRegistryValues" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
 		</InstallExecuteSequence>
 
 		<!-- Optimisations d'installation rapide (pas de point de restauration inutile, pas de reboot forcé) -->
@@ -89,7 +108,7 @@
 		<ComponentGroup Id="ManualComponents">
 			<Component Id="RegistryConfig" Guid="{6EBBC4AC-3A75-488B-8414-5679EB4D10C2}" Directory="INSTALLFOLDER">
 				<RegistryKey Root="HKLM" Key="SOFTWARE\Autoprint">
-					<RegistryValue Name="APIKEY" Value="[APIKEY]" Type="string" />
+					<!-- APIKEY : écrite par l'action WriteApiKey (B54) -->
 					<RegistryValue Name="PRINTSERVER" Value="[PRINTSERVER]" Type="string" />
 				</RegistryKey>
 			</Component>

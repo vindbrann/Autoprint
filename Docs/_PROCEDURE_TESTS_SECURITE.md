@@ -121,7 +121,7 @@ Préparer le rôle `Helpdesk` et le compte `helpdesk` avec `admin`, puis se conn
 | P1-31 | Attendre 2 minutes, se connecter avec le bon mot de passe. | Connexion OK. | ☐ |
 | P1-32 | Depuis un même poste, enchaîner plus de 10 tentatives en moins d'une minute (comptes différents). | À partir de la 11ᵉ : « Trop de tentatives de connexion. Réessayez dans une minute. » | ☐ |
 | P1-33 | Pendant le blocage de P1-30, se connecter en `admin` depuis un autre poste. | Connexion OK (le blocage est par compte). | ☐ |
-| P1-34 | 5 mauvais mots de passe sur un compte **AD**. | Le compte est ralenti dans Autoprint ; **vérifier dans l'AD que le compte n'est pas verrouillé** (selon la stratégie de verrouillage du domaine). | ☐ |
+| P1-34 | Domaine avec un seuil de verrouillage de 5 : 5 mauvais mots de passe sur un compte **AD**. | 3 × « Identifiants incorrects », puis « Trop de tentatives… Réessayez dans 30 minute(s) » sans interroger l'AD ; **dans l'AD, le compte n'est pas verrouillé** (`badPwdCount` = 3) (B53). | ☐ |
 
 ### 2.7 Rôles issus de l'AD — audit #6
 

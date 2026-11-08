@@ -53,7 +53,8 @@ namespace Autoprint.Server.Controllers
 
                 if (result == null)
                 {
-                    _throttle.RegisterFailure(request.Username);
+                    // Identifiant sans compte local : le mot de passe a été vérifié auprès de l'annuaire (B53)
+                    _throttle.RegisterFailure(request.Username, await _authService.IsDirectoryLoginAsync(request.Username));
                     return Unauthorized("Identifiants incorrects.");
                 }
 

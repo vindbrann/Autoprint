@@ -12,6 +12,12 @@ namespace Autoprint.Server.Services
         private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan LockDuration = TimeSpan.FromMinutes(2);
 
+        // Comptes de l'annuaire (B53) : chaque échec est transmis au contrôleur de domaine et compte dans son seuil de
+        // verrouillage (souvent 5). On s'arrête à 3, et assez longtemps pour couvrir la fenêtre d'observation du domaine
+        // (10 à 30 min) : sinon 3 essais, une courte attente, puis 3 autres verrouilleraient quand même le compte Windows.
+        private const int MaxDirectoryFailures = 3;
+        private static readonly TimeSpan DirectoryLockDuration = TimeSpan.FromMinutes(30);
+
         private readonly ConcurrentDictionary<string, AttemptState> _attempts = new(StringComparer.OrdinalIgnoreCase);
 
         private class AttemptState
@@ -37,22 +43,26 @@ namespace Autoprint.Server.Services
             }
         }
 
-        public void RegisterFailure(string username)
+        public void RegisterFailure(string username, bool directoryAccount = false)
         {
+            int maxFailures = directoryAccount ? MaxDirectoryFailures : MaxFailures;
+            TimeSpan window = directoryAccount ? DirectoryLockDuration : FailureWindow;
+            TimeSpan lockDuration = directoryAccount ? DirectoryLockDuration : LockDuration;
+
             var state = _attempts.GetOrAdd(Normalize(username), _ => new AttemptState { FirstFailureUtc = DateTime.UtcNow });
             lock (state)
             {
                 var now = DateTime.UtcNow;
-                if (now - state.FirstFailureUtc > FailureWindow)
+                if (now - state.FirstFailureUtc > window)
                 {
                     state.Failures = 0;
                     state.FirstFailureUtc = now;
                 }
 
                 state.Failures++;
-                if (state.Failures >= MaxFailures)
+                if (state.Failures >= maxFailures)
                 {
-                    state.LockedUntilUtc = now.Add(LockDuration);
+                    state.LockedUntilUtc = now.Add(lockDuration);
                     state.Failures = 0;
                     state.FirstFailureUtc = now;
                 }

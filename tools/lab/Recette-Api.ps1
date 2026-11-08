@@ -506,12 +506,14 @@ function Lot-AD {
         Check 'P1-38' 'retiré du groupe : rôle admin retiré, Lecteur manuel conservé' (($p -notcontains 'ADMIN_ACCESS') -and ($p -contains 'PRINTER_READ')) $true ($p -join ',')
     } else { Check 'P1-37' 'ad.user2 créé dans Autoprint à sa première connexion' $false $true }
 
-    # P1-34 : 5 mauvais mots de passe sur un compte AD
+    # P1-34 (B53) : domaine avec un seuil de verrouillage de 5, 5 mauvais mots de passe sur un compte AD
+    $oldThreshold = Invoke-OnDc { $p = Get-ADDefaultDomainPasswordPolicy; Set-ADDefaultDomainPasswordPolicy -Identity $p.DistinguishedName -LockoutThreshold 5 -LockoutObservationWindow '00:30:00' -LockoutDuration '00:30:00'; $p.LockoutThreshold }
     Start-Sleep 62; $script:Logins.Clear()
     $codes = foreach ($n in 1..5) { $script:Logins.Add((Get-Date)); (Invoke-Api POST '/api/auth/login' @{ username = 'ad.user2'; password = 'Mauvais-mot-de-passe-2' }).Code }
     $lock = Invoke-OnDc { $u = Get-ADUser 'ad.user2' -Properties LockedOut, badPwdCount; "$($u.LockedOut)/$($u.badPwdCount)" }
-    Check 'P1-34' '5 mauvais mots de passe AD : compte non verrouillé dans l''AD (verrouillé/nb échecs)' ($lock -like 'False/*') $true "$($codes -join ',') ; AD : $lock"
-    Write-Host "         codes : $($codes -join ',') ; AD verrouillé/badPwdCount : $lock" -ForegroundColor DarkGray
+    Invoke-OnDc { param($t) Unlock-ADAccount 'ad.user2'; $p = Get-ADDefaultDomainPasswordPolicy; Set-ADDefaultDomainPasswordPolicy -Identity $p.DistinguishedName -LockoutThreshold $t } @($oldThreshold)
+    Check 'P1-34' '5 mauvais mots de passe AD (seuil du domaine 5) : 3 × 401 puis 429 ; compte AD non verrouillé' "$($codes -join ',') ; $lock" { param($x) $x -like '401,401,401,429,429 ; False/*' }
+    Write-Host "         codes : $($codes -join ',') ; AD verrouillé/badPwdCount : $lock (seuil du domaine remis à $oldThreshold)" -ForegroundColor DarkGray
 }
 
 # ------------------------------------------------------------------ lot Clé agent (rotation, B18) ; finit avec une clé neuve déployée sur CLT-TEST
@@ -593,9 +595,10 @@ function Lot-Donnees {
     Check 'P2-40' 'comptes locaux : connexion avec leur mot de passe habituel' ($codes -join ',') '200,200'
     $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
     if ($l.Code -eq 429) {
-        # ad.user2 encore bloqué par P1-34 (lot AD joué juste avant) : attendre la fin du blocage
-        Write-Host '    (attente de 125 s : ad.user2 bloqué par P1-34)' -ForegroundColor DarkGray
-        Start-Sleep 125; $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+        # ad.user2 encore bloqué (30 min) par P1-34 : le compteur est en mémoire (B14), un recyclage du pool le remet à zéro
+        Write-Host '    (ad.user2 bloqué par P1-34 : recyclage du pool Autoprint)' -ForegroundColor DarkGray
+        Invoke-OnPrint { Import-Module WebAdministration; Restart-WebAppPool Autoprint }; Start-Sleep 5
+        $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
     }
     Check 'P2-40' 'compte AD avec rôle manuel conservé (ad.user2 Lecteur)' $l.Code 200 $l.Text
     Check 'P3-12' 'clé agent conservée après restauration' (Test-AgentKey $agentKey) 200

@@ -171,6 +171,15 @@ builder.Services.AddControllersWithViews()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Sauvegarde mal formée : message clair au lieu du détail de validation d'ASP.NET (types .NET, chemins JSON) (B57)
+        var defaultFactory = options.InvalidModelStateResponseFactory;
+        options.InvalidModelStateResponseFactory = context =>
+            context.HttpContext.Request.Path.StartsWithSegments("/api/Backup/restore", StringComparison.OrdinalIgnoreCase)
+                ? new Microsoft.AspNetCore.Mvc.BadRequestObjectResult("Fichier de sauvegarde invalide ou endommagé : ce n'est pas un export Autoprint lisible. Aucune donnée n'a été modifiée.")
+                : defaultFactory(context);
     });
 builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
