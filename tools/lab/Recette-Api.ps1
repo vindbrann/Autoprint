@@ -169,6 +169,9 @@ function Lot-Escalade {
     Check 'P1-06' 'lecteur : scan du spouleur' $r.Code 403
 
     $pw = New-TestPassword
+    # Compte d'un passage précédent : supprimé par admin pour rejouer la création
+    $old = (Invoke-Api GET '/api/users' -Token (Get-Token 'admin')).Json | Where-Object username -eq 'hd.cree'
+    if ($old) { Invoke-Api DELETE "/api/users/$($old.id)" -Token (Get-Token 'admin') | Out-Null }
     $r = Invoke-Api POST '/api/users' @{ username = 'hd.cree'; password = $pw; displayName = 'Créé par helpdesk'; email = 'hd.cree@lab.autoprint.test'; roleId = $roles['Helpdesk']; forceChangePassword = $true } $th
     Check 'P1-14' 'helpdesk crée un compte Helpdesk' $r.Code { param($x) $x -in 200, 201 } $r.Text
 
@@ -973,9 +976,10 @@ function Lot-Snmp {
     $d3 = & $diag $pV3.id; $d2 = & $diag $pV2.id
     Check 'SV3-13' 'suppression : « 1 modèle(s) et 1 imprimante(s) … par défaut » ; supervision toujours OK (paramètres par défaut)' "$($del.Code)/$($del.Text -match '1 modèle\(s\) et 1 imprimante\(s\)')/$($d3.Json.serialNumber)/$($d2.Json.serialNumber)" '200/True/SIMV3-0001/SIMV2-0002' $del.Text
 
-    # Remise en état : modèle sur « SNMPv3 Parc »
-    $g = (Invoke-Api GET "/api/Modeles/$($mod.id)" -Token $ta).Json; $g.snmpCredentialId = $credId
-    Invoke-Api PUT "/api/Modeles/$($mod.id)" ($g | Select-Object id, nom, code, marqueId, piloteId, snmpProfileId, snmpCredentialId) $ta | Out-Null
+    # Nettoyage : imprimantes simulées sans pilote (elles feraient échouer la synchronisation des autres lots) et leurs modèles
+    foreach ($id in $pV3.id, $pV2.id) { Invoke-Api DELETE "/api/Imprimantes/$id" -Token $ta | Out-Null }
+    Invoke-Sync $ta | Out-Null
+    foreach ($id in $mod.id, $mod0.id) { Invoke-Api DELETE "/api/Modeles/$id" -Token $ta | Out-Null }
 }
 
 # ------------------------------------------------------------------ lot Limitation
