@@ -13,7 +13,7 @@
 #>
 param(
     [string]$BaseUrl = 'https://srv-print.lab.autoprint.test',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Snmp', 'Limitation', 'Tout')][string[]]$Lot = 'Tout',
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Snmp', 'Divers', 'Infra', 'Limitation', 'Tout')][string[]]$Lot = 'Tout',
     # Autre installation d'Autoprint (ex. « sql ») : comptes Autoprint à part (recette-secrets-<profil>.xml), comptes du labo partagés
     [string]$Profil = ''
 )
@@ -988,6 +988,223 @@ function Lot-Snmp {
     foreach ($id in $pV3.id, $pV2.id) { Invoke-Api DELETE "/api/Imprimantes/$id" -Token $ta | Out-Null }
     Invoke-Sync $ta | Out-Null
     foreach ($id in $mod.id, $mod0.id) { Invoke-Api DELETE "/api/Modeles/$id" -Token $ta | Out-Null }
+}
+
+# ------------------------------------------------------------------ lot Divers (SQL Server uniquement : modifie la base directement)
+function Invoke-LabSqlExec([string]$Sql) {
+    Invoke-OnPrint {
+        param($q)
+        $cs = (Get-Content 'C:\Program Files\Autoprint Server\appsettings.json' -Raw | ConvertFrom-Json).Database.ConnectionStrings.SqlServer
+        $cs = $cs -replace 'Trust Server Certificate', 'TrustServerCertificate'
+        $c = New-Object Data.SqlClient.SqlConnection $cs; $c.Open(); $cmd = $c.CreateCommand(); $cmd.CommandText = $q; [void]$cmd.ExecuteNonQuery(); $c.Close()
+    } @($Sql)
+}
+function New-V3Hash([string]$Password) {
+    # Format ASP.NET Identity v3 (PasswordHasher) : PBKDF2-HMAC-SHA512, 100 000 itérations, sel 16 octets, clé 32 octets
+    $salt = New-Object byte[] 16; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($salt)
+    $kdf = New-Object Security.Cryptography.Rfc2898DeriveBytes($Password, $salt, 100000, [Security.Cryptography.HashAlgorithmName]::SHA512)
+    $sub = $kdf.GetBytes(32)
+    $out = New-Object byte[] 61; $out[0] = 1
+    $be = { param($v) $b = [BitConverter]::GetBytes([uint32]$v); [Array]::Reverse($b); $b }
+    [Array]::Copy((& $be 2), 0, $out, 1, 4); [Array]::Copy((& $be 100000), 0, $out, 5, 4); [Array]::Copy((& $be 16), 0, $out, 9, 4)
+    [Array]::Copy($salt, 0, $out, 13, 16); [Array]::Copy($sub, 0, $out, 29, 32)
+    [Convert]::ToBase64String($out)
+}
+
+function Lot-Divers {
+    Write-Host "`n--- Lot Divers : import, noms, anciens mots de passe, SNMP / SMTP / AD, comptes, sessions, CORS, proxy, PDF ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    $modele = (Invoke-Api GET '/api/Modeles' -Token $ta).Json | Where-Object nom -eq 'Texte brut' | Select-Object -First 1
+
+    # P1-05, PA-05 : import depuis le spouleur local
+    Invoke-OnPrint { foreach ($n in 'Import-A', 'Import-B') { if (-not (Get-Printer $n -ErrorAction SilentlyContinue)) { Add-Printer -Name $n -DriverName 'Generic / Text Only' -PortName 'IP_192.168.99.10' } } }
+    foreach ($p in @((Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object { $_.nomAffiche -like 'Import-*' })) { Invoke-Api DELETE "/api/Imprimantes/$($p.id)" -Token $ta | Out-Null }
+    $scan = (Invoke-Api POST '/api/Import/Scan/Printers' -Token $ta).Json | Where-Object { $_.name -like 'Import-*' }
+    $sel = '[' + ((@($scan) | ForEach-Object { $ok = $_.name -eq 'Import-A'
+        '{"name":"' + $_.name + '","portName":"192.168.99.10","isShared":false,"shareName":"","isDirectPrintingEnabled":false,"selectedLieuId":' + $(if ($ok) { $lieu.id } else { 0 }) + ',"selectedModeleId":' + $(if ($ok) { $modele.id } else { 0 }) + '}' }) -join ',') + ']'
+    $imp = Invoke-Api POST '/api/Import/Import/Printers' $sel $ta
+    $list = (Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object { $_.nomAffiche -like 'Import-*' }
+    $st = ($list | Sort-Object nomAffiche | ForEach-Object { "$($_.nomAffiche)=$($_.status)" }) -join ','
+    Check 'P1-05' 'scan du spouleur puis import de deux imprimantes : présentes dans la liste' "$(@($scan).Count)/$($imp.Code)/$(@($list).Count)" '2/200/2' $imp.Text
+    $again = Invoke-Api POST '/api/Import/Import/Printers' ('[' + ($sel.Trim('[', ']').Split('}')[0]) + '}]') $ta
+    Check 'PA-05' 'sans lieu ni modèle : statut « à corriger » ; réimport : « 1 ignorée(s) »' "$st | $($again.Text)" { param($x) $x -match 'Import-B=(ImportedNeedsFix|1)(,| |$)' -and $x -match '1 ignorée' } "$st | $($again.Text)"
+    foreach ($p in @($list)) { Invoke-Api DELETE "/api/Imprimantes/$($p.id)" -Token $ta | Out-Null }
+    Invoke-OnPrint { foreach ($n in 'Import-A', 'Import-B') { Remove-Printer $n -ErrorAction SilentlyContinue } }
+
+    # P1-12 : nom désormais interdit, seul le commentaire est modifié
+    $q = (Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = 'Ancien-Nom'; adresseIp = '192.168.99.10'; modeleId = $modele.id; emplacementId = $lieu.id } $ta).Json
+    Invoke-LabSqlExec "UPDATE Imprimantes SET NomAffiche = N'Ancien/Nom*', NomPartage = N'Ancien/Nom*' WHERE Id = $($q.id)"
+    $full = (Invoke-Api GET "/api/Imprimantes/$($q.id)" -Token $ta).Json; $full.commentaire = 'P1-12'
+    $u1 = Invoke-Api PUT "/api/Imprimantes/$($q.id)" $full $ta
+    $full.nomAffiche = 'Autre/Nom*'; $u2 = Invoke-Api PUT "/api/Imprimantes/$($q.id)" $full $ta
+    Check 'P1-12' 'nom interdit existant : commentaire seul accepté ; renommage en nom interdit refusé' "$($u1.Code)/$($u2.Code)" '204/400' "$($u1.Text) $($u2.Text)"
+    Invoke-Api DELETE "/api/Imprimantes/$($q.id)" -Token $ta | Out-Null
+
+    # P2-16, P2-42 : anciens mots de passe (9 caractères) ; hachage v3 et SHA-256 hérité
+    $roles = @{}; (Invoke-Api GET '/api/roles' -Token $ta).Json | ForEach-Object { $roles[$_.name] = $_.id }
+    $users = @{}; (Invoke-Api GET '/api/users' -Token $ta).Json | ForEach-Object { $users[$_.username] = $_.id }
+    foreach ($n in 'old.v3', 'old.sha', 'pa14', 'pa16', 'sc03') { if ($users.ContainsKey($n)) { Invoke-Api DELETE "/api/users/$($users[$n])" -Token $ta | Out-Null } }
+    foreach ($n in 'old.v3', 'old.sha') {
+        $r = Invoke-Api POST '/api/users' @{ username = $n; password = (New-TestPassword); displayName = $n; email = "$n@lab.autoprint.test"; roleId = $roles['Lecteur']; forceChangePassword = $false } $ta
+        $short = 'Ancien9' + (Get-Random -Minimum 10 -Maximum 99)   # 9 caractères
+        $hash = if ($n -eq 'old.v3') { New-V3Hash $short } else { $b = [Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($short)); -join ($b | ForEach-Object { $_.ToString('x2') }) }
+        Invoke-LabSqlExec "UPDATE Users SET PasswordHash = '$hash', ForceChangePassword = 0 WHERE Id = $($r.Json.id)"
+        $l = Invoke-Login $n $short
+        if ($n -eq 'old.v3') { Check 'P2-16' 'ancien mot de passe de 9 caractères (hachage actuel) : connexion acceptée, pas de changement imposé' "$($l.Code)/$($l.Json.passwordExpired)" '200/False' $l.Text }
+        else { Check 'P2-42' 'ancien hachage SHA-256 : connexion acceptée puis changement imposé' "$($l.Code)/$($l.Json.passwordExpired)" '200/True' $l.Text }
+    }
+
+    # PA-14, PA-16 : case « changement obligatoire »
+    $p14 = New-TestPassword
+    $r = Invoke-Api POST '/api/users' @{ username = 'pa14'; password = $p14; displayName = 'pa14'; email = 'pa14@lab.autoprint.test'; roleId = $roles['Lecteur']; forceChangePassword = $false } $ta
+    $l = Invoke-Login 'pa14' $p14
+    Check 'PA-14' 'case décochée : première connexion sans changement imposé' "$($l.Code)/$($l.Json.passwordExpired)" '200/False'
+    $r = Invoke-Api POST '/api/users' @{ username = 'pa16'; password = (New-TestPassword); displayName = 'pa16'; email = 'pa16@lab.autoprint.test'; roleId = $roles['Lecteur']; forceChangePassword = $true } $ta
+    $u = (Invoke-Api GET "/api/users/$($r.Json.id)" -Token $ta).Json; $u | Add-Member -NotePropertyName displayName -NotePropertyValue 'pa16 renommé' -Force
+    $put = Invoke-Api PUT "/api/users/$($r.Json.id)" $u $ta
+    $after = (Invoke-Api GET "/api/users/$($r.Json.id)" -Token $ta).Json
+    Check 'PA-16' 'modification du seul nom : « changement obligatoire » reste coché' "$($put.Code)/$($after.displayName)/$($after.forceChangePassword)" '204/pa16 renommé/True' $put.Text
+
+    # SC-03 : permission retirée au rôle d'un utilisateur connecté : renouvellement refusé
+    $rr = Invoke-Api POST '/api/roles' @{ name = 'SC03'; description = 'Recette SC-03'; permissionIds = @(((Invoke-Api GET '/api/roles/permissions' -Token $ta).Json | Where-Object code -in 'PRINTER_READ', 'LOCATION_READ').id) } $ta
+    $roles = @{}; (Invoke-Api GET '/api/roles' -Token $ta).Json | ForEach-Object { $roles[$_.name] = $_.id }
+    $p3 = New-TestPassword
+    Invoke-Api POST '/api/users' @{ username = 'sc03'; password = $p3; displayName = 'sc03'; email = 'sc03@lab.autoprint.test'; roleId = $roles['SC03']; forceChangePassword = $false } $ta | Out-Null
+    $t3 = (Invoke-Login 'sc03' $p3).Json.token
+    $before = (Invoke-Api POST '/api/auth/refresh' -Token $t3).Code
+    $role = (Invoke-Api GET "/api/roles/$($roles['SC03'])" -Token $ta).Json; $role.permissionIds = @(((Invoke-Api GET '/api/roles/permissions' -Token $ta).Json | Where-Object code -eq 'PRINTER_READ').id)
+    Invoke-Api PUT "/api/roles/$($roles['SC03'])" $role $ta | Out-Null
+    Start-Sleep 31
+    $afterR = Invoke-Api POST '/api/auth/refresh' -Token $t3
+    $relog = Invoke-Login 'sc03' $p3
+    Check 'SC-03' 'permission retirée : renouvellement refusé ; reconnexion avec les nouveaux droits' "$before/$($afterR.Code)/$($relog.Code)/$(($relog.Json.permissions) -join ',')" '200/401/200/PRINTER_READ'
+    foreach ($n in 'old.v3', 'old.sha', 'pa14', 'pa16', 'sc03') { $id = ((Invoke-Api GET '/api/users' -Token $ta).Json | Where-Object username -eq $n).id; if ($id) { Invoke-Api DELETE "/api/users/$id" -Token $ta | Out-Null } }
+    Invoke-Api DELETE "/api/roles/$($roles['SC03'])" -Token $ta | Out-Null
+
+    # P2-19, P2-20 : test d'un profil d'OID
+    $t = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = '192.168.99.77'; community = 'public'; version = 2; items = @(@{ name = 'x'; oid = '1.3.6.1.2.1.1.1.0'; category = 3; valueType = 3 }) } $ta
+    Check 'P2-19' 'IP sans imprimante : message de diagnostic clair' "$($t.Code)/$($t.Text -match 'pas répondu|ne répond pas')" '400/True' $t.Text
+    $codes = foreach ($ip in '10.0.0.1; rm', '<script>') { $x = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = $ip; items = @() } $ta; "$($x.Code):$($x.Text -match 'invalide')" }
+    Check 'P2-20' 'adresses « 10.0.0.1; rm » et « <script> » : refus « adresse invalide »' ($codes -join ',') '400:True,400:True'
+
+    # P2-21 : tests SMTP et AD avec de mauvais paramètres (détail utile conservé, réservé aux admins)
+    $e = Invoke-Api POST '/api/Settings/TestEmail' @{ host = 'smtp.inexistant.lab.autoprint.test'; port = 25; user = 'x'; password = 'Mauvais-1'; ssl = $true; from = 'a@lab.autoprint.test'; to = 'admin@lab.autoprint.test' } $ta
+    $a = Invoke-Api POST '/api/Settings/TestAd' @{ domain = 'domaine-inexistant.test'; useServiceAccount = $true; serviceUser = 'x'; servicePassword = 'Mauvais-1' } $ta
+    Check 'P2-21' 'SMTP / AD erronés : refus avec le détail utile' "$($e.Code)/$($a.Code)" { param($x) $x -match '^(400|500)/(400|500)$' } "$($e.Text) | $($a.Text)"
+    Write-Host "         SMTP : $($e.Text)`n         AD : $($a.Text)" -ForegroundColor DarkGray
+
+    # SC-09 : restauration sans mot de passe : message sur la conservation des secrets
+    $plain = Invoke-Api POST '/api/Backup/export' @{} $ta
+    $r = Invoke-Api POST '/api/Backup/restore' $plain.Text $ta
+    # SC-09 : le message sur les secrets conservés est affiché par la console (Paramètres) : contrôle à l'écran
+    Check 'SC-09' 'restauration sans mot de passe acceptée (message de la console : à l''écran)' $r.Code 200 $r.Text
+    Write-Host "         message : $($r.Text)" -ForegroundColor DarkGray
+    $ta = Get-Token 'admin'
+
+    # SD-05 : recherche d'un groupe AD contenant « & », « # » et un espace
+    Invoke-OnDc { if (-not (Get-ADGroup -Filter "Name -eq 'GG Test & #1'")) { New-ADGroup -Name 'GG Test & #1' -GroupScope Global -Path ((Get-ADOrganizationalUnit -Filter "Name -eq 'Groupes'").DistinguishedName) } }
+    $s = Invoke-Api GET ('/api/roles/ad/search?type=0&q=' + [uri]::EscapeDataString('GG Test & #1')) -Token $ta
+    Check 'SD-05' 'liaison AD : recherche « GG Test & #1 »' "$($s.Code)/$($s.Text -match 'GG Test & #1')" '200/True' $s.Text
+
+    # SD-07 : requête depuis une autre origine (CORS)
+    $req = [Net.HttpWebRequest]::Create("$BaseUrl/api/Imprimantes"); $req.Headers['Origin'] = 'https://autre-origine.example'; $req.Headers['Authorization'] = "Bearer $ta"
+    $resp = $req.GetResponse(); $acao = $resp.Headers['Access-Control-Allow-Origin']; $resp.Close()
+    $req = [Net.HttpWebRequest]::Create("$BaseUrl/api/Imprimantes"); $req.Method = 'OPTIONS'; $req.Headers['Origin'] = 'https://autre-origine.example'; $req.Headers['Access-Control-Request-Method'] = 'GET'
+    try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response }; $acao2 = $resp.Headers['Access-Control-Allow-Origin']; $resp.Close()
+    Check 'SD-07' 'autre origine : aucun en-tête Access-Control-Allow-Origin (GET et pré-vol)' "[$acao][$acao2]" '[][]'
+
+    # SE-09 : bibliothèques du rapport PDF
+    $files = Invoke-OnPrint { $d = 'C:\Program Files\Autoprint Server'; "$(Test-Path "$d\runtimes\win-x64\native\libSkiaSharp.dll")/$(Test-Path "$d\Licenses\AutoprintSans-OFL-LICENSE.txt")/$(@(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue | Where-Object Message -match 'libSkiaSharp').Count)" }
+    Check 'SE-09' 'libSkiaSharp.dll et licence de la police présentes ; aucune erreur libSkiaSharp' $files 'True/True/0'
+
+    # SE-08 / SD-11 : rapport PDF avec plus de 45 imprimantes, mesures « Compteur » et « Pannes »
+    $ids = foreach ($n in 1..62) { (Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = ('PDF-{0:D2}' -f $n); adresseIp = "10.77.0.$n"; modeleId = $modele.id; emplacementId = $lieu.id } $ta).Json.id }
+    $since = Get-Date
+    $s = Invoke-Api POST '/api/ReportSchedules' @{ reportName = 'Recette SE-08 é à ç'; selectedMetricsJson = '["Alerts","Pages"]'; scopeFilterJson = '{}'; frequency = 'Hebdomadaire'; emailRecipients = 'admin@lab.autoprint.test'; format = 'PDF'; isActive = $true; predictionThresholdDays = 14; runHour = 7; runMinute = 30 } $ta
+    $send = Invoke-Api POST "/api/ReportSchedules/$($s.Json.id)/send" -Token $ta
+    Start-Sleep 6
+    $m = @(Get-CapturedMails $since) | Select-Object -Last 1
+    $b64 = if ($m) { [regex]::Match($m.Text, '(?s)Content-Type: application/pdf.*?\r?\n\r?\n([A-Za-z0-9+/=\r\n]+)').Groups[1].Value -replace '\s', '' } else { '' }
+    $pdfFile = Join-Path $env:TEMP 'recette-SE-08.pdf'
+    if ($b64) { [IO.File]::WriteAllBytes($pdfFile, [Convert]::FromBase64String($b64)) }
+    $pages = if (Test-Path $pdfFile) { ([regex]::Matches([IO.File]::ReadAllText($pdfFile, [Text.Encoding]::GetEncoding(28591)), '/Type\s*/Page[^s]')).Count } else { 0 }
+    $ko = if (Test-Path $pdfFile) { [int]((Get-Item $pdfFile).Length / 1KB) } else { 0 }
+    Check 'SE-08' 'rapport PDF 60+ imprimantes, Compteur + Pannes : reçu, quelques dizaines de Ko, plusieurs pages' "$($send.Code)/$ko Ko/$pages pages" { param($x) $x -match '^200/\d+ Ko/[2-9] pages' -and [int]($x.Split('/')[1] -replace ' Ko') -lt 300 } "$($send.Text) $pdfFile"
+    Write-Host "         PDF enregistré pour contrôle visuel (SD-11 : bandeau, titre, accents) : $pdfFile" -ForegroundColor DarkGray
+    Invoke-Api DELETE "/api/ReportSchedules/$($s.Json.id)" -Token $ta | Out-Null
+    foreach ($id in $ids) { Invoke-Api DELETE "/api/Imprimantes/$id" -Token $ta | Out-Null }
+}
+
+# ------------------------------------------------------------------ lot Infra : spouleur bloqué, file non supprimable, AD injoignable, Base DN, proxy
+function Lot-Infra {
+    Write-Host "`n--- Lot Infra : spouleur bloqué (SB-06), file non supprimable (SD-03), AD injoignable (PA-12), Base DN (PA-13), proxy (PA-11) ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    $modele = (Invoke-Api GET '/api/Modeles' -Token $ta).Json | Where-Object nom -eq 'Texte brut' | Select-Object -First 1
+
+    # Restes d'un passage précédent
+    foreach ($x in @((Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object nomAffiche -eq 'Spouleur-Bloque')) { Invoke-LabSqlExec "DELETE FROM Imprimantes WHERE Id = $($x.id)" }
+
+    # SB-06 : spouleur Windows suspendu pendant une synchronisation
+    $p = (Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = 'Spouleur-Bloque'; adresseIp = '192.168.99.10'; modeleId = $modele.id; emplacementId = $lieu.id; estPartagee = $true } $ta).Json
+    $susp = @'
+using System; using System.Runtime.InteropServices;
+public static class Proc { [DllImport("ntdll.dll")] public static extern int NtSuspendProcess(IntPtr h); [DllImport("ntdll.dll")] public static extern int NtResumeProcess(IntPtr h); }
+'@
+    Invoke-OnPrint { param($src) Add-Type -TypeDefinition $src; [Diagnostics.Process]::EnterDebugMode(); [void][Proc]::NtSuspendProcess((Get-Process spoolsv).Handle); 'suspendu' } @($susp) | Out-Null
+    $sw = [Diagnostics.Stopwatch]::StartNew(); $s1 = Invoke-Sync $ta; $sec = [int]$sw.Elapsed.TotalSeconds
+    Invoke-OnPrint { param($src) Add-Type -TypeDefinition $src; [Diagnostics.Process]::EnterDebugMode(); [void][Proc]::NtResumeProcess((Get-Process spoolsv).Handle); 'repris' } @($susp) | Out-Null
+    Check 'SB-06' 'spouleur suspendu : échec au bout de ~60 s avec message clair' "$sec s / $($s1.Text -match 'n.a pas répondu|60 s')" { param($x) $x -match '^(5[5-9]|6\d|7\d|8\d|9\d) s / True' } $s1.Text
+    Start-Sleep 5
+    $s2 = Invoke-Sync $ta
+    Check 'SB-06' 'spouleur relancé : la synchronisation suivante aboutit' ($s2.Text -match '"success":true') $true $s2.Text
+
+    # SD-03 : file Windows impossible à supprimer (SYSTEM sans le droit de gestion), suppression puis synchronisation
+    Invoke-OnPrint { $sd = (Get-Printer 'Spouleur-Bloque' -Full).PermissionSDDL; $i = $sd.IndexOf('D:') + 2; Set-Printer 'Spouleur-Bloque' -PermissionSDDL ($sd.Substring(0, $i) + '(D;;SD;;;SY)(D;;SD;;;BA)' + $sd.Substring($i)) }
+    Invoke-Api DELETE "/api/Imprimantes/$($p.id)" -Token $ta | Out-Null
+    $s3 = Invoke-Sync $ta
+    $still = Invoke-OnPrint { [bool](Get-Printer 'Spouleur-Bloque' -ErrorAction SilentlyContinue) }
+    Check 'SD-03' 'file non supprimable : la synchronisation signale l''échec' "$still/$($s3.Text -match 'ERREUR|chec|refus')" 'True/True' $s3.Text
+    # Suppression de la file interdite de suppression : par le registre du spouleur (Set-Printer est aussi refusé)
+    Invoke-OnPrint { Stop-Service Spooler -Force; Start-Sleep 2; Remove-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\Print\Printers\Spouleur-Bloque' -Recurse -Force -ErrorAction SilentlyContinue; Start-Service Spooler; Start-Sleep 3; Restart-Service AutoprintSpooler }
+
+    # PA-12 : contrôleur de domaine injoignable (LDAP / Kerberos bloqués sur SRV-PRINT ; ses deux adresses, .11 étant celle du simulateur SNMP)
+    Invoke-OnPrint { New-NetFirewallRule -Name 'Recette-PA12' -DisplayName 'Recette PA-12' -Direction Outbound -Action Block -RemoteAddress 192.168.99.10, 192.168.99.11 -Protocol TCP -RemotePort 88, 389, 636, 3268, 3269, 445 | Out-Null
+        New-NetFirewallRule -Name 'Recette-PA12u' -DisplayName 'Recette PA-12 UDP' -Direction Outbound -Action Block -RemoteAddress 192.168.99.10, 192.168.99.11 -Protocol UDP -RemotePort 88, 389 | Out-Null }
+    $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    Invoke-OnPrint { Remove-NetFirewallRule -Name 'Recette-PA12', 'Recette-PA12u' }
+    Check 'PA-12' 'AD injoignable : « Annuaire Active Directory injoignable », pas de connexion' "$($l.Code)/$($l.Text -match 'injoignable')" '503/True' $l.Text
+    Write-Host "         message : $($l.Text)" -ForegroundColor DarkGray
+
+    # PA-13 : utilisateur hors de la base de recherche, avec un rôle manuel (ad.user2 : Lecteur manuel), membre d'un groupe lié à SuperAdmin
+    Invoke-OnDc { Add-ADGroupMember 'GG_Autoprint_Admins' -Members 'ad.user2' }
+    $dto = Get-SettingsDto $ta; $oldBase = $dto['AdBaseDn']
+    $dto['AdBaseDn'] = [string](Invoke-OnDc { [string](Get-ADOrganizationalUnit -Filter "Name -eq 'Groupes'").DistinguishedName })
+    $sv = Invoke-Api POST '/api/Settings/Save' $dto $ta
+    Start-Sleep 2
+    $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    $perms = if ($l.Json.token) { $l.Json.permissions -join ',' } else { '' }
+    $dto['AdBaseDn'] = $oldBase; Invoke-Api POST '/api/Settings/Save' $dto $ta | Out-Null
+    Invoke-OnDc { Remove-ADGroupMember 'GG_Autoprint_Admins' -Members 'ad.user2' -Confirm:$false }
+    Check 'PA-13' 'hors Base DN, rôle manuel Lecteur, membre d''un groupe admin : seul Lecteur' "$($sv.Code)/$($l.Code)/$perms" { param($x) $x -match '^200/200/' -and $x -notmatch 'ADMIN_ACCESS' -and $x -match 'PRINTER_READ' } $l.Text
+
+    # PA-11 : proxy inverse déclaré : l'IP du client (X-Forwarded-For) est utilisée par la limite par IP
+    $cfg = { param($on) $f = 'C:\Program Files\Autoprint Server\appsettings.json'; $j = Get-Content $f -Raw | ConvertFrom-Json
+        if ($on) { $j | Add-Member -NotePropertyName ReverseProxy -NotePropertyValue ([pscustomobject]@{ KnownProxies = @('192.168.99.1') }) -Force } else { $j.PSObject.Properties.Remove('ReverseProxy') }
+        $j | ConvertTo-Json -Depth 10 | Set-Content $f -Encoding UTF8; Import-Module WebAdministration; Restart-WebAppPool Autoprint }
+    $try = { param($forwarded) $codes = foreach ($n in 1..12) { $req = [Net.HttpWebRequest]::Create("$BaseUrl/api/auth/login"); $req.Method = 'POST'; $req.ContentType = 'application/json'
+            if ($forwarded) { $req.Headers['X-Forwarded-For'] = "10.66.0.$n" }
+            $b = [Text.Encoding]::UTF8.GetBytes('{"username":"px' + $n + '","password":"x"}'); $s = $req.GetRequestStream(); $s.Write($b, 0, $b.Length); $s.Close()
+            try { $r = $req.GetResponse(); [int]$r.StatusCode; $r.Close() } catch [Net.WebException] { [int]$_.Exception.Response.StatusCode; $_.Exception.Response.Close() } }
+        ($codes | Where-Object { $_ -eq 429 }).Count }
+    Start-Sleep 62
+    Invoke-OnPrint $cfg @($true); Start-Sleep 5
+    $with = & $try $true
+    Start-Sleep 62
+    $spoof = & $try $false
+    Invoke-OnPrint $cfg @($false); Start-Sleep 5; $script:Logins.Clear()
+    Check 'PA-11' 'proxy déclaré : 12 connexions de 12 IP réelles sans 429 ; sans en-tête, la limite par IP joue' "$with/$spoof" { param($x) $x -match '^0/[1-9]' } "$with/$spoof"
 }
 
 # ------------------------------------------------------------------ lot Limitation

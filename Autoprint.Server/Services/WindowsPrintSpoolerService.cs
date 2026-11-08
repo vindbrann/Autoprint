@@ -43,12 +43,20 @@ namespace Autoprint.Server.Services
 
                 var allPrinters = GetAllPrintersNative();
 
+                // Port exact : « IP_10.0.0.1 » ne doit pas correspondre à « IP_10.0.0.10 » (B66)
                 var match = allPrinters.FirstOrDefault(p =>
-                    p.pPortName != null &&
-                    p.pPortName.Contains(targetPortPattern, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(p.pPortName, targetPortPattern, StringComparison.OrdinalIgnoreCase));
 
                 return match.pPrinterName;
             });
+        }
+
+        public Task<List<KeyValuePair<string, string>>> ListerFilesLocales()
+        {
+            return Task.Run(() => GetAllPrintersNative()
+                .Where(p => !string.IsNullOrEmpty(p.pPrinterName))
+                .Select(p => new KeyValuePair<string, string>(p.pPrinterName, p.pPortName ?? ""))
+                .ToList());
         }
 
         private List<PRINTER_INFO_2> GetAllPrintersNative()

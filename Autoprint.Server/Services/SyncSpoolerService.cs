@@ -78,6 +78,11 @@ namespace Autoprint.Server.Services
                 .Where(i => idsToProcess.Contains(i.Id))
                 .ToListAsync();
 
+            // Noms des files appartenant aux autres imprimantes : une mise à jour ne doit jamais renommer la file d'une autre
+            // imprimante qui partage la même adresse IP (B66)
+            var nomsParId = await context.Imprimantes.AsNoTracking().Select(i => new { i.Id, i.NomAffiche }).ToListAsync();
+            List<KeyValuePair<string, string>>? files = null;
+
             foreach (var imp in tasks)
             {
                 try
@@ -118,14 +123,16 @@ namespace Autoprint.Server.Services
 
                     else if (imp.Status == PrinterStatus.PendingUpdate || imp.Status == PrinterStatus.SyncError)
                     {
-                        string? nomActuelSurWindows = await spooler.RecupererNomImprimanteParIp(imp.AdresseIp);
+                        files ??= await spooler.ListerFilesLocales();
+                        string? nomActuelSurWindows = TrouverFileAMettreAJour(imp, files, nomsParId.Where(n => n.Id != imp.Id).Select(n => n.NomAffiche));
 
                         if (!string.IsNullOrEmpty(nomActuelSurWindows))
                         {
-                            if (nomActuelSurWindows != imp.NomAffiche)
+                            if (!string.Equals(nomActuelSurWindows, imp.NomAffiche, StringComparison.OrdinalIgnoreCase))
                             {
                                 await spooler.RenommerImprimante(nomActuelSurWindows, imp.NomAffiche);
                                 result.Messages.Add($"[RENAME] '{nomActuelSurWindows}' -> '{imp.NomAffiche}'.");
+                                files = null; // liste à relire après un renommage
                             }
 
                             await spooler.CreerPortTcp(imp.AdresseIp);
@@ -166,6 +173,13 @@ namespace Autoprint.Server.Services
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[ERREUR SYNC] {ex.Message}";
                     result.Messages.Add($"[ERREUR] {imp.NomAffiche} : {ex.Message}");
+
+                    // Spouleur bloqué ou service injoignable : inutile d'enchaîner les autres imprimantes (chacune attendrait le délai) (B67)
+                    if (ex.Message.Contains("n'a pas répondu") || ex.Message.Contains("ne répond plus") || ex.Message.Contains("injoignable"))
+                    {
+                        result.Messages.Add("[ERREUR] Synchronisation interrompue : spouleur indisponible. Les autres imprimantes restent en attente.");
+                        break;
+                    }
                 }
             }
 
@@ -179,6 +193,28 @@ namespace Autoprint.Server.Services
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// File Windows de cette imprimante : celle qui porte déjà son nom ; à défaut (renommage dans la console), l'unique file
+        /// de son port dont le nom n'appartient à aucune autre imprimante. Sinon null : la file sera recréée (B66).
+        /// </summary>
+        internal static string? TrouverFileAMettreAJour(Autoprint.Shared.Imprimante imp, List<KeyValuePair<string, string>> files, IEnumerable<string> nomsAutres)
+        {
+            var parNom = files.FirstOrDefault(f => string.Equals(f.Key, imp.NomAffiche, StringComparison.OrdinalIgnoreCase));
+            if (parNom.Key != null) return parNom.Key;
+
+            // Recherche par port seulement après un renommage dans la console (« à mettre à jour ») : une imprimante en erreur
+            // ne doit pas reprendre une file créée à la main sur le serveur, même sur la même adresse IP
+            if (imp.Status != PrinterStatus.PendingUpdate) return null;
+
+            var autres = new HashSet<string>(nomsAutres, StringComparer.OrdinalIgnoreCase);
+            string port = $"IP_{imp.AdresseIp?.Trim()}";
+            var candidates = files
+                .Where(f => string.Equals(f.Value, port, StringComparison.OrdinalIgnoreCase) && !autres.Contains(f.Key))
+                .Select(f => f.Key)
+                .ToList();
+            return candidates.Count == 1 ? candidates[0] : null;
         }
     }
 }

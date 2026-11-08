@@ -385,7 +385,7 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SB-03 | Même mise à jour alors qu'une base existe déjà dans `ProgramData\Autoprint\Data`. | L'installeur s'arrête avec un message, rien n'est écrasé. | ☐ |
 | SB-04 | Droits de `C:\ProgramData\Autoprint\Data` (compte standard). | Accès refusé ; site fonctionnel. | ☐ |
 | SB-05 | Tableau de bord › État du service, service `AutoprintSpooler` démarré puis arrêté. | « EN LIGNE » puis « ARRÊTÉ » sous « Service AutoprintSpooler » (B26). | ☐ |
-| SB-06 | Simuler un spouleur bloqué (suspendre le service Spouleur d'impression pendant une synchronisation). | Après 60 s : « Le spouleur Windows n'a pas répondu en 60 s… » ; les synchronisations suivantes ne restent pas bloquées une fois le spouleur relancé (B27). | ☐ |
+| SB-06 | Simuler un spouleur bloqué (suspendre le service Spouleur d'impression pendant une synchronisation). | Après 60 s : « Le spouleur Windows n'a pas répondu en 60 s… » et « Synchronisation interrompue : spouleur indisponible » ; les synchronisations suivantes aboutissent une fois le spouleur relancé (B27, B67). | ☐ |
 
 ### 5.7 Améliorations (phase C)
 
@@ -408,7 +408,6 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SD-01 | Installation neuve SQL Server, puis mise à jour d'un serveur existant : journal de démarrage du site (ou de `--migrate-only`). | Migration `AlignModelSnapshot` appliquée ; aucune ligne « [DbInitializer] Mise à niveau du schéma en échec » (B2, B3). | ☐ |
 | SD-02 | Installation neuve SQLite : journal de démarrage. | Aucune erreur « duplicate column » ni ligne `fail:` liée au schéma (B3). | ☐ |
 | SD-03 | Supprimer une imprimante dont la file Windows ne peut pas être supprimée (droits retirés, file en cours d'utilisation), synchroniser. | La synchronisation signale l'échec (avant : file considérée comme supprimée) (B3). | ☐ |
-| SD-04 | **SQL Server** (installation neuve, puis mise à jour d'un serveur existant) : Profils SNMP › créer un profil d'OID avec au moins un élément (toner, compteur), l'enregistrer, le modifier. | Enregistré sans erreur ; aucune ligne « Cannot insert the value NULL into column 'DateCreation' » dans le journal (B60). | ☐ |
 | SD-04 | Créer une imprimante avec une adresse refusée par le spouleur, synchroniser. | Message « Création du port … impossible : … » (B3). | ☐ |
 | SD-05 | Rôles › liaison AD › rechercher un groupe contenant `&`, `#` ou un espace. | Résultats corrects (paramètre désormais encodé) (B9). | ☐ |
 | SD-06 | Page de connexion › mot de passe expiré › annuler la fenêtre de changement. | Retour propre à la page de connexion, plus de jeton dans le stockage du navigateur (B9). | ☐ |
@@ -417,6 +416,8 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SD-09 | Client : thème clair / sombre, fenêtre unique, liste des imprimantes. | Affichage correct avec MaterialDesign 5.4 (B12). | ☐ |
 | SD-10 | Compilation complète de la solution (`dotnet build Autoprint.sln`) deux fois de suite. | Réussie à chaque fois (B28). | ☐ |
 | SD-11 | Rapport planifié PDF : envoi manuel. | PDF reçu et lisible : bandeau, titre, tableau, accents (contrôlé ici sur base de test). | ☐ |
+| SD-12 | **SQL Server** (installation neuve, puis mise à jour d'un serveur existant) : Profils SNMP › créer un profil d'OID avec au moins un élément (toner, compteur), l'enregistrer, le modifier. | Enregistré sans erreur ; aucune ligne « Cannot insert the value NULL into column 'DateCreation' » dans le journal (B60). | ☐ |
+| SD-13 | Deux imprimantes sur la **même adresse IP** (ex. deux pilotes) : créer, synchroniser ; modifier l'une, synchroniser ; renommer l'une, synchroniser ; supprimer l'une, synchroniser. | Les deux files existent ; seule la file modifiée / renommée / supprimée change, l'autre est intacte (B66). | ☐ |
 
 ### 5.9 Montées de version (phase E)
 
@@ -489,6 +490,7 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 08/11/2026 | B56, recette en labo | S8-08 mis à jour (B25) ; S8-12 : source `Autoprint.SpoolerService` (B56). |
 | 08/11/2026 | B51, B52 (recette en labo) | Ajout de SI-01 à SI-04 (installation neuve sur serveur français : droits du pool IIS, pare-feu). Labo Hyper-V décrit au § 0.1. |
 | 08/11/2026 | B59 (recette en labo) | Ajout de SI-05 (installation neuve sur un SQL Server vierge). |
-| 08/11/2026 | B60 (recette en labo) | Ajout de SD-04 (profil d'OID avec éléments sur SQL Server). |
+| 08/11/2026 | B60 (recette en labo) | Ajout de SD-12 (profil d'OID avec éléments sur SQL Server). |
 | 08/11/2026 | B61 (recette en labo) | Ajout de SI-06 (pool IIS redémarré après une mise à jour). |
 | 08/11/2026 | B63 (recette en labo) | Ajout de SI-07 (durée des jetons après mise à jour). |
+| 08/11/2026 | B66, B67 (recette en labo) | Ajout de SD-13 (imprimantes partageant une IP) ; SB-06 : échec attendu en 60 s avec interruption de la synchronisation. |

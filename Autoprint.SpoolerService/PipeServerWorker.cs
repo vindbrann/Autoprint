@@ -21,6 +21,9 @@ namespace Autoprint.SpoolerService
         private readonly ILogger<PipeServerWorker> _logger;
         private readonly string _allowedClient;
         private readonly SemaphoreSlim _serialize = new(1, 1);
+        // Opération abandonnée après le délai mais toujours en cours dans le spouleur (bloqué) : tant qu'elle n'est pas
+        // terminée, les suivantes sont refusées tout de suite au lieu d'attendre chacune 60 s (B67)
+        private Task? _stuckOperation;
         private bool _warnedMissingClient;
 
         public PipeServerWorker(ISpoolerAdmin admin, ILogger<PipeServerWorker> logger, IConfiguration configuration)
@@ -151,17 +154,35 @@ namespace Autoprint.SpoolerService
                     // une opération WMI bloquée ne doit pas bloquer toutes les suivantes. Elle ne peut pas être annulée
                     // et se termine en arrière-plan ; le site reçoit une erreur claire.
                     SpoolerResponse response;
-                    await _serialize.WaitAsync(stoppingToken);
-                    try
+                    if (!await _serialize.WaitAsync(OperationTimeout, stoppingToken))
                     {
-                        response = await SpoolerProtocol.HandleAsync(_admin, request).WaitAsync(OperationTimeout, stoppingToken);
+                        response = SpoolerResponse.Fail($"Le spouleur Windows n'a pas répondu en {OperationTimeout.TotalSeconds} s (opération précédente toujours en cours). Vérifiez le service « Spouleur d'impression » du serveur.");
                     }
-                    catch (TimeoutException)
+                    else
                     {
-                        _logger.LogError("Commande {Command} « {Name} » : délai de {Seconds} s dépassé", request?.Command, request?.Name, OperationTimeout.TotalSeconds);
-                        response = SpoolerResponse.Fail($"Le spouleur Windows n'a pas répondu en {OperationTimeout.TotalSeconds} s. Vérifiez le service « Spouleur d'impression » du serveur.");
+                        try
+                        {
+                            if (_stuckOperation is { IsCompleted: false })
+                            {
+                                response = SpoolerResponse.Fail("Le spouleur Windows ne répond plus : une opération précédente est toujours bloquée. Redémarrez le service « Spouleur d'impression » du serveur, puis relancez la synchronisation.");
+                            }
+                            else
+                            {
+                                var operation = SpoolerProtocol.HandleAsync(_admin, request);
+                                try
+                                {
+                                    response = await operation.WaitAsync(OperationTimeout, stoppingToken);
+                                }
+                                catch (TimeoutException)
+                                {
+                                    _stuckOperation = operation;
+                                    _logger.LogError("Commande {Command} « {Name} » : délai de {Seconds} s dépassé", request?.Command, request?.Name, OperationTimeout.TotalSeconds);
+                                    response = SpoolerResponse.Fail($"Le spouleur Windows n'a pas répondu en {OperationTimeout.TotalSeconds} s. Vérifiez le service « Spouleur d'impression » du serveur.");
+                                }
+                            }
+                        }
+                        finally { _serialize.Release(); }
                     }
-                    finally { _serialize.Release(); }
 
                     // Délai de réponse borné, indépendamment de la durée de l'opération
                     using var replyCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);

@@ -121,8 +121,19 @@ namespace Autoprint.Spooler
             using var reader = new StreamReader(pipe, leaveOpen: true);
             await using var writer = new StreamWriter(pipe, leaveOpen: true) { AutoFlush = true };
 
-            await writer.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), cts.Token);
-            var line = await reader.ReadLineAsync(cts.Token);
+            string? line;
+            try
+            {
+                await writer.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), cts.Token);
+                line = await reader.ReadLineAsync(cts.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                // Avant : « The operation was canceled. » affiché tel quel dans la console (B67)
+                throw new InvalidOperationException(
+                    $"Le service « AutoprintSpooler » n'a pas répondu en {ReplyTimeout.TotalSeconds} s : le spouleur Windows semble bloqué. " +
+                    "Vérifiez le service « Spouleur d'impression » du serveur.", ex);
+            }
             var response = line == null ? null : JsonSerializer.Deserialize<SpoolerResponse>(line);
 
             if (response == null) throw new InvalidOperationException("Réponse vide du service AutoprintSpooler.");
