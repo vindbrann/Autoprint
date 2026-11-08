@@ -5,7 +5,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 
 ## ▶️ Reprise de la recette (état au 08/11/2026, fin de soirée)
 
-**État du labo** : les 3 VM sont **arrêtées** proprement, instantané « Fin de session 08-11 (recette en cours) » sur chacune.
+**État du labo** : instantané « Fin de session 08-11 (recette en cours) » sur chacune des 3 VM ; SRV-PRINT : aussi « Avant tests sauvegarde 09-11 ». Le service AutoprintSpooler de SRV-PRINT est la version corrigée B56 (original : `C:\Windows\Temp\AutoprintSpooler.exe.orig`).
 Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, réseau, avant Autoprint), `Autoprint 26.11.8.1 installé` (SRV-PRINT seul, juste après l'installation, avant les tests).
 
 **Pour reprendre** :
