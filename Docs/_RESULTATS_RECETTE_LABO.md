@@ -45,7 +45,7 @@ Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané
 | P2-28 à P2-30 | ✅ | « Connexion réussie » ; fausse clé : « Clé refusée par le serveur. Comparez les 4 derniers caractères avec la console » ; serveur inexistant : « Serveur injoignable. Vérifiez le nom du serveur, le réseau et le pare-feu. » |
 | P2-31 | ✅ | Adresse IP dans `PRINTSERVER` : liaison HTTPS avec SNI : « Serveur injoignable » (connexion fermée par le serveur, sans certificat présenté) ; liaison sans SNI : « Certificat du serveur refusé ». |
 | P2-32 | ✅ | Certificat du labo retiré des racines du poste : « Certificat du serveur refusé ». Certificat remis ensuite. |
-| B71 | ❌ → corrigé | Deux icônes Autoprint sur le bureau (Bureau public par le MSI + Bureau de l'utilisateur par le client au premier lancement). |## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
+| B71 | ✅ après correctif | Deux icônes Autoprint sur le bureau (Bureau public par le MSI + Bureau de l'utilisateur par le client au premier lancement). MSI client final installé, premier lancement simulé : une seule icône. |## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
 
 Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
 
