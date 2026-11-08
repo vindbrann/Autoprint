@@ -6,7 +6,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 ## ▶️ Reprise de la recette (état au 08/11/2026, soir)
 
 **État du labo** :
-- SRV-PRINT : installation **SQL Server** (Autoprint 26.11.8.2 avec B59, B60, B61 ; mise à jour testée). Instantanés : « SQL Server 26.11.8.2 avant mise à jour B60 », « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
+- SRV-PRINT : base existante 1.1.x mise à jour en 26.11.8.2 (SQLite). Instantanés : « Serveur en 1.1.2 (base existante corrigée) », « Avant installation 1.1.2 (SM) », « S8-05 + B62 validés (SQL distant SRV-AD) », « SQL Server 26.11.8.2 authentification SQL (S8-06) », « SQL Server 26.11.8.2 mis à jour (B61 validé) », « SQL Server 26.11.8.2 avant mise à jour B60 », « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
 - SRV-AD : SQL Server 2025 Express (`SQLEXPRESS`, port 1433, test S8-05 ; instantané « Avant SQL Server (S8-05) »), simulateur SNMP (tâche « Autoprint-SnmpSim », 192.168.99.10 v3 / .11 v2c), faux SMTP, fausse imprimante 9100.
 - Après une restauration d'instantané : réactiver « Interface de services d'invité » (`Copy-VMFile`) ; l'installation SQL Server n'a ni HTTPS ni pare-feu « Partage de fichiers » (tests CLT-TEST des lots Clé et Serveur : en SQLite seulement).
 
@@ -19,11 +19,26 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 `labadmin.cred`, `recette-secrets.xml` (comptes du labo et de l'installation SQLite ; `sql.sa`, `sql.autoprint`, `snmp.v3.auth`, `snmp.v3.priv`), `recette-secrets-sql.xml` (comptes Autoprint de l'installation SQL Server), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim), `snmpsim-venv\`.
 
 **Reste à tester** :
-- Mises à jour depuis 1.1.x / 26.08.24.3 : NR-02, SM-*, P1-39, P2-41, P3-02, P3-14 (installeurs anciens à fournir).
-- Poste Intune réel : NR-05, installation d'imprimante (B55).
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59, B60, B61, B62).
+**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59 à B64).
+
+## Mise à jour 1.1.2 (base existante) → 26.11.8.2 — 08/11/2026
+
+Base du serveur 1.1.0 de production, corrigée au schéma 1.1.2 (`Livraison-26.11.6.1\Correctif-base-1.1.0-vers-1.1.2`), placée sous une installation 1.1.2 en SQLite sur SRV-PRINT (l'installeur 1.1.2 seul échoue en SQLite sur une machine vierge : migrations écrites pour SQL Server, cf. B47), puis mise à jour par l'installeur 26.11.8.2. Vérifications faites **dans la VM** (la base contient des données sensibles) ; compte `admin` de la copie réinitialisé par `--reset-admin`.
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| SM-01 | ✅ | « Mise à jour terminée » ; base déplacée dans `C:\ProgramData\Autoprint\Data` ; journal : « Mise à niveau SQLite : 6 table(s) et 12 colonne(s) ajoutée(s) ». Pool en `ApplicationPoolIdentity`, démarré (B61) ; service AutoprintSpooler ; pare-feu 8080. |
+| SM-02, NR-02 | ✅ | Imprimante, lieu avec son réseau, modèle, 2 comptes, 4 rôles, 3 liaisons AD, 19 lignes d'audit conservés ; toutes les pages en 200. |
+| SM-03 | ✅ | Lieu et imprimante créés, imprimante existante modifiée. |
+| SM-05 | ✅ | Rôle Infra (« Administration » en 1.1.x) : Découverte, Rapports, Profils et identifiants SNMP, archivage / désarchivage. |
+| SM-06, SM-07 | ✅ | Rôle avec « Rôles - écriture » : ajout de Scan réseau à son rôle puis Découverte accessible après reconnexion ; « Administration » forcée : 403 avec message, rien modifié. |
+| P3-02 | ✅ | `AdServicePassword` et `AgentApiKey`, en clair en 1.1.x, chiffrés (`enc:v1:`) après la mise à jour. |
+| SI-07 | ✅ après correctif (B63) | Premier essai : `Jwt:ExpireMinutes` resté à 120 (valeur 1.1.x). Mise à jour refaite avec le build corrigé : 30 dans la configuration, jeton émis de 30 min. |
+| B64 | ✅ après correctif | `ResetPassword.bat` annonçait « admin123 » ; texte corrigé (mot de passe temporaire aléatoire, affiché une fois), vérifié après la mise à jour. |
+| SM-04, P1-39, P2-41, P3-14 | sans objet | 26.11.4.1 / 26.08.24.x jamais installées ailleurs (décision du 08/11). P1-39 : AD autre que celui du labo injoignable depuis le labo. |
+| NR-05 (poste Intune réel) | ✅ (décision) | Validé par décision : un poste Intune réel n'apporterait rien de plus que le poste du labo (08/11). |
 ## Version 26.11.8.2 (en cours), installation neuve SQL Server 2025 Express — 08/11/2026
 
 SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Express (instance `SQLEXPRESS`, TCP 1433, mode mixte) installé par `tools/lab/Install-LabSql.ps1` ; Autoprint installé par l'installeur graphique (SQL Server, authentification Windows). Tests API : `Recette-Api.ps1 -BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (comptes Autoprint propres à cette installation : `recette-secrets-sql.xml`).
@@ -116,4 +131,6 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B60 | Corrigé en 26.11.8.2 | SQL Server : création d'un profil d'OID avec éléments en erreur 500 (colonne `DateCreation`). |
 | B61 | Corrigé en 26.11.8.2 | Après chaque mise à jour, pool IIS laissé arrêté : console en erreur 503. |
 | B62 | Fait en 26.11.8.2 | Installeur : champ Port pour SQL Server (au lieu de « serveur,1433 »). |
+| B63 | Corrigé en 26.11.8.2 | Serveurs mis à jour : jetons de 120 min conservés au lieu de 30. |
+| B64 | Fait en 26.11.8.2 | Texte de ResetPassword.bat (« admin123 »). |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
