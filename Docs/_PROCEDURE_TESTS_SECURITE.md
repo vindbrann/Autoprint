@@ -330,7 +330,7 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 | S8-05 | SQL **distant**, authentification Windows. | Connexion `DOMAINE\NOMSERVEUR$` sur le serveur SQL distant, `db_owner` sur la base. | ☐ |
 | S8-06 | Authentification **SQL** (identifiant / mot de passe). | Installation sans erreur, aucune connexion Windows ajoutée. | ☐ |
 | S8-07 | Droits NTFS : `appsettings.json` et `C:\ProgramData\Autoprint\Keys`. | `IIS AppPool\Autoprint` : lecture sur `appsettings.json`, modification sur `Keys` ; aucun autre utilisateur non administrateur. | ☐ |
-| S8-08 | (SQLite) dossier du programme. | `IIS AppPool\Autoprint` : modification sur le dossier (backlog B25). | ☐ |
+| S8-08 | (SQLite) dossier du programme. | **Aucun** droit explicite de `IIS AppPool\Autoprint` : depuis B25 la base est dans `ProgramData\Autoprint\Data` (voir SB-01, SB-02). | ☐ |
 
 ### 5.2 Mise à jour
 
@@ -344,7 +344,7 @@ Avec un compte **utilisateur standard** ouvert sur le serveur (session locale ou
 
 | ID | Test | Résultat attendu | ✔ |
 |---|---|---|---|
-| S8-12 | Créer, modifier (nom, partage, mode direct), renommer, supprimer une imprimante, avec synchronisation à chaque étape. | Les files Windows suivent. Observateur d'événements › Journaux Windows › Application, source `AutoprintSpooler` : une ligne par commande. | ☐ |
+| S8-12 | Créer, modifier (nom, partage, mode direct), renommer, supprimer une imprimante, avec synchronisation à chaque étape. | Les files Windows suivent. Observateur d'événements › Journaux Windows › Application, source `Autoprint.SpoolerService` : une ligne « Commande … : OK » par commande (B56). | ☐ |
 | S8-13 | Créer une imprimante dont le modèle a un pilote **non installé** sur le serveur, synchroniser. | Échec de synchronisation « Pilote … non installé sur le serveur ». | ☐ |
 | S8-14 | Arrêter le service `AutoprintSpooler`, synchroniser une modification. | Message clair « Service Windows AutoprintSpooler injoignable… » ; le reste de la console fonctionne. Redémarrer le service : la synchronisation passe. | ☐ |
 | S8-15 | Lecture seule pendant que le service est arrêté : tableau de bord, liste des imprimantes, scan du spouleur local, prévisualisation de synchronisation. | Tout fonctionne (les lectures n'utilisent pas le service). | ☐ |
@@ -482,4 +482,5 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 06/11/2026 | Correctif B47 | Ajout des tests SM-01 à SM-05 (mise à jour d'un serveur SQLite 1.1.x). |
 | 06/11/2026 | Correctif B49 | Ajout des tests SM-06 et SM-07 (refus d'accorder des droits affiché à l'écran). |
 | 06/11/2026 | B50 (règles des rôles) | SM-05 à SM-07 réécrits ; P1-13, P1-15, P1-17, P1-19 adaptés ; ajout de SR-01 à SR-05. |
+| 08/11/2026 | B56, recette en labo | S8-08 mis à jour (B25) ; S8-12 : source `Autoprint.SpoolerService` (B56). |
 | 08/11/2026 | B51, B52 (recette en labo) | Ajout de SI-01 à SI-04 (installation neuve sur serveur français : droits du pool IIS, pare-feu). Labo Hyper-V décrit au § 0.1. |

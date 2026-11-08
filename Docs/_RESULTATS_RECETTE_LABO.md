@@ -18,7 +18,9 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 
 **Configuré à la main pendant la recette (pas encore dans `Configure-Lab.ps1`)** : liaison HTTPS 443 sur le site Autoprint avec un certificat auto-signé `srv-print.lab.autoprint.test`, règle de pare-feu « LABO : Autoprint HTTPS 443 », certificat ajouté aux autorités racine de CLT-TEST ; client Autoprint 26.11.8.1 (MSI corrigé B54) installé sur CLT-TEST sous SYSTEM ; dans Autoprint : rôles `Helpdesk`, `Lecteur`, `HD-Suppr`, comptes `helpdesk`, `lecteur`, `hd.cree`, `ad.user2` (rôle Lecteur manuel), liaisons `GG_Autoprint_Lecteurs` → Lecteur et `GG_Autoprint_Admins` → SuperAdmin, AD configuré (`svc.autoprint`), lieu `Labo` (192.168.99.0/24), imprimante `Labo-Texte` → fausse imprimante 192.168.99.10:9100. Dans l'AD : `ad.user1` n'est plus dans `GG_Autoprint_Lecteurs` (retiré par P1-36).
 
-**À faire en premier** :
+**À faire en premier** : ~~changer la clé agent~~ fait le 08/11 (SC-07).
+
+**Ancienne consigne** :
 - **Changer la clé agent** (Paramètres › Sécurité) : la clé du labo a été affichée par erreur dans une sortie de commande pendant la vérification de B54. Puis mettre à jour `HKLM\SOFTWARE\Autoprint\APIKEY` sur CLT-TEST (tests SC de changement de clé).
 
 **Reste à tester** :
@@ -55,9 +57,20 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | Journal MSI client | ⚠️ | Clé agent en clair dans `msiexec /l*v` (B54, partiellement corrigé). |
 | `\\srv-print\print$` depuis CLT-TEST | ✅ / à finir | Refusé sans identifiants, accessible avec un compte AD (cas Entra ID hybride, B55). Connexion à l'imprimante à valider sur un vrai poste Intune (impossible depuis une session à distance). |
 
+| SC-05 à SC-07, P2-35 | ✅ | Rotation avec transition (ancienne et nouvelle clés acceptées), révocation immédiate (anciennes clés refusées), 91 jours refusé, audit `AGENT_KEY_ROTATE` et `AGENT_KEY_REVEAL`. **La clé affichée par erreur le 08/11 est révoquée** ; CLT-TEST a reçu une clé neuve jamais affichée. |
+| P3-08 à P3-13, NR-08, P2-40 | ✅ | Export sans secrets / protégé (`bkp:v1:`), mot de passe < 12 refusé, restauration refusée sans ou avec mauvais mot de passe sans rien modifier, restauration correcte : données, comptes locaux, rôle manuel AD, clé agent et mot de passe AD conservés. |
+| P2-18 | ✅ (+ B57) | Fichier cohérent mais erroné : « Erreur pendant la restauration… (réf. 3894FF01…) ». Fichier mal formé : refus 400 avec le détail technique d'ASP.NET (B57). |
+| P2-39, NR-09 | ✅ | Purge de l'audit ; export supervision avec jeton d'intégration (JSON), 401 sans jeton. |
+| S8-01 à S8-03, S8-19, SC-01, SB-01, P3-07, P3-19 | ✅ | Service en Système local / automatique, pool en `ApplicationPoolIdentity`, `w3wp` sous `Autoprint`, `Spooler:Mode=Service`, JWT 30 min, base dans ProgramData, clé de chiffrement, pas de NETWORK SERVICE. |
+| S8-12 | ✅ après correctif (B56) | Avant : aucune ligne par commande dans le journal. Après remplacement du service corrigé : « Commande … : OK ». |
+| S8-13 à S8-15, SB-05 | ✅ | Pilote absent : « Pilote manquant » ; service arrêté : lectures OK, synchronisation refusée avec message clair, état « arrêté » au tableau de bord ; redémarré : synchronisation OK. |
+| S8-17, S8-18 | ✅ | Tube refusé à un administrateur local (ni SYSTEM ni le pool) et depuis un autre poste. |
+| P3-01 | ✅ | `AgentApiKey` et `AdServicePassword` en `enc:v1:` dans la base (SMTP non configuré). |
+
 ### À vérifier à l'écran
 
-- Synchronisation du spouleur : le compte rendu de l'API a des compteurs à 0 (`totalTraites`, `added`, `updated`, `deleted`) alors que les messages listent les opérations faites. Vérifier ce qu'affiche la console.
+- ~~Compteurs à 0 de la synchronisation~~ : non utilisés par la console (seuls les messages sont affichés) : pas un problème.
+- Message affiché par la console pour une sauvegarde mal formée (B57).
 
 ### Anomalies
 
@@ -67,4 +80,6 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | B52 | Corrigé en 26.11.8.1 | Port du site non ouvert dans le pare-feu. |
 | B53 | À décider | 5 mauvais mots de passe dans Autoprint verrouillent le compte AD (seuil de domaine à 5). |
 | B54 | Partiellement corrigé | Clé agent dans le journal d'installation du client. |
+| B56 | Corrigé (prochaine livraison) | Aucune ligne par commande du service dans le journal Windows. |
+| B57 | Mineur | Message technique pour une sauvegarde mal formée. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
