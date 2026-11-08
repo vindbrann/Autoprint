@@ -38,7 +38,8 @@ Base du serveur 1.1.0 de production, corrigée au schéma 1.1.2 (`Livraison-26.1
 | SI-07 | ✅ après correctif (B63) | Premier essai : `Jwt:ExpireMinutes` resté à 120 (valeur 1.1.x). Mise à jour refaite avec le build corrigé : 30 dans la configuration, jeton émis de 30 min. |
 | B64 | ✅ après correctif | `ResetPassword.bat` annonçait « admin123 » ; texte corrigé (mot de passe temporaire aléatoire, affiché une fois), vérifié après la mise à jour. |
 | SM-04, P1-39, P2-41, P3-14 | sans objet | 26.11.4.1 / 26.08.24.x jamais installées ailleurs (décision du 08/11). P1-39 : AD autre que celui du labo injoignable depuis le labo. |
-| NR-05 (poste Intune réel) | ✅ (décision) | Validé par décision : un poste Intune réel n'apporterait rien de plus que le poste du labo (08/11). |
+| S8-09, SB-02, PA-07, P2-02, SD-08 | ✅ | Même mise à jour : pool `LocalSystem` → `ApplicationPoolIdentity`, service installé et démarré, `Spooler:Mode=Service` ; base déplacée du dossier du programme vers `ProgramData` ; `AllowedHosts` `*` → nom public demandé par l'installeur (`srv-print.lab.autoprint.test;localhost`) ; port 8080 du site conservé. |
+| S8-07, S8-08, SB-04 | ✅ | `appsettings.json` : SYSTEM, Administrateurs, `IIS APPPOOL\Autoprint` (lecture) ; `Keys` et `Data` : SYSTEM, Administrateurs, pool (modification) ; aucun droit explicite du pool sur le dossier du programme ; aucun droit des utilisateurs standard sur `Data`. || NR-05 (poste Intune réel) | ✅ (décision) | Validé par décision : un poste Intune réel n'apporterait rien de plus que le poste du labo (08/11). |
 ## Version 26.11.8.2 (en cours), installation neuve SQL Server 2025 Express — 08/11/2026
 
 SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Express (instance `SQLEXPRESS`, TCP 1433, mode mixte) installé par `tools/lab/Install-LabSql.ps1` ; Autoprint installé par l'installeur graphique (SQL Server, authentification Windows). Tests API : `Recette-Api.ps1 -BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (comptes Autoprint propres à cette installation : `recette-secrets-sql.xml`).
@@ -64,6 +65,8 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | ID | Résultat | Remarque |
 |---|---|---|
 | SI-01 à SI-04 | ✅ | Console joignable depuis le poste hôte ; droits du pool posés ; règle « Autoprint Server » 8080 ; aucune erreur au démarrage. En 26.11.6.2 : site inutilisable (B51) et port fermé (B52). |
+| PA-01, SD-02 | ✅ | Installation neuve SQLite : aucune erreur au démarrage (ni « duplicate column » ni `fail:` de schéma) ; console, rapports (NR-06), profils SNMP (NR-03), sauvegarde (NR-08) fonctionnels. |
+| SR-03 | ✅ | Couvert par P1-15 à P1-21 (lot Escalade) : modifier / supprimer SuperAdmin, lier un groupe AD, modifier `admin`, attribuer SuperAdmin : refus avec message. |
 | P1-06 | ✅ | `lecteur` : scan du spouleur refusé (403). |
 | P1-14 à P1-17, P1-19 à P1-21 | ✅ | Refus 403 avec message pour chaque tentative de `helpdesk`. |
 | P1-18 | ✅ | Modification de SuperAdmin : 403 ; suppression : 400 « Impossible de supprimer SuperAdmin » (refus). |
