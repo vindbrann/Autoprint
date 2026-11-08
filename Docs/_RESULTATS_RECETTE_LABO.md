@@ -24,7 +24,7 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 - **Changer la clé agent** (Paramètres › Sécurité) : la clé du labo a été affichée par erreur dans une sortie de commande pendant la vérification de B54. Puis mettre à jour `HKLM\SOFTWARE\Autoprint\APIKEY` sur CLT-TEST (tests SC de changement de clé).
 
 **Reste à tester** :
-- Non-régression : NR-03 (toutes les pages), NR-05 (client : lieu détecté, imprimantes listées et installées : **sur un poste Intune réel**, cf. B55), NR-06/NR-07 (rapports PDF/CSV : nécessite un serveur SMTP de test), NR-08 (sauvegarde/restauration), NR-09 (export supervision), NR-01/NR-10 (SQL Server : non installé dans le labo).
+- Non-régression : NR-05 (client : lieu détecté, imprimantes listées et installées : **sur un poste Intune réel**, cf. B55), NR-01/NR-10 (SQL Server : non installé dans le labo).
 - Phase 1 : P1-03, P1-05, P1-12, P1-13 (écran), P1-27, P1-28, P1-39 (mise à jour d'un serveur existant).
 - Phase 2 : P2-01, P2-02, P2-05, P2-07 à P2-12, P2-16 à P2-22, P2-27 à P2-35, P2-37 à P2-44.
 - Phase 3 et suivantes : sections 4 à 5.10 de la procédure (secrets chiffrés, sauvegarde des secrets, droits NTFS, SMTP, phases A à E, SNMPv3, mises à jour depuis 1.1.x, SM-*, SR-01 à SR-03, SR-05), désinstallation S8-20.
@@ -79,6 +79,10 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | P2-44 (écran) | ✅ | Avertissement « Sauvegarde : données sensibles » ; « Annuler » : aucune requête d'export. |
 | P3-21, P3-22 (écran) | ✅ | TLS activé par défaut ; bandeau « Sans TLS… en clair » quand on le décoche (non enregistré). |
 | P1-03 (écran) | ✅ | Onglet « Ce serveur » : plus de champs serveur / utilisateur / mot de passe, un seul bouton. |
+
+| P3-04 à P3-06 | ✅ | SMTP (faux serveur du labo, STARTTLS + authentification) : mot de passe chiffré en base (`enc:v1:`) ; test avec mot de passe masqué = mot de passe enregistré utilisé ; autre serveur sans ressaisie refusé. |
+| NR-06, NR-07, NR-10 (SQLite) | ✅ | « Envoyer maintenant » : e-mail avec un vrai PDF (37 Ko) / un CSV UTF-8 avec en-têtes ; planification hebdomadaire (heure, minute, seuil) conservée. |
+| PA-17 à PA-21 | ✅ | Lien `https://srv-print.lab.autoprint.test/reset-password?token=…` ; même message et aucun e-mail pour un inconnu ou un compte AD ; 11 caractères refusé ; nouveau mot de passe OK ; audit `USER_PWD_RESET_REQUEST` / `USER_PWD_RESET` ; lien réutilisé refusé ; base : empreinte hexadécimale (64) ≠ jeton. Anti-spam : une nouvelle demande est ignorée pendant 5 min, même si l'envoi précédent a échoué. |
 
 ### À vérifier à l'écran
 

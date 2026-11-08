@@ -13,7 +13,7 @@
 #>
 param(
     [string]$BaseUrl = 'https://srv-print.lab.autoprint.test',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -601,6 +601,16 @@ function Lot-Donnees {
     Invoke-Api DELETE "/api/IntegrationTokens/$tokId" -Token $ta | Out-Null
 }
 
+# Copie de la base SQLite du serveur (avec ses fichiers -wal / -shm, où sont les écritures récentes) ; renvoie le chemin local de la base
+function Copy-LabDatabase {
+    if (-not $script:LabCred) { Get-ServerQueues | Out-Null }
+    $dir = Join-Path $env:TEMP 'autoprint-db'; Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $dir | Out-Null
+    $sess = New-PSSession -VMName SRV-PRINT -Credential $script:LabCred
+    Invoke-Command -Session $sess { New-Item -ItemType Directory -Force C:\Windows\Temp\rdb | Out-Null; Copy-Item C:\ProgramData\Autoprint\Data\Autoprint.db* C:\Windows\Temp\rdb\ -Force }
+    Copy-Item C:\Windows\Temp\rdb\* -FromSession $sess -Destination $dir -Force
+    Invoke-Command -Session $sess { Remove-Item C:\Windows\Temp\rdb -Recurse -Force }; Remove-PSSession $sess
+    Join-Path $dir 'Autoprint.db'
+}
 # ------------------------------------------------------------------ lot Serveur : service AutoprintSpooler, tube, compte du site, base
 function Invoke-OnPrint([scriptblock]$Script, [object[]]$Arguments = @()) {
     if (-not $script:LabCred) { Get-ServerQueues | Out-Null }
@@ -684,16 +694,105 @@ function Lot-Serveur {
     Check 'S8-14' 'service redémarré : la synchronisation passe' ($s.Text -match '"success":true') $true $s.Text
 
     # P3-01 : secrets chiffrés en base (copie de la base vers le poste, lecture des préfixes seulement)
-    $db = Join-Path $env:TEMP 'autoprint-recette.db'
-    $sess = New-PSSession -VMName SRV-PRINT -Credential $script:LabCred
-    Invoke-Command -Session $sess { Copy-Item C:\ProgramData\Autoprint\Data\Autoprint.db C:\Windows\Temp\recette.db -Force }
-    Copy-Item C:\Windows\Temp\recette.db -FromSession $sess -Destination $db -Force
-    Invoke-Command -Session $sess { Remove-Item C:\Windows\Temp\recette.db -Force }; Remove-PSSession $sess
+    $db = Copy-LabDatabase
     $pyFile = Join-Path $env:TEMP 'autoprint-prefixes.py'
     Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`nprint(';'.join(k+'='+(v[:7] if v else '') for k,v in c.execute(""select Key,Value from ServerSettings where Key in ('AgentApiKey','AdServicePassword','SmtpPass')"")))" -Encoding ASCII
-    $res = & python -I $pyFile $db; Remove-Item $db, $pyFile -Force
+    $res = & python -I $pyFile $db; Remove-Item (Split-Path $db) -Recurse -Force; Remove-Item $pyFile -Force
     Check 'P3-01' 'AgentApiKey et AdServicePassword chiffrés en base (enc:v1:)' ($res -match 'AgentApiKey=enc:v1:' -and $res -match 'AdServicePassword=enc:v1:') $true $res
     Write-Host "         préfixes : $res" -ForegroundColor DarkGray
+}
+
+# ------------------------------------------------------------------ lot E-mail : SMTP de capture sur SRV-AD (tools/lab/SmtpCapture.ps1)
+function Get-CapturedMails([datetime]$Since) {
+    Invoke-OnDc { param($s) Get-ChildItem C:\SmtpCapture\Mails -Filter *.eml | Where-Object LastWriteTime -gt $s | Sort-Object LastWriteTime | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Text = [IO.File]::ReadAllText($_.FullName) } } } @($Since)
+}
+function Get-SmtpLog([int]$Tail = 5) { Invoke-OnDc { param($n) Get-Content C:\SmtpCapture\capture.log -Tail $n } @($Tail) }
+function ConvertFrom-QuotedPrintable([string]$t) { [regex]::Replace(($t -replace "=\r?\n", ''), '=([0-9A-F]{2})', { param($m) [char][Convert]::ToInt32($m.Groups[1].Value, 16) }) }
+# Texte lisible d'un .eml : parties base64 décodées + quoted-printable
+function Get-MailText([string]$eml) {
+    $parts = [regex]::Matches($eml, '(?s)Content-Transfer-Encoding:\s*base64\s*\r?\n\r?\n([A-Za-z0-9+/=\r\n]+)') | ForEach-Object { try { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($_.Groups[1].Value -replace '\s', ''))) } catch { '' } }
+    (ConvertFrom-QuotedPrintable $eml) + "`n" + ($parts -join "`n")
+}
+
+function Lot-Email {
+    Write-Host "`n--- Lot E-mail : SMTP (4.1, 4.4), rapports (NR-06, NR-07), mot de passe oublié (PA-17 à PA-21) ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    if (-not (Get-Plain 'smtp')) { Set-Plain 'smtp' (New-TestPassword) }
+    $dto = Get-SettingsDto $ta
+    $dto.SmtpHost = 'srv-ad.lab.autoprint.test'; $dto.SmtpPort = 25; $dto.SmtpUser = 'autoprint-smtp'; $dto.SmtpPass = (Get-Plain 'smtp')
+    $dto.SmtpEnableSsl = $true; $dto.SmtpFromAddress = 'autoprint@lab.autoprint.test'
+    $r = Invoke-Api POST '/api/Settings/Save' $dto $ta
+    Check 'prep' 'SMTP enregistré (SRV-AD, port 25, TLS, authentification)' $r.Code 200 $r.Text
+
+    $t0 = Get-Date
+    $r = Invoke-Api POST '/api/Settings/TestEmail' @{ host = 'srv-ad.lab.autoprint.test'; port = 25; user = 'autoprint-smtp'; password = '●●●●●●●●'; ssl = $true; from = 'autoprint@lab.autoprint.test'; to = 'admin@lab.autoprint.test' } $ta
+    $log = (Get-SmtpLog 3) -join ' '
+    Check 'P3-05' 'test SMTP avec mot de passe masqué : mot de passe enregistré utilisé (TLS + AUTH)' "$($r.Code)/$($log -match 'TLS=True ; AUTH=autoprint-smtp')" '200/True' $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestEmail' @{ host = 'autre-smtp.lab.autoprint.test'; port = 25; user = 'autoprint-smtp'; password = '●●●●●●●●'; ssl = $true; from = 'autoprint@lab.autoprint.test'; to = 'admin@lab.autoprint.test' } $ta
+    Check 'P3-06' 'autre serveur SMTP sans ressaisir le mot de passe : refus' $r.Code 400 $r.Text
+
+    # Rapports PDF et CSV, « Envoyer maintenant »
+    foreach ($fmt in 'PDF', 'CSV') {
+        $since = Get-Date
+        $s = Invoke-Api POST '/api/ReportSchedules' @{ reportName = "Recette $fmt"; selectedMetricsJson = '["Pages","Toner","Availability","Alerts"]'; scopeFilterJson = '{}'; frequency = 'Hebdomadaire'; emailRecipients = 'admin@lab.autoprint.test'; format = $fmt; isActive = $true; predictionThresholdDays = 14; runHour = 7; runMinute = 30 } $ta
+        $id = $s.Json.id
+        $send = Invoke-Api POST "/api/ReportSchedules/$id/send" -Token $ta
+        Start-Sleep 5
+        $m = @(Get-CapturedMails $since) | Select-Object -Last 1
+        $att = if ($m) { [regex]::Match($m.Text, '(?im)^Content-Type:\s*application/(pdf|octet-stream|vnd\.ms-excel|csv)[^\r\n]*|name="?[^"\r\n]+\.(pdf|csv)').Value } else { '' }
+        $id2 = if ($fmt -eq 'PDF') { 'NR-06' } else { 'NR-07' }
+        Check $id2 "rapport $fmt « Envoyer maintenant » : e-mail reçu avec pièce jointe" "$($send.Code)/$([bool]$m)/$([bool]$att)" '200/True/True' "$($s.Code) $($send.Text) $att"
+        if ($m -and $fmt -eq 'PDF') {
+            $b64 = [regex]::Match($m.Text, '(?s)Content-Type:\s*application/(?:pdf|octet-stream)[^\r\n]*.*?\r?\n\r?\n([A-Za-z0-9+/=\r\n]+)').Groups[1].Value -replace '\s', ''
+            if ($b64) { $pdf = [Convert]::FromBase64String($b64); $head = [Text.Encoding]::ASCII.GetString($pdf, 0, 5)
+                $out = Join-Path $env:TEMP 'recette-rapport.pdf'; [IO.File]::WriteAllBytes($out, $pdf)
+                Check 'NR-06' 'pièce jointe : vrai PDF' "$head ($([math]::Round($pdf.Length/1KB)) Ko)" { param($x) $x -like '%PDF-*' } $out }
+        }
+        if ($m -and $fmt -eq 'CSV') {
+            $b64 = [regex]::Match($m.Text, '(?s)name="?[^"\r\n]+\.csv"?.*?\r?\n\r?\n([A-Za-z0-9+/=\r\n]+)').Groups[1].Value -replace '\s', ''
+            if ($b64) { $csv = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); Write-Host "         CSV, 1re ligne : $(($csv -split "`n")[0].Trim())" -ForegroundColor DarkGray }
+        }
+        $g = (Invoke-Api GET "/api/ReportSchedules/$id" -Token $ta).Json
+        Check 'NR-10' "planification $fmt conservée (heure, minute, fréquence, seuil)" "$($g.runHour):$($g.runMinute) $($g.frequency) $($g.predictionThresholdDays)" '7:30 Hebdomadaire 14'
+        Invoke-Api DELETE "/api/ReportSchedules/$id" -Token $ta | Out-Null
+    }
+
+    # Mot de passe oublié (B5) : compte local avec e-mail = lecteur
+    Start-Sleep 62; $script:Logins.Clear()
+    $since = Get-Date
+    $r1 = Invoke-Api POST '/api/auth/forgot-password' @{ emailOrUsername = 'lecteur' }
+    Start-Sleep 10
+    $mail = @(Get-CapturedMails $since) | Select-Object -Last 1
+    $body = if ($mail) { Get-MailText $mail.Text } else { '' }
+    $link = [regex]::Match($body, 'https://[^\s"<>]+/reset-password\?token=([A-Za-z0-9_\-%]+)')
+    Check 'PA-17' 'compte local avec e-mail : e-mail reçu avec un lien https://<nom public>/reset-password?token=…' "$($r1.Code)/$($link.Success -and $link.Value -like 'https://srv-print.lab.autoprint.test/*')" '200/True' $r1.Text
+    $since2 = Get-Date
+    $r2 = Invoke-Api POST '/api/auth/forgot-password' @{ emailOrUsername = 'inconnu.total' }
+    $r3 = Invoke-Api POST '/api/auth/forgot-password' @{ emailOrUsername = 'ad.user2' }
+    Start-Sleep 4
+    Check 'PA-18' 'identifiant inexistant et compte AD : même message, aucun e-mail' "$($r2.Text -eq $r1.Text)/$($r3.Text -eq $r1.Text)/$(@(Get-CapturedMails $since2).Count)" 'True/True/0' "$($r2.Text) | $($r3.Text)"
+    if ($link.Success) {
+        $token = [uri]::UnescapeDataString($link.Groups[1].Value)
+        # PA-21 : la base ne contient qu'une empreinte du jeton
+        $db = Copy-LabDatabase
+        $pyFile = Join-Path $env:TEMP 'autoprint-token.py'
+        Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`nv=c.execute(""select PasswordResetToken from Users where Username='lecteur'"").fetchone()[0] or ''`nprint(('hex' if all(ch in '0123456789abcdefABCDEF' for ch in v) else 'autre')+';'+str(len(v))+';'+('identique' if v==sys.argv[2] else 'different'))" -Encoding ASCII
+        $res = & python -I $pyFile $db $token; Remove-Item (Split-Path $db) -Recurse -Force; Remove-Item $pyFile -Force
+        Check 'PA-21' 'base : empreinte hexadécimale, différente du jeton du lien' $res { param($x) $x -like 'hex;*;different' } $res
+        $r = Invoke-Api POST '/api/auth/reset-password' @{ token = $token; newPassword = 'Court-11car'; confirmPassword = 'Court-11car' }
+        Check 'PA-19' 'nouveau mot de passe de 11 caractères refusé' $r.Code 400 $r.Text
+        $new = New-TestPassword
+        $r = Invoke-Api POST '/api/auth/reset-password' @{ token = $token; newPassword = $new; confirmPassword = $new }
+        if ($r.Code -eq 200) { Set-Plain 'lecteur' $new }
+        $l = Invoke-Login 'lecteur' $new
+        Check 'PA-19' 'mot de passe valide : modifié, connexion avec le nouveau' "$($r.Code)/$($l.Code)" '200/200' $r.Text
+        $audit = (Invoke-Api GET '/api/Audit?pageSize=30' -Token $ta).Json.items.action
+        Check 'PA-19' 'audit : USER_PWD_RESET_REQUEST et USER_PWD_RESET' (($audit -contains 'USER_PWD_RESET_REQUEST') -and ($audit -contains 'USER_PWD_RESET')) $true
+        $n2 = New-TestPassword
+        $r = Invoke-Api POST '/api/auth/reset-password' @{ token = $token; newPassword = $n2; confirmPassword = $n2 }
+        Check 'PA-20' 'même lien réutilisé : invalide' $r.Code 400 $r.Text
+        $token = $null
+    }
 }
 
 # ------------------------------------------------------------------ lot Limitation
@@ -716,6 +815,6 @@ function Lot-Limitation {
     Check 'P1-31' 'après 2 minutes : connexion lecteur avec le bon mot de passe' $r.Code 200 $r.Text
 }
 
-if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Limitation' }
+if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Limitation' }
 foreach ($l in $Lot) { & "Lot-$l" }
 Write-Host ("`nBilan : {0} OK, {1} ÉCHEC" -f $script:Score.OK, $script:Score.KO) -ForegroundColor $(if ($script:Score.KO) { 'Red' } else { 'Green' })

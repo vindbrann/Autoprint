@@ -173,6 +173,31 @@ Invoke-InVM SRV-AD $credDomain {
     "  écoute 9100 : " + [bool](Get-NetTCPConnection -LocalPort 9100 -State Listen -ErrorAction SilentlyContinue)
 } @($captureScript)
 
+# ---------------------------------------------------------------- 5 ter. Faux serveur SMTP sur SRV-AD (STARTTLS, certificat approuvé par SRV-PRINT)
+Step '5 ter. Faux serveur SMTP (SRV-AD, port 25)'
+$smtpScript = Get-Content (Join-Path $PSScriptRoot 'SmtpCapture.ps1') -Raw
+$smtpCert = Invoke-InVM SRV-AD $credDomain {
+    param($content)
+    New-Item -ItemType Directory -Force 'C:\SmtpCapture\Mails' | Out-Null
+    Set-Content -Path 'C:\SmtpCapture\SmtpCapture.ps1' -Value $content -Encoding UTF8
+    $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -eq 'CN=srv-ad.lab.autoprint.test' | Select-Object -First 1
+    if (-not $cert) { $cert = New-SelfSignedCertificate -DnsName 'srv-ad.lab.autoprint.test' -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(2) -FriendlyName 'SMTP labo' }
+    if (-not (Get-NetFirewallRule -Name 'Autoprint-SmtpCapture-25' -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -Name 'Autoprint-SmtpCapture-25' -DisplayName 'Autoprint labo : capture SMTP 25' -Direction Inbound -Protocol TCP -LocalPort 25 -RemoteAddress 192.168.99.0/24 -Action Allow | Out-Null
+    }
+    $action   = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\SmtpCapture\SmtpCapture.ps1'
+    $settings = New-ScheduledTaskSettingsSet -RestartCount 99 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+    Register-ScheduledTask -TaskName 'Autoprint-SmtpCapture' -Action $action -Trigger (New-ScheduledTaskTrigger -AtStartup) -Settings $settings -User 'NT AUTHORITY\SYSTEM' -RunLevel Highest -Force | Out-Null
+    Start-ScheduledTask -TaskName 'Autoprint-SmtpCapture'
+    [Convert]::ToBase64String($cert.RawData)
+} @($smtpScript)
+Invoke-InVM SRV-PRINT $credDomain {
+    param($b64)
+    $p = 'C:\Windows\Temp\smtp-labo.cer'; [IO.File]::WriteAllBytes($p, [Convert]::FromBase64String($b64))
+    certutil -addstore -f Root $p | Out-Null; Remove-Item $p
+    '  certificat SMTP du labo approuvé par SRV-PRINT'
+} @($smtpCert)
+
 # ---------------------------------------------------------------- 5 bis. Pilotes de test sur SRV-PRINT
 Step '5 bis. Pilotes d''impression de test (SRV-PRINT)'
 Invoke-InVM SRV-PRINT $credDomain {
