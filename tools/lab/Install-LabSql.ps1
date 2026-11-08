@@ -34,7 +34,9 @@ $s = New-PSSession -VMName $VMName -Credential $cred
 try {
     Invoke-Command $s { New-Item -ItemType Directory -Force C:\Install | Out-Null }
     Write-Host "Copie de l'installeur vers $VMName…"
-    Copy-Item $Setup -ToSession $s -Destination C:\Install\SQLEXPR_x64_ENU.exe -Force
+    # Copy-VMFile (services d'invité) : bien plus rapide que Copy-Item par PowerShell Direct pour 700 Mo
+    Get-VMIntegrationService -VMName $VMName | Where-Object { $_.Name -like 'Interface de services*' -or $_.Name -like 'Guest Service*' } | Enable-VMIntegrationService
+    Copy-VMFile -Name $VMName -SourcePath $Setup -DestinationPath 'C:\Install\SQLEXPR_x64_ENU.exe' -FileSource Host -CreateFullPath -Force
 
     Write-Host "Installation de SQL Server (5 à 10 min)…"
     $code = Invoke-Command $s -ArgumentList $secrets['sql.sa'] {

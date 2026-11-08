@@ -133,8 +133,21 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="Serveur (Instance) :" VerticalAlignment="Center" Margin="0,0,0,10"/>
-                            <TextBox Grid.Column="1" x:Name="TxtSqlServer" Text="localhost" Padding="3" Margin="0,0,0,10"/>
+                            <TextBlock Text="Serveur (Instance) :" VerticalAlignment="Top" Margin="0,4,0,10"/>
+                            <StackPanel Grid.Column="1" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="70"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtSqlServer" Text="localhost" Padding="3"/>
+                                    <TextBlock Grid.Column="1" Text="Port :" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" Padding="3" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
+                                </Grid>
+                                <TextBlock Text="Ex. : sqlsrv01 ou sqlsrv01\SQLEXPRESS. Port facultatif (vide = port par défaut ou instance nommée)."
+                                           Foreground="#777" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
 
                             <TextBlock Grid.Row="1" Text="Nom de la base :" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb" Padding="3"/>

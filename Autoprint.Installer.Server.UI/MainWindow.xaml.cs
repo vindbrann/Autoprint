@@ -161,6 +161,15 @@ namespace Autoprint.Installer.Server.UI
                 MessageBox.Show("Pré-requis manquants. Utilisez les boutons 'Installer'.", "Système", MessageBoxButton.OK, MessageBoxImage.Stop);
                 return false;
             }
+            if (_currentStep == 4 && RadioSqlServer.IsChecked == true)
+            {
+                try { BuildSqlDataSource(TxtSqlServer.Text, TxtSqlPort.Text); }
+                catch (ArgumentException ex)
+                {
+                    MessageBox.Show(ex.Message, "SQL Server", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+            }
             if (_currentStep == 5 && (!int.TryParse(TxtWebPort.Text, out int p) || p < 1))
             {
                 MessageBox.Show("Port Web invalide.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -252,11 +261,33 @@ namespace Autoprint.Installer.Server.UI
             PanelSqlCreds.Visibility = (ComboAuth.SelectedIndex == 1) ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        /// <summary>
+        /// Adresse SQL Server à partir du nom du serveur et d'un port facultatif. SQL Server note le port après une virgule
+        /// (« serveur,1433 ») : l'utilisateur saisit le port dans son propre champ, ou « serveur:1433 », ou même la virgule.
+        /// </summary>
+        internal static string BuildSqlDataSource(string server, string? port)
+        {
+            string s = (server ?? "").Trim();
+            string p = (port ?? "").Trim();
+
+            // « serveur:1433 » ou « serveur,1433 » saisi dans le champ serveur (pas d'IPv6 entre crochets à gérer ici)
+            int sep = s.LastIndexOfAny(new[] { ':', ',' });
+            if (sep > 0 && sep < s.Length - 1 && s.IndexOf(':') == s.LastIndexOf(':') && int.TryParse(s[(sep + 1)..], out _))
+            {
+                if (p.Length == 0) p = s[(sep + 1)..];
+                s = s[..sep].Trim();
+            }
+
+            if (p.Length == 0) return s;
+            if (!int.TryParse(p, out int n) || n < 1 || n > 65535) throw new ArgumentException($"Port SQL Server invalide : « {p} » (1 à 65535).");
+            return $"{s},{n}";
+        }
+
         private string GetSqlConnectionString(int timeout = 60)
         {
             var builder = new SqlConnectionStringBuilder
             {
-                DataSource = TxtSqlServer.Text,
+                DataSource = BuildSqlDataSource(TxtSqlServer.Text, TxtSqlPort.Text),
                 InitialCatalog = TxtSqlDb.Text,
                 TrustServerCertificate = true,
                 ConnectTimeout = timeout
