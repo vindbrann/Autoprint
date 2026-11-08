@@ -128,6 +128,13 @@ namespace Autoprint.Server.Services
                             }
                         }
                     }
+                    catch (Exception ex) when (IsDirectoryUnreachable(ex))
+                    {
+                        // Contrôleur de domaine injoignable : ce n'est pas un mauvais mot de passe. Avant : « Identifiants incorrects »
+                        // et un échec compté (blocage du compte après 3 essais pendant une panne réseau) (B68)
+                        Console.WriteLine($"[AuthService] Annuaire injoignable : {ex.Message}");
+                        throw new DirectoryUnavailableException(ex);
+                    }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"[AuthService] Erreur Login AD : {ex.Message}");
@@ -424,6 +431,18 @@ namespace Autoprint.Server.Services
                 Console.WriteLine($"[AD-SYNC-ERROR] {ex.Message}");
                 throw new DirectoryUnavailableException(ex);
             }
+        }
+
+        // Serveur d'annuaire injoignable (et non refus des identifiants) : PrincipalServerDownException, LDAP 81 / 0x8007203A…
+        private static bool IsDirectoryUnreachable(Exception ex)
+        {
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                if (e is PrincipalServerDownException) return true;
+                if (e is System.DirectoryServices.Protocols.LdapException ldap && ldap.ErrorCode is 81 or 85 or 91) return true;
+                if (e is System.Runtime.InteropServices.COMException com && (uint)com.HResult is 0x8007203A or 0x80072030 or 0x8007054B) return true;
+            }
+            return false;
         }
 
         private async Task<List<string>> GetUserPermissionsAsync(User user)

@@ -21,8 +21,37 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 **Reste à tester** :
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B64).
+**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B68).
 
+## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
+
+Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| P1-05, PA-05 | ✅ | Scan du spouleur local, import de 2 files ; sans lieu ni modèle : statut « à corriger » ; réimport : « 1 ignorée(s) ». |
+| P1-12 | ✅ | Nom devenu interdit (`Ancien/Nom*`) : modification du seul commentaire acceptée, renommage en nom interdit refusé. |
+| P2-16, P2-42 | ✅ | Ancien mot de passe de 9 caractères accepté sans changement imposé ; ancien hachage SHA-256 : connexion puis changement imposé. |
+| PA-14, PA-16 | ✅ | Case décochée : pas de changement imposé ; modification du seul nom : case conservée. |
+| SC-03 | ✅ | Permission retirée au rôle : renouvellement du jeton refusé (401), reconnexion avec les nouveaux droits. |
+| P2-19, P2-20, P2-21 | ✅ | Profil d'OID : IP sans imprimante « n'a pas répondu… », adresses `10.0.0.1; rm` et `<script>` refusées ; SMTP / AD erronés : « Hôte inconnu » / « The server could not be contacted ». |
+| SD-04 | ✅ | Nom d'hôte de 50 caractères (accepté par Autoprint, refusé par Windows) : « Création du port IP_… impossible : Paramètre non valide ». |
+| SD-05 | ✅ | Recherche du groupe AD « GG Test & #1 ». |
+| SD-07 | ✅ | Autre origine : aucun en-tête `Access-Control-Allow-Origin` (GET et pré-vol). |
+| SD-11, SE-08, SE-09 | ✅ | Rapport PDF de 63 imprimantes, mesures Compteur + Pannes : 40 Ko, 2 pages, bandeau, titre et accents corrects, en-tête répété page 2 ; `libSkiaSharp.dll` et licence de la police présents, aucune erreur. |
+| SB-06 | ✅ après correctif (B67) | Spouleur suspendu : avant, 180 s et « The operation was canceled. » ; après : 60 s, « Le spouleur Windows n'a pas répondu en 60 s… », synchronisation interrompue ; après relance : la synchronisation aboutit. |
+| SD-13 (B66) | ✅ après correctif | Constaté pendant SB-06 : la reprise d'une imprimante en erreur a **renommé la file `Labo-Texte`** (même IP), puis une suppression l'a fait disparaître. Après correctif : deux imprimantes sur la même IP (création, mise à jour, renommage, réparation, suppression) sans effet sur l'autre ; une file créée à la main n'est pas reprise. |
+| SD-03 | ✅ | File interdite de suppression (refus explicite à SYSTEM) : la synchronisation signale l'échec. |
+| PA-12 | ✅ après correctif (B68) | DC injoignable : avant, « Identifiants incorrects » (et échec compté) ; après : 503 « Annuaire Active Directory injoignable… » à chaque essai, connexion immédiate au retour. |
+| PA-13 | ✅ | Base DN hors de l'utilisateur, rôle manuel Lecteur, membre d'un groupe lié à SuperAdmin : seulement `PRINTER_READ`. |
+| PA-11 | ✅ | `ReverseProxy:KnownProxies` = l'hôte : 12 connexions de 12 IP (`X-Forwarded-For`) sans 429 ; sans l'en-tête, la limite par IP s'applique. |
+| P2-37, P2-38 | ✅ | CLT-TEST : client 1.1.0 (service `AutoprintWorker`, tube `AutoprintPipe`) mis à jour en 26.11.8.2 : service supprimé, tube absent, clé conservée. |
+| P1-01 | ✅ | `dotnet list package --vulnerable --include-transitive` : aucun paquet vulnérable (9 projets). |
+| SD-10 | ✅ après correctif (B65) | 1ʳᵉ compilation en échec (fichier verrouillé) ; après correctif : 3 compilations consécutives réussies. |
+| P3-24 | ✅ | Workflow « Contrôles de sécurité » vert sur tous les pushs de la branche. |
+| P3-25 | ✅ (configuration) | `dependabot.yml` : NuGet hebdomadaire (groupe `Microsoft.*` / `System.*`), GitHub Actions mensuel. Affichage dans Insights : à l'écran. |
+| P3-16 à P3-18, P3-20, S8-11 | ✅ | Droits (S8-07) : aucun utilisateur standard sur `appsettings.json`, `Keys`, `Data` ; console, rapports, synchronisation, AD, SMTP et clé agent fonctionnels après mise à jour. |
+| P2-11, P3-23, P3-03 | sans objet | P2-11 : comportement remplacé par B17 (PA-07) ; P3-23 et P3-03 : versions / AD autre que celui du labo non disponibles. |
 ## Corrections avant fin de recette (26.11.8.2, build 7d5612d+) — 08/11/2026
 
 Mise à jour de l'installation SQL Server du labo avec le build corrigé, puis tous les lots API rejoués (Escalade, Sessions, Imprimantes, Web, Données, Serveur, SNMPv3, E-mail, AD, Limitation) : **145 OK, 0 échec**.
@@ -70,7 +99,7 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | P3-04 à P3-06, NR-06, NR-07, NR-10, PA-17 à PA-21 | ✅ | NR-10 sur SQL Server : planifications PDF / CSV conservées (7:30, hebdomadaire, seuil 14). |
 | SV3-01 à SV3-16 | ✅ après correctif (B60) | Simulateur snmpsim sur SRV-AD (`tools/lab/Install-LabSnmp.ps1`) : .10 en SNMPv3 authPriv SHA-256/AES-128, .11 en v2c. Création du profil d'OID en 500 sur SQL Server (B60). Mot de passe v3 erroné : « Identifiants SNMPv3 refusés… », mot de passe absent des messages et journaux. SV3-05, SV3-07 (affichage, cycle, PDF) et SV3-14 sur un autre serveur : à l'écran / non joués. |
 | SI-06, NR-02 (partiel) | ✅ après correctif (B61) | Mise à jour 26.11.8.2 → 26.11.8.2 (build avec B60) sur l'installation SQL Server : configuration et données conservées. Premier essai : console en **503**, pool IIS laissé arrêté (B61). Après correctif : pool démarré, console OK, règle de pare-feu 8080 en place. |
-| SD-04, SD-01, SR-05, NR-10 (après mise à jour) | ✅ | DbInitializer a remis la valeur par défaut de `DateCreation` (B60, retirée avant la mise à jour) ; création de profil d'OID OK ; tous les lots rejoués après la mise à jour : 193 OK, aucun nouvel échec (P2-18 = B57). |## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
+| SD-12, SD-01, SR-05, NR-10 (après mise à jour) | ✅ | DbInitializer a remis la valeur par défaut de `DateCreation` (B60, retirée avant la mise à jour) ; création de profil d'OID OK ; tous les lots rejoués après la mise à jour : 193 OK, aucun nouvel échec (P2-18 = B57). |## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
 | S8-06 | ✅ | Installation neuve en **authentification SQL** (`autoprint.sql`, dbcreator) sur SQL Server vierge : base créée et possédée par `autoprint.sql`, **aucune connexion Windows ajoutée**, 14 migrations, console OK ; `appsettings.json` (mot de passe SQL en clair) lisible seulement par SYSTEM, Administrateurs et le pool (lecture). Lots rejoués (Comptes, Escalade, Sessions, Imprimantes, Données, Serveur, SNMPv3, E-mail, AD) : 167 OK ; seuls échecs : B57 (P2-18) et des effets d'ordre des lots du script, corrigés. |
 | S8-05, B62 | ✅ | SQL Server **distant** (SQL Server 2025 Express sur SRV-AD, port 1433), authentification Windows : connexion `LAB\SRV-PRINT$` créée sur SRV-AD, `db_owner` sur la base, 14 migrations, console OK ; lots Comptes, Imprimantes, Données, SNMPv3 : 59 OK (échecs attendus : AD non configuré, B57). Port saisi d'abord avec la syntaxe SQL « serveur,1433 », jugée peu claire : champ **Port** ajouté (B62) et validé par une nouvelle installation. |
 
@@ -148,4 +177,8 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B62 | Fait en 26.11.8.2 | Installeur : champ Port pour SQL Server (au lieu de « serveur,1433 »). |
 | B63 | Corrigé en 26.11.8.2 | Serveurs mis à jour : jetons de 120 min conservés au lieu de 30. |
 | B64 | Fait en 26.11.8.2 | Texte de ResetPassword.bat (« admin123 »). |
+| B65 | Corrigé en 26.11.8.2 | Compilation parallèle de la solution parfois en échec. |
+| B66 | Corrigé en 26.11.8.2 | La synchronisation pouvait renommer puis supprimer la file d'une autre imprimante de même IP. |
+| B67 | Corrigé en 26.11.8.2 | Spouleur bloqué : 60 s par opération et message technique. |
+| B68 | Corrigé en 26.11.8.2 | DC injoignable : « Identifiants incorrects » et échec compté. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
