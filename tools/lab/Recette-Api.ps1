@@ -13,7 +13,7 @@
 #>
 param(
     [string]$BaseUrl = 'https://srv-print.lab.autoprint.test',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -495,6 +495,207 @@ function Lot-AD {
     Write-Host "         codes : $($codes -join ',') ; AD verrouillé/badPwdCount : $lock" -ForegroundColor DarkGray
 }
 
+# ------------------------------------------------------------------ lot Clé agent (rotation, B18) ; finit avec une clé neuve déployée sur CLT-TEST
+function Test-AgentKey([System.Security.SecureString]$Key) {
+    $req = [Net.HttpWebRequest]::Create("$BaseUrl/api/imprimantes"); $req.Timeout = 30000
+    $req.Headers['X-Agent-Secret'] = [Net.NetworkCredential]::new('', $Key).Password
+    try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response }
+    $code = [int]$resp.StatusCode; $resp.Close(); $code
+}
+
+function Lot-Cle {
+    Write-Host "`n--- Lot Clé agent : rotation (SC-05 à SC-07), P2-35 ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    $k0 = ConvertTo-SecureString (Invoke-Api GET '/api/Settings/agent-key' -Token $ta).Json.key -AsPlainText -Force
+    $audit = (Invoke-Api GET '/api/Audit?pageSize=20' -Token $ta).Json.items
+    Check 'P2-35' 'consultation de la clé tracée (AGENT_KEY_REVEAL, avec l''utilisateur)' ([bool]($audit | Where-Object { $_.action -eq 'AGENT_KEY_REVEAL' -and $_.utilisateur -eq 'admin' })) $true
+
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 30 } $ta
+    $k1 = ConvertTo-SecureString $r.Json.key -AsPlainText -Force; $until = $r.Json.previousValidUntil; $r = $null
+    Check 'SC-05' 'nouvelle clé avec 30 jours de transition (date de fin renvoyée)' ([bool]$until) $true
+    $audit = (Invoke-Api GET '/api/Audit?pageSize=20' -Token $ta).Json.items
+    Check 'SC-05' 'journal d''audit AGENT_KEY_ROTATE' ([bool]($audit | Where-Object action -eq 'AGENT_KEY_ROTATE')) $true
+    Check 'SC-06' 'pendant la transition : ancienne clé / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)" '200/200'
+
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 0 } $ta
+    $k2 = ConvertTo-SecureString $r.Json.key -AsPlainText -Force; $r = $null
+    Check 'SC-07' 'révocation immédiate : clé initiale / clé précédente / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)/$(Test-AgentKey $k2)" '401/401/200'
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 91 } $ta
+    Check 'SC-05' 'période de transition hors limites (91 jours) refusée' $r.Code 400 $r.Text
+
+    # Déploiement de la nouvelle clé sur CLT-TEST (comme une mise à jour de configuration Intune)
+    if (-not $script:LabCred) { Get-ServerQueues | Out-Null }
+    $clt = [pscredential]::new('.\LabAdmin', $script:LabCred.Password)
+    $ok = Invoke-Command -VMName CLT-TEST -Credential $clt -ArgumentList $k2 -ScriptBlock {
+        param($k) Set-ItemProperty 'HKLM:\SOFTWARE\Autoprint' -Name APIKEY -Value ([Net.NetworkCredential]::new('', $k).Password)
+        $h = @{ 'X-Agent-Secret' = (Get-ItemProperty 'HKLM:\SOFTWARE\Autoprint').APIKEY }
+        (Invoke-WebRequest https://srv-print.lab.autoprint.test/api/imprimantes -Headers $h -UseBasicParsing).StatusCode
+    }
+    Check 'SC-07' 'CLT-TEST avec la nouvelle clé (registre mis à jour)' $ok 200
+}
+
+# ------------------------------------------------------------------ lot Données : sauvegardes, audit, jeton d'intégration
+function Lot-Donnees {
+    Write-Host "`n--- Lot Données : sauvegarde / restauration (4.2, NR-08, P2-18, P2-40), audit (P2-39), supervision (NR-09) ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    $secretKeys = 'AgentApiKey', 'AdServicePassword', 'SmtpPass'
+    $agentKey = ConvertTo-SecureString (Invoke-Api GET '/api/Settings/agent-key' -Token $ta).Json.key -AsPlainText -Force
+    $count = { param($t) "{0} imprimantes, {1} comptes, {2} rôles" -f @((Invoke-Api GET '/api/Imprimantes' -Token $t).Json).Count, @((Invoke-Api GET '/api/users' -Token $t).Json).Count, @((Invoke-Api GET '/api/roles' -Token $t).Json).Count }
+    $before = & $count $ta
+
+    $r = Invoke-Api POST '/api/Backup/export' @{ secretsPassword = 'Court-11car' } $ta
+    Check 'P3-09' 'export avec un mot de passe de 11 caractères refusé' $r.Code 400 $r.Text
+
+    $plainExport = Invoke-Api POST '/api/Backup/export' @{} $ta
+    $s = @($plainExport.Json.settings | Where-Object { $secretKeys -contains $_.key })
+    Check 'P3-08' 'export sans mot de passe : SecretsProtected=false, secrets vides' "$($plainExport.Json.secretsProtected)/$(@($s | Where-Object { $_.value }).Count)" 'False/0'
+
+    if (-not (Get-Plain 'backup')) { Set-Plain 'backup' (New-TestPassword) }
+    $prot = Invoke-Api POST '/api/Backup/export' @{ secretsPassword = (Get-Plain 'backup') } $ta
+    $s = @($prot.Json.settings | Where-Object { $secretKeys -contains $_.key -and $_.value })
+    $keyPlain = [Net.NetworkCredential]::new('', $agentKey).Password
+    Check 'P3-10' 'export protégé : SecretsProtected=true, secrets en bkp:v1:, clé agent absente en clair' "$($prot.Json.secretsProtected)/$(@($s | Where-Object { $_.value -notlike 'bkp:v1:*' }).Count)/$($prot.Text.Contains($keyPlain))" 'True/0/False'
+    $keyPlain = $null
+
+    $body = $prot.Text  # JSON du fichier ; le mot de passe de protection est un champ du même objet
+    $r = Invoke-Api POST '/api/Backup/restore' $body $ta
+    Check 'P3-11' 'restauration du fichier protégé sans mot de passe : refus' $r.Code 400 $r.Text
+    $withBad = ($prot.Json | Select-Object *); $withBad | Add-Member -NotePropertyName secretsPassword -NotePropertyValue 'Mauvais-mot-de-passe-1' -Force
+    $r = Invoke-Api POST '/api/Backup/restore' $withBad $ta
+    Check 'P3-11' 'avec un mauvais mot de passe : refus' $r.Code 400 $r.Text
+    Check 'P3-11' 'aucune donnée modifiée' (& $count $ta) $before
+
+    $withGood = ($prot.Json | Select-Object *); $withGood | Add-Member -NotePropertyName secretsPassword -NotePropertyValue (Get-Plain 'backup') -Force
+    $r = Invoke-Api POST '/api/Backup/restore' $withGood $ta
+    Check 'P3-12' 'restauration avec le bon mot de passe' $r.Code 200 $r.Text
+    $ta = Get-Token 'admin'
+    Check 'NR-08' 'données identiques après restauration' (& $count $ta) $before
+    $codes = foreach ($u in 'helpdesk', 'lecteur') { (Invoke-Login $u (Get-Plain $u)).Code }
+    Check 'P2-40' 'comptes locaux : connexion avec leur mot de passe habituel' ($codes -join ',') '200,200'
+    $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    Check 'P2-40' 'compte AD avec rôle manuel conservé (ad.user2 Lecteur)' $l.Code 200 $l.Text
+    Check 'P3-12' 'clé agent conservée après restauration' (Test-AgentKey $agentKey) 200
+    $t = Invoke-Api POST '/api/Settings/TestAd' @{ domain = 'lab.autoprint.test'; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = '●●●●●●●●' } $ta
+    Check 'P3-12' 'mot de passe AD restauré (test de connexion AD)' $t.Code 200 $t.Text
+
+    $r = Invoke-Api POST '/api/Backup/restore' $plainExport.Text $ta
+    Check 'P3-13' 'restauration du fichier sans secrets' $r.Code 200 $r.Text
+    $ta = Get-Token 'admin'
+    Check 'P3-13' 'secrets actuels conservés (clé agent inchangée)' (Test-AgentKey $agentKey) 200
+
+    $broken = $plainExport.Text.Replace('"imprimantes":[', '"imprimantes":[{"id":"pas-un-nombre"},')
+    $r = Invoke-Api POST '/api/Backup/restore' $broken $ta
+    Check 'P2-18' 'sauvegarde corrompue : refus sans détail technique' "$($r.Code)/$(($r.Text -match 'Exception|   at |System\.'))" { param($x) $x -match '^(400|500)/False$' } $r.Text
+
+    $r = Invoke-Api DELETE '/api/Audit/cleanup' -Token $ta
+    Check 'P2-39' 'purge des anciens journaux d''audit (admin)' $r.Code { param($x) $x -in 200, 204 } $r.Text
+
+    $tok = Invoke-Api POST '/api/IntegrationTokens' @{ description = 'Recette NR-09' } $ta
+    $raw = ConvertTo-SecureString $tok.Json.rawToken -AsPlainText -Force; $tokId = $tok.Json.id; $tok = $null
+    $req = [Net.HttpWebRequest]::Create("$BaseUrl/api/v1/Monitoring/export"); $req.Headers['X-Api-Token'] = [Net.NetworkCredential]::new('', $raw).Password
+    try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response }
+    $code = [int]$resp.StatusCode; $txt = (New-Object IO.StreamReader($resp.GetResponseStream())).ReadToEnd(); $resp.Close()
+    Check 'NR-09' 'export supervision avec un jeton d''intégration (JSON)' "$code/$($txt.TrimStart().Substring(0,1))" { param($x) $x -match '^200/[\[{]$' } $txt
+    $r = Get-Raw "$BaseUrl/api/v1/Monitoring/export"
+    Check 'NR-09' 'sans jeton : refus' $r.Code 401
+    Invoke-Api DELETE "/api/IntegrationTokens/$tokId" -Token $ta | Out-Null
+}
+
+# ------------------------------------------------------------------ lot Serveur : service AutoprintSpooler, tube, compte du site, base
+function Invoke-OnPrint([scriptblock]$Script, [object[]]$Arguments = @()) {
+    if (-not $script:LabCred) { Get-ServerQueues | Out-Null }
+    Invoke-Command -VMName SRV-PRINT -Credential $script:LabCred -ScriptBlock $Script -ArgumentList $Arguments
+}
+
+function Lot-Serveur {
+    Write-Host "`n--- Lot Serveur : service, tube nommé, compte du site, base (5.1, 5.3, 5.6, 4.1) ---" -ForegroundColor Cyan
+    $info = Invoke-OnPrint {
+        Import-Module WebAdministration
+        $svc = Get-CimInstance Win32_Service -Filter "Name='AutoprintSpooler'"
+        $w3 = Get-CimInstance Win32_Process -Filter "Name='w3wp.exe'" | ForEach-Object { (Invoke-CimMethod -InputObject $_ -MethodName GetOwner).User }
+        $cfg = Get-Content 'C:\Program Files\Autoprint Server\appsettings.json' -Raw | ConvertFrom-Json
+        [pscustomobject]@{
+            Service = "$($svc.State)/$($svc.StartMode)/$($svc.StartName)"
+            Pool = (Get-ItemProperty IIS:\AppPools\Autoprint -Name processModel.identityType)
+            W3wp = ($w3 -join ',')
+            Mode = $cfg.Spooler.Mode; Jwt = $cfg.Jwt.ExpireMinutes; Db = $cfg.Database.ConnectionStrings.Sqlite
+            DbInProgramFiles = @(Get-ChildItem 'C:\Program Files\Autoprint Server' -Filter *.db -ErrorAction SilentlyContinue).Count
+            KeyFiles = @(Get-ChildItem C:\ProgramData\Autoprint\Keys -Filter 'key-*.xml').Count
+            NetworkService = [bool]((Get-Acl 'C:\Program Files\Autoprint Server').Access | Where-Object { $_.IdentityReference -like '*NETWORK SERVICE*' -or $_.IdentityReference -like '*SERVICE RÉSEAU*' })
+            Events = @(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'Autoprint.SpoolerService' } -MaxEvents 200 -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'Commande \w+' }).Count
+        }
+    }
+    Check 'S8-01' 'service AutoprintSpooler démarré, automatique, Système local' $info.Service 'Running/Auto/LocalSystem'
+    Check 'S8-02' 'pool IIS en ApplicationPoolIdentity' "$($info.Pool)" 'ApplicationPoolIdentity'
+    Check 'S8-19' 'processus w3wp sous le compte du pool (Autoprint)' $info.W3wp { param($x) $x -match 'Autoprint' -and $x -notmatch 'SYSTEM|Système' } $info.W3wp
+    Check 'S8-03' 'Spooler:Mode = Service' $info.Mode 'Service'
+    Check 'SC-01' 'Jwt:ExpireMinutes = 30' $info.Jwt 30
+    Check 'SB-01' 'base dans ProgramData, aucune .db dans Program Files' "$($info.Db -like '*ProgramData\Autoprint\Data\Autoprint.db*')/$($info.DbInProgramFiles)" 'True/0' $info.Db
+    Check 'P3-07' 'fichier de clé key-*.xml présent' ($info.KeyFiles -ge 1) $true
+    Check 'P3-19' 'NETWORK SERVICE absent du dossier du programme' $info.NetworkService $false
+    Check 'S8-12' 'journal Application : entrées du service pour les commandes de synchronisation' ($info.Events -gt 0) $true "$($info.Events) entrée(s)"
+
+    # S8-17 : le tube n'autorise que SYSTEM et le compte du pool : même un administrateur local (session PowerShell Direct) est refusé
+    $pipe = Invoke-OnPrint { try { $p = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'AutoprintSpooler'); $p.Connect(3000); 'CONNECTE' } catch { $_.Exception.Message } }
+    Check 'S8-17' 'tube AutoprintSpooler depuis un autre compte local (administrateur, ni SYSTEM ni le pool) : refusé' "$pipe" { param($x) $x -match 'UnauthorizedAccess|refus' } "$pipe"
+    $clt = [pscredential]::new('.\LabAdmin', $script:LabCred.Password)
+    $adCred = [pscredential]::new('LAB\ad.user1', $script:Secrets['ad.user1'])
+    $net = Invoke-Command -VMName CLT-TEST -Credential $clt -ArgumentList $adCred -ScriptBlock {
+        param($c)
+        New-SmbMapping -RemotePath '\\srv-print.lab.autoprint.test\IPC$' -UserName $c.UserName -Password $c.GetNetworkCredential().Password -Persistent $false | Out-Null
+        try { $p = New-Object System.IO.Pipes.NamedPipeClientStream('srv-print.lab.autoprint.test', 'AutoprintSpooler'); $p.Connect(3000); 'CONNECTE' } catch { $_.Exception.GetType().Name + ': ' + $_.Exception.Message }
+        Remove-SmbMapping -RemotePath '\\srv-print.lab.autoprint.test\IPC$' -Force
+    }
+    Check 'S8-18' 'tube depuis un autre poste (compte de domaine authentifié) : refusé' "$net" { param($x) $x -match 'UnauthorizedAccess|refus' } "$net"
+
+    # S8-13 : modèle dont le pilote n'est pas installé sur le serveur
+    $ta = Get-Token 'admin'
+    $marque = (Invoke-Api GET '/api/Marques' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    $pil = Invoke-Api POST '/api/Pilotes' @{ nom = 'Pilote Fantome 1.0'; version = '1.0'; estInstalle = $false } $ta
+    $piloteId = if ($pil.Code -in 200, 201) { $pil.Json.id } else { $null }
+    $mod = Invoke-Api POST '/api/Modeles' @{ nom = 'Modèle sans pilote'; marqueId = $marque.id; piloteId = $piloteId } $ta
+    $imp = Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = 'Test-PiloteAbsent'; adresseIp = '192.168.99.10'; emplacementId = $lieu.id; modeleId = $mod.Json.id; estPartagee = $false } $ta
+    $s = Invoke-Sync $ta
+    Check 'S8-13' 'pilote absent du serveur : échec de synchronisation explicite' ($s.Text -match 'Pilote|pilote') $true $s.Text
+    if ($imp.Json.id) { Invoke-Api DELETE "/api/Imprimantes/$($imp.Json.id)" -Token $ta | Out-Null; Invoke-Sync $ta | Out-Null }
+    if ($mod.Json.id) { Invoke-Api DELETE "/api/Modeles/$($mod.Json.id)" -Token $ta | Out-Null }
+
+    # S8-14 / S8-15 / SB-05 : service arrêté
+    Invoke-OnPrint { Stop-Service AutoprintSpooler -Force }
+    $dash = Invoke-Api GET '/api/Dashboard' -Token $ta
+    $st = ([regex]::Matches($dash.Text, '"[^"]*(?i:spool|service)[^"]*"\s*:\s*("[^"]*"|true|false|\d+)') | ForEach-Object Value) -join ' '
+    $lab = (Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object nomAffiche -eq 'Labo-Texte'
+    $lab.commentaire = "Recette $(Get-Date -Format HHmmss)"
+    Invoke-Api PUT "/api/Imprimantes/$($lab.id)" $lab $ta | Out-Null
+    $reads = foreach ($p in '/api/Dashboard', '/api/Imprimantes', '/api/Sync/preview') { (Invoke-Api GET $p -Token $ta).Code }
+    $scan = (Invoke-Api POST '/api/Import/Scan/Printers' @{} $ta).Code
+    Check 'S8-15' 'service arrêté : tableau de bord, imprimantes, prévisualisation, scan du spouleur' "$($reads -join ',')/$scan" '200,200,200/200'
+    $s = Invoke-Sync $ta
+    Check 'S8-14' 'service arrêté : synchronisation refusée avec message clair' ($s.Text -match 'AutoprintSpooler') $true $s.Text
+    Write-Host "         tableau de bord (service arrêté) : $st" -ForegroundColor DarkGray
+    Invoke-OnPrint { Start-Service AutoprintSpooler }
+    Start-Sleep 5
+    $dash2 = Invoke-Api GET '/api/Dashboard' -Token $ta
+    $st2 = ([regex]::Matches($dash2.Text, '"[^"]*(?i:spool|service)[^"]*"\s*:\s*("[^"]*"|true|false|\d+)') | ForEach-Object Value) -join ' '
+    Write-Host "         tableau de bord (service redémarré) : $st2" -ForegroundColor DarkGray
+    Check 'SB-05' 'état du service AutoprintSpooler remonté au tableau de bord (change entre arrêt et marche)' ($st -ne $st2 -and $st) $true
+    $s = Invoke-Sync $ta
+    Check 'S8-14' 'service redémarré : la synchronisation passe' ($s.Text -match '"success":true') $true $s.Text
+
+    # P3-01 : secrets chiffrés en base (copie de la base vers le poste, lecture des préfixes seulement)
+    $db = Join-Path $env:TEMP 'autoprint-recette.db'
+    $sess = New-PSSession -VMName SRV-PRINT -Credential $script:LabCred
+    Invoke-Command -Session $sess { Copy-Item C:\ProgramData\Autoprint\Data\Autoprint.db C:\Windows\Temp\recette.db -Force }
+    Copy-Item C:\Windows\Temp\recette.db -FromSession $sess -Destination $db -Force
+    Invoke-Command -Session $sess { Remove-Item C:\Windows\Temp\recette.db -Force }; Remove-PSSession $sess
+    $pyFile = Join-Path $env:TEMP 'autoprint-prefixes.py'
+    Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`nprint(';'.join(k+'='+(v[:7] if v else '') for k,v in c.execute(""select Key,Value from ServerSettings where Key in ('AgentApiKey','AdServicePassword','SmtpPass')"")))" -Encoding ASCII
+    $res = & python -I $pyFile $db; Remove-Item $db, $pyFile -Force
+    Check 'P3-01' 'AgentApiKey et AdServicePassword chiffrés en base (enc:v1:)' ($res -match 'AgentApiKey=enc:v1:' -and $res -match 'AdServicePassword=enc:v1:') $true $res
+    Write-Host "         préfixes : $res" -ForegroundColor DarkGray
+}
+
 # ------------------------------------------------------------------ lot Limitation
 function Lot-Limitation {
     Write-Host "`n--- Lot Limitation des tentatives (2.6) ---" -ForegroundColor Cyan
@@ -515,6 +716,6 @@ function Lot-Limitation {
     Check 'P1-31' 'après 2 minutes : connexion lecteur avec le bon mot de passe' $r.Code 200 $r.Text
 }
 
-if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Limitation' }
+if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Limitation' }
 foreach ($l in $Lot) { & "Lot-$l" }
 Write-Host ("`nBilan : {0} OK, {1} ÉCHEC" -f $script:Score.OK, $script:Score.KO) -ForegroundColor $(if ($script:Score.KO) { 'Red' } else { 'Green' })
