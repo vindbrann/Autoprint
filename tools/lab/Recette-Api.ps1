@@ -13,7 +13,9 @@
 #>
 param(
     [string]$BaseUrl = 'https://srv-print.lab.autoprint.test',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Snmp', 'Limitation', 'Tout')][string[]]$Lot = 'Tout',
+    # Autre installation d'Autoprint (ex. « sql ») : comptes Autoprint à part (recette-secrets-<profil>.xml), comptes du labo partagés
+    [string]$Profil = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,6 +42,15 @@ namespace AutoprintLab {
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $SecretsFile = Join-Path $env:USERPROFILE '.autoprint-lab\recette-secrets.xml'
+if ($Profil) {
+    $main = $SecretsFile
+    $SecretsFile = Join-Path $env:USERPROFILE ".autoprint-lab\recette-secrets-$Profil.xml"
+    if (-not (Test-Path $SecretsFile)) {
+        # Comptes du labo (AD, SMTP, SQL, SNMP) repris ; comptes locaux Autoprint recréés sur cette installation
+        $s = Import-Clixml $main; foreach ($k in 'admin', 'admin2', 'helpdesk', 'lecteur', 'sess.a', 'hd.cree') { $s.Remove($k) }
+        $s | Export-Clixml $SecretsFile
+    }
+}
 $script:Score = @{ OK = 0; KO = 0 }
 $script:Logins = New-Object System.Collections.Generic.List[datetime]
 
@@ -289,6 +300,11 @@ function Lot-Imprimantes {
     if (-not $marque) { $marque = (Invoke-Api POST '/api/Marques' @{ nom = 'Labo' } $ta).Json }
     $modele = (Invoke-Api GET '/api/Modeles' -Token $ta).Json | Where-Object nom -eq 'Texte brut' | Select-Object -First 1
     if (-not $modele) { $modele = (Invoke-Api POST '/api/Modeles' @{ nom = 'Texte brut'; marqueId = $marque.id; piloteId = $pilote.id } $ta).Json }
+    elseif (-not $modele.piloteId -and $pilote) {
+        # Modèle créé lors d'un passage où le pilote manquait encore sur le serveur
+        $modele.piloteId = $pilote.id
+        Invoke-Api PUT "/api/Modeles/$($modele.id)" ($modele | Select-Object id, nom, code, marqueId, piloteId, snmpProfileId, snmpCredentialId) $ta | Out-Null
+    }
     $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
     if (-not $lieu) {
         $r = Invoke-Api POST '/api/Emplacements' @{ nom = 'Labo'; code = 'LAB'; networks = @(@{ cidrIpv4 = '192.168.99.0/24'; isPrimary = $true }) } $ta
@@ -583,7 +599,8 @@ function Lot-Donnees {
     $ta = Get-Token 'admin'
     Check 'P3-13' 'secrets actuels conservés (clé agent inchangée)' (Test-AgentKey $agentKey) 200
 
-    $broken = $plainExport.Text.Replace('"imprimantes":[', '"imprimantes":[{"id":"pas-un-nombre"},')
+    $broken = [regex]::Replace($plainExport.Text, '(?i)"imprimantes"\s*:\s*\[', '"Imprimantes": [{"Id":"pas-un-nombre"},', 'None', [TimeSpan]::FromSeconds(5))
+    if ($broken -eq $plainExport.Text) { throw 'P2-18 : liste des imprimantes introuvable dans l''export' }
     $r = Invoke-Api POST '/api/Backup/restore' $broken $ta
     Check 'P2-18' 'sauvegarde corrompue : refus sans détail technique' "$($r.Code)/$(($r.Text -match 'Exception|   at |System\.'))" { param($x) $x -match '^(400|500)/False$' } $r.Text
 
@@ -694,10 +711,8 @@ function Lot-Serveur {
     Check 'S8-14' 'service redémarré : la synchronisation passe' ($s.Text -match '"success":true') $true $s.Text
 
     # P3-01 : secrets chiffrés en base (copie de la base vers le poste, lecture des préfixes seulement)
-    $db = Copy-LabDatabase
-    $pyFile = Join-Path $env:TEMP 'autoprint-prefixes.py'
-    Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`nprint(';'.join(k+'='+(v[:7] if v else '') for k,v in c.execute(""select Key,Value from ServerSettings where Key in ('AgentApiKey','AdServicePassword','SmtpPass')"")))" -Encoding ASCII
-    $res = & python -I $pyFile $db; Remove-Item (Split-Path $db) -Recurse -Force; Remove-Item $pyFile -Force
+    $res = (Invoke-LabSql "SELECT [Key], [Value] FROM ServerSettings WHERE [Key] IN ('AgentApiKey','AdServicePassword','SmtpPass')" -Full 'Key' |
+            ForEach-Object { $_ -replace '^Key=([^;]*);Value=', '$1=' }) -join ';'
     Check 'P3-01' 'AgentApiKey et AdServicePassword chiffrés en base (enc:v1:)' ($res -match 'AgentApiKey=enc:v1:' -and $res -match 'AdServicePassword=enc:v1:') $true $res
     Write-Host "         préfixes : $res" -ForegroundColor DarkGray
 }
@@ -774,10 +789,9 @@ function Lot-Email {
     if ($link.Success) {
         $token = [uri]::UnescapeDataString($link.Groups[1].Value)
         # PA-21 : la base ne contient qu'une empreinte du jeton
-        $db = Copy-LabDatabase
-        $pyFile = Join-Path $env:TEMP 'autoprint-token.py'
-        Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`nv=c.execute(""select PasswordResetToken from Users where Username='lecteur'"").fetchone()[0] or ''`nprint(('hex' if all(ch in '0123456789abcdefABCDEF' for ch in v) else 'autre')+';'+str(len(v))+';'+('identique' if v==sys.argv[2] else 'different'))" -Encoding ASCII
-        $res = & python -I $pyFile $db $token; Remove-Item (Split-Path $db) -Recurse -Force; Remove-Item $pyFile -Force
+        # Empreinte stockée (pas le jeton) : lue en entier pour la comparer au jeton du lien
+        $v = ((Invoke-LabSql "SELECT PasswordResetToken FROM Users WHERE Username = 'lecteur'" -Full 'PasswordResetToken') -replace '^PasswordResetToken=', '')
+        $res = "$(if ($v -match '^[0-9a-fA-F]+$') { 'hex' } else { 'autre' });$($v.Length);$(if ($v -eq $token) { 'identique' } else { 'different' })"
         Check 'PA-21' 'base : empreinte hexadécimale, différente du jeton du lien' $res { param($x) $x -like 'hex;*;different' } $res
         $r = Invoke-Api POST '/api/auth/reset-password' @{ token = $token; newPassword = 'Court-11car'; confirmPassword = 'Court-11car' }
         Check 'PA-19' 'nouveau mot de passe de 11 caractères refusé' $r.Code 400 $r.Text
@@ -793,6 +807,175 @@ function Lot-Email {
         Check 'PA-20' 'même lien réutilisé : invalide' $r.Code 400 $r.Text
         $token = $null
     }
+}
+
+# ------------------------------------------------------------------ lot Snmp : SNMPv3 et identifiants SNMP (5.5)
+# Requête sur la base du serveur (SQL Server ou SQLite) ; chaque valeur est tronquée à 7 caractères sur le serveur
+# (préfixe enc:v1: seulement, jamais de secret complet sur ce poste)
+function Invoke-LabSql([string]$Query, [string[]]$Full = @()) {   # $Full : colonnes non tronquées (noms, clés)
+    $prov = Invoke-OnPrint { (Get-Content 'C:\Program Files\Autoprint Server\appsettings.json' -Raw | ConvertFrom-Json).Database.Provider }
+    if ($prov -eq 'SqlServer') {
+        return Invoke-OnPrint {
+            param($q, $full)
+            $cs = (Get-Content 'C:\Program Files\Autoprint Server\appsettings.json' -Raw | ConvertFrom-Json).Database.ConnectionStrings.SqlServer
+            # Format Microsoft.Data.SqlClient -> System.Data.SqlClient (Windows PowerShell)
+            $cs = $cs -replace 'Trust Server Certificate', 'TrustServerCertificate' -replace 'Multiple Active Result Sets', 'MultipleActiveResultSets' -replace 'Application Intent', 'ApplicationIntent'
+            $c = New-Object Data.SqlClient.SqlConnection $cs; $c.Open(); $cmd = $c.CreateCommand(); $cmd.CommandText = $q; $r = $cmd.ExecuteReader()
+            while ($r.Read()) { (0..($r.FieldCount - 1) | ForEach-Object { $v = "$($r[$_])"; $n = $r.GetName($_); if ($full -notcontains $n) { $v = $v.Substring(0, [Math]::Min(7, $v.Length)) }; "$n=$v" }) -join ';' }
+            $c.Close()
+        } @($Query, $Full)
+    }
+    $db = Copy-LabDatabase
+    $pyFile = Join-Path $env:TEMP 'autoprint-query.py'
+    Set-Content $pyFile "import sqlite3,sys`nc=sqlite3.connect(sys.argv[1])`ncur=c.execute(sys.argv[2])`nn=[d[0] for d in cur.description]`nfull=sys.argv[3].split(',')
+for row in cur: print(';'.join(k+'='+(str(v if v is not None else '') if k in full else str(v if v is not None else '')[:7]) for k,v in zip(n,row)))" -Encoding ASCII
+    $res = & python -I $pyFile $db $Query ('-,' + ($Full -join ','));   # jamais vide (argument vide perdu par PowerShell 5.1) Remove-Item (Split-Path $db) -Recurse -Force; Remove-Item $pyFile -Force
+    return $res
+}
+# Journal du simulateur : repère = nombre de lignes (pas l'heure : horloges de l'hôte et de SRV-AD différentes)
+function Get-SnmpSimMark { Invoke-OnDc { @(Get-Content C:\SnmpSim\snmpsim.log).Count } }
+function Get-SnmpSimLog([int]$Mark) {
+    Invoke-OnDc { param($m) Get-Content C:\SnmpSim\snmpsim.log | Select-Object -Skip $m | Where-Object { $_ -notmatch 'key' } } @($Mark)
+}
+
+function Lot-Snmp {
+    Write-Host "`n--- Lot SNMPv3 et identifiants SNMP (5.5, simulateur SRV-AD : .10 v3, .11 v2c « parc ») ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    $auth = Get-Plain 'snmp.v3.auth'; $priv = Get-Plain 'snmp.v3.priv'
+    if (-not $auth) { throw 'Simulateur SNMP non installé (tools\lab\Install-LabSnmp.ps1)' }
+    $v3 = @{ version = 3; v3Username = 'autoprint.v3'; v3SecurityLevel = 2; v3AuthProtocol = 1; v3PrivProtocol = 0 }
+    function New-Cred([hashtable]$extra) { $h = $v3.Clone(); foreach ($k in $extra.Keys) { $h[$k] = $extra[$k] }; $h }
+
+    # Nettoyage d'un passage précédent
+    foreach ($p in @((Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object { $_.nomAffiche -like 'SIM-*' })) { Invoke-Api DELETE "/api/Imprimantes/$($p.id)" -Token $ta | Out-Null }
+    foreach ($m in @((Invoke-Api GET '/api/Modeles' -Token $ta).Json | Where-Object { $_.nom -like 'SIM *' })) { Invoke-Api DELETE "/api/Modeles/$($m.id)" -Token $ta | Out-Null }
+    foreach ($c in @((Invoke-Api GET '/api/SnmpCredentials' -Token $ta).Json | Where-Object { $_.name -like 'SNMP*' -or $_.name -like 'SV3*' })) { Invoke-Api DELETE "/api/SnmpCredentials/$($c.id)" -Token $ta | Out-Null }
+    foreach ($p in @((Invoke-Api GET '/api/SnmpProfiles' -Token $ta).Json | Where-Object { $_.name -eq 'Profil SIM' })) { Invoke-Api DELETE "/api/SnmpProfiles/$($p.id)" -Token $ta | Out-Null }
+
+    $r1 = Invoke-Api POST '/api/SnmpCredentials' (New-Cred @{ name = 'SV3 sans utilisateur'; v3Username = ''; v3AuthPassword = $auth; v3PrivPassword = $priv }) $ta
+    $r2 = Invoke-Api POST '/api/SnmpCredentials' (New-Cred @{ name = 'SV3 sans chiffrement'; v3AuthPassword = $auth }) $ta
+    $r3 = Invoke-Api POST '/api/SnmpCredentials' (New-Cred @{ name = 'SV3 court'; v3AuthPassword = $auth; v3PrivPassword = 'Court-7' }) $ta
+    Check 'SV3-01' 'v3 sans utilisateur / authPriv sans mot de passe de chiffrement / 7 caractères : refus' "$($r1.Code),$($r2.Code),$($r3.Code)" '400,400,400' "$($r1.Text) | $($r2.Text) | $($r3.Text)"
+    Write-Host "         messages : $($r1.Text) | $($r2.Text) | $($r3.Text)" -ForegroundColor DarkGray
+
+    $c = Invoke-Api POST '/api/SnmpCredentials' (New-Cred @{ name = 'SNMPv3 Parc'; description = 'Recette'; v3AuthPassword = $auth; v3PrivPassword = $priv }) $ta
+    $credId = $c.Json.id
+    $list = Invoke-Api GET '/api/SnmpCredentials' -Token $ta
+    Check 'SV3-02' 'profil « SNMPv3 Parc » créé ; la liste ne contient aucun mot de passe' "$($c.Code)/$($list.Text.Contains($auth) -or $list.Text.Contains($priv))/$(($list.Json | Where-Object id -eq $credId).hasPrivPassword)" '201/False/True' $c.Text
+    $db = Invoke-LabSql 'SELECT Name, V3AuthPassword, V3PrivPassword FROM SnmpCredentials' -Full 'Name'
+    Check 'SV3-03' 'base : V3AuthPassword et V3PrivPassword en enc:v1:' (@($db | Where-Object { $_ -like 'Name=SNMPv3*' }) -join ' ') { param($x) $x -match 'V3AuthPassword=enc:v1:' -and $x -match 'V3PrivPassword=enc:v1:' }
+    $u = Invoke-Api PUT "/api/SnmpCredentials/$credId" (New-Cred @{ name = 'SNMPv3 Parc'; description = 'Recette (description modifiée)' }) $ta
+    Check 'SV3-04' 'changer uniquement la description (mots de passe vides)' $u.Code 204 $u.Text
+
+    # Profil d'OID, modèle avec le profil v3, deux imprimantes simulées
+    $prof = Invoke-Api POST '/api/SnmpProfiles' (@{ name = 'Profil SIM'; isColor = $true; oidPageCounter = '1.3.6.1.2.1.43.10.2.1.4.1.1'
+            oidTonerBlack = '1.3.6.1.2.1.43.11.1.1.9.1.1'; oidTonerCyan = '1.3.6.1.2.1.43.11.1.1.9.1.2'
+            items = @(@{ category = 0; name = 'Toner noir'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.1'; oidMaxCapacity = '1.3.6.1.2.1.43.11.1.1.8.1.1'; valueType = 1; colorHex = '#212529'; sortOrder = 1 },
+                      @{ category = 0; name = 'Toner cyan'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.2'; oidMaxCapacity = '1.3.6.1.2.1.43.11.1.1.8.1.2'; valueType = 1; colorHex = '#0dcaf0'; sortOrder = 2 },
+                      @{ category = 2; name = 'Compteur'; oid = '1.3.6.1.2.1.43.10.2.1.4.1.1'; valueType = 2; sortOrder = 3 }) } | ConvertTo-Json -Depth 5) $ta
+    $marque = (Invoke-Api GET '/api/Marques' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    if (-not $marque) { $marque = (Invoke-Api POST '/api/Marques' @{ nom = 'Labo' } $ta).Json }
+    $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    if (-not $lieu) { $lieu = (Invoke-Api POST '/api/Emplacements' @{ nom = 'Labo'; code = 'LAB'; networks = @(@{ cidrIpv4 = '192.168.99.0/24'; isPrimary = $true }) } $ta).Json }
+    $mod = (Invoke-Api POST '/api/Modeles' @{ nom = 'SIM LaserJet'; marqueId = $marque.id; snmpProfileId = $prof.Json.id } $ta).Json
+    $mod.snmpCredentialId = $credId
+    $m = Invoke-Api PUT "/api/Modeles/$($mod.id)" ($mod | Select-Object id, nom, code, marqueId, piloteId, snmpProfileId, snmpCredentialId) $ta
+    Check 'prep' "modèle SIM LaserJet (profil d'OID + SNMPv3 Parc)" "$($prof.Code)/$($m.Code)" '201/204' "$($prof.Text) $($m.Text)"
+    $pV3 = (Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = 'SIM-V3'; adresseIp = '192.168.99.10'; modeleId = $mod.id; emplacementId = $lieu.id; snmpCommunity = 'inutilisee'; snmpVersion = 2 } $ta).Json
+    $pV2 = (Invoke-Api POST '/api/Imprimantes' @{ nomAffiche = 'SIM-V2'; adresseIp = '192.168.99.11'; modeleId = $mod.id; emplacementId = $lieu.id; snmpCommunity = 'inutilisee'; snmpVersion = 2 } $ta).Json
+    $g = (Invoke-Api GET "/api/Modeles/$($mod.id)" -Token $ta).Json
+    Check 'SV3-05' 'modèle : identifiants « SNMPv3 Parc » (affichage de la fiche : à l''écran)' $g.snmpCredentialId $credId
+
+    $diag = { param($id) Invoke-Api GET "/api/Imprimantes/$id/diagnostic" -Token $ta }
+    $since = Get-SnmpSimMark
+    $d = & $diag $pV3.id
+    $summary = { param($j) "{0}|{1}|{2}" -f $j.serialNumber, $j.pageCounter, (($j.toners | ForEach-Object { "$($_.color)=$($_.currentLevel)" }) -join ',') }
+    Check 'SV3-06' 'diagnostic SIM-V3 (v3) : n° de série, compteur, toners' (& $summary $d.Json) { param($x) $x -like 'SIMV3-0001|48213|*62*18*' } $d.Text
+    $log = Get-SnmpSimLog $since
+    Check 'SV3-06' 'simulateur : requêtes reçues en SNMPv3 (securityModel 3, authPriv)' ([bool]($log -match 'securityModel 3, securityName autoprint\.v3, securityLevel 3')) $true
+    $p = (Invoke-Api GET "/api/Imprimantes/$($pV3.id)" -Token $ta).Json
+    Check 'SV3-07' 'fiche après diagnostic : n° de série et dernière réponse renseignés (cycle de supervision et PDF : à l''écran)' "$($p.serialNumber)/$([bool]$p.lastSeen)" 'SIMV3-0001/True'
+
+    # SV3-08 : mauvais mot de passe
+    $bad = 'Mauvais-' + (New-TestPassword).Substring(3, 10)
+    Invoke-Api PUT "/api/SnmpCredentials/$credId" (New-Cred @{ name = 'SNMPv3 Parc'; description = 'Recette'; v3AuthPassword = $bad }) $ta | Out-Null
+    $since8 = Get-Date
+    $d = & $diag $pV3.id
+    $t = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = '192.168.99.10'; credentialId = $credId; items = @(@{ name = 'Toner noir'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.1'; category = 0; valueType = 0 }) } $ta
+    Write-Host "         diagnostic : $($d.Json.status) | éditeur d'OID : $($t.Code) $($t.Text)" -ForegroundColor DarkGray
+    Check 'SV3-08' 'mauvais mot de passe : diagnostic sans données, message v3 explicite (éditeur d''OID)' "$([string]::IsNullOrEmpty($d.Json.serialNumber))/$($t.Code)/$($t.Text -match 'SNMPv3')" 'True/400/True' $t.Text
+    $leak = Invoke-OnPrint { param($s, $w) $e = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $s } -ErrorAction SilentlyContinue | Where-Object { $_.Message -like "*$w*" }
+        $f = Get-ChildItem 'C:\Program Files\Autoprint Server', 'C:\ProgramData\Autoprint' -Recurse -Include *.log, *.txt -ErrorAction SilentlyContinue | Where-Object LastWriteTime -ge $s | Select-String -SimpleMatch $w -List
+        @($e).Count + @($f).Count } @($since8, $bad)
+    Check 'SV3-08' 'mot de passe absent du message, du journal Windows et des fichiers journaux' "$($t.Text.Contains($bad))/$leak" 'False/0'
+    $u = Invoke-Api PUT "/api/SnmpCredentials/$credId" (New-Cred @{ name = 'SNMPv3 Parc'; description = 'Recette'; v3AuthPassword = $auth }) $ta
+    $d = & $diag $pV3.id
+    Check 'SV3-08' 'bon mot de passe remis : diagnostic de nouveau OK' "$($u.Code)/$($d.Json.serialNumber)" '204/SIMV3-0001'
+
+    # SV3-09 / SV3-10 : exception v2c sur une imprimante du même modèle
+    $c2 = (Invoke-Api POST '/api/SnmpCredentials' @{ name = 'SNMP v2c parc'; version = 2; community = 'parc' } $ta).Json
+    $pr = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json; $pr.snmpCredentialId = $c2.id
+    $u = Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta
+    $since9 = Get-SnmpSimMark
+    $d2 = & $diag $pV2.id; $d3 = & $diag $pV3.id
+    $log = Get-SnmpSimLog $since9
+    Check 'SV3-09' 'SIM-V2 en v2c (profil d''exception) et SIM-V3 en v3 : supervision OK' "$($u.Code)/$($d2.Json.serialNumber)/$($d3.Json.serialNumber)" '204/SIMV2-0002/SIMV3-0001' $u.Text
+    Check 'SV3-09' 'simulateur : SIM-V2 interrogée en v2c (securityModel 2)' ([bool]($log -match 'transportDomain \(1, 3, 6, 1, 6, 1, 1, 1\).*securityModel 2')) $true
+    $pr = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json; $pr.snmpCredentialId = $null
+    $u = Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta
+    $since10 = Get-SnmpSimMark
+    $d2 = & $diag $pV2.id
+    $log = Get-SnmpSimLog $since10
+    # En v3 (contexte vide), le simulateur sert les données « public » (n° SIMV3-0001) aussi sur .11
+    Check 'SV3-10' 'exception vidée : SIM-V2 reprend le profil du modèle (v3)' "$($u.Code)/$($d2.Json.serialNumber)/$([bool]($log -match 'transportDomain \(1, 3, 6, 1, 6, 1, 1, 1\).*securityModel 3'))" '204/SIMV3-0001/True'
+
+    # SV3-11 : imprimante sans profil (ni elle, ni son modèle)
+    $mod0 = (Invoke-Api POST '/api/Modeles' @{ nom = 'SIM sans profil'; marqueId = $marque.id; snmpProfileId = $prof.Json.id } $ta).Json
+    $pr = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json; $pr.modeleId = $mod0.id; $pr.snmpCommunity = 'parc'; $pr.snmpVersion = 2
+    $u = Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta
+    $g = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json
+    $d2 = & $diag $pV2.id
+    Check 'SV3-11' 'sans profil : communauté « parc » / v2c enregistrées et utilisées' "$($u.Code)/$($g.snmpCommunity)/$($g.snmpVersion)/$($d2.Json.serialNumber)" '204/parc/2/SIMV2-0002'
+
+    # SV3-12 : éditeur de profils d'OID avec les identifiants v3
+    $t = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = '192.168.99.10'; credentialId = $credId; items = @(@{ name = 'Toner cyan'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.2'; category = 0; valueType = 0 }) } $ta
+    $s = Invoke-Api POST '/api/SnmpProfiles/scan-printer' @{ ipAddress = '192.168.99.10'; credentialId = $credId } $ta
+    Check 'SV3-12' 'Tester / Auto-détecter en v3 : valeurs lues' "$($t.Code)/$($t.Text -match '18')/$($s.Code)/$(@($s.Json).Count -gt 0)" '200/True/200/True' "$($t.Text) $($s.Text)"
+
+    # SV3-16 : utilisateur avec seulement PRINTER_READ
+    $tl = Get-Token 'lecteur'
+    $a = Invoke-Api GET "/api/Imprimantes/$($pV3.id)" -Token $tl; $b = Invoke-Api GET '/api/SnmpCredentials' -Token $tl
+    Check 'SV3-16' 'lecteur : fiche imprimante lisible, identifiants SNMP indisponibles' "$($a.Code)/$($b.Code)" '200/403'
+
+    # SV3-14 / SV3-15 : sauvegarde et restauration (même serveur)
+    if (-not (Get-Plain 'backup')) { Set-Plain 'backup' (New-TestPassword) }
+    $prot = Invoke-Api POST '/api/Backup/export' @{ secretsPassword = (Get-Plain 'backup') } $ta
+    $plain = Invoke-Api POST '/api/Backup/export' @{} $ta
+    $w = ($prot.Json | Select-Object *); $w | Add-Member -NotePropertyName secretsPassword -NotePropertyValue (Get-Plain 'backup') -Force
+    $r = Invoke-Api POST '/api/Backup/restore' $w $ta
+    $ta = Get-Token 'admin'
+    $g = (Invoke-Api GET "/api/Modeles/$($mod.id)" -Token $ta).Json; $d = & $diag $pV3.id
+    Check 'SV3-14' 'sauvegarde protégée restaurée : profil lié au modèle, supervision v3 OK' "$($r.Code)/$($g.snmpCredentialId -eq $credId)/$($d.Json.serialNumber)" '200/True/SIMV3-0001' $r.Text
+    $r = Invoke-Api POST '/api/Backup/restore' $plain.Text $ta
+    $ta = Get-Token 'admin'
+    $d = & $diag $pV3.id
+    Check 'SV3-15' 'sauvegarde sans mot de passe restaurée : secrets actuels conservés (v3 OK)' "$($r.Code)/$($d.Json.serialNumber)" '200/SIMV3-0001' $r.Text
+
+    # SV3-13 : suppression d'un profil utilisé par un modèle et une imprimante
+    $tmp = (Invoke-Api POST '/api/SnmpCredentials' (New-Cred @{ name = 'SV3 temporaire'; v3AuthPassword = $auth; v3PrivPassword = $priv }) $ta).Json
+    $g = (Invoke-Api GET "/api/Modeles/$($mod.id)" -Token $ta).Json; $g.snmpCredentialId = $tmp.id
+    Invoke-Api PUT "/api/Modeles/$($mod.id)" ($g | Select-Object id, nom, code, marqueId, piloteId, snmpProfileId, snmpCredentialId) $ta | Out-Null
+    $pr = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json; $pr.snmpCredentialId = $tmp.id
+    Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta | Out-Null
+    $pr3 = (Invoke-Api GET "/api/Imprimantes/$($pV3.id)" -Token $ta).Json; $pr3.snmpCommunity = 'public'; $pr3.snmpVersion = 2
+    Invoke-Api PUT "/api/Imprimantes/$($pV3.id)" $pr3 $ta | Out-Null
+    $del = Invoke-Api DELETE "/api/SnmpCredentials/$($tmp.id)" -Token $ta
+    $d3 = & $diag $pV3.id; $d2 = & $diag $pV2.id
+    Check 'SV3-13' 'suppression : « 1 modèle(s) et 1 imprimante(s) … par défaut » ; supervision toujours OK (paramètres par défaut)' "$($del.Code)/$($del.Text -match '1 modèle\(s\) et 1 imprimante\(s\)')/$($d3.Json.serialNumber)/$($d2.Json.serialNumber)" '200/True/SIMV3-0001/SIMV2-0002' $del.Text
+
+    # Remise en état : modèle sur « SNMPv3 Parc »
+    $g = (Invoke-Api GET "/api/Modeles/$($mod.id)" -Token $ta).Json; $g.snmpCredentialId = $credId
+    Invoke-Api PUT "/api/Modeles/$($mod.id)" ($g | Select-Object id, nom, code, marqueId, piloteId, snmpProfileId, snmpCredentialId) $ta | Out-Null
 }
 
 # ------------------------------------------------------------------ lot Limitation
@@ -815,6 +998,6 @@ function Lot-Limitation {
     Check 'P1-31' 'après 2 minutes : connexion lecteur avec le bon mot de passe' $r.Code 200 $r.Text
 }
 
-if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Limitation' }
+if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Cle', 'Donnees', 'Serveur', 'Email', 'Snmp', 'Limitation' }
 foreach ($l in $Lot) { & "Lot-$l" }
 Write-Host ("`nBilan : {0} OK, {1} ÉCHEC" -f $script:Score.OK, $script:Score.KO) -ForegroundColor $(if ($script:Score.KO) { 'Red' } else { 'Green' })

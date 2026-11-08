@@ -408,6 +408,7 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SD-01 | Installation neuve SQL Server, puis mise à jour d'un serveur existant : journal de démarrage du site (ou de `--migrate-only`). | Migration `AlignModelSnapshot` appliquée ; aucune ligne « [DbInitializer] Mise à niveau du schéma en échec » (B2, B3). | ☐ |
 | SD-02 | Installation neuve SQLite : journal de démarrage. | Aucune erreur « duplicate column » ni ligne `fail:` liée au schéma (B3). | ☐ |
 | SD-03 | Supprimer une imprimante dont la file Windows ne peut pas être supprimée (droits retirés, file en cours d'utilisation), synchroniser. | La synchronisation signale l'échec (avant : file considérée comme supprimée) (B3). | ☐ |
+| SD-04 | **SQL Server** (installation neuve, puis mise à jour d'un serveur existant) : Profils SNMP › créer un profil d'OID avec au moins un élément (toner, compteur), l'enregistrer, le modifier. | Enregistré sans erreur ; aucune ligne « Cannot insert the value NULL into column 'DateCreation' » dans le journal (B60). | ☐ |
 | SD-04 | Créer une imprimante avec une adresse refusée par le spouleur, synchroniser. | Message « Création du port … impossible : … » (B3). | ☐ |
 | SD-05 | Rôles › liaison AD › rechercher un groupe contenant `&`, `#` ou un espace. | Résultats corrects (paramètre désormais encodé) (B9). | ☐ |
 | SD-06 | Page de connexion › mot de passe expiré › annuler la fenêtre de changement. | Retour propre à la page de connexion, plus de jeton dans le stockage du navigateur (B9). | ☐ |
@@ -456,6 +457,7 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SI-02 | Sur le serveur : droits de `C:\Program Files\Autoprint Server\appsettings.json`, `C:\ProgramData\Autoprint\Data` et `...\Keys`. | `IIS APPPOOL\Autoprint` présent (lecture sur `appsettings.json`, modification sur `Data` et `Keys`), en plus de Système et Administrateurs (B51). | ☐ |
 | SI-03 | Pare-feu Windows du serveur. | Règle entrante « Autoprint Server », TCP, port du site ; recréée avec le même port après une mise à jour (B52). | ☐ |
 | SI-04 | Journal Application juste après l'installation. | Aucune erreur « IIS AspNetCore Module » ni « UnauthorizedAccessException » ; pas d'avertissement `AutoprintSpooler` « Identité IIS AppPool\Autoprint introuvable ». | ☐ |
+| SI-05 | Installation neuve **SQL Server** sur un serveur SQL **vierge** (base inexistante) : « Tester la connexion », puis installer. | « Connexion réussie ; la base … sera créée » ; installation sans erreur, base créée, console accessible (B59). | ☐ |
 
 ### 5.4 Désinstallation
 
@@ -484,3 +486,5 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 06/11/2026 | B50 (règles des rôles) | SM-05 à SM-07 réécrits ; P1-13, P1-15, P1-17, P1-19 adaptés ; ajout de SR-01 à SR-05. |
 | 08/11/2026 | B56, recette en labo | S8-08 mis à jour (B25) ; S8-12 : source `Autoprint.SpoolerService` (B56). |
 | 08/11/2026 | B51, B52 (recette en labo) | Ajout de SI-01 à SI-04 (installation neuve sur serveur français : droits du pool IIS, pare-feu). Labo Hyper-V décrit au § 0.1. |
+| 08/11/2026 | B59 (recette en labo) | Ajout de SI-05 (installation neuve sur un SQL Server vierge). |
+| 08/11/2026 | B60 (recette en labo) | Ajout de SD-04 (profil d'OID avec éléments sur SQL Server). |

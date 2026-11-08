@@ -278,9 +278,19 @@ namespace Autoprint.Installer.Server.UI
             BtnTestSql.Content = "Test...";
             try
             {
-                string cnx = GetSqlConnectionString(5);
-                await Task.Run(() => { using var c = new SqlConnection(cnx); c.Open(); });
-                MessageBox.Show("Connexion réussie !", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                // Connexion au serveur (base master) : sur une installation neuve, la base n'existe pas encore (B59)
+                string cnx = WithCatalog(GetSqlConnectionString(5), "master");
+                string db = TxtSqlDb.Text.Trim();
+                bool exists = await Task.Run(() =>
+                {
+                    using var c = new SqlConnection(cnx); c.Open();
+                    using var cmd = new SqlCommand("SELECT DB_ID(@db)", c);
+                    cmd.Parameters.AddWithValue("@db", db);
+                    return cmd.ExecuteScalar() is not (null or DBNull);
+                });
+                MessageBox.Show(exists ? $"Connexion réussie ; la base « {db} » existe."
+                                       : $"Connexion réussie ; la base « {db} » n'existe pas encore : elle sera créée pendant l'installation.",
+                    "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -359,13 +369,12 @@ namespace Autoprint.Installer.Server.UI
                 }
                 else if (!_isUpgrade)
                 {
-                    if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                    if (RadioSqlServer.IsChecked == true)
                     {
-                        TxtInstallLog.Text = "Configuration droits SQL...";
-                        string adminString = GetSqlConnectionString(60);
-                        await GrantSqlAccessToSite(adminString, TxtSqlDb.Text, GetSqlLoginForSite(adminString));
+                        // La base doit exister avant d'y accorder des droits (B59)
+                        TxtInstallLog.Text = "Création de la base SQL...";
+                        await EnsureSqlDatabase(GetSqlConnectionString(60), TxtSqlDb.Text.Trim());
                     }
-
                     TxtInstallLog.Text = "Génération configuration (JSON)...";
                     await ConfigureAppSettings();
                 }
@@ -380,6 +389,16 @@ namespace Autoprint.Installer.Server.UI
                 {
                     TxtInstallLog.Text = "Configuration finale IIS...";
                     ConfigureIIS();
+
+                    // Droits SQL du site : après la création du pool, sinon « IIS AppPool\Autoprint » est inconnu de Windows (B59)
+                    if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                    {
+                        TxtInstallLog.Text = "Configuration droits SQL...";
+                        string adminString = GetSqlConnectionString(60);
+                        string login = GetSqlLoginForSite(adminString);
+                        if (login == PoolIdentity) await Task.Run(() => WaitForPoolAccount());
+                        await GrantSqlAccessToSite(adminString, TxtSqlDb.Text, login);
+                    }
                 }
                 else
                 {
@@ -854,6 +873,30 @@ namespace Autoprint.Installer.Server.UI
             mgr.CommitChanges();
         }
 
+        /// <summary>
+        /// Attend que Windows résolve le compte du pool (SQL Server le recherche par son nom pour CREATE LOGIN) ;
+        /// juste après la création du pool, le nom peut être encore inconnu : démarrage du pool puis nouvelles tentatives.
+        /// </summary>
+        private static void WaitForPoolAccount()
+        {
+            for (int i = 0; i < 60; i++)
+            {
+                try { new NTAccount(PoolIdentity).Translate(typeof(SecurityIdentifier)); return; }
+                catch (IdentityNotMappedException) { }
+                if (i == 3)
+                {
+                    try
+                    {
+                        using var mgr = new ServerManager();
+                        var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+                        if (pool != null && pool.State != ObjectState.Started) pool.Start();
+                    }
+                    catch { }
+                }
+                System.Threading.Thread.Sleep(1000);
+            }
+        }
+
         private const string PoolIdentity = @"IIS AppPool\Autoprint";
         private const string FirewallRuleName = "Autoprint Server";
 
@@ -956,9 +999,23 @@ namespace Autoprint.Installer.Server.UI
                 ALTER ROLE db_owner ADD MEMBER [{safeLogin}];
             ";
 
-            using var connection = new SqlConnection(adminConnectionString);
+            using var connection = new SqlConnection(WithCatalog(adminConnectionString, "master"));
             await connection.OpenAsync();
             using var cmd = new SqlCommand(sql, connection);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        private static string WithCatalog(string connectionString, string catalog) =>
+            new SqlConnectionStringBuilder(connectionString) { InitialCatalog = catalog }.ConnectionString;
+
+        /// <summary>Crée la base si elle n'existe pas (installation neuve sur un serveur SQL vierge), connexion par master.</summary>
+        private static async Task EnsureSqlDatabase(string connectionString, string databaseName)
+        {
+            string safeDb = databaseName.Replace("]", "]]");
+            using var connection = new SqlConnection(WithCatalog(connectionString, "master"));
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand($"IF DB_ID(@db) IS NULL CREATE DATABASE [{safeDb}];", connection);
+            cmd.Parameters.AddWithValue("@db", databaseName);
             await cmd.ExecuteNonQueryAsync();
         }
 
