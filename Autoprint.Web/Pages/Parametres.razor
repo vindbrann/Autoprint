@@ -942,8 +942,19 @@ else
         {
             using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
             uploadedBackup = await (JsonSerializer.DeserializeAsync<Autoprint.Shared.DTOs.BackupRootDto>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
+            if (uploadedBackup == null || string.IsNullOrWhiteSpace(uploadedBackup.Version)) throw new JsonException();
         }
-        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", ex.Message); }
+        catch (JsonException)
+        {
+            // Pas le détail technique de la désérialisation (types .NET, numéros de ligne) (B57)
+            uploadedBackup = null;
+            NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", "Ce fichier n'est pas une sauvegarde Autoprint lisible (fichier modifié ou endommagé ?).");
+        }
+        catch (IOException)
+        {
+            uploadedBackup = null;
+            NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", "Fichier illisible ou trop volumineux (5 Mo au maximum).");
+        }
     }
 
     private async Task ExecuteRestore()

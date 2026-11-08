@@ -21,8 +21,20 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 **Reste à tester** :
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59 à B64).
+**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B64).
 
+## Corrections avant fin de recette (26.11.8.2, build 7d5612d+) — 08/11/2026
+
+Mise à jour de l'installation SQL Server du labo avec le build corrigé, puis tous les lots API rejoués (Escalade, Sessions, Imprimantes, Web, Données, Serveur, SNMPv3, E-mail, AD, Limitation) : **145 OK, 0 échec**.
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| P1-34 (B53) | ✅ | Seuil de verrouillage du domaine mis à 5 pour le test : 5 mauvais mots de passe AD → 401, 401, 401, 429, 429 ; dans l'AD : non verrouillé, `badPwdCount` = 3. Seuil remis à sa valeur d'origine. |
+| P1-29 à P1-33 | ✅ | Comptes locaux inchangés : 5 × 401 puis 429 « 2 minute(s) », admin possible, limite par IP, déblocage après 2 min. |
+| SI-04 client, P2-36 (B54) | ✅ | CLT-TEST, MSI client 26.11.8.2 en SYSTEM avec `/l*v` : mise à jour depuis 26.11.8.1, désinstallation, installation type Intune (`APIKEY=` en paramètre), réparation : **0 ligne** contenant la clé dans les 4 journaux (`APIKEY=**********`) ; clé conservée (mise à jour, réparation), supprimée (désinstallation). |
+| P2-18 (B57) | ✅ | Sauvegarde corrompue : 400 « Fichier de sauvegarde invalide ou endommagé… Aucune donnée n'a été modifiée. », sans détail technique. Console : message clair à la lecture du fichier (à voir à l'écran). |
+| B32 | ✅ | Communauté SNMP « ancien mode » : visible par `admin`, vide pour `lecteur` (liste et fiche) ; enregistrement avec une communauté vide : valeur conservée. |
+| B58 | à l'écran | API : « Dernière connexion » envoyée en UTC sans fuseau (cas traité par la console). Affichage en heure locale et bouton « Lier AD » masqué sur SuperAdmin (compte sans Administration) : à vérifier à l'écran. |
 ## Mise à jour 1.1.2 (base réelle) → 26.11.8.2 — 08/11/2026
 
 Base du serveur 1.1.0 de production, corrigée au schéma 1.1.2 (`Livraison-26.11.6.1\Correctif-base-1.1.0-vers-1.1.2`), placée sous une installation 1.1.2 en SQLite sur SRV-PRINT (l'installeur 1.1.2 seul échoue en SQLite sur une machine vierge : migrations écrites pour SQL Server, cf. B47), puis mise à jour par l'installeur 26.11.8.2. Vérifications faites **dans la VM** (la base contient des secrets de production) ; compte `admin` de la copie réinitialisé par `--reset-admin`.
@@ -125,11 +137,11 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 |---|---|---|
 | B51 | Corrigé en 26.11.8.1 | Installation neuve inutilisable (droits du pool IIS). |
 | B52 | Corrigé en 26.11.8.1 | Port du site non ouvert dans le pare-feu. |
-| B53 | À décider | 5 mauvais mots de passe dans Autoprint verrouillent le compte AD (seuil de domaine à 5). |
-| B54 | Partiellement corrigé | Clé agent dans le journal d'installation du client. |
+| B53 | Corrigé en 26.11.8.2 | 5 mauvais mots de passe dans Autoprint verrouillaient le compte AD : comptes annuaire limités à 3 échecs, blocage 30 min. |
+| B54 | Corrigé en 26.11.8.2 | Clé agent dans le journal d'installation du client. |
 | B56 | Corrigé (prochaine livraison) | Aucune ligne par commande du service dans le journal Windows. |
 | B58 | Mineur | Affichage : heures en UTC, dernière connexion perdue à la restauration, `admin` sans e-mail, bouton « LIER AD » sur SuperAdmin. |
-| B57 | Mineur | Message technique pour une sauvegarde mal formée. |
+| B57 | Corrigé en 26.11.8.2 | Message technique pour une sauvegarde mal formée. |
 | B59 | Corrigé en 26.11.8.2 | Installation neuve impossible sur un SQL Server vierge (base inexistante, droits accordés avant la création du pool). |
 | B60 | Corrigé en 26.11.8.2 | SQL Server : création d'un profil d'OID avec éléments en erreur 500 (colonne `DateCreation`). |
 | B61 | Corrigé en 26.11.8.2 | Après chaque mise à jour, pool IIS laissé arrêté : console en erreur 503. |

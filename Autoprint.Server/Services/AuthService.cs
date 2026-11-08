@@ -16,6 +16,7 @@ namespace Autoprint.Server.Services
     public interface IAuthService
     {
         Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<bool> IsDirectoryLoginAsync(string username);
         Task<LoginResponse?> RefreshAsync(int userId, long authTime);
         Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
     }
@@ -39,6 +40,13 @@ namespace Autoprint.Server.Services
             _configuration = configuration;
             _secrets = secrets;
         }
+
+        /// <summary>
+        /// Vrai si la connexion de cet identifiant est vérifiée par l'annuaire (pas de compte local Autoprint) :
+        /// ses échecs comptent aussi dans le seuil de verrouillage du domaine (B53).
+        /// </summary>
+        public async Task<bool> IsDirectoryLoginAsync(string username) =>
+            !await _context.Users.AnyAsync(u => u.Username == username && !u.IsAdUser);
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
         {

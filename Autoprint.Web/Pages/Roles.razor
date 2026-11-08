@@ -63,9 +63,13 @@ else
 
                         <AuthorizeView Policy="ROLE_WRITE">
                             <Authorized Context="authAd">
-                                <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
-                                              Click="@(() => OpenAdModal(role.Id, role.Name))"
-                                              Tooltip="Gérer la liaison Active Directory" />
+                                @* SuperAdmin : liaison AD réservée aux comptes « Administration » (le serveur refuse les autres, B58) *@
+                                @if (role.Name != "SuperAdmin" || authAd.User.HasClaim("Permission", "ADMIN_ACCESS"))
+                                {
+                                    <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                                  Click="@(() => OpenAdModal(role.Id, role.Name))"
+                                                  Tooltip="Gérer la liaison Active Directory" />
+                                }
                             </Authorized>
                         </AuthorizeView>
 

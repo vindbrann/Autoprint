@@ -33,7 +33,7 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes([FromQuery] bool includeArchived = false)
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
-                return await GetImprimantesListWithIncludes(includeArchived);
+                return HideSnmpCommunity(await GetImprimantesListWithIncludes(includeArchived));
 
             if (await AgentAuth.IsValidAgentRequestAsync(Request, _context))
                 return await GetImprimantesForAgent();
@@ -95,13 +95,23 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<Imprimante>> GetImprimante(int id)
         {
             var imprimante = await _context.Imprimantes
+                .AsNoTracking()
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)
                 .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
-            return imprimante;
+            return HideSnmpCommunity(new List<Imprimante> { imprimante })[0];
+        }
+
+        // Communauté SNMP « ancien mode » (en clair en base, B32) : visible seulement par ceux qui peuvent modifier
+        // les imprimantes ; les autres (lecture, archivage) reçoivent une valeur vide, conservée à l'enregistrement.
+        private List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
+        {
+            if (User.HasClaim(c => c.Type == "Permission" && c.Value == "PRINTER_WRITE")) return printers;
+            foreach (var p in printers) p.SnmpCommunity = string.Empty;
+            return printers;
         }
 
         [HttpPost]
@@ -202,7 +212,9 @@ namespace Autoprint.Server.Controllers
             if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
                 return BadRequest("Profil d'identifiants SNMP introuvable.");
             dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
-            dbImprimante.SnmpCommunity = inputImprimante.SnmpCommunity;
+            // Communauté vide = non transmise (masquée aux comptes sans PRINTER_WRITE, B32) : valeur actuelle conservée
+            if (!string.IsNullOrWhiteSpace(inputImprimante.SnmpCommunity))
+                dbImprimante.SnmpCommunity = inputImprimante.SnmpCommunity;
             dbImprimante.SnmpVersion = inputImprimante.SnmpVersion;
             dbImprimante.SnmpPort = inputImprimante.SnmpPort;
             dbImprimante.DateModification = DateTime.UtcNow;
