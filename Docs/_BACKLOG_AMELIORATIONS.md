@@ -101,7 +101,7 @@ Toutes les modifications sont faites avant la recette complète. Ordre : du moin
 
 | # | Type | Constat | Où | Repéré le |
 |---|---|---|---|---|
-| B34 | 💡 | Les serveurs **existants** gardent `Jwt:ExpireMinutes = 120` (valeur conservée par la mise à jour). Le renouvellement automatique fonctionne aussi, mais un jeton volé reste utilisable 2 h. Passer la valeur à 30 dans `appsettings.json`, ou la faire réduire par l'installeur en mise à jour. | `appsettings.json`, installeur | 04/11/2026 |
+| B34 | ✅ | **Corrigé par B63 (26.11.8.2) : la mise à jour ramène la durée à 30 min.** Les serveurs **existants** gardent `Jwt:ExpireMinutes = 120` (valeur conservée par la mise à jour). Le renouvellement automatique fonctionne aussi, mais un jeton volé reste utilisable 2 h. Passer la valeur à 30 dans `appsettings.json`, ou la faire réduire par l'installeur en mise à jour. | `appsettings.json`, installeur | 04/11/2026 |
 | B35 | 💡 | Un onglet de console laissé ouvert renouvelle sa session sans activité de l'utilisateur, jusqu'à la limite de 10 h. Une déconnexion après inactivité (ex. 30 min) pourrait être ajoutée. | `CustomAuthStateProvider` | 04/11/2026 |
 
 ## Repéré pendant la phase D
