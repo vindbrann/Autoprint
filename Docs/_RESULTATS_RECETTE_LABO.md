@@ -74,10 +74,16 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | P1-15 (écran) | ✅ | « Erreur Modification : Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier. » (B49). |
 | P2-07 (pages de `helpdesk`) | ✅ | Aucune erreur CSP dans la console du navigateur. |
 
+| NR-03, P2-07 (écran, `admin`) | ✅ | Toutes les pages (tableau de bord, imprimantes, lieux, marques, modèles, pilotes, profils et identifiants SNMP, rapports, paramètres, utilisateurs, audit, rôles) s'affichent ; aucune erreur CSP. |
+| P2-33 (écran) | ✅ | Clé masquée (●●●●●●●●), pas d'interrupteur « Modification autorisée », bouton « Copier la clé » avec mention de l'audit. |
+| P2-44 (écran) | ✅ | Avertissement « Sauvegarde : données sensibles » ; « Annuler » : aucune requête d'export. |
+| P3-21, P3-22 (écran) | ✅ | TLS activé par défaut ; bandeau « Sans TLS… en clair » quand on le décoche (non enregistré). |
+| P1-03 (écran) | ✅ | Onglet « Ce serveur » : plus de champs serveur / utilisateur / mot de passe, un seul bouton. |
+
 ### À vérifier à l'écran
 
 - ~~Compteurs à 0 de la synchronisation~~ : non utilisés par la console (seuls les messages sont affichés) : pas un problème.
-- Message affiché par la console pour une sauvegarde mal formée (B57).
+- Message affiché par la console pour une sauvegarde mal formée (B57) : nécessite d'envoyer un fichier depuis le navigateur, à faire à la main.
 
 ### Anomalies
 
