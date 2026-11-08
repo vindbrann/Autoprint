@@ -12,11 +12,33 @@
            Limitation (P1-29 à P1-33 ; bloque les connexions depuis ce poste environ 2 minutes).
 #>
 param(
-    [string]$BaseUrl = 'http://srv-print.lab.autoprint.test:8080',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
+    [string]$BaseUrl = 'https://srv-print.lab.autoprint.test',
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Certificat auto-signé du labo (créé par la mise en place HTTPS, copié dans %USERPROFILE%\.autoprint-lab\srv-print.cer) :
+# accepté par empreinte pour ce script uniquement, sans l'ajouter au magasin de confiance du poste
+$LabCertFile = Join-Path $env:USERPROFILE '.autoprint-lab\srv-print.cer'
+if ((Test-Path $LabCertFile) -and -not ('AutoprintLab.CertPin' -as [type])) {
+    Add-Type -TypeDefinition @'
+namespace AutoprintLab {
+    public static class CertPin {
+        public static string Thumbprint;
+        public static bool Check(object s, System.Security.Cryptography.X509Certificates.X509Certificate c,
+                                 System.Security.Cryptography.X509Certificates.X509Chain ch, System.Net.Security.SslPolicyErrors e) {
+            if (e == System.Net.Security.SslPolicyErrors.None) return true;
+            return c != null && new System.Security.Cryptography.X509Certificates.X509Certificate2(c).Thumbprint == Thumbprint;
+        }
+    }
+}
+'@
+    [AutoprintLab.CertPin]::Thumbprint = (New-Object Security.Cryptography.X509Certificates.X509Certificate2 $LabCertFile).Thumbprint
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = [Net.Security.RemoteCertificateValidationCallback] [AutoprintLab.CertPin].GetMethod('Check').CreateDelegate([Net.Security.RemoteCertificateValidationCallback])
+}
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $SecretsFile = Join-Path $env:USERPROFILE '.autoprint-lab\recette-secrets.xml'
 $script:Score = @{ OK = 0; KO = 0 }
 $script:Logins = New-Object System.Collections.Generic.List[datetime]
@@ -338,8 +360,10 @@ function Lot-Web {
     Check 'P2-03' 'console par le nom public' $r.Code 200
     $ip = Get-Raw 'http://192.168.99.20:8080/'
     Check 'P2-04' 'console par l''adresse IP' $ip.Code 400
-    $alias = Get-Raw "$BaseUrl/" 'autre-alias.lab.autoprint.test:8080'
-    Check 'P2-04' 'console par un autre nom DNS' $alias.Code 400
+    $alias = Get-Raw "$BaseUrl/" 'autre-alias.lab.autoprint.test'
+    # 400 (filtrage du nom par le site) ou 404 (liaison IIS réservée au nom public) : refus dans les deux cas
+    Check 'P2-04' 'console par un autre nom DNS (refus)' $alias.Code { param($x) $x -in 400, 404 }
+    if ($BaseUrl -like 'https:*') { Check 'P2-06' 'en-tête Strict-Transport-Security (HTTPS)' ([bool]$r.Headers['Strict-Transport-Security']) $true }
     foreach ($h in @(@{ n = 'Content-Security-Policy'; v = $null }, @{ n = 'X-Frame-Options'; v = 'DENY' }, @{ n = 'X-Content-Type-Options'; v = 'nosniff' }, @{ n = 'Referrer-Policy'; v = 'no-referrer' })) {
         $val = $r.Headers[$h.n]
         Check 'P2-06' "en-tête $($h.n)" $(if ($h.v) { $val } else { [bool]$val }) $(if ($h.v) { $h.v } else { $true })
@@ -356,6 +380,119 @@ function Lot-Web {
     $th = Get-Token 'helpdesk'; $cur = Get-Plain 'helpdesk'
     $r = Invoke-Api PUT '/api/users/change-password' @{ currentPassword = $cur; newPassword = $cur; confirmPassword = $cur } $th
     Check 'P2-15' 'changer son mot de passe pour le même refusé' $r.Code 400 $r.Text
+}
+
+# ------------------------------------------------------------------ lot AD
+$AdDomain = 'lab.autoprint.test'
+$AdBase   = 'DC=lab,DC=autoprint,DC=test'
+$AdGroups = "OU=Groupes,OU=Autoprint,$AdBase"
+
+function Invoke-OnDc([scriptblock]$Script, [object[]]$Arguments = @()) {
+    if (-not $script:LabCred) { Get-ServerQueues | Out-Null }
+    Invoke-Command -VMName SRV-AD -Credential $script:LabCred -ScriptBlock $Script -ArgumentList $Arguments
+}
+
+# Paramètres actuels -> objet complet attendu par POST /api/Settings/Save (sinon les autres réglages repartent à leur valeur par défaut)
+function Get-SettingsDto([string]$Token) {
+    $kv = @{}; (Invoke-Api GET '/api/Settings' -Token $Token).Json | ForEach-Object { $kv[$_.key] = $_.value }
+    $ints = 'LogRetentionDays', 'SmtpPort', 'PasswordExpirationDays', 'Monitoring_IntervalMinutes', 'Monitoring_StartHour', 'Monitoring_EndHour'
+    $bools = 'SmtpEnableSsl', 'NamingEnabled', 'NamingSameShare', 'Printer_DefaultDirectModeEnabled', 'AdUseServiceAccount', 'Monitoring_Enabled',
+             'Monitoring_ScanOnWeekends', 'Monitoring_IncludeOffline', 'Monitoring_IncludeWarning', 'Monitoring_IncludeCritical', 'Monitoring_IncludeArchived'
+    $strings = 'SmtpHost', 'SmtpUser', 'SmtpPass', 'SmtpFromAddress', 'NamingTemplate', 'AdDomain', 'AdBaseDn', 'AdLdapFilter', 'AdServiceUser', 'AdServicePassword', 'AdAdminEmails'
+    $dto = [ordered]@{}
+    foreach ($k in $ints) { if ($kv.ContainsKey($k) -and $kv[$k] -match '^-?\d+$') { $dto[$k] = [int]$kv[$k] } }
+    foreach ($k in $bools) { if ($kv.ContainsKey($k) -and $kv[$k]) { $dto[$k] = [bool]::Parse($kv[$k]) } }
+    foreach ($k in $strings) { $dto[$k] = if ($kv.ContainsKey($k)) { [string]$kv[$k] } else { '' } }
+    $dto['SmtpPass'] = '●●●●●●●●'; $dto['AdServicePassword'] = '●●●●●●●●'   # secrets : ne pas renvoyer la valeur chiffrée
+    return $dto
+}
+
+function Lot-AD {
+    Write-Host "`n--- Lot Active Directory (2.7, 2.8) ---" -ForegroundColor Cyan
+    # Comptes de test dans le domaine (mots de passe générés, gardés chiffrés)
+    foreach ($u in 'svc.autoprint', 'ad.user1', 'ad.user2') { if (-not (Get-Plain $u)) { Set-Plain $u (New-TestPassword) } }
+    $out = Invoke-OnDc {
+        param($base, $groups, $pSvc, $p1, $p2)
+        $ou = "OU=Autoprint,$base"
+        $defs = @(@{ n = 'svc.autoprint'; p = $pSvc; ou = "OU=Comptes de service,$ou" }, @{ n = 'ad.user1'; p = $p1; ou = "OU=Utilisateurs,$ou" }, @{ n = 'ad.user2'; p = $p2; ou = "OU=Utilisateurs,$ou" })
+        foreach ($d in $defs) {
+            if (-not (Get-ADUser -Filter "SamAccountName -eq '$($d.n)'")) {
+                New-ADUser -Name $d.n -SamAccountName $d.n -UserPrincipalName "$($d.n)@lab.autoprint.test" -EmailAddress "$($d.n)@lab.autoprint.test" `
+                    -Path $d.ou -AccountPassword $d.p -Enabled $true -PasswordNeverExpires $true
+            } else { Set-ADAccountPassword $d.n -Reset -NewPassword $d.p; Enable-ADAccount $d.n }
+        }
+        Add-ADGroupMember 'GG_Autoprint_Lecteurs' -Members 'ad.user1'
+        Remove-ADGroupMember 'GG_Autoprint_Lecteurs' -Members 'ad.user2' -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember 'GG_Autoprint_Admins' -Members 'ad.user1', 'ad.user2' -Confirm:$false -ErrorAction SilentlyContinue
+        $pol = Get-ADDefaultDomainPasswordPolicy
+        "seuil de verrouillage du domaine : $($pol.LockoutThreshold)"
+    } @($AdBase, $AdGroups, $script:Secrets['svc.autoprint'], $script:Secrets['ad.user1'], $script:Secrets['ad.user2'])
+    Write-Host "    $out" -ForegroundColor DarkGray
+
+    $ta = Get-Token 'admin'
+    $dto = Get-SettingsDto $ta
+    $dto.AdDomain = $AdDomain; $dto.AdBaseDn = $AdBase; $dto.AdLdapFilter = ''; $dto.AdUseServiceAccount = $true
+    $dto.AdServiceUser = 'svc.autoprint'; $dto.AdServicePassword = (Get-Plain 'svc.autoprint')
+    $r = Invoke-Api POST '/api/Settings/Save' $dto $ta
+    Check 'prep' 'paramètres AD enregistrés' $r.Code 200 $r.Text
+
+    $r = Invoke-Api POST '/api/Settings/TestAd' @{ domain = $AdDomain; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = '●●●●●●●●' } $ta
+    Check 'P1-40' 'tester la connexion AD sans ressaisir le mot de passe' $r.Code 200 $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAd' @{ domain = 'autre.domaine.local'; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = '●●●●●●●●' } $ta
+    Check 'P1-41' 'autre domaine sans mot de passe : refus' $r.Code 400 $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAd' @{ domain = 'autre.domaine.local'; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = 'Quelconque-2026!' } $ta
+    Check 'P1-42' 'autre domaine avec mot de passe : test tenté (échec de connexion)' ($r.Text -match 'Échec connexion AD') $true $r.Text
+    $f = @{ domain = $AdDomain; baseDn = $AdBase; filter = ''; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = '●●●●●●●●' }
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' ($f + @{ testUserQuery = 'ad.user1' }) $ta
+    Check 'P1-43' 'filtre avec ad.user1 : objet trouvé' $r.Json.success $true $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' ($f + @{ testUserQuery = '*' }) $ta
+    Check 'P1-44' 'filtre avec * : aucun objet (pas de joker)' $r.Json.success $false $r.Text
+    $bad = Get-SettingsDto $ta; $bad.AdLdapFilter = '(objectClass=user'
+    $r = Invoke-Api POST '/api/Settings/Save' $bad $ta
+    Check 'P1-45' 'filtre LDAP mal formé refusé à l''enregistrement' $r.Code 400 $r.Text
+    $good = Get-SettingsDto $ta; $good.AdLdapFilter = "(memberOf=CN=GG_Autoprint_Lecteurs,$AdGroups)"
+    $r = Invoke-Api POST '/api/Settings/Save' $good $ta
+    $s = Invoke-Api GET '/api/roles/ad/search?q=GG_Autoprint' -Token $ta
+    Check 'P1-46' 'filtre valide accepté ; recherche AD des groupes' "$($r.Code)/$($s.Code)" '200/200' $s.Text
+    Write-Host "         recherche : $($s.Text.Substring(0, [Math]::Min(200, $s.Text.Length)))" -ForegroundColor DarkGray
+    $good.AdLdapFilter = ''; Invoke-Api POST '/api/Settings/Save' $good $ta | Out-Null
+
+    # Liaisons groupe AD -> rôle
+    $roles = @{}; (Invoke-Api GET '/api/roles' -Token $ta).Json | ForEach-Object { $roles[$_.name] = $_.id }
+    foreach ($m in @(@{ g = 'GG_Autoprint_Lecteurs'; r = 'Lecteur' }, @{ g = 'GG_Autoprint_Admins'; r = 'SuperAdmin' })) {
+        $existing = (Invoke-Api GET "/api/roles/$($roles[$m.r])/admappings" -Token $ta).Json | Where-Object adIdentifier -eq $m.g
+        if (-not $existing) { $r = Invoke-Api POST '/api/roles/admappings' @{ adIdentifier = $m.g; mappingType = 0; roleId = $roles[$m.r] } $ta; Check 'prep' "liaison $($m.g) -> $($m.r)" $r.Code { param($x) $x -in 200, 201 } $r.Text }
+    }
+
+    function Perms([string]$token) { $p = $token.Split('.')[1].Replace('-', '+').Replace('_', '/'); $p += '=' * ((4 - $p.Length % 4) % 4); $j = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($p)) | ConvertFrom-Json; @($j.Permission) }
+
+    $r = Invoke-Login 'ad.user1' (Get-Plain 'ad.user1')
+    Check 'P1-35' 'ad.user1 (membre de GG_Autoprint_Lecteurs) : connexion avec le rôle Lecteur' "$($r.Code) $((Perms $r.Json.token) -join ',')" '200 PRINTER_READ' $r.Text
+    Invoke-OnDc { Remove-ADGroupMember 'GG_Autoprint_Lecteurs' -Members 'ad.user1' -Confirm:$false }
+    $r = Invoke-Login 'ad.user1' (Get-Plain 'ad.user1')
+    Check 'P1-36' 'ad.user1 retiré du groupe : connexion refusée' $r.Code { param($x) $x -in 401, 403 } $r.Text
+
+    $r = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    Write-Host "         ad.user2 sans groupe : $($r.Code) $($r.Text)" -ForegroundColor DarkGray
+    $u2 = (Invoke-Api GET '/api/users' -Token $ta).Json | Where-Object username -eq 'ad.user2'
+    if ($u2) {
+        $r = Invoke-Api PUT "/api/users/$($u2.id)" @{ displayName = 'ad.user2'; email = 'ad.user2@lab.autoprint.test'; isActive = $true; roleId = $roles['Lecteur']; forceChangePassword = $false } $ta
+        $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+        Check 'P1-37' 'rôle Lecteur manuel pour ad.user2 : connexion, rôle conservé' "$($l.Code) $((Perms $l.Json.token) -join ',')" '200 PRINTER_READ' "$($r.Code) $($l.Text)"
+        Invoke-OnDc { Add-ADGroupMember 'GG_Autoprint_Admins' -Members 'ad.user2' }
+        $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2'); $p = Perms $l.Json.token
+        Check 'P1-38' 'ad.user2 ajouté à GG_Autoprint_Admins : rôle admin' ($p -contains 'ADMIN_ACCESS') $true
+        Invoke-OnDc { Remove-ADGroupMember 'GG_Autoprint_Admins' -Members 'ad.user2' -Confirm:$false }
+        $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2'); $p = Perms $l.Json.token
+        Check 'P1-38' 'retiré du groupe : rôle admin retiré, Lecteur manuel conservé' (($p -notcontains 'ADMIN_ACCESS') -and ($p -contains 'PRINTER_READ')) $true ($p -join ',')
+    } else { Check 'P1-37' 'ad.user2 créé dans Autoprint à sa première connexion' $false $true }
+
+    # P1-34 : 5 mauvais mots de passe sur un compte AD
+    Start-Sleep 62; $script:Logins.Clear()
+    $codes = foreach ($n in 1..5) { $script:Logins.Add((Get-Date)); (Invoke-Api POST '/api/auth/login' @{ username = 'ad.user2'; password = 'Mauvais-mot-de-passe-2' }).Code }
+    $lock = Invoke-OnDc { $u = Get-ADUser 'ad.user2' -Properties LockedOut, badPwdCount; "$($u.LockedOut)/$($u.badPwdCount)" }
+    Check 'P1-34' '5 mauvais mots de passe AD : compte non verrouillé dans l''AD (verrouillé/nb échecs)' ($lock -like 'False/*') $true "$($codes -join ',') ; AD : $lock"
+    Write-Host "         codes : $($codes -join ',') ; AD verrouillé/badPwdCount : $lock" -ForegroundColor DarkGray
 }
 
 # ------------------------------------------------------------------ lot Limitation
@@ -378,6 +515,6 @@ function Lot-Limitation {
     Check 'P1-31' 'après 2 minutes : connexion lecteur avec le bon mot de passe' $r.Code 200 $r.Text
 }
 
-if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'Limitation' }
+if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'AD', 'Limitation' }
 foreach ($l in $Lot) { & "Lot-$l" }
 Write-Host ("`nBilan : {0} OK, {1} ÉCHEC" -f $script:Score.OK, $script:Score.KO) -ForegroundColor $(if ($script:Score.KO) { 'Red' } else { 'Green' })

@@ -35,7 +35,8 @@
 		<Property Id="MSIFASTINSTALL" Value="7" />
 		<Property Id="REBOOT" Value="ReallySuppress" />
 
-		<Property Id="APIKEY" Secure="yes">
+		<!-- Hidden : la clé n'apparaît pas dans les journaux d'installation (msiexec /l*v, Intune), B54 -->
+		<Property Id="APIKEY" Secure="yes" Hidden="yes">
 			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\Autoprint" Name="APIKEY" Type="raw" />
 		</Property>
 		<Property Id="PRINTSERVER" Secure="yes">
