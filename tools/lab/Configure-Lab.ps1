@@ -173,6 +173,15 @@ Invoke-InVM SRV-AD $credDomain {
     "  écoute 9100 : " + [bool](Get-NetTCPConnection -LocalPort 9100 -State Listen -ErrorAction SilentlyContinue)
 } @($captureScript)
 
+# ---------------------------------------------------------------- 5 bis. Pilotes de test sur SRV-PRINT
+Step '5 bis. Pilotes d''impression de test (SRV-PRINT)'
+Invoke-InVM SRV-PRINT $credDomain {
+    foreach ($d in 'Generic / Text Only', 'Microsoft PCL6 Class Driver') {
+        if (-not (Get-PrinterDriver -Name $d -ErrorAction SilentlyContinue)) { Add-PrinterDriver -Name $d }
+        "  pilote : $d"
+    }
+}
+
 # ---------------------------------------------------------------- 6. Contrôles
 Step '6. Contrôles'
 Invoke-InVM SRV-PRINT $credDomain {
