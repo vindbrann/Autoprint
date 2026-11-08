@@ -40,7 +40,12 @@ Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané
 | SC-09 | ✅ | Sauvegarde sans secrets chargée : message sur la conservation des secrets du serveur et les conséquences sur un nouveau serveur (restauration non lancée). |
 | B58 | ✅ | « Dernière connexion » en heure locale (00:04 pour une connexion à 00:04) ; compte Helpdesk : pas de bouton « Lier AD » sur SuperAdmin (présent sur les autres rôles). Constaté et corrigé : tableau de bord « 1 h » au lieu de « 1 min », « 1 erreurs ». |
 | B69 | ✅ après correctif | Doublon de nom de rôle (« hd-suppr ») et faux « SuperAdmin » : refus 400. |
-## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
+| P2-12, SD-09 | ✅ | CLT-TEST, client 26.11.8.2 (clé de l'installation SQL Server) : `Labo-Texte` et `Labo-PCL6` listées ; le client suit le thème de Windows (Windows non activé : thème sombre réglé par le registre de la session) : affichage sombre correct, fenêtre unique. |
+| P2-27, P2-34 | ✅ | Zone technique (5 clics sur la version) : clé masquée `••••••••41d3` ; console › Sécurité › « Copier la clé » : clé complète (36 caractères) dans le presse-papiers, notification « Copiée », se termine par `41d3`. |
+| P2-28 à P2-30 | ✅ | « Connexion réussie » ; fausse clé : « Clé refusée par le serveur. Comparez les 4 derniers caractères avec la console » ; serveur inexistant : « Serveur injoignable. Vérifiez le nom du serveur, le réseau et le pare-feu. » |
+| P2-31 | ✅ | Adresse IP dans `PRINTSERVER` : liaison HTTPS avec SNI : « Serveur injoignable » (connexion fermée par le serveur, sans certificat présenté) ; liaison sans SNI : « Certificat du serveur refusé ». |
+| P2-32 | ✅ | Certificat du labo retiré des racines du poste : « Certificat du serveur refusé ». Certificat remis ensuite. |
+| B71 | ❌ → corrigé | Deux icônes Autoprint sur le bureau (Bureau public par le MSI + Bureau de l'utilisateur par le client au premier lancement). |## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
 
 Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
 
@@ -200,4 +205,5 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B68 | Corrigé en 26.11.8.2 | DC injoignable : « Identifiants incorrects » et échec compté. |
 | B69 | Corrigé en 26.11.8.2 | Plusieurs rôles du même nom (dont un faux « SuperAdmin »). |
 | B70 | Mineur | Liste de débogage des pilotes en avertissement dans le journal. |
+| B71 | Corrigé en 26.11.8.2 | Deux icônes Autoprint sur le bureau. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
