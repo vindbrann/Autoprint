@@ -617,18 +617,35 @@ namespace Autoprint.Installer.Server.UI
             try
             {
                 using var mgr = new ServerManager();
+                // Le pool a été arrêté au début de l'installation (StopIISPool) : un pool arrêté ne se recycle pas,
+                // il faut le redémarrer, sinon le site reste en erreur 503 après chaque mise à jour (B61)
                 var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
-                if (pool != null) pool.Recycle();
+                if (pool != null)
+                {
+                    if (pool.State is ObjectState.Stopped or ObjectState.Stopping)
+                    {
+                        for (int i = 0; i < 10 && pool.State == ObjectState.Stopping; i++) System.Threading.Thread.Sleep(500);
+                        pool.Start();
+                    }
+                    else pool.Recycle();
+                }
 
                 var site = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint");
-                if (site != null && site.State == ObjectState.Started)
+                if (site != null)
                 {
-                    site.Stop();
-                    System.Threading.Thread.Sleep(1000);
-                    site.Start();
+                    if (site.State == ObjectState.Started)
+                    {
+                        site.Stop();
+                        System.Threading.Thread.Sleep(1000);
+                    }
+                    if (site.State != ObjectState.Started) site.Start();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Ne plus masquer l'échec : l'administrateur doit savoir que le site n'a pas redémarré
+                TxtInstallLog.Text += $"\n[Attention] Redémarrage du site Autoprint impossible ({ex.Message}) : démarrer le pool « Autoprint » dans le Gestionnaire IIS.";
+            }
         }
 
         private void CleanupIIS()

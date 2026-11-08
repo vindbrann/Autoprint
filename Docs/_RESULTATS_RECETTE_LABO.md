@@ -6,7 +6,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 ## ▶️ Reprise de la recette (état au 08/11/2026, soir)
 
 **État du labo** :
-- SRV-PRINT : installation **SQL Server** (Autoprint 26.11.8.2, build du 08/11 à 19:28, avant B60 ; défaut `DateCreation` de B60 posé à la main dans la base). Instantanés : « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
+- SRV-PRINT : installation **SQL Server** (Autoprint 26.11.8.2 avec B59, B60, B61 ; mise à jour testée). Instantanés : « SQL Server 26.11.8.2 avant mise à jour B60 », « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
 - SRV-AD : simulateur SNMP (tâche « Autoprint-SnmpSim », 192.168.99.10 v3 / .11 v2c), faux SMTP, fausse imprimante 9100.
 - Après une restauration d'instantané : réactiver « Interface de services d'invité » (`Copy-VMFile`) ; l'installation SQL Server n'a ni HTTPS ni pare-feu « Partage de fichiers » (tests CLT-TEST des lots Clé et Serveur : en SQLite seulement).
 
@@ -19,13 +19,12 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 `labadmin.cred`, `recette-secrets.xml` (comptes du labo et de l'installation SQLite ; `sql.sa`, `sql.autoprint`, `snmp.v3.auth`, `snmp.v3.priv`), `recette-secrets-sql.xml` (comptes Autoprint de l'installation SQL Server), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim), `snmpsim-venv\`.
 
 **Reste à tester** :
-- **Mise à jour 26.11.8.2 (avec B60) sur l'installation SQL Server** : SD-04, SR-05 / NR-10 / SD-01 « après mise à jour » (retirer d'abord le défaut posé à la main).
 - S8-06 (authentification SQL : identifiant `autoprint.sql` prêt), S8-05 (SQL distant).
 - Mises à jour depuis 1.1.x / 26.08.24.3 : NR-02, SM-*, P1-39, P2-41, P3-02, P3-14 (installeurs anciens à fournir).
 - Poste Intune réel : NR-05, installation d'imprimante (B55).
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
 
-**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59, B60).
+**Décisions en attente** : B53 (verrouillage AD par Autoprint), B54 (fin de la correction du journal MSI client), livraison 26.11.8.2 (B54 partiel, B56, B59, B60, B61).
 ## Version 26.11.8.2 (en cours), installation neuve SQL Server 2025 Express — 08/11/2026
 
 SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Express (instance `SQLEXPRESS`, TCP 1433, mode mixte) installé par `tools/lab/Install-LabSql.ps1` ; Autoprint installé par l'installeur graphique (SQL Server, authentification Windows). Tests API : `Recette-Api.ps1 -BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (comptes Autoprint propres à cette installation : `recette-secrets-sql.xml`).
@@ -43,7 +42,8 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | S8-01 à S8-03, S8-12, S8-14 à S8-19, P3-01 | ✅ | B56 confirmé dans le build 26.11.8.2 (une ligne par commande du service). Secrets `enc:v1:` en base SQL. |
 | P3-04 à P3-06, NR-06, NR-07, NR-10, PA-17 à PA-21 | ✅ | NR-10 sur SQL Server : planifications PDF / CSV conservées (7:30, hebdomadaire, seuil 14). |
 | SV3-01 à SV3-16 | ✅ après correctif (B60) | Simulateur snmpsim sur SRV-AD (`tools/lab/Install-LabSnmp.ps1`) : .10 en SNMPv3 authPriv SHA-256/AES-128, .11 en v2c. Création du profil d'OID en 500 sur SQL Server (B60). Mot de passe v3 erroné : « Identifiants SNMPv3 refusés… », mot de passe absent des messages et journaux. SV3-05, SV3-07 (affichage, cycle, PDF) et SV3-14 sur un autre serveur : à l'écran / non joués. |
-## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
+| SI-06, NR-02 (partiel) | ✅ après correctif (B61) | Mise à jour 26.11.8.2 → 26.11.8.2 (build avec B60) sur l'installation SQL Server : configuration et données conservées. Premier essai : console en **503**, pool IIS laissé arrêté (B61). Après correctif : pool démarré, console OK, règle de pare-feu 8080 en place. |
+| SD-04, SD-01, SR-05, NR-10 (après mise à jour) | ✅ | DbInitializer a remis la valeur par défaut de `DateCreation` (B60, retirée avant la mise à jour) ; création de profil d'OID OK ; tous les lots rejoués après la mise à jour : 193 OK, aucun nouvel échec (P2-18 = B57). |## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
 
 | ID | Résultat | Remarque |
 |---|---|---|
@@ -112,5 +112,6 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B58 | Mineur | Affichage : heures en UTC, dernière connexion perdue à la restauration, `admin` sans e-mail, bouton « LIER AD » sur SuperAdmin. |
 | B57 | Mineur | Message technique pour une sauvegarde mal formée. |
 | B59 | Corrigé en 26.11.8.2 | Installation neuve impossible sur un SQL Server vierge (base inexistante, droits accordés avant la création du pool). |
-| B60 | Corrigé en 26.11.8.2 | SQL Server : création d'un profil d'OID avec éléments en erreur 500 (colonne DateCreation). |
+| B60 | Corrigé en 26.11.8.2 | SQL Server : création d'un profil d'OID avec éléments en erreur 500 (colonne `DateCreation`). |
+| B61 | Corrigé en 26.11.8.2 | Après chaque mise à jour, pool IIS laissé arrêté : console en erreur 503. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |

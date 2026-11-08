@@ -458,6 +458,7 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | SI-03 | Pare-feu Windows du serveur. | Règle entrante « Autoprint Server », TCP, port du site ; recréée avec le même port après une mise à jour (B52). | ☐ |
 | SI-04 | Journal Application juste après l'installation. | Aucune erreur « IIS AspNetCore Module » ni « UnauthorizedAccessException » ; pas d'avertissement `AutoprintSpooler` « Identité IIS AppPool\Autoprint introuvable ». | ☐ |
 | SI-05 | Installation neuve **SQL Server** sur un serveur SQL **vierge** (base inexistante) : « Tester la connexion », puis installer. | « Connexion réussie ; la base … sera créée » ; installation sans erreur, base créée, console accessible (B59). | ☐ |
+| SI-06 | **Mise à jour** d'un serveur existant (même version ou version précédente), puis ouvrir la console sans rien faire d'autre. | Console accessible (pas d'erreur 503) ; Gestionnaire IIS : pool « Autoprint » démarré (B61). | ☐ |
 
 ### 5.4 Désinstallation
 
@@ -488,3 +489,4 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 | 08/11/2026 | B51, B52 (recette en labo) | Ajout de SI-01 à SI-04 (installation neuve sur serveur français : droits du pool IIS, pare-feu). Labo Hyper-V décrit au § 0.1. |
 | 08/11/2026 | B59 (recette en labo) | Ajout de SI-05 (installation neuve sur un SQL Server vierge). |
 | 08/11/2026 | B60 (recette en labo) | Ajout de SD-04 (profil d'OID avec éléments sur SQL Server). |
+| 08/11/2026 | B61 (recette en labo) | Ajout de SI-06 (pool IIS redémarré après une mise à jour). |
