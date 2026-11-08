@@ -46,7 +46,8 @@ Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané
 | P2-31 | ✅ | Adresse IP dans `PRINTSERVER` : liaison HTTPS avec SNI : « Serveur injoignable » (connexion fermée par le serveur, sans certificat présenté) ; liaison sans SNI : « Certificat du serveur refusé ». |
 | P2-32 | ✅ | Certificat du labo retiré des racines du poste : « Certificat du serveur refusé ». Certificat remis ensuite. |
 | B71 | ✅ après correctif | Deux icônes Autoprint sur le bureau (Bureau public par le MSI + Bureau de l'utilisateur par le client au premier lancement). MSI client final installé, premier lancement simulé : une seule icône. |## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
-
+| SC-02 | ✅ | Console ouverte à 00:12 (jeton valable jusqu'à 00:42) : renouvelé automatiquement à 00:37, nouvelle expiration 01:07, aucune déconnexion. |
+| SE-04, PA-08 | ✅ | Mise à jour finale 26.11.8.2 (build `66873e3`, avec B65 à B71) par l'installeur, console ouverte : session conservée (API 200), thème sombre et tri de la grille conservés après rechargement ; écran du nom public non proposé, `AllowedHosts` conservé. Lots rejoués sur ce build : 119 OK + lot Divers rejoué seul (16 OK, échecs précédents dus à la limite de 10 connexions / minute du script) ; PA-12, SD-04 OK ; SD-13 (B66) avec **trois** imprimantes sur la même IP : création, mise à jour, renommage, réparation, suppression de l'une sans effet sur les deux autres. |
 Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
 
 | ID | Résultat | Remarque |
