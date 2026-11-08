@@ -125,6 +125,10 @@ namespace Autoprint.Client.Services
 
                 if (string.IsNullOrEmpty(exePath) || File.Exists(shortcutLocation)) return;
 
+                // Le MSI (installation machine, Intune) crée déjà le raccourci sur le Bureau public : pas de doublon (B71)
+                string publicShortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "Autoprint.lnk");
+                if (File.Exists(publicShortcut)) return;
+
                 Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
                 if (shellType != null)
                 {
