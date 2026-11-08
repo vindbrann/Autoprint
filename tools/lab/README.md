@@ -4,7 +4,7 @@ Labo local pour dérouler `Docs/_PROCEDURE_TESTS_SECURITE.md` dans des condition
 
 | VM | Adresse | Rôle |
 |---|---|---|
-| `SRV-AD` | 192.168.99.10 | Windows Server 2022 FR. Contrôleur du domaine `lab.autoprint.test` (NetBIOS `LAB`) et DNS. Fausse imprimante : capture des travaux reçus sur le port 9100 dans `C:\PrintCapture\Jobs`. |
+| `SRV-AD` | 192.168.99.10 | Windows Server 2022 FR. Contrôleur du domaine `lab.autoprint.test` (NetBIOS `LAB`) et DNS. Fausse imprimante : capture des travaux reçus sur le port 9100 dans `C:\PrintCapture\Jobs`. Faux serveur SMTP (port 25, STARTTLS) : messages dans `C:\SmtpCapture\Mails`. |
 | `SRV-PRINT` | 192.168.99.20 | Windows Server 2022 FR, membre du domaine, **vierge** : c'est l'installeur Autoprint qui doit y installer IIS, le spouleur et le runtime .NET. |
 | `CLT-TEST` | 192.168.99.50 | Windows 11 Pro FR, groupe de travail. Le client s'y installe comme une application Win32 Intune (MSI silencieux, compte SYSTEM). |
 
@@ -41,6 +41,8 @@ Invoke-Command -VMName SRV-PRINT -Credential $dom -ScriptBlock { hostname }     
 Copy-Item .\setup.exe -ToSession (New-PSSession -VMName SRV-PRINT -Credential $dom) -Destination C:\Install\
 Restore-VMSnapshot -VMName SRV-PRINT -Name 'Labo configuré' -Confirm:$false        # retour à l'état de départ
 ```
+
+E-mails de test : Autoprint › Paramètres › SMTP : `srv-ad.lab.autoprint.test`, port 25, TLS (STARTTLS) et identifiant au choix ; les messages arrivent dans `SRV-AD:C:\SmtpCapture\Mails` (`.eml`, journal `C:\SmtpCapture\capture.log` ; le mot de passe SMTP n'est jamais enregistré).
 
 Impression de test : sur `SRV-PRINT`, port TCP/IP standard vers `192.168.99.10`, RAW, port 9100 ; les travaux arrivent dans `SRV-AD:C:\PrintCapture\Jobs` (journal `C:\PrintCapture\capture.log`).
 
