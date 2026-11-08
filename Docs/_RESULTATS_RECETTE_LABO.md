@@ -19,7 +19,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 `labadmin.cred`, `recette-secrets.xml` (comptes du labo et de l'installation SQLite ; `sql.sa`, `sql.autoprint`, `snmp.v3.auth`, `snmp.v3.priv`), `recette-secrets-sql.xml` (comptes Autoprint de l'installation SQL Server), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim), `snmpsim-venv\`.
 
 **Reste à tester** :
-- S8-06 (authentification SQL : identifiant `autoprint.sql` prêt), S8-05 (SQL distant).
+- S8-05 (SQL distant).
 - Mises à jour depuis 1.1.x / 26.08.24.3 : NR-02, SM-*, P1-39, P2-41, P3-02, P3-14 (installeurs anciens à fournir).
 - Poste Intune réel : NR-05, installation d'imprimante (B55).
 - À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
@@ -44,6 +44,7 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | SV3-01 à SV3-16 | ✅ après correctif (B60) | Simulateur snmpsim sur SRV-AD (`tools/lab/Install-LabSnmp.ps1`) : .10 en SNMPv3 authPriv SHA-256/AES-128, .11 en v2c. Création du profil d'OID en 500 sur SQL Server (B60). Mot de passe v3 erroné : « Identifiants SNMPv3 refusés… », mot de passe absent des messages et journaux. SV3-05, SV3-07 (affichage, cycle, PDF) et SV3-14 sur un autre serveur : à l'écran / non joués. |
 | SI-06, NR-02 (partiel) | ✅ après correctif (B61) | Mise à jour 26.11.8.2 → 26.11.8.2 (build avec B60) sur l'installation SQL Server : configuration et données conservées. Premier essai : console en **503**, pool IIS laissé arrêté (B61). Après correctif : pool démarré, console OK, règle de pare-feu 8080 en place. |
 | SD-04, SD-01, SR-05, NR-10 (après mise à jour) | ✅ | DbInitializer a remis la valeur par défaut de `DateCreation` (B60, retirée avant la mise à jour) ; création de profil d'OID OK ; tous les lots rejoués après la mise à jour : 193 OK, aucun nouvel échec (P2-18 = B57). |## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
+| S8-06 | ✅ | Installation neuve en **authentification SQL** (`autoprint.sql`, dbcreator) sur SQL Server vierge : base créée et possédée par `autoprint.sql`, **aucune connexion Windows ajoutée**, 14 migrations, console OK ; `appsettings.json` (mot de passe SQL en clair) lisible seulement par SYSTEM, Administrateurs et le pool (lecture). Lots rejoués (Comptes, Escalade, Sessions, Imprimantes, Données, Serveur, SNMPv3, E-mail, AD) : 167 OK ; seuls échecs : B57 (P2-18) et des effets d'ordre des lots du script, corrigés. |
 
 | ID | Résultat | Remarque |
 |---|---|---|
