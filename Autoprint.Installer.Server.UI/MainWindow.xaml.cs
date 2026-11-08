@@ -393,6 +393,7 @@ namespace Autoprint.Installer.Server.UI
 
                     if (_needsPublicHost) await ApplyPublicHost(configPath);
                     await MoveSqliteDatabaseToProgramData(configPath);
+                    await CapJwtLifetime(configPath);
 
                     TxtInstallLog.Text = "Passage du site en compte sans privilège...";
                     await EnableSpoolerServiceMode();
@@ -788,6 +789,19 @@ namespace Autoprint.Installer.Server.UI
         {
             var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
             root["AllowedHosts"] = $"{TxtPublicHost.Text.Trim()};localhost";
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        // Durée des jetons : 30 min depuis B19 (renouvellement automatique par la console). La fusion de la configuration
+        // conservait l'ancienne valeur (120 min en 1.1.x) : on la ramène à 30 min si elle est plus longue (B63).
+        private const int MaxJwtMinutes = 30;
+        private static async Task CapJwtLifetime(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))?.AsObject();
+            if (root?["Jwt"] is not JsonObject jwt) return;
+            int current = int.TryParse(jwt["ExpireMinutes"]?.ToString(), out int v) ? v : 0;
+            if (current is > 0 and <= MaxJwtMinutes) return;
+            jwt["ExpireMinutes"] = MaxJwtMinutes;
             await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
