@@ -592,6 +592,11 @@ function Lot-Donnees {
     $codes = foreach ($u in 'helpdesk', 'lecteur') { (Invoke-Login $u (Get-Plain $u)).Code }
     Check 'P2-40' 'comptes locaux : connexion avec leur mot de passe habituel' ($codes -join ',') '200,200'
     $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    if ($l.Code -eq 429) {
+        # ad.user2 encore bloqué par P1-34 (lot AD joué juste avant) : attendre la fin du blocage
+        Write-Host '    (attente de 125 s : ad.user2 bloqué par P1-34)' -ForegroundColor DarkGray
+        Start-Sleep 125; $l = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    }
     Check 'P2-40' 'compte AD avec rôle manuel conservé (ad.user2 Lecteur)' $l.Code 200 $l.Text
     Check 'P3-12' 'clé agent conservée après restauration' (Test-AgentKey $agentKey) 200
     $t = Invoke-Api POST '/api/Settings/TestAd' @{ domain = 'lab.autoprint.test'; useServiceAccount = $true; serviceUser = 'svc.autoprint'; servicePassword = '●●●●●●●●' } $ta
