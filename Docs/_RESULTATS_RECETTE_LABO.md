@@ -67,6 +67,13 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | S8-17, S8-18 | ✅ | Tube refusé à un administrateur local (ni SYSTEM ni le pool) et depuis un autre poste. |
 | P3-01 | ✅ | `AgentApiKey` et `AdServicePassword` en `enc:v1:` dans la base (SMTP non configuré). |
 
+| P2-22 | ✅ (écran) | Pas de case « Retenir l'identifiant » ; identifiant vide. |
+| SR-01, SR-02, P1-17, SC-08 (écran, `helpdesk`) | ✅ | Pas de colonne « Suppr. » pour Rôles ; « Administration » et « Système » grisées, le reste cochable ; bandeau « Enregistrer ce rôle ferme les sessions… ». |
+| P1-13 (écran) | ✅ | Rôles proposés à `helpdesk` : Helpdesk, Lecteur, HD-Suppr (pas SuperAdmin). |
+| P2-13, PA-15 (écran) | ✅ | « Le mot de passe doit faire au moins 12 caractères » avant envoi ; case « changement obligatoire » cochée par défaut. |
+| P1-15 (écran) | ✅ | « Erreur Modification : Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier. » (B49). |
+| P2-07 (pages de `helpdesk`) | ✅ | Aucune erreur CSP dans la console du navigateur. |
+
 ### À vérifier à l'écran
 
 - ~~Compteurs à 0 de la synchronisation~~ : non utilisés par la console (seuls les messages sont affichés) : pas un problème.
@@ -81,5 +88,6 @@ Autres instantanés : `OS installé` (Windows nu), `Labo configuré` (domaine, r
 | B53 | À décider | 5 mauvais mots de passe dans Autoprint verrouillent le compte AD (seuil de domaine à 5). |
 | B54 | Partiellement corrigé | Clé agent dans le journal d'installation du client. |
 | B56 | Corrigé (prochaine livraison) | Aucune ligne par commande du service dans le journal Windows. |
+| B58 | Mineur | Affichage : heures en UTC, dernière connexion perdue à la restauration, `admin` sans e-mail, bouton « LIER AD » sur SuperAdmin. |
 | B57 | Mineur | Message technique pour une sauvegarde mal formée. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
