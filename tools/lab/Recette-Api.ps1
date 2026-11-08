@@ -13,7 +13,7 @@
 #>
 param(
     [string]$BaseUrl = 'http://srv-print.lab.autoprint.test:8080',
-    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
+    [ValidateSet('Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'Limitation', 'Tout')][string[]]$Lot = 'Tout'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,7 +42,9 @@ function Invoke-Api([string]$Method, [string]$Path, $Body = $null, [string]$Toke
     $req.Method = $Method; $req.Timeout = 120000; $req.ContentType = 'application/json'
     if ($Token) { $req.Headers['Authorization'] = "Bearer $Token" }
     if ($null -ne $Body) {
-        $bytes = [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 8 -Compress))
+        # Une chaîne est envoyée telle quelle (JSON déjà formé, ex. liste d'un seul élément que ConvertTo-Json aplatirait)
+        $json = if ($Body -is [string]) { $Body } else { ConvertTo-Json -InputObject $Body -Depth 8 -Compress }
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
         $s = $req.GetRequestStream(); $s.Write($bytes, 0, $bytes.Length); $s.Close()
     } elseif ($Method -in 'POST', 'PUT') { $req.ContentLength = 0 }
     try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response; if (-not $resp) { throw } }
@@ -239,6 +241,123 @@ function Lot-Sessions {
     Invoke-Api DELETE "/api/roles/$roleA" -Token $ta | Out-Null
 }
 
+# ------------------------------------------------------------------ lot Imprimantes
+$LabCred = $null
+function Get-ServerQueues {
+    if (-not $script:LabCred) {
+        $pw = (Import-Clixml (Join-Path $env:USERPROFILE '.autoprint-lab\labadmin.cred')).Password
+        $script:LabCred = [pscredential]::new('LAB\Administrateur', $pw)
+    }
+    @(Invoke-Command -VMName SRV-PRINT -Credential $script:LabCred -ScriptBlock { Get-Printer | Select-Object -ExpandProperty Name })
+}
+function Invoke-Sync([string]$Token) {
+    $pending = (Invoke-Api GET '/api/Sync/preview' -Token $Token).Json
+    if (-not $pending) { return [pscustomobject]@{ Code = 0; Text = 'rien à synchroniser' } }
+    Invoke-Api POST '/api/Sync/apply' ('[' + ((@($pending) | ForEach-Object { $_.id }) -join ',') + ']') $Token
+}
+
+function Lot-Imprimantes {
+    Write-Host "`n--- Lot Imprimantes et spouleur (2.2, 2.3, NR-04) ---" -ForegroundColor Cyan
+    $ta = Get-Token 'admin'
+    # Données de référence : pilote installé sur SRV-PRINT, marque, modèle, lieu du réseau du labo
+    Invoke-Api POST '/api/Pilotes/sync' -Token $ta | Out-Null
+    $pilote = (Invoke-Api GET '/api/Pilotes' -Token $ta).Json | Where-Object nom -eq 'Generic / Text Only' | Select-Object -First 1
+    Check 'prep' 'pilote « Generic / Text Only » visible après synchronisation des pilotes' ([bool]$pilote) $true
+    $marque = (Invoke-Api GET '/api/Marques' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    if (-not $marque) { $marque = (Invoke-Api POST '/api/Marques' @{ nom = 'Labo' } $ta).Json }
+    $modele = (Invoke-Api GET '/api/Modeles' -Token $ta).Json | Where-Object nom -eq 'Texte brut' | Select-Object -First 1
+    if (-not $modele) { $modele = (Invoke-Api POST '/api/Modeles' @{ nom = 'Texte brut'; marqueId = $marque.id; piloteId = $pilote.id } $ta).Json }
+    $lieu = (Invoke-Api GET '/api/Emplacements' -Token $ta).Json | Where-Object nom -eq 'Labo' | Select-Object -First 1
+    if (-not $lieu) {
+        $r = Invoke-Api POST '/api/Emplacements' @{ nom = 'Labo'; code = 'LAB'; networks = @(@{ cidrIpv4 = '192.168.99.0/24'; isPrimary = $true }) } $ta
+        Check 'prep' 'création du lieu Labo (192.168.99.0/24)' $r.Code { param($x) $x -in 200, 201 } $r.Text
+        $lieu = $r.Json
+    }
+    $base = @{ adresseIp = '192.168.99.10'; emplacementId = $lieu.id; modeleId = $modele.id; estPartagee = $true }
+
+    $queuesBefore = Get-ServerQueues
+    # P1-07
+    $p = @{} + $base; $p.nomAffiche = "Salle d'attente"; $p.nomPartage = 'SalleAttente'
+    $r = Invoke-Api POST '/api/Imprimantes' $p $ta
+    Check 'P1-07' "création de « Salle d'attente »" $r.Code { param($x) $x -in 200, 201 } $r.Text
+    $imp = $r.Json
+    $s = Invoke-Sync $ta
+    $q = Get-ServerQueues
+    Check 'P1-07' "synchronisation : file « Salle d'attente » créée sur SRV-PRINT" ($q -contains "Salle d'attente") $true $s.Text
+    # P1-08 renommage puis suppression
+    $cur = (Invoke-Api GET "/api/Imprimantes/$($imp.id)" -Token $ta).Json
+    $cur.nomAffiche = "Salle d'attente 2"
+    $r = Invoke-Api PUT "/api/Imprimantes/$($imp.id)" $cur $ta
+    $s = Invoke-Sync $ta; $q = Get-ServerQueues
+    Check 'P1-08' 'renommage synchronisé (nouvelle file présente, ancienne absente)' (($q -contains "Salle d'attente 2") -and ($q -notcontains "Salle d'attente")) $true "$($r.Code) $($s.Text)"
+    $r = Invoke-Api DELETE "/api/Imprimantes/$($imp.id)" -Token $ta
+    $s = Invoke-Sync $ta; $q = Get-ServerQueues
+    Check 'P1-08' 'suppression synchronisée, autres files intactes' ((($q -notcontains "Salle d'attente 2")) -and (@($queuesBefore | Where-Object { $q -notcontains $_ }).Count -eq 0)) $true "$($r.Code) $($s.Text)"
+    # P1-09 nom piégé
+    $p = @{} + $base; $p.nomAffiche = "Test' OR Name LIKE '%"; $p.nomPartage = 'TestPiege'
+    $r = Invoke-Api POST '/api/Imprimantes' $p $ta; $piege = $r.Json
+    Invoke-Sync $ta | Out-Null; $q1 = Get-ServerQueues
+    if ($piege.id) { Invoke-Api DELETE "/api/Imprimantes/$($piege.id)" -Token $ta | Out-Null }
+    Invoke-Sync $ta | Out-Null; $q2 = Get-ServerQueues
+    Check 'P1-09' "nom « Test' OR Name LIKE '% » : créée puis supprimée seule" (($q1 -contains "Test' OR Name LIKE '%") -and ($q2 -notcontains "Test' OR Name LIKE '%") -and (@($queuesBefore | Where-Object { $q2 -notcontains $_ }).Count -eq 0)) $true ("création {0} ; files : {1}" -f $r.Code, ($q2 -join ' | '))
+    # P1-10, P1-11
+    foreach ($n in 'Salle\A', 'Salle,A') {
+        $p = @{} + $base; $p.nomAffiche = $n
+        $r = Invoke-Api POST '/api/Imprimantes' $p $ta
+        Check 'P1-10' "nom « $n » refusé" $r.Code 400 $r.Text
+    }
+    $p = @{} + $base; $p.nomAffiche = 'Partage invalide'; $p.nomPartage = 'Partage:1'
+    $r = Invoke-Api POST '/api/Imprimantes' $p $ta
+    Check 'P1-11' 'nom de partage « Partage:1 » refusé' $r.Code 400 $r.Text
+    # P1-04 / P1-05 : scan du spouleur
+    $r = Invoke-Api POST '/api/Import/Scan/Printers' @{} $ta
+    Check 'P1-04' 'admin : lister les files du serveur' $r.Code 200 $r.Text
+    $names = @($r.Json | ForEach-Object { $_.name; $_.nom; $_.printerName } | Where-Object { $_ })
+    Write-Host "         files remontées : $($names -join ' | ')" -ForegroundColor DarkGray
+    # File de test permanente pour la suite (client, impression)
+    if (-not ((Invoke-Api GET '/api/Imprimantes' -Token $ta).Json | Where-Object nomAffiche -eq 'Labo-Texte')) {
+        $p = @{} + $base; $p.nomAffiche = 'Labo-Texte'; $p.nomPartage = 'Labo-Texte'
+        Invoke-Api POST '/api/Imprimantes' $p $ta | Out-Null; Invoke-Sync $ta | Out-Null
+    }
+    Check 'NR-04' 'file permanente « Labo-Texte » présente sur SRV-PRINT' ((Get-ServerQueues) -contains 'Labo-Texte') $true
+}
+
+# ------------------------------------------------------------------ lot Web (en-têtes, nom d'accès, mots de passe)
+function Get-Raw([string]$Url, [string]$HostHeader = $null) {
+    $req = [Net.HttpWebRequest]::Create($Url); $req.Timeout = 30000; $req.AllowAutoRedirect = $false
+    if ($HostHeader) { $req.Host = $HostHeader }
+    try { $resp = $req.GetResponse() } catch [Net.WebException] { $resp = $_.Exception.Response; if (-not $resp) { return [pscustomobject]@{ Code = -1; Headers = @{} } } }
+    $h = @{}; foreach ($k in $resp.Headers.AllKeys) { $h[$k] = $resp.Headers[$k] }
+    $code = [int]$resp.StatusCode; $resp.Close()
+    [pscustomobject]@{ Code = $code; Headers = $h }
+}
+
+function Lot-Web {
+    Write-Host "`n--- Lot Web : nom d'accès, en-têtes, politique de mot de passe (3.1, 3.2) ---" -ForegroundColor Cyan
+    $r = Get-Raw "$BaseUrl/"
+    Check 'P2-03' 'console par le nom public' $r.Code 200
+    $ip = Get-Raw 'http://192.168.99.20:8080/'
+    Check 'P2-04' 'console par l''adresse IP' $ip.Code 400
+    $alias = Get-Raw "$BaseUrl/" 'autre-alias.lab.autoprint.test:8080'
+    Check 'P2-04' 'console par un autre nom DNS' $alias.Code 400
+    foreach ($h in @(@{ n = 'Content-Security-Policy'; v = $null }, @{ n = 'X-Frame-Options'; v = 'DENY' }, @{ n = 'X-Content-Type-Options'; v = 'nosniff' }, @{ n = 'Referrer-Policy'; v = 'no-referrer' })) {
+        $val = $r.Headers[$h.n]
+        Check 'P2-06' "en-tête $($h.n)" $(if ($h.v) { $val } else { [bool]$val }) $(if ($h.v) { $h.v } else { $true })
+    }
+    Check 'P2-06' 'en-tête Server masqué (information)' ([bool]$r.Headers['X-Powered-By']) $false
+    Write-Host "         Server: $($r.Headers['Server'])   (HSTS non attendu en HTTP)" -ForegroundColor DarkGray
+
+    $ta = Get-Token 'admin'
+    $lecteurRole = ((Invoke-Api GET '/api/roles' -Token $ta).Json | Where-Object name -eq 'Lecteur').id
+    $r = Invoke-Api POST '/api/users' @{ username = 'court'; password = 'Abcdefgh12!'; displayName = 'Court'; email = 'court@lab.autoprint.test'; roleId = $lecteurRole } $ta
+    Check 'P2-13' 'mot de passe de 11 caractères refusé' $r.Code 400 $r.Text
+    $r = Invoke-Api POST '/api/users' @{ username = 'identique.mdp'; password = 'identique.mdp'; displayName = 'Identique'; email = 'identique@lab.autoprint.test'; roleId = $lecteurRole } $ta
+    Check 'P2-14' 'mot de passe égal à l''identifiant refusé' $r.Code 400 $r.Text
+    $th = Get-Token 'helpdesk'; $cur = Get-Plain 'helpdesk'
+    $r = Invoke-Api PUT '/api/users/change-password' @{ currentPassword = $cur; newPassword = $cur; confirmPassword = $cur } $th
+    Check 'P2-15' 'changer son mot de passe pour le même refusé' $r.Code 400 $r.Text
+}
+
 # ------------------------------------------------------------------ lot Limitation
 function Lot-Limitation {
     Write-Host "`n--- Lot Limitation des tentatives (2.6) ---" -ForegroundColor Cyan
@@ -259,6 +378,6 @@ function Lot-Limitation {
     Check 'P1-31' 'après 2 minutes : connexion lecteur avec le bon mot de passe' $r.Code 200 $r.Text
 }
 
-if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Limitation' }
+if ($Lot -contains 'Tout') { $Lot = 'Comptes', 'Escalade', 'Sessions', 'Imprimantes', 'Web', 'Limitation' }
 foreach ($l in $Lot) { & "Lot-$l" }
 Write-Host ("`nBilan : {0} OK, {1} ÉCHEC" -f $script:Score.OK, $script:Score.KO) -ForegroundColor $(if ($script:Score.KO) { 'Red' } else { 'Green' })
