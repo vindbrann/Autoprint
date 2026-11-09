@@ -44,7 +44,7 @@ Le détail des formats est dans [04-livrables-et-integration.md](04-livrables-et
 
 ## Où déposer le travail
 
-Branche Git **`feature/charte-graphique`**, dossier [livrables/](livrables/README.md) (arborescence attendue dans son README).
+Branche Git **`feature/charte-graphique`**, dossier [livrables/](livrables/README.md) (arborescence attendue dans son README). Pas à pas pour récupérer la doc, déposer le template, et ce qui se passe ensuite : [05-mode-operatoire.md](05-mode-operatoire.md).
 
 ## Ordre de travail prévu
 
