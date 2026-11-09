@@ -106,8 +106,8 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)
         {
-            if (!string.IsNullOrWhiteSpace(dto.AdLdapFilter) && !IsWellFormedLdapFilter(dto.AdLdapFilter))
-                return BadRequest("Filtre LDAP invalide : il doit commencer par '(' , finir par ')' et avoir des parenthèses équilibrées.");
+            if (!string.IsNullOrWhiteSpace(dto.AdLdapFilter) && LdapFilterNormalizer.Normalize(dto.AdLdapFilter) == null)
+                return BadRequest(LdapFilterError);
 
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
 
@@ -293,8 +293,9 @@ namespace Autoprint.Server.Controllers
             var domainError = CheckAdTestTarget(dto.Domain, dto.UseServiceAccount, dto.ServicePassword);
             if (domainError != null) return Ok(new { Success = false, Message = domainError });
 
-            if (!string.IsNullOrWhiteSpace(dto.Filter) && !IsWellFormedLdapFilter(dto.Filter))
-                return Ok(new { Success = false, Message = "Filtre LDAP invalide : parenthèses manquantes ou déséquilibrées." });
+            string? normalizedFilter = LdapFilterNormalizer.Normalize(dto.Filter);
+            if (!string.IsNullOrWhiteSpace(dto.Filter) && normalizedFilter == null)
+                return Ok(new { Success = false, Message = LdapFilterError });
 
             try
             {
@@ -318,7 +319,7 @@ namespace Autoprint.Server.Controllers
                     : new DirectoryEntry(ldapPath, null, null, AuthenticationTypes.Secure);
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
-                string configFilter = string.IsNullOrWhiteSpace(dto.Filter) ? "(objectClass=user)" : dto.Filter;
+                string configFilter = normalizedFilter ?? "(objectClass=user)";
 
                 if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
                     searcher.Filter = $"(&{configFilter}(sAMAccountName={SecurityHelper.EscapeLdapFilter(dto.TestUserQuery)}))";
@@ -355,19 +356,7 @@ namespace Autoprint.Server.Controllers
             return null;
         }
 
-        private static bool IsWellFormedLdapFilter(string filter)
-        {
-            filter = filter.Trim();
-            if (!filter.StartsWith("(") || !filter.EndsWith(")")) return false;
-            int depth = 0;
-            for (int i = 0; i < filter.Length; i++)
-            {
-                if (filter[i] == '\\') { i++; continue; }
-                if (filter[i] == '(') depth++;
-                else if (filter[i] == ')' && --depth < 0) return false;
-            }
-            return depth == 0;
-        }
+        private const string LdapFilterError = "Filtre LDAP invalide : vérifiez les parenthèses, les noms d'attributs et les caractères spéciaux (écrire \\28, \\29, \\2a, \\5c pour ( ) * \\ dans une valeur).";
     }
 
     public class SettingsUpdateDto

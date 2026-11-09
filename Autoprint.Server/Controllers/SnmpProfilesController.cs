@@ -62,17 +62,17 @@ namespace Autoprint.Server.Controllers
             {
                 return BadRequest("Adresse IP ou nom d'hôte de l'imprimante invalide.");
             }
-            _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", request.IpAddress);
+            _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", ForLog(request.IpAddress));
 
             try
             {
                 var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
-                _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", request.IpAddress, discoveredOids.Count);
+                _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", ForLog(request.IpAddress), discoveredOids.Count);
                 return Ok(discoveredOids);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", request.IpAddress);
+                _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", ForLog(request.IpAddress));
                 return BadRequest(DescribeSnmpError(ex));
             }
         }
@@ -87,17 +87,17 @@ namespace Autoprint.Server.Controllers
                 _logger.LogWarning("[SNMP_TEST_API] Requête invalide : adresse IP ou nom d'hôte incorrect.");
                 return BadRequest("Adresse IP ou nom d'hôte de l'imprimante invalide.");
             }
-            _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", request.IpAddress, request.Items?.Count ?? 0);
+            _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", ForLog(request.IpAddress), request.Items?.Count ?? 0);
 
             try
             {
                 var testResults = await _snmpService.TestProfileItemsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
-                _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", request.IpAddress, testResults.Count);
+                _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", ForLog(request.IpAddress), testResults.Count);
                 return Ok(testResults);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[SNMP_TEST_API] Erreur sur test-profile pour IP={Ip}", request.IpAddress);
+                _logger.LogError(ex, "[SNMP_TEST_API] Erreur sur test-profile pour IP={Ip}", ForLog(request.IpAddress));
                 return BadRequest(DescribeSnmpError(ex));
             }
         }
@@ -285,7 +285,11 @@ namespace Autoprint.Server.Controllers
             return SnmpCredentials.Legacy(community, version);
         }
 
-        // Validation avant toute journalisation (CodeQL « Log entries created from user input »)
+        // Retours à la ligne retirés avant journalisation (CodeQL « Log entries created from user input ») ;
+        // IsValidHost les refuse déjà, mais CodeQL ne reconnaît que ce nettoyage.
+        private static string ForLog(string? value) => (value ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+
+        // Validation avant toute journalisation
         private static bool IsValidHost(string? host)
         {
             if (string.IsNullOrWhiteSpace(host)) return false;

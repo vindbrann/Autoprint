@@ -73,5 +73,17 @@ namespace Autoprint.Server.Helpers
             }
             return sb.ToString();
         }
+
+        // Valeur d'un filtre LDAP sous forme d'octets (RFC 4515) : ASCII imprimable conservé, le reste en \hh
+        public static string EscapeLdapFilter(byte[] value)
+        {
+            var sb = new StringBuilder(value.Length);
+            foreach (byte b in value)
+            {
+                if (b >= 0x20 && b < 0x7F && b != '(' && b != ')' && b != '*' && b != '\\') sb.Append((char)b);
+                else sb.Append('\\').Append(b.ToString("x2"));
+            }
+            return sb.ToString();
+        }
     }
 }
