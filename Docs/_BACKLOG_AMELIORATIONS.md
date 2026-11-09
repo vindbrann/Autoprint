@@ -4,6 +4,25 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
+## 🗺️ Feuille de route (décidée le 09/11/2026)
+
+Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
+
+| # | Branche | Contenu | Raison de l'ordre |
+|---|---|---|---|
+| 0 | (manuel) | B44 : SDK 10.0.403 sur le poste de build | tout se compile sur ce poste |
+| 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; livraison 26.11.10.x |
+| 1 bis | PR Dependabot | fermer n° 12 (SQLitePCLRaw 3, incompatible EF Core 10), fusionner n° 7, 8, 11, examiner n° 9 | nettoyage, en parallèle |
+| 2 | `fix/snmp-communautes` | B32 : communautés SNMP « ancien mode » chiffrées ou supprimées | sécurité ; avant la refonte, car elle touche la fiche imprimante |
+| 3 | `chore/radzen-12` | Radzen 12 sans changement visuel (reprend la PR n° 10) + recette de la console | prérequis de la refonte |
+| 4 | `feature/charte-graphique` | B77 : intégration du template (console après l'étape 3 ; client et installeur dès l'étape 1) | |
+| 5 | `chore/publication-win-x64` | B45 : MSI serveur allégé | même campagne de recette que l'étape 4 |
+| 6 | petites branches | B35 (déconnexion après inactivité), B33 (diagnostic SNMP sans profil) | plus simples après la refonte |
+| 7 | `chore/…` | .NET 11, puis décisions WiX 7 et SqlClient 7 (B12 / B37) | selon `_POLITIQUE_VERSIONS.md`, hors refonte |
+| — | à tout moment | B23 (documenter la sauvegarde des clés), B55 (vérification sur poste Entra ID hybride) | documentation, vérification |
+
+Règle : **une seule branche à la fois touche les écrans de la console** (étapes 2, 3, 4). Livraisons : 26.11.10.x après l'étape 1 (avec l'étape 2 si prête) ; version « refonte » après les étapes 3 à 5, avec recette complète en labo.
+
 ---
 
 ## Base de données & migrations
