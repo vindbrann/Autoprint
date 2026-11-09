@@ -10,7 +10,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 **Reste à tester (13)** :
 - Installeur graphique (avec l'utilisateur) : P2-01 (nom public invalide, installation neuve), S8-10 (mise à jour par un compte sans droit SQL : SQL distant SRV-AD), SB-03 (mise à jour SQLite avec une base déjà dans `ProgramData`), SE-01 à SE-03 (runtime ASP.NET Core trop ancien : installer un runtime 10.0.0 avant).
 - Par Claude : P3-15 (restauration sur un autre serveur), PA-02 et PA-06 (base SQLite vide), S8-20 (désinstallation : sur un instantané).
-- GitHub, onglet Security (connexion de l'utilisateur) : P1-02, P2-43.
+- GitHub, onglet Security (connexion de l'utilisateur) : P1-02, P2-43 (joués le 09/11 via la PR brouillon vindbrann/Autoprint#6 : voir « Derniers tests »).
 - SC-04 (session de 10 h) : contrôle dans le code (`AuthService.MaxSessionLifetime`).
 
 **Ensuite** : décision sur la livraison 26.11.8.2 (dossier `Livraison-26.11.8.2` à produire), B70, suites de B32 / B58.
@@ -40,7 +40,11 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 | P2-01 | ✅ | Installation neuve, nom public vide, `https://autoprint`, `autoprint:443` : refusés ; `srv-print.lab.autoprint.test` accepté. |
 | PA-06 | ✅ | Installation neuve SQLite (aucun lieu, modèle « GÉNÉRIQUE ») : import d'une file du spouleur refusé « Créez au moins un lieu et un modèle avant d'importer des imprimantes ». |
 | PA-02 | ✅ | Base SQLite remplacée par un fichier vide (installation précédente échouée) : au démarrage, le site recrée les tables (184 Ko), connexion `admin` / `admin123` d'une base neuve OK, sans relancer l'installeur. |
-| S8-20 | ✅ après correctif (B74) | Désinstallation : service AutoprintSpooler arrêté et supprimé, dossier du programme supprimé, `ProgramData` conservé ; mais site IIS, pool et règle de pare-feu restaient (B74). Après correctif : supprimés à la désinstallation, conservés lors de deux mises à jour successives. |## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
+| S8-20 | ✅ après correctif (B74) | Désinstallation : service AutoprintSpooler arrêté et supprimé, dossier du programme supprimé, `ProgramData` conservé ; mais site IIS, pool et règle de pare-feu restaient (B74). Après correctif : supprimés à la désinstallation, conservés lors de deux mises à jour successives. |
+| P1-02 | ✅ (branche) | PR brouillon vindbrann/Autoprint#6 vers `master` : « Contrôles de sécurité » (`build-and-audit`, audit des paquets vulnérables) réussi sur la branche. L'alerte Dependabot n° 7 (CVE-2026-96230, `Microsoft.AspNetCore.Components.WebAssembly.Server` 10.0.0) reste ouverte car Dependabot n'analyse que `master` (10.0.14 sur la branche) : à vérifier fermée après la fusion. |
+| P2-43 | ⚠️ faux positifs à traiter | CodeQL sur la PR : 3 nouvelles alertes, toutes analysées comme faux positifs. N° 16 (critique, LDAP, `SettingsController.cs:324`) : `TestUserQuery` déjà échappé par `SecurityHelper.EscapeLdapFilter`, que CodeQL ne reconnaît pas ; le filtre de base est saisi par l'administrateur (droit Paramètres). N° 17 et 18 (moyennes, journal, `SnmpProfilesController.cs:65` et `:90`) : adresse déjà validée par `IsValidHost` (IP ou nom DNS, sans retour à la ligne). Les 15 alertes de `master` (n° 1 à 15) ne réapparaissent pas sur la branche. Reste à choisir : les marquer « faux positif » dans GitHub ou adapter le code pour que CodeQL reconnaisse la protection. |
+
+## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
 
 Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).
 
