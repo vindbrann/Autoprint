@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Installeur du serveur · Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../commun/autoprint.css">
+</head>
+
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-cancel" viewBox="0 -960 960 960"><path d="M331.54-299.54 480-448l148.46 148.46 32-32L512-480l148.46-148.46-32-32L480-512 331.54-660.46l-32 32L448-480 299.54-331.54l32 32ZM480.07-100q-78.22 0-147.4-29.92t-120.99-81.71q-51.81-51.79-81.75-120.94Q100-401.71 100-479.93q0-78.84 29.92-148.21t81.71-120.68q51.79-51.31 120.94-81.25Q401.71-860 479.93-860q78.84 0 148.21 29.92t120.68 81.21q51.31 51.29 81.25 120.63Q860-558.9 860-480.07q0 78.22-29.92 147.4t-81.21 120.99q-51.29 51.81-120.63 81.75Q558.9-100 480.07-100Zm-.07-45.39q139.69 0 237.15-97.76 97.46-97.77 97.46-236.85 0-139.69-97.46-237.15-97.46-97.46-237.15-97.46-139.08 0-236.85 97.46-97.76 97.46-97.76 237.15 0 139.08 97.76 236.85 97.77 97.76 236.85 97.76ZM480-480Z"/></symbol>
+<symbol id="i-check" viewBox="0 -960 960 960"><path d="M379.15-258.31 168.62-468.85l32.61-32.23 177.92 177.93 379-379.39 32.62 32.62-411.62 411.61Z"/></symbol>
+<symbol id="i-check_circle" viewBox="0 -960 960 960"><path d="M421-311.46 690.54-581l-34.85-34.23L421-380.15 302.54-498.61l-33.85 34.23L421-311.46ZM480.07-100q-78.22 0-147.4-29.92t-120.99-81.71q-51.81-51.79-81.75-120.94Q100-401.71 100-479.93q0-78.84 29.92-148.21t81.71-120.68q51.79-51.31 120.94-81.25Q401.71-860 479.93-860q78.84 0 148.21 29.92t120.68 81.21q51.31 51.29 81.25 120.63Q860-558.9 860-480.07q0 78.22-29.92 147.4t-81.21 120.99q-51.29 51.81-120.63 81.75Q558.9-100 480.07-100Zm-.07-45.39q139.69 0 237.15-97.76 97.46-97.77 97.46-236.85 0-139.69-97.46-237.15-97.46-97.46-237.15-97.46-139.08 0-236.85 97.46-97.76 97.46-97.76 237.15 0 139.08 97.76 236.85 97.77 97.76 236.85 97.76ZM480-480Z"/></symbol>
+<symbol id="i-chevron_left" viewBox="0 -960 960 960"><path d="M560.62-253.85 333.85-480.62l226.77-227.15 32.61 32.62-194.15 194.53 194.15 194.16-32.61 32.61Z"/></symbol>
+<symbol id="i-close" viewBox="0 -960 960 960"><path d="m250.92-218.92-32-32L448-480 218.92-709.08l32-32L480-512l229.08-229.08 32 32L512-480l229.08 229.08-32 32L480-448 250.92-218.92Z"/></symbol>
+<symbol id="i-content_copy" viewBox="0 -960 960 960"><path d="M318.46-230.77q-23.53 0-40.61-17.08t-17.08-40.61v-513.85q0-23.53 17.08-40.61T318.46-860h393.85q23.52 0 40.61 17.08Q770-825.84 770-802.31v513.85q0 23.53-17.08 40.61-17.09 17.08-40.61 17.08H318.46Zm0-45.39h393.85q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46v-513.85q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H318.46q-4.61 0-8.46 3.84-3.85 3.85-3.85 8.46v513.85q0 4.61 3.85 8.46 3.85 3.84 8.46 3.84ZM207.69-120q-23.52 0-40.61-17.08Q150-154.17 150-177.7v-559.22h45.39v559.22q0 4.62 3.84 8.47 3.85 3.84 8.46 3.84h439.23V-120H207.69Zm98.46-156.16v-538.45 538.45Z"/></symbol>
+<symbol id="i-crop_square" viewBox="0 -960 960 960"><path d="M197.69-140q-23.53 0-40.61-17.08T140-197.69v-564.62q0-23.53 17.08-40.61T197.69-820h564.62q23.53 0 40.61 17.08T820-762.31v564.62q0 23.53-17.08 40.61T762.31-140H197.69Zm0-45.39h564.62q5.38 0 8.84-3.46t3.46-8.84v-564.62q0-5.38-3.46-8.84t-8.84-3.46H197.69q-5.38 0-8.84 3.46t-3.46 8.84v564.62q0 5.38 3.46 8.84t8.84 3.46Zm-12.3 0v-589.22 589.22Z"/></symbol>
+<symbol id="i-database" viewBox="0 -960 960 960"><path d="M480-140q-145.61 0-242.81-41.12Q140-222.23 140-283.85V-680q0-57.92 99.54-98.96Q339.08-820 480-820q140.92 0 240.46 41.04Q820-737.92 820-680v396.15q0 61.62-97.19 102.73Q625.61-140 480-140Zm0-468.38q85.23 0 174.38-25.35 89.16-25.35 114-57.19-25.46-31.62-114.23-57.66-88.77-26.03-174.15-26.03-86.85 0-175.46 25.03-88.62 25.04-114.31 57.12 25.31 33.84 112.73 58.96 87.42 25.12 177.04 25.12Zm-.62 211.3q41.62 0 83.24-4.5 41.61-4.5 79.53-13.3 37.93-8.81 71.97-21.62 34.03-12.81 60.49-28.42v-167.7q-27.46 16-61.3 28.81-33.85 12.81-72.27 21.62-38.42 8.8-79.23 13.61-40.81 4.81-82.43 4.81-42.38 0-84.19-5-41.81-5-79.73-13.81T244.38-604q-33.15-12.62-58.99-28.62v167.7q25.46 15.61 58.49 28.23 33.04 12.61 70.97 21.61 37.92 9 79.53 13.5 41.62 4.5 85 4.5Zm.62 211.69q50.31 0 99.77-7.53 49.46-7.54 89.85-20.39 40.38-12.84 68.53-29.46 28.16-16.61 36.46-35v-141.15q-26.46 16-60.49 28.3-34.04 12.31-71.97 21.12-37.92 8.81-79.23 13.31-41.3 4.5-83.54 4.5-43.38 0-85-4.5-41.61-4.5-79.53-13.31-37.93-8.81-70.77-21.31-32.85-12.5-58.69-28.11v141.77q7.69 18.15 35.53 34.88 27.85 16.73 68.54 29.27 40.69 12.54 90.16 20.08 49.46 7.53 100.38 7.53Z"/></symbol>
+<symbol id="i-error" viewBox="0 -960 960 960"><path d="M499.46-298.52q7.77-7.75 7.77-19.46t-7.75-19.48q-7.75-7.77-19.46-7.77t-19.48 7.75q-7.77 7.75-7.77 19.46t7.75 19.48q7.75 7.77 19.46 7.77t19.48-7.75Zm-39.92-133.33h45.38v-249.53h-45.38v249.53ZM480.33-100q-78.95 0-147.89-29.92-68.95-29.92-120.76-81.71-51.81-51.79-81.75-120.78Q100-401.39 100-480.43q0-78.66 29.92-147.87 29.92-69.21 81.71-120.52 51.79-51.31 120.78-81.25Q401.39-860 480.43-860q78.66 0 147.87 29.92 69.21 29.92 120.52 81.21 51.31 51.29 81.25 120.63Q860-558.9 860-480.33q0 78.95-29.92 147.89-29.92 68.95-81.21 120.57-51.29 51.63-120.63 81.75Q558.9-100 480.33-100Zm.17-45.39q139.19 0 236.65-97.76 97.46-97.77 97.46-237.35 0-139.19-97.27-236.65-97.27-97.46-237.34-97.46-139.08 0-236.85 97.27-97.76 97.27-97.76 237.34 0 139.08 97.76 236.85 97.77 97.76 237.35 97.76ZM480-480Z"/></symbol>
+<symbol id="i-info" viewBox="0 -960 960 960"><path d="M459.54-290h45.38v-230h-45.38v230Zm39.73-301.56q7.96-7.57 7.96-19.05 0-11.95-7.85-19.9-7.85-7.95-19.36-7.95-11.9 0-19.58 7.95-7.67 7.95-7.67 19.9 0 11.48 7.94 19.05 7.95 7.56 19.27 7.56 11.33 0 19.29-7.56ZM480.33-100q-78.95 0-147.89-29.92-68.95-29.92-120.76-81.71-51.81-51.79-81.75-120.78Q100-401.39 100-480.43q0-78.66 29.92-147.87 29.92-69.21 81.71-120.52 51.79-51.31 120.78-81.25Q401.39-860 480.43-860q78.66 0 147.87 29.92 69.21 29.92 120.52 81.21 51.31 51.29 81.25 120.63Q860-558.9 860-480.33q0 78.95-29.92 147.89-29.92 68.95-81.21 120.57-51.29 51.63-120.63 81.75Q558.9-100 480.33-100Zm.17-45.39q139.19 0 236.65-97.76 97.46-97.77 97.46-237.35 0-139.19-97.27-236.65-97.27-97.46-237.34-97.46-139.08 0-236.85 97.27-97.76 97.27-97.76 237.34 0 139.08 97.76 236.85 97.77 97.76 237.35 97.76ZM480-480Z"/></symbol>
+<symbol id="i-open_in_new" viewBox="0 -960 960 960"><path d="M197.69-140q-23.53 0-40.61-17.08T140-197.69v-564.62q0-23.53 17.08-40.61T197.69-820h251.69v45.39H197.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h564.62q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46v-251.69H820v251.69q0 23.53-17.08 40.61T762.31-140H197.69Zm186.62-211.69-32-32.62 390.31-390.3H530.15V-820H820v289.85h-45.39V-742l-390.3 390.31Z"/></symbol>
+<symbol id="i-remove" viewBox="0 -960 960 960"><path d="M220-457.31v-45.38h520v45.38H220Z"/></symbol>
+<symbol id="i-warning" viewBox="0 -960 960 960"><path d="M74.62-140 480-840l405.38 700H74.62Zm78.61-45.39h653.54L480-749.23 153.23-185.39Zm347.46-67.41q7.16-7.33 7.16-17.84t-7.34-17.67q-7.34-7.15-17.85-7.15-10.51 0-17.66 7.33-7.15 7.34-7.15 17.85 0 10.51 7.33 17.66 7.34 7.16 17.85 7.16 10.51 0 17.66-7.34Zm-40.54-90.58h45.39v-217.85h-45.39v217.85ZM480-467.31Z"/></symbol>
+<symbol id="logo" viewBox="0 0 64 64"><path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/><circle cx="32" cy="26" r="17" fill="#2f6fd8"/><path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/><rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/><rect x="22" y="28" width="20" height="2.4" rx="1" fill="#2f6fd8"/><rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/><rect x="27" y="33" width="10" height="1.8" rx=".9" fill="#2f6fd8"/><rect x="27" y="36.2" width="6.5" height="1.8" rx=".9" fill="#2f6fd8"/><circle cx="41.2" cy="24.4" r="1.4" fill="#2f6fd8"/></symbol>
+</defs></svg>
+
+<header class="mq-bar"><div class="mq-bar-inner">
+  <a class="back" href="../index.html"><svg class="ic ic-sm"><use href="#i-chevron_left"/></svg>Maquettes</a>
+  <span class="crumb"><span>Installeur du serveur ·</span> Assistant</span>
+  <nav class="mq-screens" aria-label="Écrans"><a href="#verification">Vérification du système</a><a href="#base">Base de données</a><a href="#fin">Fin</a>
+</nav>
+  <span class="grow"></span>
+  <span class="note">Taille réelle 800 × 650, thème clair uniquement</span>
+  
+</div></header>
+
+<div class="mq-desk">
+
+  <div class="mq-shot" id="verification">
+    <div class="caption"><b>Vérification du système</b> · un prérequis installé, un manquant, un trop ancien</div>
+    <div class="win iw">
+      <div class="iw-title"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg>Installation d'Autoprint Server<span class="grow"></span><span class="wbtn"><svg class="ic"><use href="#i-remove"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-crop_square"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-close"/></svg></span></div>
+
+      <div class="iw-main">
+        <aside class="iw-rail">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg><span>Autoprint Server<small>Assistant d'installation</small></span></span>
+  <ol class="iw-steps"><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Bienvenue</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Contrat de licence</li><li class="current" aria-current="step"><span class="n">3</span>Vérification du système</li><li><span class="n">4</span>Base de données</li><li><span class="n">5</span>Configuration web</li><li><span class="n">6</span>Installation</li><li><span class="n">7</span>Fin</li></ol>
+  <span class="ver"><span class="ap-label-tag">26.11.9.1</span></span>
+</aside>
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1>Vérification du système</h1>
+            <p class="lead">L'assistant vérifie que les composants nécessaires sont présents sur ce serveur.</p>
+            <div class="iw-checks">
+              <div class="iw-check ok"><svg class="ic"><use href="#i-check_circle"/></svg><span class="t"><b>Rôle Serveur Web (IIS)</b><span>Installé</span></span><span></span></div>
+              <div class="iw-check ko"><svg class="ic"><use href="#i-cancel"/></svg><span class="t"><b>Rôle Serveur d'impression</b><span>Manquant</span></span><button class="ap-btn ap-btn--secondary">Installer</button></div>
+              <div class="iw-check ko"><svg class="ic"><use href="#i-error"/></svg><span class="t"><b>Runtime .NET 10 (Hosting Bundle)</b><span>Version 10.0.0 trop ancienne : 10.0.14 requise (correctifs de sécurité)</span></span><button class="ap-btn ap-btn--secondary">Mettre à jour</button></div>
+            </div>
+            <div class="ap-alert ap-alert--info"><svg class="ic"><use href="#i-info"/></svg><div><strong>2 composants à installer</strong><p>Le bouton Suivant s'active quand tous les prérequis sont présents.</p></div></div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary">Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--text">Annuler</button><button class="ap-btn ap-btn--primary" disabled>Suivant</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mq-shot" id="base">
+    <div class="caption"><b>Base de données</b> · SQL Server, authentification SQL</div>
+    <div class="win iw">
+      <div class="iw-title"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg>Installation d'Autoprint Server<span class="grow"></span><span class="wbtn"><svg class="ic"><use href="#i-remove"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-crop_square"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-close"/></svg></span></div>
+
+      <div class="iw-main">
+        <aside class="iw-rail">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg><span>Autoprint Server<small>Assistant d'installation</small></span></span>
+  <ol class="iw-steps"><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Bienvenue</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Contrat de licence</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Vérification du système</li><li class="current" aria-current="step"><span class="n">4</span>Base de données</li><li><span class="n">5</span>Configuration web</li><li><span class="n">6</span>Installation</li><li><span class="n">7</span>Fin</li></ol>
+  <span class="ver"><span class="ap-label-tag">26.11.9.1</span></span>
+</aside>
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1>Base de données</h1>
+            <p class="lead">Choisissez où Autoprint enregistre sa configuration et son journal.</p>
+            <div class="iw-radio-cards">
+              <label class="iw-radio-card ap-check"><input type="radio" name="db"><span><b>SQLite</b><span>Fichier local, sans serveur de base de données</span></span></label>
+              <label class="iw-radio-card ap-check is-on"><input type="radio" name="db" checked><span><b>SQL Server</b><span>Serveur de base de données existant</span></span></label>
+            </div>
+            <div class="iw-form">
+              <div class="ap-field"><label class="ap-label" for="db-srv">Serveur (instance)</label><input id="db-srv" class="ap-input mono" value="SRV-SQL01\AUTOPRINT"></div>
+              <div class="ap-field"><label class="ap-label" for="db-port">Port</label><input id="db-port" class="ap-input mono" value="1433"></div>
+              <div class="ap-field full"><label class="ap-label" for="db-nom">Nom de la base</label><input id="db-nom" class="ap-input mono" value="Autoprint"></div>
+              <div class="ap-field full"><span class="ap-label">Authentification</span><span class="ap-selectbar"><span>Windows</span><span class="on">SQL Server</span></span></div>
+              <div class="ap-field"><label class="ap-label" for="db-user">Identifiant</label><input id="db-user" class="ap-input" value="autoprint_app"></div>
+              <div class="ap-field"><label class="ap-label" for="db-pass">Mot de passe</label><input id="db-pass" class="ap-input is-focus" type="password" value="secret-secret"></div>
+            </div>
+            <div><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-database"/></svg>Tester la connexion</button></div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary">Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--text">Annuler</button><button class="ap-btn ap-btn--primary">Suivant</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mq-shot" id="fin">
+    <div class="caption"><b>Fin</b> · mise à jour terminée, une action reste à faire</div>
+    <div class="win iw">
+      <div class="iw-title"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg>Mise à jour d'Autoprint Server<span class="grow"></span><span class="wbtn"><svg class="ic"><use href="#i-remove"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-crop_square"/></svg></span><span class="wbtn"><svg class="ic"><use href="#i-close"/></svg></span></div>
+
+      <div class="iw-main">
+        <aside class="iw-rail">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg><span>Autoprint Server<small>Assistant de mise à jour</small></span></span>
+  <ol class="iw-steps"><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Bienvenue</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Contrat de licence</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Vérification du système</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Base de données</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Configuration web</li><li class="done"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Installation</li><li class="done current"><span class="n"><svg class="ic"><use href="#i-check"/></svg></span>Fin</li></ol>
+  <span class="ver"><span class="ap-label-tag">26.11.9.1</span></span>
+</aside>
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1 class="ok"><svg class="ic"><use href="#i-check_circle"/></svg>Mise à jour terminée</h1>
+            <p class="lead">Autoprint Server 26.11.9.1 est installé et configuré.</p>
+            <div class="ap-alert ap-alert--warning"><svg class="ic"><use href="#i-warning"/></svg><div><strong>Action requise</strong><p>Faites exécuter le script de mise à jour de la base par l'administrateur SQL Server, puis redémarrez le service AutoprintSpooler.</p></div><button class="ap-btn ap-btn--secondary ap-btn--sm"><svg class="ic ic-sm"><use href="#i-content_copy"/></svg>Copier le script</button></div>
+            <div class="iw-next">
+              <span class="ap-label">Console d'administration</span>
+              <a href="#">https://autoprint.mairie.local</a>
+              <span class="ap-help">Journal de l'installation : C:\ProgramData\Autoprint\Logs\install-20261109.log</span>
+            </div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary" disabled>Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-open_in_new"/></svg>Ouvrir la console</button><button class="ap-btn ap-btn--primary">Terminer</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Connexion · Console Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../commun/autoprint.css">
+</head>
+
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-chevron_left" viewBox="0 -960 960 960"><path d="M560.62-253.85 333.85-480.62l226.77-227.15 32.61 32.62-194.15 194.53 194.15 194.16-32.61 32.61Z"/></symbol>
+<symbol id="i-dark_mode" viewBox="0 -960 960 960"><path d="M481.15-140q-141.66 0-240.83-99.17-99.16-99.16-99.16-240.83 0-135.77 92.11-232.88 92.11-97.12 225.57-105.2 4.16 0 9.12.31 4.96.31 13.96.49-27.15 30.9-41.96 71.74-14.81 40.85-14.81 85.54 0 98.33 68.84 167.17Q562.82-424 661.15-424q44.31 0 85.35-13.69 41.04-13.69 71.5-38.61.23 7.38.54 11.23.3 3.84.3 7.38-7.69 133.46-104.8 225.57Q616.92-140 481.15-140Zm0-45.39q103.23 0 181.35-62.49 78.11-62.5 101.19-149.66-23.46 9.46-49.82 14.19-26.36 4.74-52.72 4.74-116.92 0-199.15-82.23T379.77-660q0-23.23 4.42-48.62 4.42-25.38 15.5-56.15-92.61 28.16-152.88 107.47-60.27 79.31-60.27 177.3 0 122.77 85.92 208.69t208.69 85.92Zm-5.53-289.69Z"/></symbol>
+<symbol id="i-desktop_windows" viewBox="0 -960 960 960"><path d="M350.16-140v-45.39h84.46V-280H157.69q-23.53 0-40.61-17.08T100-337.69v-424.62q0-23.53 17.08-40.61T157.69-820h644.62q23.53 0 40.61 17.08T860-762.31v424.62q0 23.53-17.08 40.61T802.31-280H525.38v94.61h84.46V-140H350.16ZM157.69-325.38h644.62q4.61 0 8.46-3.85 3.84-3.85 3.84-8.46v-424.62q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H157.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v424.62q0 4.61 3.84 8.46 3.85 3.85 8.46 3.85Zm-12.3 0v-449.23 449.23Z"/></symbol>
+<symbol id="i-light_mode" viewBox="0 -960 960 960"><path d="M575.15-384.85q39.46-39.46 39.46-95.15 0-55.69-39.46-95.15-39.46-39.46-95.15-39.46-55.69 0-95.15 39.46-39.46 39.46-39.46 95.15 0 55.69 39.46 95.15 39.46 39.46 95.15 39.46 55.69 0 95.15-39.46Zm-222.61 32.31Q300-405.08 300-480q0-74.92 52.54-127.46Q405.08-660 480-660q74.92 0 127.46 52.54Q660-554.92 660-480q0 74.92-52.54 127.46Q554.92-300 480-300q-74.92 0-127.46-52.54ZM200-457.31H50v-45.38h150v45.38Zm710 0H760v-45.38h150v45.38ZM457.31-760v-150h45.38v150h-45.38Zm0 710v-150h45.38v150h-45.38ZM267.39-662.62l-93.08-90.46 32.23-33.61L296.77-694l-29.38 31.38Zm486.69 488.7-91.46-92.7L693.61-298l92.08 91.08-31.61 33ZM662-693.61l91.08-92.08 33.61 31.61-92.08 91.46L662-693.61ZM173.92-206.54 266-298l31.23 31.23-90.69 92.85-32.62-32.62ZM480-480Z"/></symbol>
+<symbol id="i-lock" viewBox="0 -960 960 960"><path d="M237.69-100q-23.59 0-40.64-17.05T180-157.69v-400.15q0-23.9 17.05-40.8t40.64-16.9h69.62v-91.77q0-71.89 50.44-122.29Q408.19-880 480.13-880q71.95 0 122.25 50.4 50.31 50.4 50.31 122.29v91.77h69.62q23.59 0 40.64 16.9t17.05 40.8v400.15q0 23.59-17.05 40.64T722.31-100H237.69Zm0-45.39h484.62q5.38 0 8.84-3.46t3.46-8.84v-400.15q0-5.39-3.46-8.85t-8.84-3.46H237.69q-5.38 0-8.84 3.46t-3.46 8.85v400.15q0 5.38 3.46 8.84t8.84 3.46Zm290.27-164.14q19.81-19.53 19.81-47.01 0-26.54-19.98-47.77-19.97-21.23-47.96-21.23-27.98 0-47.79 21.23t-19.81 48.27q0 27.04 19.98 46.54 19.97 19.5 47.96 19.5 27.98 0 47.79-19.53ZM352.69-615.54h254.62v-91.77q0-53.04-37.09-90.17t-90.08-37.13q-52.99 0-90.22 37.13t-37.23 90.17v91.77Zm-127.3 470.15v-424.76 424.76Z"/></symbol>
+<symbol id="logo" viewBox="0 0 64 64"><path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/><circle cx="32" cy="26" r="17" fill="#2f6fd8"/><path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/><rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/><rect x="22" y="28" width="20" height="2.4" rx="1" fill="#2f6fd8"/><rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/><rect x="27" y="33" width="10" height="1.8" rx=".9" fill="#2f6fd8"/><rect x="27" y="36.2" width="6.5" height="1.8" rx=".9" fill="#2f6fd8"/><circle cx="41.2" cy="24.4" r="1.4" fill="#2f6fd8"/></symbol>
+</defs></svg>
+
+<input type="radio" name="theme" id="theme-auto" class="sr-only" checked>
+<input type="radio" name="theme" id="theme-light" class="sr-only">
+<input type="radio" name="theme" id="theme-dark" class="sr-only">
+
+<header class="mq-bar"><div class="mq-bar-inner">
+  <a class="back" href="../index.html"><svg class="ic ic-sm"><use href="#i-chevron_left"/></svg>Maquettes</a>
+  <span class="crumb"><span>Console ·</span> Connexion</span>
+  <nav class="mq-screens" aria-label="Écrans"><a href="connexion.html" aria-current="page">Connexion</a><a href="tableau-de-bord.html">Tableau de bord</a><a href="imprimantes.html">Imprimantes</a><a href="fiche-imprimante.html">Fiche imprimante</a><a href="parametres.html">Paramètres</a>
+</nav>
+  <span class="grow"></span>
+  <span class="note">Écran plein, avant l'accès à la console</span>
+  <div class="ap-segmented" role="group" aria-label="Thème de la maquette">
+  <label for="theme-auto"><svg class="ic ic-sm"><use href="#i-desktop_windows"/></svg>Système</label>
+  <label for="theme-light"><svg class="ic ic-sm"><use href="#i-light_mode"/></svg>Clair</label>
+  <label for="theme-dark"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg>Sombre</label>
+</div>
+
+</div></header>
+
+<div class="ap-login">
+  <aside class="ap-login-art" aria-hidden="true">
+    <svg class="plan" viewBox="0 0 620 420">
+      <rect class="wall" x="10" y="10" width="600" height="400" rx="4"/>
+      <rect class="room" x="30" y="30" width="170" height="140" rx="3"/><text class="lbl" x="44" y="54">Bureau 201</text>
+      <rect class="room" x="210" y="30" width="170" height="140" rx="3"/><text class="lbl" x="224" y="54">Bureau 202</text>
+      <rect class="room" x="390" y="30" width="200" height="140" rx="3"/><text class="lbl" x="404" y="54">Salle de réunion</text>
+      <rect class="room" x="30" y="250" width="250" height="140" rx="3"/><text class="lbl" x="44" y="274">Bureau 204</text>
+      <rect class="room" x="290" y="250" width="120" height="140" rx="3"/><text class="lbl" x="304" y="274">Reprographie</text>
+      <rect class="room" x="420" y="250" width="170" height="140" rx="3"/><text class="lbl" x="434" y="274">Bureau 206</text>
+      <text class="lbl" x="44" y="214">Couloir · 2e étage</text>
+      <g transform="translate(150 300)"><use href="#logo" x="-14" y="-30" width="28" height="28"/><text class="ip" x="-26" y="14">10.12.4.21</text></g>
+      <g transform="translate(350 320)"><use href="#logo" x="-14" y="-30" width="28" height="28"/><text class="ip" x="-26" y="14">10.12.4.24</text></g>
+      <g transform="translate(490 110)"><use href="#logo" x="-14" y="-30" width="28" height="28"/><text class="ip" x="-26" y="14">10.12.4.23</text></g>
+    </svg>
+    <div class="caption-art"><b>Siège – Bâtiment A – 2e étage</b><span>3 imprimantes, déployées automatiquement sur les postes de l'étage.</span></div>
+  </aside>
+  <main class="ap-login-form">
+    <form class="ap-login-card">
+      <div class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</div>
+      <h1>Connexion</h1>
+      <p class="lead">Console d'administration du serveur d'impression</p>
+      <div class="ap-field"><label class="ap-label" for="l-id">Identifiant</label><input id="l-id" class="ap-input" autocomplete="username" value="s.laurent"></div>
+      <div class="ap-field"><div class="row-between"><label class="ap-label" for="l-mdp">Mot de passe</label><a class="ap-link" href="#">Mot de passe oublié</a></div><input id="l-mdp" class="ap-input is-focus" type="password" autocomplete="current-password" value="motdepasse"></div>
+      <a class="ap-btn ap-btn--primary" href="tableau-de-bord.html">Se connecter</a>
+      <div class="ap-login-foot"><svg class="ic ic-sm"><use href="#i-lock"/></svg>Compte local ou Active Directory · <span class="ap-label-tag">26.11.9.1</span></div>
+    </form>
+  </main>
+</div>
+</body>
+</html>

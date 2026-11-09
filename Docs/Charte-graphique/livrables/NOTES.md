@@ -29,9 +29,37 @@
 - Boutons d'action de la grille : un bouton principal (« Ajouter ») ; les autres en secondaire ou en texte, au lieu de quatre couleurs différentes.
 - Clés ajoutées à `tokens.json` par rapport au format de référence : `brand`, `text-muted`, `border-strong` (contour des champs à 3:1), tailles complémentaires.
 
+## Maquettes (étape 3)
+
+Ouvrir `maquettes/index.html` dans un navigateur. Chaque page a une barre de maquette (hors application) pour passer d'un écran à l'autre et forcer le thème clair ou sombre ; par défaut, le thème suit celui du système.
+
+| Interface | Fichier | Écrans |
+|---|---|---|
+| Console | `maquettes/console/*.html` | Connexion, Tableau de bord, Imprimantes, Fiche imprimante (modale), Paramètres |
+| Client | `maquettes/client/client.html` | Disponibles (installée et par défaut, en cours, à installer), État vide (hors ligne), Options (zone technique) |
+| Installeur | `maquettes/installeur/installeur.html` | Vérification du système, Base de données (SQL Server), Fin avec « Action requise » |
+| Référence | `maquettes/composants/planche-composants.html` | Planche de composants |
+
+Propositions visibles dans les maquettes :
+
+- **Connexion** : écran partagé, avec à gauche le plan d'étage d'un lieu et ses imprimantes (l'univers du produit), à droite le formulaire.
+- **Tableau de bord** : « État du service » devient un bandeau sous le titre ; la répartition par modèle est une barre empilée suivie d'une liste classée.
+- **Imprimantes** : filtres en pastilles (Lieu, Statut, Modèle), actions groupées quand des lignes sont sélectionnées, lieu et détail sur deux lignes, colonnes ajustables. Le code inventaire passe dans le choix des colonnes.
+- **Paramètres** : chaque réglage a son titre et son explication à gauche, ses champs à droite ; la restauration est isolée en zone sensible ; une barre d'enregistrement apparaît en bas dès qu'une modification est en attente.
+- **Client** : le lieu détecté sert de titre ; une carte par imprimante, l'imprimante par défaut est mise en avant ; la zone technique est encadrée en pointillés.
+- **Installeur** : fini l'en-tête noir ; les 7 étapes sont listées à gauche, l'étape en cours est mise en avant, la barre de boutons reste en bas.
+
+Données de test fictives (noms, adresses, utilisateurs).
+
+## Génération
+
+Les pages sont produites par `sources/build_maquettes.py` à partir de `sources/autoprint.src.css` (jetons et composants `ap-*`) et des gabarits de `sources/maquettes/`. Les icônes sont copiées en ligne dans chaque page. Ne pas modifier directement les fichiers de `maquettes/` : modifier les sources, puis relancer le script.
+
 ## Points à arbitrer
 
 - Valider la barre empilée à la place de l'anneau.
+- Valider le plan d'étage sur l'écran de connexion.
+- Valider le rail d'étapes de l'installeur à la place de l'en-tête sombre.
 - Confirmer le thème de base Radzen Standard.
 
 ## Crédits

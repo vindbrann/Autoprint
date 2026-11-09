@@ -1,0 +1,85 @@
+{{> head title="Installeur du serveur · Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> barre interface="Installeur du serveur" ecran="Assistant" iface="installeur" tg="-none" note="Taille réelle 800 × 650, thème clair uniquement"}}
+<div class="mq-desk">
+
+  <div class="mq-shot" id="verification">
+    <div class="caption"><b>Vérification du système</b> · un prérequis installé, un manquant, un trop ancien</div>
+    <div class="win iw">
+      {{> iw-title titre="Installation d'Autoprint Server"}}
+      <div class="iw-main">
+        {{> iw-rail-3}}
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1>Vérification du système</h1>
+            <p class="lead">L'assistant vérifie que les composants nécessaires sont présents sur ce serveur.</p>
+            <div class="iw-checks">
+              <div class="iw-check ok"><svg class="ic"><use href="#i-check_circle"/></svg><span class="t"><b>Rôle Serveur Web (IIS)</b><span>Installé</span></span><span></span></div>
+              <div class="iw-check ko"><svg class="ic"><use href="#i-cancel"/></svg><span class="t"><b>Rôle Serveur d'impression</b><span>Manquant</span></span><button class="ap-btn ap-btn--secondary">Installer</button></div>
+              <div class="iw-check ko"><svg class="ic"><use href="#i-error"/></svg><span class="t"><b>Runtime .NET 10 (Hosting Bundle)</b><span>Version 10.0.0 trop ancienne : 10.0.14 requise (correctifs de sécurité)</span></span><button class="ap-btn ap-btn--secondary">Mettre à jour</button></div>
+            </div>
+            <div class="ap-alert ap-alert--info"><svg class="ic"><use href="#i-info"/></svg><div><strong>2 composants à installer</strong><p>Le bouton Suivant s'active quand tous les prérequis sont présents.</p></div></div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary">Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--text">Annuler</button><button class="ap-btn ap-btn--primary" disabled>Suivant</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mq-shot" id="base">
+    <div class="caption"><b>Base de données</b> · SQL Server, authentification SQL</div>
+    <div class="win iw">
+      {{> iw-title titre="Installation d'Autoprint Server"}}
+      <div class="iw-main">
+        {{> iw-rail-4}}
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1>Base de données</h1>
+            <p class="lead">Choisissez où Autoprint enregistre sa configuration et son journal.</p>
+            <div class="iw-radio-cards">
+              <label class="iw-radio-card ap-check"><input type="radio" name="db"><span><b>SQLite</b><span>Fichier local, sans serveur de base de données</span></span></label>
+              <label class="iw-radio-card ap-check is-on"><input type="radio" name="db" checked><span><b>SQL Server</b><span>Serveur de base de données existant</span></span></label>
+            </div>
+            <div class="iw-form">
+              <div class="ap-field"><label class="ap-label" for="db-srv">Serveur (instance)</label><input id="db-srv" class="ap-input mono" value="SRV-SQL01\AUTOPRINT"></div>
+              <div class="ap-field"><label class="ap-label" for="db-port">Port</label><input id="db-port" class="ap-input mono" value="1433"></div>
+              <div class="ap-field full"><label class="ap-label" for="db-nom">Nom de la base</label><input id="db-nom" class="ap-input mono" value="Autoprint"></div>
+              <div class="ap-field full"><span class="ap-label">Authentification</span><span class="ap-selectbar"><span>Windows</span><span class="on">SQL Server</span></span></div>
+              <div class="ap-field"><label class="ap-label" for="db-user">Identifiant</label><input id="db-user" class="ap-input" value="autoprint_app"></div>
+              <div class="ap-field"><label class="ap-label" for="db-pass">Mot de passe</label><input id="db-pass" class="ap-input is-focus" type="password" value="secret-secret"></div>
+            </div>
+            <div><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-database"/></svg>Tester la connexion</button></div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary">Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--text">Annuler</button><button class="ap-btn ap-btn--primary">Suivant</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mq-shot" id="fin">
+    <div class="caption"><b>Fin</b> · mise à jour terminée, une action reste à faire</div>
+    <div class="win iw">
+      {{> iw-title titre="Mise à jour d'Autoprint Server"}}
+      <div class="iw-main">
+        {{> iw-rail-7}}
+        <div class="iw-content">
+          <div class="iw-page">
+            <h1 class="ok"><svg class="ic"><use href="#i-check_circle"/></svg>Mise à jour terminée</h1>
+            <p class="lead">Autoprint Server 26.11.9.1 est installé et configuré.</p>
+            <div class="ap-alert ap-alert--warning"><svg class="ic"><use href="#i-warning"/></svg><div><strong>Action requise</strong><p>Faites exécuter le script de mise à jour de la base par l'administrateur SQL Server, puis redémarrez le service AutoprintSpooler.</p></div><button class="ap-btn ap-btn--secondary ap-btn--sm"><svg class="ic ic-sm"><use href="#i-content_copy"/></svg>Copier le script</button></div>
+            <div class="iw-next">
+              <span class="ap-label">Console d'administration</span>
+              <a href="#">https://autoprint.mairie.local</a>
+              <span class="ap-help">Journal de l'installation : C:\ProgramData\Autoprint\Logs\install-20261109.log</span>
+            </div>
+          </div>
+          <div class="iw-foot"><button class="ap-btn ap-btn--secondary" disabled>Précédent</button><span class="grow"></span><button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-open_in_new"/></svg>Ouvrir la console</button><button class="ap-btn ap-btn--primary">Terminer</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{{> head title="Client de bureau · Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Client de bureau" ecran="Fenêtre principale" iface="client" note="Taille réelle 540 × 620, suit le thème de Windows"}}
+<div class="mq-desk">
+
+  <div class="mq-shot" id="disponibles">
+    <div class="caption"><b>Disponibles</b> · une imprimante installée et par défaut, une en cours d'installation, deux à installer</div>
+    <div class="win cw">
+      {{> cw-head}}
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill is-active">Disponibles <span class="count">4</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill">Options</span></div></div>
+      <div class="cw-body">
+        <div class="cw-printer is-default">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg><span class="ok" title="Installée"><svg class="ic"><use href="#i-check"/></svg></span></span>
+          <span class="info"><b>SIEGE-A2-RICOH-01</b><span>Ricoh IM C3000 · Bureau 204</span><span class="tags"><span class="ap-tag">Par défaut</span><span class="ap-tag">Couleur</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--icon cw-star is-on" aria-label="Retirer des favoris" aria-pressed="true"><svg class="ic"><use href="#i-star-fill"/></svg></button><button class="ap-btn ap-btn--text ap-btn--sm">Retirer</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-HP-03</b><span>HP LaserJet M507 · Salle de réunion</span><span class="tags"><span class="ap-tag">Noir et blanc</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--secondary ap-btn--sm" disabled><span class="ap-spinner"></span>Installation…</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-KYO-02</b><span>Kyocera ECOSYS M3655idn · Couloir ouest</span><span class="tags"><span class="ap-tag">Noir et blanc</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-download"/></svg>Installer</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-CANON-01</b><span>Canon iR-ADV C5535i · Reprographie</span><span class="tags"><span class="ap-tag">Couleur</span><span class="ap-tag">A3</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-download"/></svg>Installer</button></span>
+        </div>
+      </div>
+      {{> cw-foot}}
+    </div>
+  </div>
+
+  <div class="mq-shot" id="vide">
+    <div class="caption"><b>État vide</b> · aucune imprimante pour ce lieu, serveur injoignable</div>
+    <div class="win cw">
+      {{> cw-head badge="<span class='cw-offline'><svg class='ic'><use href='#i-cloud_off'/></svg>Mode hors ligne</span>"}}
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill is-active">Disponibles <span class="count">0</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill">Options</span></div></div>
+      <div class="cw-body">
+        <div class="cw-empty">
+          <span class="halo"><svg class="ic"><use href="#i-print_disabled"/></svg></span>
+          <b>Aucune imprimante disponible pour ce lieu</b>
+          <p>Vérifiez votre connexion réseau ou contactez le support informatique.</p>
+          <button class="ap-btn ap-btn--secondary" style="margin-top:8px"><svg class="ic"><use href="#i-refresh"/></svg>Réessayer</button>
+        </div>
+      </div>
+      {{> cw-foot}}
+    </div>
+  </div>
+
+  <div class="mq-shot" id="options">
+    <div class="caption"><b>Options</b> · zone technique affichée (5 clics sur le numéro de version)</div>
+    <div class="win cw">
+      {{> cw-head}}
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill">Disponibles <span class="count">4</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill is-active">Options</span></div></div>
+      <div class="cw-body">
+        <p class="cw-group-title">Préférences</p>
+        <div class="cw-group">
+          <label class="ap-switch"><input type="checkbox" checked><span class="t">M'avertir lors du changement de lieu de travail</span></label>
+          <label class="ap-switch"><input type="checkbox" checked><span class="t">Changer l'imprimante par défaut automatiquement selon mes favoris</span></label>
+          <label class="ap-switch"><input type="checkbox"><span class="t">Lancer Autoprint à l'ouverture de session Windows</span></label>
+        </div>
+        <p class="cw-group-title">Zone technique</p>
+        <div class="cw-group cw-admin">
+          <div class="head"><svg class="ic"><use href="#i-admin_panel_settings"/></svg>Réservé au support informatique</div>
+          <dl class="cw-kv">
+            <dt>Serveur</dt><dd><span class="ap-label-tag">https://autoprint.mairie.local</span></dd>
+            <dt>Clé d'agent</dt><dd><span class="ap-label-tag">•••• 7F2A</span></dd>
+          </dl>
+          <div><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-lan"/></svg>Tester la connexion au serveur</button></div>
+        </div>
+        <span class="cw-autosave"><svg class="ic ic-sm"><use href="#i-check"/></svg>Les modifications sont enregistrées automatiquement</span>
+      </div>
+      {{> cw-foot}}
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

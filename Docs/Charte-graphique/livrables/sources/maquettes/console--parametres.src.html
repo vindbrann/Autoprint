@@ -1,0 +1,68 @@
+{{> head title="Paramètres · Console Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Console" ecran="Paramètres" iface="console" note="Onglet Maintenance, modifications non enregistrées"}}
+<div class="ap-app">
+  {{> sidebar active="parametres"}}
+  <main class="ap-main"><div class="ap-main-inner">
+    <div class="ap-page-header">
+      <div class="titles"><h1>Configuration du système</h1><span class="sub">Paramètres globaux du serveur Autoprint</span></div>
+    </div>
+    <div class="ap-tabs" role="tablist">
+      <span class="ap-tab is-active" role="tab" aria-selected="true"><svg class="ic"><use href="#i-history"/></svg>Maintenance</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-mail"/></svg>SMTP</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-sell"/></svg>Nommage</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-group"/></svg>Active Directory</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-visibility"/></svg>Supervision</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-bar_chart"/></svg>Monitoring</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-radar"/></svg>Scanner réseau</span>
+      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-lock"/></svg>Sécurité</span>
+    </div>
+
+    <div class="ap-settings">
+      <section class="ap-card">
+        <div class="ap-set-row">
+          <div><h3>Rétention du journal d'audit</h3><p>Les entrées plus anciennes que cette durée sont supprimées chaque nuit.</p></div>
+          <div class="ctrl">
+            <div class="ap-field"><label class="ap-label" for="p-purge">Purge automatique</label>
+              <div class="ap-input-group" style="max-width:200px"><input id="p-purge" class="ap-input start mono is-focus" value="90"><span class="ap-addon ap-addon--end">jours</span></div>
+              <span class="ap-help">0 pour conserver sans limite. Valeur actuelle enregistrée : 180 jours.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ap-card">
+        <div class="ap-set-row">
+          <div><h3>Sauvegarde</h3><p>Exporte toute la configuration dans un fichier JSON.</p></div>
+          <div class="ctrl">
+            <div class="ap-field"><label class="ap-label" for="p-secret">Mot de passe de protection des secrets <span class="opt">(facultatif)</span></label>
+              <input id="p-secret" class="ap-input" type="password" placeholder="12 caractères minimum">
+              <span class="ap-help">Avec un mot de passe, les mots de passe Active Directory et SMTP et la clé d'agent sont inclus, chiffrés. Sans mot de passe, ils sont exclus du fichier.</span></div>
+            <div><button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-download"/></svg>Télécharger la sauvegarde</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ap-card ap-zone-sensible">
+        <div class="ap-set-row">
+          <div><span class="ap-zone-label"><svg class="ic ic-sm"><use href="#i-warning"/></svg>Zone sensible</span><h3 style="margin-top:6px">Restauration</h3><p>Remplace la configuration actuelle par celle d'un fichier de sauvegarde.</p></div>
+          <div class="ctrl">
+            <div class="ap-alert ap-alert--danger"><svg class="ic"><use href="#i-error"/></svg><div><strong>Les données actuelles seront écrasées</strong><p>Faites une sauvegarde avant de restaurer.</p></div></div>
+            <div class="ap-file"><button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-upload_file"/></svg>Choisir un fichier</button><span class="name">Aucun fichier choisi</span></div>
+            <div><button class="ap-btn ap-btn--danger" disabled><svg class="ic"><use href="#i-settings_backup_restore"/></svg>Restaurer</button></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="ap-savebar">
+      <span class="msg"><svg class="ic ic-sm"><use href="#i-info"/></svg>1 modification non enregistrée</span>
+      <span class="grow"></span>
+      <button class="ap-btn ap-btn--text">Annuler les modifications</button>
+      <button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-check"/></svg>Enregistrer la configuration</button>
+    </div>
+  </div></main>
+</div>
+</body>
+</html>
