@@ -13,6 +13,8 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 builder.Services.AddScoped<ILocalStorageService, LocalStorageService>();
 builder.Services.AddAuthorizationCore();
+// Les <AuthorizeView Policy=…> du menu écrivaient « Authorization failed » dans la console du navigateur pour chaque rubrique masquée (B58)
+builder.Logging.AddFilter("Microsoft.AspNetCore.Authorization", LogLevel.Warning);
 builder.Services.AddScoped<CustomAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<CustomAuthStateProvider>());
 builder.Services.AddScoped<IAuthService, AuthService>();
