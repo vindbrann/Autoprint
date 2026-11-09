@@ -17,7 +17,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Autoprint.Server\Autoprint.Server.csproj" />
+		<!-- Platform=x64 (MSI) ne doit pas descendre jusqu'à Autoprint.Web (browser-wasm) : erreur NETSDK1032 -->
+		<ProjectReference Include="..\Autoprint.Server\Autoprint.Server.csproj" GlobalPropertiesToRemove="Platform;PlatformTarget" />
 	</ItemGroup>
 
 	<!-- Après la compilation des projets référencés (Autoprint.Server…) : sinon ce dotnet publish, lancé dans un autre processus,
