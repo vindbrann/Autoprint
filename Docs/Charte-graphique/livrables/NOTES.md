@@ -16,9 +16,9 @@
 - **Neutres** : gris légèrement froids, identiques pour les fonds, surfaces, filets et textes.
 - **Statuts** : succès, avertissement, erreur, info, neutre. Toujours couleur + icône + texte.
 - **Thème de base Radzen 12** : **Standard** (plus compact que Material, adapté aux grandes grilles). Noms exacts des variables `--rz-*` à relever dans `standard-base.css` de Radzen 12 au moment d'écrire `autoprint-theme.css`.
-- **Police** : IBM Plex Sans (400, 500, 600) et IBM Plex Mono (400, 500), SIL Open Font License 1.1. Fichiers `.woff2` dans `ressources/polices/`. Les `.ttf` pour WPF seront produits à l'étape des fichiers de thème.
+- **Police** : IBM Plex Sans (400, 500, 600) et IBM Plex Mono (400, 500), SIL Open Font License 1.1. `.woff2` (console) dans `ressources/polices/`, `.ttf` (WPF) dans `ressources/polices/ttf/`. Les fichiers Medium et SemiBold portent le nom de famille typographique « IBM Plex Sans » : WPF les regroupe en une seule famille.
 - **Icônes** : Material Symbols Outlined, graisse 300, licence Apache 2.0. Natif dans Radzen ; pour WPF, les mêmes glyphes existent dans Material Design Icons (PackIcon) ou en chemins SVG.
-- **Logo** : on garde la punaise avec l'imprimante. `ressources/logo/autoprint-symbole.svg` en est une version vectorielle à plat (sans dégradé), lisible à 16 px. Versions horizontales et PNG à venir.
+- **Logo** : on garde la punaise avec l'imprimante, redessinée à plat (sans dégradé). Symbole (`autoprint-symbole.svg`), symbole simplifié pour 16 à 24 px (`autoprint-symbole-petit.svg`), logo horizontal pour fond clair et fond sombre (nom vectorisé), PNG 512 px.
 - **Diagnostic** : icône stéthoscope (`stethoscope`), car le diagnostic couvre l'état, les erreurs, le toner et le réseau. L'icône réseau (`lan`) reste réservée aux profils SNMP et aux tests de connexion.
 - **Menus réductibles** : le menu principal et le menu des sections ont chacun un bouton pour se réduire en barre d'icônes, avec le nom au survol. Le choix est à mémoriser par utilisateur, comme le thème, et ne doit pas changer quand on passe d'une page à l'autre : dans la maquette, chaque écran est une page séparée et le menu se rouvre à chaque clic, ce qui ne sera pas le cas dans la console (application d'une seule page). En mode réduit, une bulle aux couleurs de la charte affiche le nom de la rubrique au survol et au focus clavier, sans délai (pas d'infobulle native du navigateur), avec le nombre d'éléments à traiter pour Modèles et Pilotes. Les pastilles d'alerte restent visibles en point rouge sur l'icône. Sous 1024 px, les deux menus se réduisent tout seuls ; sous 640 px, le menu des sections devient une liste déroulante. Utile sur un portable de 14 pouces (souvent 1280 à 1366 px de large utiles avec la mise à l'échelle de Windows).
 - **Barres de défilement** : fines et discrètes partout (couleur du texte discret, sans flèches), jamais l'ascenseur Windows par défaut. Les barres d'onglets n'en affichent pas du tout. À reprendre dans `autoprint-theme.css` et dans les styles `ScrollViewer` des dictionnaires XAML.
@@ -54,9 +54,26 @@ Propositions visibles dans les maquettes :
 
 Données de test fictives (noms, adresses, utilisateurs).
 
+## Fichiers de thème (étape 4)
+
+| Interface | Fichiers | Guide |
+|---|---|---|
+| Console | `theme/console/autoprint-theme.css` | `theme/console/LISEZMOI.md` |
+| Client | `theme/client/Autoprint.Theme.xaml`, `Autoprint.Colors.Light.xaml`, `Autoprint.Colors.Dark.xaml`, `AutoprintTheme.cs` | `theme/client/LISEZMOI.md` |
+| Installeur | `theme/installeur/Autoprint.Installer.Theme.xaml` | `theme/installeur/LISEZMOI.md` |
+
+Ressources : `ressources/icones/autoprint.ico` (16 à 256 px), `favicon-32.png`, `favicon-192.png`, `favicon.svg`, `ressources/msi/banniere-493x58.bmp`, `ressources/msi/accueil-493x312.bmp` (BMP 24 bits). Aperçu : `maquettes/ressources/ressources.html`.
+
+Choix d'intégration :
+
+- **Console** : le thème part de Radzen 12 « standard » (variables relevées sur la 12.2.0) et surcharge environ 300 variables `--rz-*` à partir des jetons `--ap-*`. Il corrige aussi ce que Radzen impose en dur : fond de page décoré, boutons de 36 px, contour du bouton secondaire. Vérifié dans un navigateur avec les vraies feuilles Radzen 12, en clair et en sombre.
+- **Bascule sombre de la console** : Radzen change de feuille (`standard` ↔ `standard-dark`), ce que le CSS ne peut pas détecter. Il faut poser `data-theme="dark"` sur `<html>` en même temps : une ligne de JavaScript dans `app.js`, appelée par interop.
+- **Client et installeur** : modèles de contrôles communs, sans dépendance (boutons, champs, liste déroulante, cases, barre de progression, barres de défilement fines). Le client garde MaterialDesign pour le reste, avec la palette bleue Autoprint ; ses couleurs Autoprint sont dans deux dictionnaires échangés selon le thème Windows (`AutoprintTheme.Apply()`, à appeler depuis `App.UpdateTheme()` qui existe déjà). L'installeur est autonome et applique la charte aux contrôles standard par styles implicites.
+- **Limite** : les XAML n'ont pas pu être compilés sur cette branche (pas de WPF disponible). Ils sont validés en XML, toutes les clés utilisées sont définies et l'ordre des ressources statiques est vérifié, mais un passage dans Visual Studio est nécessaire à l'intégration.
+
 ## Génération
 
-Les pages sont produites par `sources/build_maquettes.py` à partir de `sources/autoprint.src.css` (jetons et composants `ap-*`) et des gabarits de `sources/maquettes/`. Les icônes sont copiées en ligne dans chaque page. Ne pas modifier directement les fichiers de `maquettes/` : modifier les sources, puis relancer le script.
+Les fichiers de thème sont produits par `sources/build_theme.py` à partir de `tokens.json` (et du gabarit `sources/theme/autoprint-theme.src.css`). Les pages sont produites par `sources/build_maquettes.py` à partir de `sources/autoprint.src.css` (jetons et composants `ap-*`) et des gabarits de `sources/maquettes/`. Les icônes sont copiées en ligne dans chaque page. Ne pas modifier directement les fichiers de `maquettes/` : modifier les sources, puis relancer le script.
 
 ## Points à arbitrer
 
