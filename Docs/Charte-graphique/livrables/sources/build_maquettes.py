@@ -63,7 +63,7 @@ print('pages :', ', '.join(pages))
 
 if pub:
     if pub.exists(): shutil.rmtree(pub)
-    for sub in ['maquettes', 'ressources/polices', 'ressources/logo']:
+    for sub in ['maquettes', 'ressources/polices', 'ressources/logo', 'ressources/icones', 'ressources/msi']:
         shutil.copytree(LIV / sub, pub / 'livrables' / sub)
     idx = (LIV / 'maquettes/index.html').read_text(encoding='utf-8')
     idx = re.sub(r'(href|src)="(?!https?:|#|data:)([^"]+)"', lambda m: f'{m.group(1)}="livrables/maquettes/{m.group(2)}"', idx)

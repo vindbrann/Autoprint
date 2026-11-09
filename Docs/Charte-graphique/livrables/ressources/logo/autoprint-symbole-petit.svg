@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Autoprint">
+  <path d="M32 62C32 62 7 40 7 25a25 25 0 0 1 50 0c0 15-25 37-25 37z" fill="#2f6fd8"/>
+  <path d="M22 22V10h15l5 5v7z" fill="#fff"/>
+  <rect x="14" y="20" width="36" height="15" rx="3.5" fill="#fff"/>
+  <rect x="20" y="29" width="24" height="13" rx="1.5" fill="#fff" stroke="#2f6fd8" stroke-width="3"/>
+</svg>
