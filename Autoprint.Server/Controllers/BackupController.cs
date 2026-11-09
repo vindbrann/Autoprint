@@ -160,7 +160,8 @@ namespace Autoprint.Server.Controllers
                     AdRoleIds = x.UserRoles.Where(ur => ur.IsFromAd).Select(ur => ur.RoleId).ToList(),
                     PasswordHash = x.PasswordHash,
                     LastPasswordChangeDate = x.LastPasswordChangeDate,
-                    ForceChangePassword = x.ForceChangePassword
+                    ForceChangePassword = x.ForceChangePassword,
+                    LastLogin = x.LastLogin == DateTime.MinValue ? null : x.LastLogin
                 }).ToListAsync(),
 
                 Settings = (await _context.ServerSettings.AsNoTracking().ToListAsync()).Select(x => new BackupSettingDto
@@ -275,6 +276,9 @@ namespace Autoprint.Server.Controllers
             var currentHashes = await _context.Users.AsNoTracking()
                 .Where(u => !u.IsAdUser && u.PasswordHash != null)
                 .ToDictionaryAsync(u => u.Username, u => u.PasswordHash!, StringComparer.OrdinalIgnoreCase);
+            // Sauvegardes antérieures sans date de dernière connexion : on garde celle du compte actuel de même nom (B58)
+            var currentLastLogins = await _context.Users.AsNoTracking()
+                .ToDictionaryAsync(u => u.Username, u => u.LastLogin, StringComparer.OrdinalIgnoreCase);
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -478,7 +482,8 @@ namespace Autoprint.Server.Controllers
                         Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive,
                         PasswordHash = !string.IsNullOrEmpty(u.PasswordHash) ? u.PasswordHash : currentHashes.GetValueOrDefault(u.Username),
                         LastPasswordChangeDate = u.LastPasswordChangeDate,
-                        ForceChangePassword = u.ForceChangePassword
+                        ForceChangePassword = u.ForceChangePassword,
+                        LastLogin = u.LastLogin ?? currentLastLogins.GetValueOrDefault(u.Username, DateTime.MinValue)
                     };
                     // Les sessions ouvertes avant la restauration ne sont plus valables
                     restoredUser.RenewSecurityStamp();

@@ -56,13 +56,17 @@ else
                 </RadzenColumn>
 
                 <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Email" Component="Email" />
+                    <RadzenLabel Text="Email (facultatif)" Component="Email" />
                     <RadzenTextBox Name="Email" @bind-Value="@formData.Email" Style="width: 100%;"
                                    Disabled="@isAdUser" Placeholder="jean.dupont@entreprise.com" />
                     @if (!isAdUser)
                     {
-                        <RadzenRequiredValidator Component="Email" Text="L'email est requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                        <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="false" Style="display: block; margin-top: 5px;" />
+                        @* Facultatif : le compte admin d'origine n'en a pas et devait pouvoir être modifié (B58) ; sans e-mail, pas de « Mot de passe oublié » *@
+                        @if (!string.IsNullOrWhiteSpace(formData.Email))
+                        {
+                            <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="false" Style="display: block; margin-top: 5px;" />
+                        }
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Sans e-mail, « Mot de passe oublié » n'est pas disponible pour ce compte.</RadzenText>
                     }
                 </RadzenColumn>
             </RadzenRow>
@@ -245,7 +249,7 @@ else
                 var updateDto = new UpdateUserDto
                 {
                     DisplayName = formData.DisplayName,
-                    Email = formData.Email,
+                    Email = string.IsNullOrWhiteSpace(formData.Email) ? null : formData.Email.Trim(),
                     IsActive = formData.IsActive,
                     RoleId = formData.RoleId,
                     ForceChangePassword = formData.ForceChangePassword,
@@ -260,7 +264,7 @@ else
                 {
                     Username = formData.Username,
                     DisplayName = formData.DisplayName,
-                    Email = formData.Email,
+                    Email = string.IsNullOrWhiteSpace(formData.Email) ? null : formData.Email.Trim(),
                     Password = formData.Password,
                     RoleId = formData.RoleId,
                     ForceChangePassword = formData.ForceChangePassword
