@@ -321,10 +321,12 @@ namespace Autoprint.Server.Controllers
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
                 string configFilter = normalizedFilter ?? "(objectClass=user)";
 
-                if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
-                    searcher.Filter = $"(&{configFilter}(sAMAccountName={SecurityHelper.EscapeLdapFilter(dto.TestUserQuery)}))";
-                else
-                    searcher.Filter = configFilter;
+                // Filtre final relu lui aussi : le nom testé est échappé puis l'ensemble reconstruit
+                string? finalFilter = string.IsNullOrWhiteSpace(dto.TestUserQuery)
+                    ? configFilter
+                    : LdapFilterNormalizer.Normalize($"(&{configFilter}(sAMAccountName={SecurityHelper.EscapeLdapFilter(dto.TestUserQuery.Trim())}))");
+                if (finalFilter == null) return Ok(new { Success = false, Message = "Nom à rechercher invalide." });
+                searcher.Filter = finalFilter;
 
                 searcher.SizeLimit = 1;
                 var result = searcher.FindOne();

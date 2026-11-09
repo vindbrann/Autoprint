@@ -57,7 +57,7 @@ namespace Autoprint.Server.Helpers
 
         public static string EscapeLdapFilter(string input)
         {
-            if (string.IsNullOrEmpty(input)) return input;
+            if (string.IsNullOrEmpty(input)) return string.Empty;
             var sb = new StringBuilder(input.Length);
             foreach (char c in input)
             {
