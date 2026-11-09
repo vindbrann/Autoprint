@@ -20,6 +20,7 @@
 - **Icônes** : Material Symbols Outlined, graisse 300, licence Apache 2.0. Natif dans Radzen ; pour WPF, les mêmes glyphes existent dans Material Design Icons (PackIcon) ou en chemins SVG.
 - **Logo** : on garde la punaise avec l'imprimante. `ressources/logo/autoprint-symbole.svg` en est une version vectorielle à plat (sans dégradé), lisible à 16 px. Versions horizontales et PNG à venir.
 - **Diagnostic** : icône stéthoscope (`stethoscope`), car le diagnostic couvre l'état, les erreurs, le toner et le réseau. L'icône réseau (`lan`) reste réservée aux profils SNMP et aux tests de connexion.
+- **Barres de défilement** : fines et discrètes partout (couleur du texte discret, sans flèches), jamais l'ascenseur Windows par défaut. Les barres d'onglets n'en affichent pas du tout. À reprendre dans `autoprint-theme.css` et dans les styles `ScrollViewer` des dictionnaires XAML.
 - **Densité** : contrôles de 32 px, lignes de grille de 36 px (32 en compact), menu de 248 px (au lieu de 280).
 - **Textes** : casse de phrase partout (fin des majuscules espacées « PARC ACTIF », « EXPORT CSV »), pas de point final sur les libellés courts.
 
