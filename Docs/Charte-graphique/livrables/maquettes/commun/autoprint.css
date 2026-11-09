@@ -412,13 +412,11 @@ body { min-height: 100vh; }
 .ap-service .svc b { color: var(--ap-text); font-weight: 500; }
 .ap-service .sep { width: 1px; align-self: stretch; background: var(--ap-border); }
 .ap-dash-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--ap-s4); margin-top: var(--ap-s4); }
-.ap-models { list-style: none; margin: var(--ap-s5) 0 0; padding: 0; display: grid; gap: var(--ap-s3); }
-.ap-models li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 44px; gap: 10px; align-items: center; font-size: 13px; }
+.ap-models { list-style: none; margin: var(--ap-s4) 0 0; padding: 0; display: grid; gap: 2px; }
+.ap-models li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 44px; gap: 10px; align-items: center; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--ap-divider); }
+.ap-models li:first-child { border-top: 0; }
 .ap-models .dot { width: 10px; height: 10px; border-radius: 3px; }
-.ap-models .nm { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ap-models .nm small { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); }
-.ap-models .track { height: 4px; border-radius: 2px; background: var(--ap-surface-raised); overflow: hidden; }
-.ap-models .track i { display: block; height: 100%; border-radius: 2px; }
+.ap-models .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ap-models .n { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); text-align: right; }
 .ap-models .p { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); color: var(--ap-text-muted); text-align: right; }
 .ap-total { display: flex; align-items: baseline; gap: var(--ap-s2); margin-bottom: var(--ap-s3); }
@@ -459,24 +457,14 @@ body { min-height: 100vh; }
 .ap-savebar .msg { font-size: 13px; color: var(--ap-text-secondary); display: flex; align-items: center; gap: 6px; }
 .ap-savebar .msg .ic { color: var(--ap-warning); }
 
-/* Connexion */
-.ap-login { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); min-height: calc(100vh - 45px); }
-.ap-login-art { background: var(--ap-surface-raised); border-right: 1px solid var(--ap-border); display: flex; flex-direction: column; justify-content: space-between; padding: 40px; gap: var(--ap-s5); overflow: hidden; }
-.ap-login-art svg.plan { width: 100%; max-width: 620px; height: auto; align-self: center; }
-.ap-login-art .plan .wall { fill: none; stroke: var(--ap-border-strong); stroke-width: 2; opacity: .55; }
-.ap-login-art .plan .room { fill: var(--ap-surface); stroke: var(--ap-border-strong); stroke-width: 1; opacity: .9; }
-.ap-login-art .plan .lbl { font: 400 11px var(--ap-font); fill: var(--ap-text-muted); }
-.ap-login-art .plan .ip { font: 400 10px var(--ap-mono); fill: var(--ap-text-muted); }
-.ap-login-art .caption-art { max-width: 46ch; }
-.ap-login-art .caption-art b { display: block; font-size: var(--ap-fs-h3); font-weight: 500; margin-bottom: 6px; line-height: 1.3; color: var(--ap-text); }
-.ap-login-art .caption-art span { color: var(--ap-text-secondary); }
-.ap-login-form { display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: var(--ap-surface); }
-.ap-login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: var(--ap-s4); }
-.ap-login-card .brand { font-size: 17px; margin-bottom: var(--ap-s3); }
+/* Connexion : formulaire centré sur le fond de page */
+.ap-login { min-height: calc(100vh - 45px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ap-s4); padding: 40px 16px; background: var(--ap-background); }
+.ap-login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--ap-s4); padding: 32px; background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); box-shadow: var(--ap-shadow-md); }
+.ap-login-card .brand { font-size: 17px; margin-bottom: var(--ap-s2); }
 .ap-login-card .brand svg { width: 32px; height: 32px; }
 .ap-login-card h1 { margin: 0; font-size: var(--ap-fs-h2); font-weight: 500; }
 .ap-login-card .lead { margin: -8px 0 var(--ap-s2); color: var(--ap-text-secondary); }
-.ap-login-card .ap-btn--primary { height: var(--ap-s6); height: 40px; width: 100%; }
+.ap-login-card .ap-btn--primary { height: 40px; width: 100%; }
 .ap-login-card .row-between { display: flex; justify-content: space-between; align-items: center; }
 .ap-login-foot { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); display: flex; gap: var(--ap-s2); align-items: center; }
 
@@ -651,8 +639,6 @@ html:has(#theme-dark:checked) .win, html[data-theme="dark"]:has(#theme-auto:chec
 @media (max-width: 1100px) {
   .ap-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ap-dash-grid { grid-template-columns: 1fr; }
-  .ap-login { grid-template-columns: 1fr; }
-  .ap-login-art { display: none; }
 }
 @media (max-width: 1024px) {
   .ap-app { grid-template-columns: 56px minmax(0, 1fr); }

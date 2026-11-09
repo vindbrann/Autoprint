@@ -444,14 +444,13 @@ html .rz-button.rz-base.rz-variant-outlined, html .rz-button.rz-base.rz-variant-
 .ap-service .ap-svc b { color: var(--ap-text); font-weight: 500; }
 .ap-service .ap-sep { width: 1px; align-self: stretch; background: var(--ap-border); }
 
-/* Répartition par modèle : barre empilée + liste classée */
+/* Répartition par modèle : barre empilée + légende simple (pastille, nom, nombre, part) */
 .ap-share-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; }
 .ap-share-bar > i { display: block; height: 100%; }
-.ap-models { list-style: none; margin: var(--ap-s5) 0 0; padding: 0; display: grid; gap: var(--ap-s3); }
-.ap-models li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 44px; gap: 10px; align-items: center; font-size: 13px; }
+.ap-models { list-style: none; margin: var(--ap-s4) 0 0; padding: 0; display: grid; gap: 2px; }
+.ap-models li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 44px; gap: 10px; align-items: center; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--ap-divider); }
+.ap-models li:first-child { border-top: 0; }
 .ap-models .ap-dot { width: 10px; height: 10px; border-radius: 3px; }
-.ap-models .ap-track { display: block; height: 4px; margin-top: 4px; border-radius: 2px; background: var(--ap-surface-raised); overflow: hidden; }
-.ap-models .ap-track > i { display: block; height: 100%; border-radius: 2px; }
 .ap-models .ap-n { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); text-align: right; }
 .ap-models .ap-p { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); color: var(--ap-text-muted); text-align: right; }
 .ap-series-1 { background: var(--ap-chart-1); } .ap-series-2 { background: var(--ap-chart-2); } .ap-series-3 { background: var(--ap-chart-3); } .ap-series-4 { background: var(--ap-chart-4); }
@@ -503,17 +502,14 @@ html .rz-button.rz-base.rz-variant-outlined, html .rz-button.rz-base.rz-variant-
 .ap-empty > .rzi { font-size: 32px; color: var(--ap-text-muted); }
 .ap-empty strong { display: block; color: var(--ap-text); font-weight: 500; margin: var(--ap-s2) 0 2px; }
 
-/* Écran de connexion */
-.ap-login { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); min-height: 100vh; }
-.ap-login-art { background: var(--ap-surface-raised); border-right: 1px solid var(--ap-border); display: flex; flex-direction: column; justify-content: space-between; padding: 40px; gap: var(--ap-s5); overflow: hidden; }
-.ap-login-form { display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: var(--ap-surface); }
-.ap-login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: var(--ap-s4); }
+/* Écran de connexion : carte centrée sur le fond de page */
+.ap-login { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ap-s4); padding: 40px 16px; background: var(--ap-background); }
+.ap-login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--ap-s4); padding: 32px; background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); box-shadow: var(--ap-shadow-md); }
+.ap-login-foot { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); display: flex; gap: var(--ap-s2); align-items: center; }
 
 /* Adaptation */
 @media (max-width: 1100px) {
   .ap-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ap-login { grid-template-columns: 1fr; }
-  .ap-login-art { display: none; }
 }
 @media (max-width: 1024px) {
   .ap-set-row { grid-template-columns: 1fr; gap: var(--ap-s3); }
