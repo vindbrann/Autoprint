@@ -6,7 +6,7 @@
 |---|---|
 | Produit | Déployer et suivre les imprimantes réseau d'un parc Windows |
 | Caractère | Fiable, précis, posé |
-| Univers | Plan d'étage, étiquettes d'inventaire, papier A4 |
+| Univers | Étiquettes d'inventaire, salle serveur, papier A4 |
 | Moments | L'état du parc au tableau de bord ; la carte d'imprimante côté client |
 | Signature | L'étiquette d'inventaire en chasse fixe (adresse IP, code inventaire, version) |
 
@@ -28,7 +28,7 @@
 ## Écarts proposés par rapport à l'existant
 
 - Cartes d'indicateurs sans bordure colorée : seul un chiffre qui demande une action prend la couleur de son statut.
-- « Répartition par modèle » : barre empilée avec une légende chiffrée au lieu d'un anneau, plus lisible avec des dizaines de modèles. À valider.
+- « Répartition par modèle » : barre empilée avec une légende chiffrée au lieu d'un anneau, plus lisible avec des dizaines de modèles. Validé, avec une légende simple.
 - Boutons d'action de la grille : un bouton principal (« Ajouter ») ; les autres en secondaire ou en texte, au lieu de quatre couleurs différentes.
 - Clés ajoutées à `tokens.json` par rapport au format de référence : `brand`, `text-muted`, `border-strong` (contour des champs à 3:1), tailles complémentaires.
 
@@ -45,12 +45,12 @@ Ouvrir `maquettes/index.html` dans un navigateur. Chaque page a une barre de maq
 
 Propositions visibles dans les maquettes :
 
-- **Connexion** : écran partagé, avec à gauche le plan d'étage d'un lieu et ses imprimantes (l'univers du produit), à droite le formulaire.
-- **Tableau de bord** : « État du service » devient un bandeau sous le titre ; la répartition par modèle est une barre empilée suivie d'une liste classée.
+- **Connexion** : formulaire centré dans une carte, sur le fond de page. Pas d'illustration (le plan d'étage proposé en v1 a été retiré : aucune fonction « plan » dans l'application).
+- **Tableau de bord** : « État du service » devient un bandeau sous le titre ; la répartition par modèle est une barre empilée suivie d'une légende simple (pastille, nom, nombre, part), sans barres de progression par ligne.
 - **Imprimantes** : filtres en pastilles (Lieu, Statut, Modèle), actions groupées quand des lignes sont sélectionnées, lieu et détail sur deux lignes, colonnes ajustables. Le code inventaire passe dans le choix des colonnes. Pas de niveau de toner dans la grille principale : le toner bas apparaît seulement comme statut. Sur chaque ligne, les boutons Modifier et Diagnostic sont côte à côte.
 - **Paramètres** : les 8 onglets sont remplacés par un menu des sections, à gauche dans la page (le menu principal ne change pas) ; un titre et une description rappellent la section ouverte ; chaque réglage a son titre et son explication à gauche, ses champs à droite ; la restauration est isolée en zone sensible ; une barre d'enregistrement apparaît en bas dès qu'une modification est en attente.
 - **Client** : le lieu détecté sert de titre ; une carte par imprimante, l'imprimante par défaut est mise en avant ; la zone technique est encadrée en pointillés.
-- **Installeur** : fini l'en-tête noir ; les 7 étapes sont listées à gauche, l'étape en cours est mise en avant, la barre de boutons reste en bas.
+- **Installeur** : fini l'en-tête noir ; les 7 étapes sont listées à gauche, l'étape en cours est mise en avant, la barre de boutons reste en bas. Validé.
 
 Données de test fictives (noms, adresses, utilisateurs).
 
@@ -77,9 +77,6 @@ Les fichiers de thème sont produits par `sources/build_theme.py` à partir de `
 
 ## Points à arbitrer
 
-- Valider la barre empilée à la place de l'anneau.
-- Valider le plan d'étage sur l'écran de connexion.
-- Valider le rail d'étapes de l'installeur à la place de l'en-tête sombre.
 - Confirmer le thème de base Radzen Standard.
 
 ## Crédits
