@@ -4,6 +4,24 @@
 
 		<MediaTemplate EmbedCab="yes" />
 
+		<!-- Désinstallation (pas lors d'une mise à jour) : l'assistant crée le site IIS, le pool et la règle de pare-feu hors du MSI ;
+		     sans ces actions, ils restaient après désinstallation (site orphelin, port du site ouvert dans le pare-feu) (B74) -->
+		<CustomAction Id="RemoveFirewallRule" Directory="System64Folder"
+		              ExeCommand="&quot;[System64Folder]netsh.exe&quot; advfirewall firewall delete rule name=&quot;Autoprint Server&quot;"
+		              Execute="deferred" Impersonate="no" Return="ignore" />
+		<CustomAction Id="RemoveIisSite" Directory="System64Folder"
+		              ExeCommand="&quot;[System64Folder]inetsrv\appcmd.exe&quot; delete site &quot;Autoprint&quot;"
+		              Execute="deferred" Impersonate="no" Return="ignore" />
+		<CustomAction Id="RemoveIisPool" Directory="System64Folder"
+		              ExeCommand="&quot;[System64Folder]inetsrv\appcmd.exe&quot; delete apppool &quot;Autoprint&quot;"
+		              Execute="deferred" Impersonate="no" Return="ignore" />
+
+		<InstallExecuteSequence>
+			<Custom Action="RemoveIisSite" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+			<Custom Action="RemoveIisPool" After="RemoveIisSite" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+			<Custom Action="RemoveFirewallRule" After="RemoveIisPool" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+		</InstallExecuteSequence>
+
 		<StandardDirectory Id="ProgramFiles64Folder">
 			<Directory Id="INSTALLFOLDER" Name="Autoprint Server">
 				<Directory Id="SPOOLERFOLDER" Name="Spooler" />
