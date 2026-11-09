@@ -42,6 +42,10 @@ Le détail des formats est dans [04-livrables-et-integration.md](04-livrables-et
 - **Couleurs de statut** cohérentes partout : succès / en ligne, avertissement / toner bas, erreur / hors ligne, information, neutre / archivé.
 - **Densité** : la console affiche de longues listes (plusieurs centaines d'imprimantes) et des formulaires techniques. Il faut prévoir une densité « confortable mais compacte », pas des cartes géantes.
 
+## Où déposer le travail
+
+Branche Git **`feature/charte-graphique`**, dossier [livrables/](livrables/README.md) (arborescence attendue dans son README).
+
 ## Ordre de travail prévu
 
 1. Passage de la console à **Radzen 12**, sans changement visuel voulu (prérequis technique, fait par le développement).
