@@ -470,6 +470,21 @@ function Lot-AD {
     Check 'P1-43' 'filtre avec ad.user1 : objet trouvé' $r.Json.success $true $r.Text
     $r = Invoke-Api POST '/api/Settings/TestAdFilter' ($f + @{ testUserQuery = '*' }) $ta
     Check 'P1-44' 'filtre avec * : aucun objet (pas de joker)' $r.Json.success $false $r.Text
+    # B75 : filtre de l'administrateur relu (RFC 4515) puis reconstruit
+    function F([string]$flt, [string]$q = '') { $h = $f.Clone(); $h.filter = $flt; if ($q) { $h.testUserQuery = $q }; $h }
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (F '(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))' 'ad.user1') $ta
+    Check 'B75-1' 'filtre étendu (comptes actifs) + ad.user1 : trouvé' $r.Json.success $true $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (F '(sAMAccountName=ad.us*)') $ta
+    Check 'B75-2' 'filtre avec joker ad.us* : trouvé' $r.Json.success $true $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (F "(memberOf=CN=GG_Autoprint_Lecteurs,$AdGroups)" 'ad.user2') $ta
+    Check 'B75-3' 'ad.user2 hors du groupe filtré : aucun objet' $r.Json.success $false $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' ($f + @{ testUserQuery = 'ad.user1)(objectClass=*' }) $ta
+    Check 'B75-4' 'injection dans le nom testé : aucun objet' $r.Json.success $false $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (F '(cn=a(b))') $ta
+    Check 'B75-5' 'filtre mal formé refusé au test' ($r.Text -match 'Filtre LDAP invalide') $true $r.Text
+    $bad = Get-SettingsDto $ta; $bad.AdLdapFilter = '(cn=a**b)'
+    $r = Invoke-Api POST '/api/Settings/Save' $bad $ta
+    Check 'B75-6' 'filtre invalide (**) refusé à l''enregistrement' $r.Code 400 $r.Text
     $bad = Get-SettingsDto $ta; $bad.AdLdapFilter = '(objectClass=user'
     $r = Invoke-Api POST '/api/Settings/Save' $bad $ta
     Check 'P1-45' 'filtre LDAP mal formé refusé à l''enregistrement' $r.Code 400 $r.Text
