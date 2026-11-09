@@ -13,7 +13,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 - GitHub, onglet Security (connexion de l'utilisateur) : P1-02, P2-43 (joués le 09/11 via la PR brouillon vindbrann/Autoprint#6 : voir « Derniers tests »).
 - SC-04 (session de 10 h) : contrôle dans le code (`AuthService.MaxSessionLifetime`).
 
-**Livraison** : `Livraison-26.11.9.1` produite le 09/11/2026 (commit `a6d3551`) : 26.11.8.2 validée + B72 à B75 ; test du filtre AD (B75) à rejouer sur cette version. **Ensuite** : B70, suites de B32 / B58, fusion de la PR vindbrann/Autoprint#6.
+**Livraison** : `Livraison-26.11.9.1` produite le 09/11/2026 (commit `a6d3551`) : 26.11.8.2 validée + B72 à B75. **Validée en labo** : mise à jour 26.11.8.2 → 26.11.9.1 de l'installation SQL Server par l'installeur de livraison (« Mise à jour terminée »), puis lots API AD (20/20, dont B75-1 à B75-6 : filtre étendu, joker, groupe, injection dans le nom, filtres invalides refusés au test et à l'enregistrement), Clé (7/7), Serveur (17/17). Instantané « SQL Server 26.11.9.1 (livraison validée) ». **Ensuite** : B70, suites de B32 / B58, fusion de la PR vindbrann/Autoprint#6.
 
 **État du labo** (VM arrêtées le 09/11 à 01:00) :
 - SRV-PRINT : installation **SQL Server** en 26.11.8.2 finale, HTTPS 443 (certificat du labo, empreinte E2CAA9A9…) et 8080. Instantanés : « SQL Server 26.11.8.2 final (livraison, recette 09-11) » (état courant), « SQL Server 26.11.8.2 (B65-B68 à chaud, avant écran) », « SQL Server 2025 redémarré, avant S8-06 » (SQL Server sans Autoprint), « Serveur en 1.1.2 (base réelle corrigée) » (base de production 1.1, à n'utiliser que dans le labo), « Recette SQLite 10-11 (avant SQL Server) », « Labo configuré », « OS installé ».
