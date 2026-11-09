@@ -24,12 +24,13 @@ namespace Autoprint.Server.Services
 
             var driversSysteme = await _spoolerService.GetInstalledDriversAsync();
 
-            _logger.LogWarning("--- DEBUG WMI : LISTE DES PILOTES TROUVÉS ---");
-            foreach (var d in driversSysteme)
+            // Liste détaillée en Debug seulement : en Warning, elle encombrait le journal Application à chaque synchronisation (B70)
+            _logger.LogInformation("Synchronisation des pilotes : {Count} pilote(s) trouvé(s) sur le serveur", driversSysteme.Count);
+            if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.LogWarning($"[WMI] Nom: '{d.Nom}' | Version: '{d.Version}'");
+                foreach (var d in driversSysteme)
+                    _logger.LogDebug("Pilote trouvé : {Nom} (version {Version})", d.Nom, d.Version);
             }
-            _logger.LogWarning("---------------------------------------------");
 
             if (driversSysteme.Count == 0)
             {

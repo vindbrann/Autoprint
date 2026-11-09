@@ -75,6 +75,17 @@ namespace Autoprint.Shared.DTOs
                 case "CONFIG_UPDATE": return $"Mise à jour de la Configuration Serveur";
                 case "SYSTEM_RESTORE": return $"Restauration complète de la base de données";
 
+                // Clé agent, identifiants SNMP, mots de passe oubliés, opérations groupées (B78)
+                case "AGENT_KEY_REVEAL": return "Consultation de la clé agent";
+                case "AGENT_KEY_ROTATE": return "Changement de la clé agent";
+                case "SNMP_CREDENTIAL_CREATE": return $"Création des identifiants SNMP : {resourceName}";
+                case "SNMP_CREDENTIAL_UPDATE": return $"Modification des identifiants SNMP : {resourceName}";
+                case "SNMP_CREDENTIAL_DELETE": return $"Suppression des identifiants SNMP : {resourceName}";
+                case "USER_PWD_RESET_REQUEST": return $"Demande de réinitialisation du mot de passe : {resourceName}";
+                case "USER_PWD_RESET": return $"Mot de passe réinitialisé par lien e-mail : {resourceName}";
+                case "BULK_UPDATE": return "Modification groupée d'imprimantes";
+                case "IMPORT_DRIVERS": return "Importation de pilotes";
+
                 // 6. Actions Client/IPC (Affichées dans le log si le client écrit dans l'Audit)
                 case "INSTALL": return $"Installation de l'imprimante (Client M2M) : {resourceName}";
                 case "UNINSTALL": return $"Désinstallation de l'imprimante (Client M2M) : {resourceName}";
