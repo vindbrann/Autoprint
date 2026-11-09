@@ -34,6 +34,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 |---|---|---|
 | SC-04 | ✅ (code) | Non observable sans attendre 10 h : `AuthService.RefreshAsync` refuse tout renouvellement 10 h après la connexion d'origine (`auth_time` conservé à chaque renouvellement) ; la console se déconnecte à l'expiration du jeton en cas de refus (`CustomAuthStateProvider`). |
 | P3-15 | ✅ après correctif (B72) | « Autre serveur » simulé sur SRV-PRINT : export protégé, puis dossier `Keys` remplacé par des clés neuves (secrets en base illisibles), puis restauration. Avant correctif : restauration refusée « mot de passe incorrect », postes et console en 500. Après : avant restauration « Clé agent absente » (404), ancienne clé refusée (401) ; après restauration : AD, SMTP, lecture de la clé et clé agent d'origine OK. |
+| S8-10 | ✅ après correctif (B73) | Mise à jour lancée par `LAB\installeur` (administrateur local, pas administrateur SQL ; accès SQL du pool retiré au préalable) : 1ᵉʳ essai, script non copiable puis échec « permission denied in database 'master' ». Après correctif : script dans `Autoprint-droits-SQL.sql` (Bureau) et presse-papiers, « Mise à jour terminée » ; site en 500 avant le script, console OK après son exécution par un administrateur SQL. |
 ## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
 
 Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).
@@ -224,4 +225,5 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B70 | Mineur | Liste de débogage des pilotes en avertissement dans le journal. |
 | B71 | Corrigé en 26.11.8.2 | Deux icônes Autoprint sur le bureau. |
 | B72 | Corrigé en 26.11.8.2 | Clés de chiffrement perdues : restauration refusée (« mot de passe incorrect »), postes en erreur 500. |
+| B73 | Corrigé en 26.11.8.2 | Mise à jour sans droit SQL : script non copiable, échec de la mise à jour. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |

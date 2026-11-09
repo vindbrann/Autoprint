@@ -215,6 +215,10 @@
 
                 <TextBlock Text="Autoprint Server a été installé et configuré avec succès." FontSize="14"/>
 
+                <Border x:Name="PanelSqlAction" Visibility="Collapsed" Background="#FFF8E1" BorderBrush="#FFB300" BorderThickness="1" Padding="10" Margin="0,15,0,0">
+                    <TextBlock x:Name="TxtSqlAction" TextWrapping="Wrap" Foreground="#5D4037"/>
+                </Border>
+
                 <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
                     <TextBlock Text="👉" Margin="0,0,10,0"/>
                     <TextBlock Text="Vous pouvez maintenant accéder à l'interface d'administration."/>

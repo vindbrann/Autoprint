@@ -26,6 +26,7 @@ namespace Autoprint.Installer.Server.UI
         private bool _isUpgrade = false;
         // Mise à jour d'une version antérieure à 26.11 : « AllowedHosts » vaut encore « * » (backlog B17)
         private bool _needsPublicHost = false;
+        private bool _sqlGrantFailed = false;   // droits SQL non accordés par l'installeur (script à exécuter par un DBA)
         private int _existingPort = 0;
 
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
@@ -450,6 +451,15 @@ namespace Autoprint.Installer.Server.UI
                 _currentStep = 7;
                 UpdateView();
 
+                if (_sqlGrantFailed)
+                {
+                    // Rappel sur l'écran final : la console ne fonctionnera qu'après le script de l'administrateur SQL (B73)
+                    TxtSqlAction.Text = "Action requise : faire exécuter par un administrateur SQL le script « " +
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Autoprint-droits-SQL.sql") +
+                        " ». D'ici là, la console ne peut pas accéder à sa base.";
+                    PanelSqlAction.Visibility = Visibility.Visible;
+                }
+
                 if (_isUpgrade)
                 {
                     BtnOpenIis.Visibility = Visibility.Collapsed;
@@ -633,6 +643,14 @@ namespace Autoprint.Installer.Server.UI
                 string error = proc.StandardError.ReadToEnd();
 
                 proc.WaitForExit();
+
+                if (proc.ExitCode != 0 && _isUpgrade && _sqlGrantFailed)
+                {
+                    // L'installeur n'a pas de droit SQL (script à exécuter par un administrateur SQL) : sa migration échoue
+                    // forcément ; le site l'appliquera à son démarrage sous le compte du pool, une fois les droits accordés (B73)
+                    Dispatcher.Invoke(() => TxtInstallLog.Text += "\n[Attention] Migration de la base différée : le site l'appliquera à son démarrage, après exécution du script SQL.");
+                    return;
+                }
 
                 if (proc.ExitCode != 0)
                 {
@@ -1100,11 +1118,28 @@ namespace Autoprint.Installer.Server.UI
             }
             catch (Exception ex)
             {
+                _sqlGrantFailed = true;
                 TxtInstallLog.Text += $"\n[Attention] Droits SQL à accorder manuellement à [{login}] (db_owner sur [{builder.InitialCatalog}]) : {ex.Message}";
+
+                // Script fourni sous forme de fichier et dans le presse-papiers (avant : seulement lisible dans le message) (B73)
+                string safeLogin = login.Replace("]", "]]");
+                string safeDb = builder.InitialCatalog.Replace("]", "]]");
+                string script =
+                    $"-- Autoprint : accès du site web à sa base (à exécuter par un administrateur SQL sur {builder.DataSource})\r\n" +
+                    $"USE [master];\r\nIF SUSER_ID(N'{login.Replace("'", "''")}') IS NULL CREATE LOGIN [{safeLogin}] FROM WINDOWS;\r\n" +
+                    $"USE [{safeDb}];\r\nIF USER_ID(N'{login.Replace("'", "''")}') IS NULL CREATE USER [{safeLogin}] FOR LOGIN [{safeLogin}];\r\n" +
+                    $"ALTER ROLE db_owner ADD MEMBER [{safeLogin}];\r\n";
+                string scriptPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Autoprint-droits-SQL.sql");
+                bool saved = false, copied = false;
+                try { File.WriteAllText(scriptPath, script); saved = true; } catch { }
+                try { Clipboard.SetText(script); copied = true; } catch { }
+
                 MessageBox.Show(
-                    $"Le compte de l'installeur n'a pas pu donner l'accès à la base au site web.\n\n" +
-                    $"Un administrateur SQL doit exécuter sur le serveur SQL :\n\n" +
-                    $"CREATE LOGIN [{login}] FROM WINDOWS;\nUSE [{builder.InitialCatalog}];\nCREATE USER [{login}] FOR LOGIN [{login}];\nALTER ROLE db_owner ADD MEMBER [{login}];",
+                    "Le compte de l'installeur n'a pas pu donner l'accès à la base au site web.\n\n" +
+                    "Un administrateur SQL doit exécuter le script suivant sur le serveur SQL" +
+                    (saved ? $" (enregistré dans « {scriptPath} »" + (copied ? " et copié dans le presse-papiers)" : ")") : copied ? " (copié dans le presse-papiers)" : "") + " :\n\n" +
+                    script + "\n" +
+                    "La mise à jour continue ; le site appliquera lui-même les éventuelles mises à niveau de la base à son démarrage, une fois le script exécuté.",
                     "Droits SQL", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
