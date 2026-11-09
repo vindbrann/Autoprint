@@ -3,26 +3,31 @@
 Recette de `Docs/_PROCEDURE_TESTS_SECURITE.md` sur le labo Hyper-V (`tools/lab/README.md`) : Windows Server 2022 **français**, domaine `lab.autoprint.test`, poste Windows 11 hors domaine.
 Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main ou dans le navigateur.
 
-## ▶️ Reprise de la recette (état au 08/11/2026, soir)
+## ▶️ Reprise de la recette (état au 09/11/2026, 01:00)
 
-**État du labo** :
-- SRV-PRINT : base existante 1.1.x mise à jour en 26.11.8.2 (SQLite). Instantanés : « Serveur en 1.1.2 (base existante corrigée) », « Avant installation 1.1.2 (SM) », « S8-05 + B62 validés (SQL distant SRV-AD) », « SQL Server 26.11.8.2 authentification SQL (S8-06) », « SQL Server 26.11.8.2 mis à jour (B61 validé) », « SQL Server 26.11.8.2 avant mise à jour B60 », « Autoprint 26.11.8.2 SQL Server (recette en cours) », « SQL Server 2025 installé (sans Autoprint) », « Recette SQLite 10-11 (avant SQL Server) » (installation SQLite 26.11.8.1 des tests précédents, HTTPS 443), plus les anciens (`OS installé`, `Labo configuré`, `Autoprint 26.11.8.1 installé`…).
-- SRV-AD : SQL Server 2025 Express (`SQLEXPRESS`, port 1433, test S8-05 ; instantané « Avant SQL Server (S8-05) »), simulateur SNMP (tâche « Autoprint-SnmpSim », 192.168.99.10 v3 / .11 v2c), faux SMTP, fausse imprimante 9100.
-- Après une restauration d'instantané : réactiver « Interface de services d'invité » (`Copy-VMFile`) ; l'installation SQL Server n'a ni HTTPS ni pare-feu « Partage de fichiers » (tests CLT-TEST des lots Clé et Serveur : en SQLite seulement).
+**Bilan** : 225 tests sur 238 joués. 26.11.8.2 (build `66873e3`) installée par l'installeur et validée : anomalies B32 (en partie), B53, B54, B57, B58 (en partie), B59 à B69, B71 corrigées et validées ; B70 (journal des pilotes) notée, non corrigée.
+
+**Reste à tester (13)** :
+- Installeur graphique (avec l'utilisateur) : P2-01 (nom public invalide, installation neuve), S8-10 (mise à jour par un compte sans droit SQL : SQL distant SRV-AD), SB-03 (mise à jour SQLite avec une base déjà dans `ProgramData`), SE-01 à SE-03 (runtime ASP.NET Core trop ancien : installer un runtime 10.0.0 avant).
+- Par Claude : P3-15 (restauration sur un autre serveur), PA-02 et PA-06 (base SQLite vide), S8-20 (désinstallation : sur un instantané).
+- GitHub, onglet Security (connexion de l'utilisateur) : P1-02, P2-43.
+- SC-04 (session de 10 h) : contrôle dans le code (`AuthService.MaxSessionLifetime`).
+
+**Ensuite** : décision sur la livraison 26.11.8.2 (dossier `Livraison-26.11.8.2` à produire), B70, suites de B32 / B58.
+
+**État du labo** (VM arrêtées le 09/11 à 01:00) :
+- SRV-PRINT : installation **SQL Server** en 26.11.8.2 finale, HTTPS 443 (certificat du labo, empreinte E2CAA9A9…) et 8080. Instantanés : « SQL Server 26.11.8.2 final (livraison, recette 09-11) » (état courant), « SQL Server 26.11.8.2 (B65-B68 à chaud, avant écran) », « SQL Server 2025 redémarré, avant S8-06 » (SQL Server sans Autoprint), « Serveur en 1.1.2 (base existante corrigée) » (base existante 1.1, à n'utiliser que dans le labo), « Recette SQLite 10-11 (avant SQL Server) », « Labo configuré », « OS installé ».
+- SRV-AD : contrôleur de domaine (adresses .10 et .11 : le domaine se résout aussi en .11), SQL Server 2025 Express (S8-05), simulateur SNMP (.10 v3, .11 v2c), faux SMTP, fausse imprimante 9100.
+- CLT-TEST : client 26.11.8.2 final (clé de l'installation SQL Server), thème sombre pour `LabAdmin`.
+- Après une restauration d'instantané : réactiver « Interface de services d'invité » (`Copy-VMFile`) ; vérifier que SQL Server est démarré sur SRV-PRINT.
+- Disque C de l'hôte : ~30 Go libres ; les 7 instantanés de CLT-TEST (~21 Go) peuvent être supprimés si besoin.
 
 **Pour reprendre** :
 1. Hyper-V : démarrer `SRV-AD`, attendre ~1 min, puis `SRV-PRINT` et `CLT-TEST` (ou demander à Claude : « reprends la recette du labo »).
-2. Console : `http://srv-print.lab.autoprint.test:8080` (installation SQL Server) ; `https://srv-print.lab.autoprint.test` sur l'instantané SQLite.
-3. Tests API : `tools\lab\Recette-Api.ps1 -Lot <Lot>` (SQLite, HTTPS) ou `-BaseUrl http://srv-print.lab.autoprint.test:8080 -Profil sql` (SQL Server). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Cle`, `Donnees`, `Serveur`, `Email`, `Snmp`, `Limitation`.
+2. Console : `https://srv-print.lab.autoprint.test` (le navigateur intégré force HTTPS pour ce nom).
+3. Tests API : `tools\lab\Recette-Api.ps1 -BaseUrl https://srv-print.lab.autoprint.test -Profil sql -Lot <Lot>` (HTTP redirige vers HTTPS et perd l'authentification). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Cle`, `Donnees`, `Serveur`, `Email`, `Snmp`, `Divers`, `Infra`, `Limitation`. Les lots qui se connectent beaucoup peuvent atteindre la limite de 10 connexions / minute : rejouer le lot seul.
 
-**Fichiers locaux (hors dépôt, chiffrés pour le compte Windows, jamais affichés)** dans `%USERPROFILE%\.autoprint-lab\` :
-`labadmin.cred`, `recette-secrets.xml` (comptes du labo et de l'installation SQLite ; `sql.sa`, `sql.autoprint`, `snmp.v3.auth`, `snmp.v3.priv`), `recette-secrets-sql.xml` (comptes Autoprint de l'installation SQL Server), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim), `snmpsim-venv\`.
-
-**Reste à tester** :
-- À l'écran : SV3-05, SV3-07 (cycle de supervision, PDF), B57 ; P1-27, P1-28, P2-17, PA-03, PA-10.
-
-**Décisions en attente** : livraison 26.11.8.2 (B32 en partie, B53, B54, B56, B57, B58 en partie, B59 à B69).
-
+**Fichiers locaux (hors dépôt, chiffrés pour le compte Windows)** dans `%USERPROFILE%\.autoprint-lab\` : `labadmin.cred`, `recette-secrets.xml` (comptes du labo, `sql.*`, `snmp.*`), `recette-secrets-sql.xml` / `-sqlauth.xml` / `-sqldistant.xml` / `-sm.xml` (comptes Autoprint par installation), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim, installeurs 1.1.0 / 1.1.2 / 26.08.24.2), `snmpsim-venv\`.
 ## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
 
 Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).
@@ -48,6 +53,9 @@ Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané
 | B71 | ✅ après correctif | Deux icônes Autoprint sur le bureau (Bureau public par le MSI + Bureau de l'utilisateur par le client au premier lancement). MSI client final installé, premier lancement simulé : une seule icône. |## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
 | SC-02 | ✅ | Console ouverte à 00:12 (jeton valable jusqu'à 00:42) : renouvelé automatiquement à 00:37, nouvelle expiration 01:07, aucune déconnexion. |
 | SE-04, PA-08 | ✅ | Mise à jour finale 26.11.8.2 (build `66873e3`, avec B65 à B71) par l'installeur, console ouverte : session conservée (API 200), thème sombre et tri de la grille conservés après rechargement ; écran du nom public non proposé, `AllowedHosts` conservé. Lots rejoués sur ce build : 119 OK + lot Divers rejoué seul (16 OK, échecs précédents dus à la limite de 10 connexions / minute du script) ; PA-12, SD-04 OK ; SD-13 (B66) avec **trois** imprimantes sur la même IP : création, mise à jour, renommage, réparation, suppression de l'une sans effet sur les deux autres. |
+
+## Tests restants joués en labo (SQL Server, 26.11.8.2) — 08/11/2026, nuit
+
 Lots `Divers` et `Infra` ajoutés à `Recette-Api.ps1` ; corrections B65 à B68 validées en remplaçant à chaud les fichiers du site et du service (validation par l'installeur à refaire avec le build final).
 
 | ID | Résultat | Remarque |
@@ -125,6 +133,8 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | SD-12, SD-01, SR-05, NR-10 (après mise à jour) | ✅ | DbInitializer a remis la valeur par défaut de `DateCreation` (B60, retirée avant la mise à jour) ; création de profil d'OID OK ; tous les lots rejoués après la mise à jour : 193 OK, aucun nouvel échec (P2-18 = B57). |## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
 | S8-06 | ✅ | Installation neuve en **authentification SQL** (`autoprint.sql`, dbcreator) sur SQL Server vierge : base créée et possédée par `autoprint.sql`, **aucune connexion Windows ajoutée**, 14 migrations, console OK ; `appsettings.json` (mot de passe SQL en clair) lisible seulement par SYSTEM, Administrateurs et le pool (lecture). Lots rejoués (Comptes, Escalade, Sessions, Imprimantes, Données, Serveur, SNMPv3, E-mail, AD) : 167 OK ; seuls échecs : B57 (P2-18) et des effets d'ordre des lots du script, corrigés. |
 | S8-05, B62 | ✅ | SQL Server **distant** (SQL Server 2025 Express sur SRV-AD, port 1433), authentification Windows : connexion `LAB\SRV-PRINT$` créée sur SRV-AD, `db_owner` sur la base, 14 migrations, console OK ; lots Comptes, Imprimantes, Données, SNMPv3 : 59 OK (échecs attendus : AD non configuré, B57). Port saisi d'abord avec la syntaxe SQL « serveur,1433 », jugée peu claire : champ **Port** ajouté (B62) et validé par une nouvelle installation. |
+
+## Version 26.11.8.1 (commit 7603b87), installation neuve SQLite — 08/11/2026
 
 | ID | Résultat | Remarque |
 |---|---|---|
