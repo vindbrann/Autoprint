@@ -15,7 +15,7 @@
 - **Couleur d'accent** : bleu dérivé de la punaise du logo (`brand` #4f8dee). Assombri en `primary` #1d5fcf en clair pour tenir 4,5:1 avec du texte blanc ; éclairci en #5b9bf5 en sombre, avec texte foncé. C'est la **seule** couleur de l'interface hors statuts.
 - **Neutres** : gris légèrement froids, identiques pour les fonds, surfaces, filets et textes.
 - **Statuts** : succès, avertissement, erreur, info, neutre. Toujours couleur + icône + texte.
-- **Thème de base Radzen 12** : **Standard** (plus compact que Material, adapté aux grandes grilles). Noms exacts des variables `--rz-*` à relever dans `standard-base.css` de Radzen 12 au moment d'écrire `autoprint-theme.css`.
+- **Thème de base Radzen 12** : **Standard** (plus compact que Material, adapté aux grandes grilles). Validé ; variables relevées sur Radzen 12.2.0.
 - **Police** : IBM Plex Sans (400, 500, 600) et IBM Plex Mono (400, 500), SIL Open Font License 1.1. `.woff2` (console) dans `ressources/polices/`, `.ttf` (WPF) dans `ressources/polices/ttf/`. Les fichiers Medium et SemiBold portent le nom de famille typographique « IBM Plex Sans » : WPF les regroupe en une seule famille.
 - **Icônes** : Material Symbols Outlined, graisse 300, licence Apache 2.0. Natif dans Radzen ; pour WPF, les mêmes glyphes existent dans Material Design Icons (PackIcon) ou en chemins SVG.
 - **Logo** : on garde la punaise avec l'imprimante, redessinée à plat (sans dégradé). Symbole (`autoprint-symbole.svg`), symbole simplifié pour 16 à 24 px (`autoprint-symbole-petit.svg`), logo horizontal pour fond clair et fond sombre (nom vectorisé), PNG 512 px.
@@ -75,9 +75,9 @@ Choix d'intégration :
 
 Les fichiers de thème sont produits par `sources/build_theme.py` à partir de `tokens.json` (et du gabarit `sources/theme/autoprint-theme.src.css`). Les pages sont produites par `sources/build_maquettes.py` à partir de `sources/autoprint.src.css` (jetons et composants `ap-*`) et des gabarits de `sources/maquettes/`. Les icônes sont copiées en ligne dans chaque page. Ne pas modifier directement les fichiers de `maquettes/` : modifier les sources, puis relancer le script.
 
-## Points à arbitrer
+## Statut
 
-- Confirmer le thème de base Radzen Standard.
+Charte v1 validée le 09/11/2026 : direction, jetons, maquettes, thème de base Radzen « Standard », fichiers de thème et ressources. Prochaines étapes (voir `05-mode-operatoire.md`) : passage de la console à Radzen 12 sur `chore/radzen-12`, fusion dans `master`, puis intégration sur cette branche.
 
 ## Crédits
 
