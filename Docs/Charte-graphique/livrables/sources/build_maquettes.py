@@ -65,6 +65,14 @@ if pub:
     if pub.exists(): shutil.rmtree(pub)
     for sub in ['maquettes', 'ressources/polices', 'ressources/logo', 'ressources/icones', 'ressources/msi']:
         shutil.copytree(LIV / sub, pub / 'livrables' / sub)
+    shutil.rmtree(pub / 'livrables/ressources/polices/ttf', ignore_errors=True)
+    # La publication en ligne ne sert pas le BMP : copie en PNG (même image), références réécrites
+    from PIL import Image
+    for bmp in (pub / 'livrables/ressources/msi').glob('*.bmp'):
+        Image.open(bmp).save(bmp.with_suffix('.png')); bmp.unlink()
+    for page in (pub / 'livrables/maquettes').rglob('*.html'):
+        t = page.read_text(encoding='utf-8'); t2 = re.sub(r'(msi/[\w-]+)\.bmp"', r'\1.png"', t)
+        if t2 != t: page.write_text(t2, encoding='utf-8')
     idx = (LIV / 'maquettes/index.html').read_text(encoding='utf-8')
     idx = re.sub(r'(href|src)="(?!https?:|#|data:)([^"]+)"', lambda m: f'{m.group(1)}="livrables/maquettes/{m.group(2)}"', idx)
     idx = re.sub(r'<!doctype html>\s*<html[^>]*>\s*<head>\s*|<meta charset="utf-8">\s*|<meta name="viewport"[^>]*>\s*', '', idx, flags=re.I)
