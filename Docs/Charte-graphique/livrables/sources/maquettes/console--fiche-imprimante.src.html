@@ -1,0 +1,58 @@
+{{> head title="Fiche imprimante · Console Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Console" ecran="Fiche imprimante" iface="console" note="Modale de modification, par-dessus la grille"}}
+<div class="ap-app">
+  {{> sidebar active="imprimantes"}}
+  <main class="ap-main" aria-hidden="true"><div class="ap-main-inner">
+{{> imprimantes-contenu}}
+  </div></main>
+  <div class="ap-scrim">
+    <div class="ap-modal" role="dialog" aria-modal="true" aria-labelledby="titre-fiche">
+      <div class="ap-modal-head">
+        <svg class="ic ic-title"><use href="#i-edit"/></svg>
+        <h3 id="titre-fiche">Modifier l'imprimante</h3>
+        <span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span>
+        <a class="ap-btn ap-btn--icon" href="imprimantes.html" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></a>
+      </div>
+      <div class="ap-modal-body">
+        <fieldset class="ap-fieldset"><legend>Identification</legend><div class="ap-fields">
+          <div class="ap-field"><label class="ap-label" for="f-nom">Nom affiché</label><input id="f-nom" class="ap-input is-focus" value="SIEGE-A2-RICOH-01"></div>
+          <div class="ap-field"><label class="ap-label" for="f-inv">Code inventaire</label><input id="f-inv" class="ap-input mono" value="P-00412"></div>
+        </div></fieldset>
+        <hr class="ap-divider">
+        <fieldset class="ap-fieldset"><legend>Localisation et réseau</legend><div class="ap-fields">
+          <div class="ap-field full"><label class="ap-label">Emplacement</label><div class="ap-select"><span>Siège – Bâtiment A – 2e étage <span class="caption mono">10.12.4.0/24</span></span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+          <div class="ap-field"><label class="ap-label" for="f-ip">Adresse IP</label><div class="ap-input-group"><span class="ap-addon">10.12.4.</span><input id="f-ip" class="ap-input mono" value="21"></div><span class="ap-help">Masque imposé par le réseau principal du lieu</span></div>
+          <div class="ap-field"><label class="ap-label" for="f-det">Détail <span class="opt">(bureau)</span></label><input id="f-det" class="ap-input" value="Bureau 204"></div>
+        </div></fieldset>
+        <hr class="ap-divider">
+        <fieldset class="ap-fieldset"><legend>Matériel</legend><div class="ap-fields">
+          <div class="ap-field"><label class="ap-label">Marque</label><div class="ap-select"><span>Ricoh</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+          <div class="ap-field"><label class="ap-label">Modèle</label><div class="ap-select"><span>IM C3000</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div><span class="ap-help">Pilote : PCL6 Driver for Universal Print 4.38</span></div>
+          <div class="ap-option-card full">
+            <label class="ap-switch"><input type="checkbox"><span class="t">Mode impression directe (RAW)<small>Le serveur sert de simple relais : le spouleur est contourné et le flux part directement vers l'adresse IP. Utile pour les sites distants ou pour alléger le serveur.</small></span></label>
+          </div>
+          <div class="ap-option-card full">
+            <label class="ap-switch"><input type="checkbox" checked><span class="t">Partager sur le réseau Windows</span></label>
+            <div class="ap-nested"><div class="ap-field"><label class="ap-label" for="f-partage">Nom du partage</label><input id="f-partage" class="ap-input" value="SIEGE-A2-RICOH-01"></div></div>
+          </div>
+        </div></fieldset>
+        <hr class="ap-divider">
+        <fieldset class="ap-fieldset"><legend>Supervision et diagnostic (SNMP)</legend><div class="ap-fields">
+          <div class="ap-field"><label class="ap-label">Profil SNMP</label><div class="ap-select"><span>Ricoh couleur (12 OID)</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+          <div class="ap-field"><label class="ap-label">Identifiants</label><div class="ap-select"><span>Parc mairie <span class="caption">· v2c</span></span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+        </div></fieldset>
+      </div>
+      <div class="ap-modal-foot">
+        <button class="ap-btn ap-btn--text"><svg class="ic"><use href="#i-lan"/></svg>Diagnostic</button>
+        <span class="grow"></span>
+        <a class="ap-btn ap-btn--secondary" href="imprimantes.html">Annuler</a>
+        <button class="ap-btn ap-btn--primary">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

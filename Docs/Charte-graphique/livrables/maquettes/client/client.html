@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Client de bureau · Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../commun/autoprint.css">
+</head>
+
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-admin_panel_settings" viewBox="0 -960 960 960"><path d="M731.58-291.38q17.96-18.68 17.96-44.11t-18.12-43.55q-18.12-18.11-43.55-18.11-25.43 0-44.11 17.96-18.68 17.95-18.68 43.61t18.61 44.27q18.62 18.62 44.27 18.62 25.66 0 43.62-18.69Zm-44.77 142.15q33.11 0 59.92-13.81 26.81-13.81 45.04-39.42-25.23-14-50.94-21-25.72-7-53.48-7-27.77 0-54.02 7-26.25 7-50.48 21 18.23 25.61 44.53 39.42 26.31 13.81 59.43 13.81ZM480-100.77Q351.23-134.31 265.62-251.5 180-368.69 180-520.46v-226.31l300-112.31 300 112.31v258.08q-10.54-4.69-22.89-8.85-12.34-4.15-22.5-5.77v-212.23L480-809.23l-254.61 93.69v195.08q0 74.46 23.73 137.5 23.73 63.04 61.53 111.54 37.81 48.5 84.39 80.69t92.65 45.42l1.16-.38q4.46 7.38 12.61 17.38 8.16 10 13.46 15.31-8.61 4.61-17.65 7.11T480-100.77Zm209.22.77q-70.77 0-120.77-50.31-49.99-50.31-49.99-120.15 0-71.64 49.98-121.86 49.99-50.22 121.28-50.22 70.28 0 120.59 50.22 50.3 50.22 50.3 121.86 0 69.84-50.3 120.15Q760-100 689.22-100ZM480-477.46Z"/></symbol>
+<symbol id="i-check" viewBox="0 -960 960 960"><path d="M379.15-258.31 168.62-468.85l32.61-32.23 177.92 177.93 379-379.39 32.62 32.62-411.62 411.61Z"/></symbol>
+<symbol id="i-chevron_left" viewBox="0 -960 960 960"><path d="M560.62-253.85 333.85-480.62l226.77-227.15 32.61 32.62-194.15 194.53 194.15 194.16-32.61 32.61Z"/></symbol>
+<symbol id="i-close" viewBox="0 -960 960 960"><path d="m250.92-218.92-32-32L448-480 218.92-709.08l32-32L480-512l229.08-229.08 32 32L512-480l229.08 229.08-32 32L480-448 250.92-218.92Z"/></symbol>
+<symbol id="i-cloud_off" viewBox="0 -960 960 960"><path d="m824.15-70.62-116.53-117.3H251.08q-80.69 0-135.89-54.58Q60-297.08 60-377.77q0-77.31 50.5-128.23Q161-556.92 232-563.92q1.23-15.54 7.66-37.85Q246.08-624.08 256-640L95.39-800.61l32-32 729.38 729.38-32.62 32.61ZM251.08-233.31h412L292.31-604.08q-11.77 16.93-16.81 39.58-5.04 22.65-5.04 44.5h-19.38q-60.85 0-103.27 39.88-42.42 39.89-42.42 100.49 0 60.6 42.42 103.46 42.42 42.86 103.27 42.86Zm225.61-186.38Zm366.16 201.53-35.47-35.46q22.31-16.61 34.77-36.72 12.46-20.12 12.46-47.43 0-42.51-30.55-72.68-30.55-30.17-72.91-30.17h-65.46v-81q0-86.46-60.2-145.76-60.21-59.31-146.61-59.31-28.11 0-58.69 8.42-30.57 8.42-56.42 26.89l-31.61-32.39q36-25.92 71.73-37.11 35.73-11.2 74.49-11.2 104.57 0 178.63 73.95 74.07 73.95 74.07 178.13v35.23h12.3q65.47-1.38 111.04 40.58Q900-402.23 900-337.77q0 30.38-13.62 63.69-13.61 33.31-43.53 55.92ZM586.08-472.31Z"/></symbol>
+<symbol id="i-dark_mode" viewBox="0 -960 960 960"><path d="M481.15-140q-141.66 0-240.83-99.17-99.16-99.16-99.16-240.83 0-135.77 92.11-232.88 92.11-97.12 225.57-105.2 4.16 0 9.12.31 4.96.31 13.96.49-27.15 30.9-41.96 71.74-14.81 40.85-14.81 85.54 0 98.33 68.84 167.17Q562.82-424 661.15-424q44.31 0 85.35-13.69 41.04-13.69 71.5-38.61.23 7.38.54 11.23.3 3.84.3 7.38-7.69 133.46-104.8 225.57Q616.92-140 481.15-140Zm0-45.39q103.23 0 181.35-62.49 78.11-62.5 101.19-149.66-23.46 9.46-49.82 14.19-26.36 4.74-52.72 4.74-116.92 0-199.15-82.23T379.77-660q0-23.23 4.42-48.62 4.42-25.38 15.5-56.15-92.61 28.16-152.88 107.47-60.27 79.31-60.27 177.3 0 122.77 85.92 208.69t208.69 85.92Zm-5.53-289.69Z"/></symbol>
+<symbol id="i-desktop_windows" viewBox="0 -960 960 960"><path d="M350.16-140v-45.39h84.46V-280H157.69q-23.53 0-40.61-17.08T100-337.69v-424.62q0-23.53 17.08-40.61T157.69-820h644.62q23.53 0 40.61 17.08T860-762.31v424.62q0 23.53-17.08 40.61T802.31-280H525.38v94.61h84.46V-140H350.16ZM157.69-325.38h644.62q4.61 0 8.46-3.85 3.84-3.85 3.84-8.46v-424.62q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H157.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v424.62q0 4.61 3.84 8.46 3.85 3.85 8.46 3.85Zm-12.3 0v-449.23 449.23Z"/></symbol>
+<symbol id="i-download" viewBox="0 -960 960 960"><path d="M480-323.39 314.31-489.08l32.61-32.23 110.39 110V-780h45.38v368.69l110.39-110 32.61 32.23L480-323.39ZM237.69-180q-23.53 0-40.61-17.08T180-237.69V-363h45.39v125.31q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h484.62q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46V-363H780v125.31q0 23.53-17.08 40.61T722.31-180H237.69Z"/></symbol>
+<symbol id="i-lan" viewBox="0 -960 960 960"><path d="M130-90v-252.69h120v-160h207.31v-114.62h-120V-870h285.38v252.69h-120v114.62H710v160h120V-90H544.62v-252.69h120v-114.62H295.38v114.62h120V-90H130Zm252.69-572.69h194.62v-161.93H382.69v161.93ZM175.38-135.38H370v-161.93H175.38v161.93Zm414.62 0h194.62v-161.93H590v161.93ZM480-662.69ZM370-297.31Zm220 0Z"/></symbol>
+<symbol id="i-light_mode" viewBox="0 -960 960 960"><path d="M575.15-384.85q39.46-39.46 39.46-95.15 0-55.69-39.46-95.15-39.46-39.46-95.15-39.46-55.69 0-95.15 39.46-39.46 39.46-39.46 95.15 0 55.69 39.46 95.15 39.46 39.46 95.15 39.46 55.69 0 95.15-39.46Zm-222.61 32.31Q300-405.08 300-480q0-74.92 52.54-127.46Q405.08-660 480-660q74.92 0 127.46 52.54Q660-554.92 660-480q0 74.92-52.54 127.46Q554.92-300 480-300q-74.92 0-127.46-52.54ZM200-457.31H50v-45.38h150v45.38Zm710 0H760v-45.38h150v45.38ZM457.31-760v-150h45.38v150h-45.38Zm0 710v-150h45.38v150h-45.38ZM267.39-662.62l-93.08-90.46 32.23-33.61L296.77-694l-29.38 31.38Zm486.69 488.7-91.46-92.7L693.61-298l92.08 91.08-31.61 33ZM662-693.61l91.08-92.08 33.61 31.61-92.08 91.46L662-693.61ZM173.92-206.54 266-298l31.23 31.23-90.69 92.85-32.62-32.62ZM480-480Z"/></symbol>
+<symbol id="i-open_in_new" viewBox="0 -960 960 960"><path d="M197.69-140q-23.53 0-40.61-17.08T140-197.69v-564.62q0-23.53 17.08-40.61T197.69-820h251.69v45.39H197.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h564.62q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46v-251.69H820v251.69q0 23.53-17.08 40.61T762.31-140H197.69Zm186.62-211.69-32-32.62 390.31-390.3H530.15V-820H820v289.85h-45.39V-742l-390.3 390.31Z"/></symbol>
+<symbol id="i-print" viewBox="0 -960 960 960"><path d="M653-633.38v-128.93H307v128.93h-45.38v-174.31h436.76v174.31H653ZM156.92-588h646.16-646.16Zm569.19 96.15q13.35 0 23.12-9.77 9.77-9.78 9.77-22.93 0-13.14-9.77-22.91-9.78-9.77-22.92-9.77-13.54 0-23.12 9.77-9.58 9.78-9.58 22.93t9.58 22.91q9.58 9.77 22.92 9.77ZM653-185.39v-194.3H307v194.3h346ZM698.38-140H261.62v-171.77H111.54v-232.15q0-37.71 25.89-63.59 25.88-25.87 63.96-25.87h557.22q38.19 0 64.02 25.87 25.83 25.88 25.83 63.59v232.15H698.38V-140Zm104.7-217.15v-186.99q0-18.63-12.79-31.24Q777.51-588 758.61-588H201.39q-18.9 0-31.68 12.84-12.79 12.84-12.79 31.24v186.77h104.7v-67.93h436.76v67.93h104.7Z"/></symbol>
+<symbol id="i-print_disabled" viewBox="0 -960 960 960"><path d="m808.38-86.77-110-109.62V-140H261.62v-171.77H111.54v-232.15q0-37.71 25.89-63.59 25.88-25.87 63.96-25.87h60l-174.62-175 32.62-32.23 721.22 721.22-32.23 32.62ZM307-185.39h346v-56.38L515.46-379.69H307v194.3Zm434.15-126.38-45.38-45.38h107.31v-186.99q0-18.63-12.79-31.24Q777.51-588 758.61-588H464.54l-45.38-45.38h339.45q38.19 0 64.02 25.87 25.83 25.88 25.83 63.59v232.15H741.15Zm-584.23-45.38h104.7v-67.93h208.46L306.77-588H201.2q-19.04 0-31.66 12.84-12.62 12.84-12.62 31.24v186.77ZM653-633.38v-128.93H290.62l-45.39-45.38h453.15v174.31H653Zm73.11 141.53q13.35 0 23.12-9.77 9.77-9.78 9.77-22.93 0-13.14-9.77-22.91-9.78-9.77-22.92-9.77-13.54 0-23.12 9.77-9.58 9.78-9.58 22.93t9.58 22.91q9.58 9.77 22.92 9.77ZM201.39-588h105.38-149.85 44.47Zm557.22 0h44.47-338.54 294.07Z"/></symbol>
+<symbol id="i-refresh" viewBox="0 -960 960 960"><path d="M481.66-180q-124.75 0-212.43-87.67-87.69-87.67-87.69-212.27 0-124.6 87.69-212.33Q356.91-780 481.54-780q81.92 0 145.15 35.66 63.23 35.65 106.39 97.57V-780h45.38v225.54H552.92v-45.39h158q-36.07-60.76-94.69-97.76-58.61-37-134.69-37-106.76 0-180.69 73.91-73.93 73.92-73.93 180.65 0 106.74 73.97 180.7 73.98 73.96 180.79 73.96 81.32 0 148.4-46.53 67.07-46.54 93.69-123h47Q742.92-298 662.8-239q-80.11 59-181.14 59Z"/></symbol>
+<symbol id="i-remove" viewBox="0 -960 960 960"><path d="M220-457.31v-45.38h520v45.38H220Z"/></symbol>
+<symbol id="i-star-fill" viewBox="0 -960 960 960"><path d="m263-161.54 57.31-246.77-191.46-165.92 252.61-21.92L480-828.84l98.54 232.69 252.61 21.92-191.46 165.92L697-161.54 480-292.46 263-161.54Z"/></symbol>
+<symbol id="logo" viewBox="0 0 64 64"><path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/><circle cx="32" cy="26" r="17" fill="#2f6fd8"/><path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/><rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/><rect x="22" y="28" width="20" height="2.4" rx="1" fill="#2f6fd8"/><rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/><rect x="27" y="33" width="10" height="1.8" rx=".9" fill="#2f6fd8"/><rect x="27" y="36.2" width="6.5" height="1.8" rx=".9" fill="#2f6fd8"/><circle cx="41.2" cy="24.4" r="1.4" fill="#2f6fd8"/></symbol>
+</defs></svg>
+
+<input type="radio" name="theme" id="theme-auto" class="sr-only" checked>
+<input type="radio" name="theme" id="theme-light" class="sr-only">
+<input type="radio" name="theme" id="theme-dark" class="sr-only">
+
+<header class="mq-bar"><div class="mq-bar-inner">
+  <a class="back" href="../index.html"><svg class="ic ic-sm"><use href="#i-chevron_left"/></svg>Maquettes</a>
+  <span class="crumb"><span>Client de bureau ·</span> Fenêtre principale</span>
+  <nav class="mq-screens" aria-label="Écrans"><a href="#disponibles">Disponibles</a><a href="#vide">État vide</a><a href="#options">Options</a>
+</nav>
+  <span class="grow"></span>
+  <span class="note">Taille réelle 540 × 620, suit le thème de Windows</span>
+  <div class="ap-segmented" role="group" aria-label="Thème de la maquette">
+  <label for="theme-auto"><svg class="ic ic-sm"><use href="#i-desktop_windows"/></svg>Système</label>
+  <label for="theme-light"><svg class="ic ic-sm"><use href="#i-light_mode"/></svg>Clair</label>
+  <label for="theme-dark"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg>Sombre</label>
+</div>
+
+</div></header>
+
+<div class="mq-desk">
+
+  <div class="mq-shot" id="disponibles">
+    <div class="caption"><b>Disponibles</b> · une imprimante installée et par défaut, une en cours d'installation, deux à installer</div>
+    <div class="win cw">
+      <div class="cw-head">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</span>
+  
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--icon" aria-label="Réduire dans la zone de notification"><svg class="ic"><use href="#i-remove"/></svg></button>
+  <button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></button>
+</div>
+<div class="cw-place">
+  <small>Votre lieu</small>
+  <span class="where"><svg aria-hidden="true"><use href="#logo"/></svg>Siège – Bâtiment A – 2e étage</span>
+</div>
+
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill is-active">Disponibles <span class="count">4</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill">Options</span></div></div>
+      <div class="cw-body">
+        <div class="cw-printer is-default">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg><span class="ok" title="Installée"><svg class="ic"><use href="#i-check"/></svg></span></span>
+          <span class="info"><b>SIEGE-A2-RICOH-01</b><span>Ricoh IM C3000 · Bureau 204</span><span class="tags"><span class="ap-tag">Par défaut</span><span class="ap-tag">Couleur</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--icon cw-star is-on" aria-label="Retirer des favoris" aria-pressed="true"><svg class="ic"><use href="#i-star-fill"/></svg></button><button class="ap-btn ap-btn--text ap-btn--sm">Retirer</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-HP-03</b><span>HP LaserJet M507 · Salle de réunion</span><span class="tags"><span class="ap-tag">Noir et blanc</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--secondary ap-btn--sm" disabled><span class="ap-spinner"></span>Installation…</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-KYO-02</b><span>Kyocera ECOSYS M3655idn · Couloir ouest</span><span class="tags"><span class="ap-tag">Noir et blanc</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-download"/></svg>Installer</button></span>
+        </div>
+        <div class="cw-printer">
+          <span class="glyph"><svg class="ic"><use href="#i-print"/></svg></span>
+          <span class="info"><b>SIEGE-A2-CANON-01</b><span>Canon iR-ADV C5535i · Reprographie</span><span class="tags"><span class="ap-tag">Couleur</span><span class="ap-tag">A3</span></span></span>
+          <span class="acts"><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-download"/></svg>Installer</button></span>
+        </div>
+      </div>
+      <div class="cw-foot">
+  <span class="ap-label-tag" title="5 clics pour afficher la zone technique">v26.11.9.1</span>
+  <a class="ap-link" href="#">Paramètres Windows<svg class="ic ic-sm"><use href="#i-open_in_new"/></svg></a>
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--text ap-btn--sm"><svg class="ic ic-sm"><use href="#i-refresh"/></svg>Actualiser</button>
+</div>
+
+    </div>
+  </div>
+
+  <div class="mq-shot" id="vide">
+    <div class="caption"><b>État vide</b> · aucune imprimante pour ce lieu, serveur injoignable</div>
+    <div class="win cw">
+      <div class="cw-head">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</span>
+  <span class='cw-offline'><svg class='ic'><use href='#i-cloud_off'/></svg>Mode hors ligne</span>
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--icon" aria-label="Réduire dans la zone de notification"><svg class="ic"><use href="#i-remove"/></svg></button>
+  <button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></button>
+</div>
+<div class="cw-place">
+  <small>Votre lieu</small>
+  <span class="where"><svg aria-hidden="true"><use href="#logo"/></svg>Siège – Bâtiment A – 2e étage</span>
+</div>
+
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill is-active">Disponibles <span class="count">0</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill">Options</span></div></div>
+      <div class="cw-body">
+        <div class="cw-empty">
+          <span class="halo"><svg class="ic"><use href="#i-print_disabled"/></svg></span>
+          <b>Aucune imprimante disponible pour ce lieu</b>
+          <p>Vérifiez votre connexion réseau ou contactez le support informatique.</p>
+          <button class="ap-btn ap-btn--secondary" style="margin-top:8px"><svg class="ic"><use href="#i-refresh"/></svg>Réessayer</button>
+        </div>
+      </div>
+      <div class="cw-foot">
+  <span class="ap-label-tag" title="5 clics pour afficher la zone technique">v26.11.9.1</span>
+  <a class="ap-link" href="#">Paramètres Windows<svg class="ic ic-sm"><use href="#i-open_in_new"/></svg></a>
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--text ap-btn--sm"><svg class="ic ic-sm"><use href="#i-refresh"/></svg>Actualiser</button>
+</div>
+
+    </div>
+  </div>
+
+  <div class="mq-shot" id="options">
+    <div class="caption"><b>Options</b> · zone technique affichée (5 clics sur le numéro de version)</div>
+    <div class="win cw">
+      <div class="cw-head">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</span>
+  
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--icon" aria-label="Réduire dans la zone de notification"><svg class="ic"><use href="#i-remove"/></svg></button>
+  <button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></button>
+</div>
+<div class="cw-place">
+  <small>Votre lieu</small>
+  <span class="where"><svg aria-hidden="true"><use href="#logo"/></svg>Siège – Bâtiment A – 2e étage</span>
+</div>
+
+      <div class="cw-tabs"><div class="ap-pills"><span class="ap-pill">Disponibles <span class="count">4</span></span><span class="ap-pill">Mes installations <span class="count">3</span></span><span class="ap-pill is-active">Options</span></div></div>
+      <div class="cw-body">
+        <p class="cw-group-title">Préférences</p>
+        <div class="cw-group">
+          <label class="ap-switch"><input type="checkbox" checked><span class="t">M'avertir lors du changement de lieu de travail</span></label>
+          <label class="ap-switch"><input type="checkbox" checked><span class="t">Changer l'imprimante par défaut automatiquement selon mes favoris</span></label>
+          <label class="ap-switch"><input type="checkbox"><span class="t">Lancer Autoprint à l'ouverture de session Windows</span></label>
+        </div>
+        <p class="cw-group-title">Zone technique</p>
+        <div class="cw-group cw-admin">
+          <div class="head"><svg class="ic"><use href="#i-admin_panel_settings"/></svg>Réservé au support informatique</div>
+          <dl class="cw-kv">
+            <dt>Serveur</dt><dd><span class="ap-label-tag">https://autoprint.mairie.local</span></dd>
+            <dt>Clé d'agent</dt><dd><span class="ap-label-tag">•••• 7F2A</span></dd>
+          </dl>
+          <div><button class="ap-btn ap-btn--outline ap-btn--sm"><svg class="ic ic-sm"><use href="#i-lan"/></svg>Tester la connexion au serveur</button></div>
+        </div>
+        <span class="cw-autosave"><svg class="ic ic-sm"><use href="#i-check"/></svg>Les modifications sont enregistrées automatiquement</span>
+      </div>
+      <div class="cw-foot">
+  <span class="ap-label-tag" title="5 clics pour afficher la zone technique">v26.11.9.1</span>
+  <a class="ap-link" href="#">Paramètres Windows<svg class="ic ic-sm"><use href="#i-open_in_new"/></svg></a>
+  <span class="grow"></span>
+  <button class="ap-btn ap-btn--text ap-btn--sm"><svg class="ic ic-sm"><use href="#i-refresh"/></svg>Actualiser</button>
+</div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
