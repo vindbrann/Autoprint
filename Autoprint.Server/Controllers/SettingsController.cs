@@ -297,6 +297,11 @@ namespace Autoprint.Server.Controllers
             if (!string.IsNullOrWhiteSpace(dto.Filter) && normalizedFilter == null)
                 return Ok(new { Success = false, Message = LdapFilterError });
 
+            // Domaine et DN de base saisis : chemin reconstruit et contrôlé (B76)
+            string? ldapPath = LdapPathBuilder.Build(dto.Domain, dto.BaseDn);
+            if (ldapPath == null)
+                return Ok(new { Success = false, Message = "DN de base invalide : attendu « OU=…,DC=…,DC=… » (écrire \\, pour une virgule dans un nom)." });
+
             try
             {
                 string finalPass = dto.ServicePassword;
@@ -305,8 +310,6 @@ namespace Autoprint.Server.Controllers
                     var saved = _context.ServerSettings.Find("AdServicePassword");
                     if (saved != null) finalPass = _secrets.Unprotect(saved.Value);
                 }
-
-                string ldapPath = string.IsNullOrEmpty(dto.BaseDn) ? $"LDAP://{dto.Domain}" : $"LDAP://{dto.Domain}/{dto.BaseDn}";
 
                 string finalUser = dto.ServiceUser;
                 if (dto.UseServiceAccount && !string.IsNullOrEmpty(finalUser) && !finalUser.Contains("\\") && !finalUser.Contains("@"))
