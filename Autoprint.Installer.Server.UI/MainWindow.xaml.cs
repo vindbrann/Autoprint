@@ -159,7 +159,7 @@ namespace Autoprint.Installer.Server.UI
             }
             if (_currentStep == 3 && !_prereqsValidated)
             {
-                MessageBox.Show("Pré-requis manquants. Utilisez les boutons 'Installer'.", "Système", MessageBoxButton.OK, MessageBoxImage.Stop);
+                MessageBox.Show("Pré-requis manquants ou trop anciens. Utilisez les boutons « Installer » ou « Mettre à jour », puis continuez.", "Système", MessageBoxButton.OK, MessageBoxImage.Stop);
                 return false;
             }
             if (_currentStep == 4 && RadioSqlServer.IsChecked == true)
