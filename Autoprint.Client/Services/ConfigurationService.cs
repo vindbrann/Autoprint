@@ -1,4 +1,4 @@
-﻿using Autoprint.Client.Models;
+using Autoprint.Client.Models;
 using Microsoft.Win32;
 using System;
 using System.Diagnostics;
@@ -20,7 +20,7 @@ namespace Autoprint.Client.Services
             if (!string.IsNullOrEmpty(argKey))
             {
                 ApiKey = argKey;
-                Debug.WriteLine($"[Config] Surcharge API Key via arguments : {ApiKey}");
+                Debug.WriteLine("[Config] Surcharge API Key via arguments.");
             }
 
             if (!string.IsNullOrEmpty(argServer))

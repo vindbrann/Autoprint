@@ -1,9 +1,9 @@
-﻿@page "/login"
+@page "/login"
 @layout Autoprint.Web.Layout.EmptyLayout
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
-@using Blazored.LocalStorage
+@using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
 @inject IAuthService AuthService
@@ -48,11 +48,7 @@
                         <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="true" />
                     </div>
 
-                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                        <div style="display:flex; align-items:center;">
-                            <RadzenCheckBox @bind-Value="@loginRequest.RememberMe" Name="Remember" TriState="false" />
-                            <RadzenLabel Text="Retenir l'identifiant" Component="Remember" Style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--rz-text-color);" />
-                        </div>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center">
                         <RadzenButton Text="Mot de passe oublié"
                                       ButtonStyle="ButtonStyle.Base"
                                       Variant="Variant.Text"
@@ -95,12 +91,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var savedUser = await LocalStorage.GetItemAsync<string>("saved_username");
-        if (!string.IsNullOrEmpty(savedUser))
-        {
-            loginRequest.Username = savedUser;
-            loginRequest.RememberMe = true;
-        }
+        // « Retenir l'identifiant » a été retiré (audit #10) : on efface l'identifiant mémorisé par les versions précédentes
+        await LocalStorage.RemoveItemAsync("saved_username");
     }
 
     private async Task HandleLogin()
@@ -111,8 +103,6 @@
         try
         {
             var result = await AuthService.Login(loginRequest);
-            if (loginRequest.RememberMe) await LocalStorage.SetItemAsync("saved_username", loginRequest.Username);
-            else await LocalStorage.RemoveItemAsync("saved_username");
 
             if (result.PasswordExpired)
             {
@@ -138,7 +128,9 @@
         {
             var request = new ForgotPasswordRequest { EmailOrUsername = forgotEmailOrUser };
             await Http.PostAsJsonAsync("api/auth/forgot-password", request);
-            NotificationService.Notify(NotificationSeverity.Success, "Demande envoyée", "Vérifiez vos emails.");
+            // Message identique dans tous les cas : on ne révèle pas si le compte existe
+            NotificationService.Notify(NotificationSeverity.Info, "Demande enregistrée",
+                "Si un compte local avec une adresse e-mail correspond, un lien valable 30 minutes vient d'être envoyé. Les comptes Active Directory se réinitialisent avec la procédure Windows habituelle.");
             forgotPasswordMode = false;
         }
         catch { ErrorMessage = "Impossible de contacter le serveur."; }
@@ -158,7 +150,7 @@
         }
         else
         {
-            ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+            await ((Autoprint.Web.Services.AuthService)AuthService).Logout();
         }
     }
 
@@ -186,7 +178,7 @@
             else
             {
                 ErrorMessage = "Erreur : " + await res.Content.ReadAsStringAsync();
-                ((Autoprint.Web.Services.AuthService)AuthService).Logout();
+                await ((Autoprint.Web.Services.AuthService)AuthService).Logout();
             }
         }
         catch (Exception ex) { ErrorMessage = "Erreur technique : " + ex.Message; }

@@ -19,12 +19,12 @@ namespace Autoprint.Web.Services
 
         public async Task SaveProfileAsync(DiscoveryProfile profile)
         {
-            await _http.PostAsJsonAsync("api/discovery", profile);
+            await RoleService.EnsureSuccess(await _http.PostAsJsonAsync("api/discovery", profile));
         }
 
         public async Task DeleteProfileAsync(int id)
         {
-            await _http.DeleteAsync($"api/discovery/{id}");
+            await RoleService.EnsureSuccess(await _http.DeleteAsync($"api/discovery/{id}"));
         }
 
         public async Task<DiscoveryProfile?> RunScanNowAsync(int profileId)

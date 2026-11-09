@@ -63,9 +63,13 @@ else
 
                         <AuthorizeView Policy="ROLE_WRITE">
                             <Authorized Context="authAd">
-                                <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
-                                              Click="@(() => OpenAdModal(role.Id, role.Name))"
-                                              Tooltip="Gérer la liaison Active Directory" />
+                                @* SuperAdmin : liaison AD réservée aux comptes « Administration » (le serveur refuse les autres, B58) *@
+                                @if (role.Name != "SuperAdmin" || authAd.User.HasClaim("Permission", "ADMIN_ACCESS"))
+                                {
+                                    <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                                  Click="@(() => OpenAdModal(role.Id, role.Name))"
+                                                  Tooltip="Gérer la liaison Active Directory" />
+                                }
                             </Authorized>
                         </AuthorizeView>
 
@@ -76,7 +80,7 @@ else
                                     <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
                                 </Authorized>
                             </AuthorizeView>
-                            <AuthorizeView Policy="ROLE_DELETE">
+                            <AuthorizeView Policy="ROLE_WRITE">
                                 <Authorized Context="authDelete">
                                     <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
                                 </Authorized>
@@ -137,9 +141,13 @@ else
         var confirm = await DialogService.Confirm($"Supprimer le rôle {role.Name} ?", "Confirmation", new ConfirmOptions { OkButtonText = "Oui", CancelButtonText = "Non" });
         if (confirm == true)
         {
-            await RoleService.DeleteRole(role.Id);
+            try
+            {
+                await RoleService.DeleteRole(role.Id);
+                NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
+            }
+            catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
             await LoadData();
-            NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Rôle supprimé.");
         }
     }
 

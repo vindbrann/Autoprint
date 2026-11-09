@@ -30,6 +30,9 @@ namespace Autoprint.Shared
 
         public int? SnmpProfileId { get; set; }
         public SnmpProfile? SnmpProfile { get; set; }
+
+        // Identifiants SNMP par défaut des imprimantes de ce modèle (SNMPv3 ou communauté v1 / v2c)
+        public int? SnmpCredentialId { get; set; }
     }
 
     public class EmplacementNetwork : BaseEntity

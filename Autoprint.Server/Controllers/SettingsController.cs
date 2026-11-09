@@ -1,4 +1,5 @@
 using Autoprint.Server.Data;
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
@@ -18,12 +19,14 @@ namespace Autoprint.Server.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
         private readonly AuditService _auditService;
+        private readonly SecretProtector _secrets;
 
-        public SettingsController(ApplicationDbContext context, IEmailService emailService, AuditService auditService)
+        public SettingsController(ApplicationDbContext context, IEmailService emailService, AuditService auditService, SecretProtector secrets)
         {
             _context = context;
             _emailService = emailService;
             _auditService = auditService;
+            _secrets = secrets;
         }
 
         [HttpGet]
@@ -31,16 +34,10 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<ServerSetting>>> GetSettings()
         {
             var settings = await _context.ServerSettings.AsNoTracking().ToListAsync();
-            var sensitiveKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "AdServicePassword",
-                "SmtpPass",
-                "AgentApiKey"
-            };
-
             foreach (var s in settings)
             {
-                if (sensitiveKeys.Contains(s.Key) && !string.IsNullOrEmpty(s.Value))
+                // Liste unique des secrets (SecretProtector) : tout nouveau secret est masqué automatiquement
+                if (SecretProtector.IsSecret(s.Key) && !string.IsNullOrEmpty(s.Value))
                 {
                     s.Value = "●●●●●●●●";
                 }
@@ -49,10 +46,69 @@ namespace Autoprint.Server.Controllers
             return settings;
         }
 
+        // Lecture de la clé agent en clair, à la demande et tracée dans l'audit (la liste des paramètres la masque)
+        [HttpGet("agent-key")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> RevealAgentKey()
+        {
+            var key = _secrets.Unprotect(await _context.ServerSettings.Where(s => s.Key == "AgentApiKey").Select(s => s.Value).FirstOrDefaultAsync());
+            if (string.IsNullOrEmpty(key)) return NotFound("Clé agent absente.");
+
+            _auditService.LogAction("AGENT_KEY_REVEAL", "Consultation de la clé d'API agent", User.Identity?.Name, "WARNING", resourceName: "AgentApiKey");
+            await _context.SaveChangesAsync();
+
+            return Ok(new { key });
+        }
+
+        public class AgentKeyRotationDto { public int TransitionDays { get; set; } = 30; }
+
+        // Nouvelle clé agent (backlog B18). L'ancienne reste acceptée pendant la période de transition (0 à 90 jours),
+        // le temps de redéployer la nouvelle clé sur les postes (MSI APIKEY=..., GPO, registre HKLM\SOFTWARE\Autoprint).
+        [HttpPost("agent-key/rotate")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> RotateAgentKey([FromBody] AgentKeyRotationDto dto)
+        {
+            if (dto.TransitionDays is < 0 or > 90) return BadRequest("Période de transition : de 0 à 90 jours.");
+
+            var current = await _context.ServerSettings.FindAsync("AgentApiKey");
+            if (current == null) return NotFound("Clé agent absente.");
+
+            var newKey = Guid.NewGuid().ToString();
+            if (dto.TransitionDays > 0)
+            {
+                await UpsertSetting("AgentApiKeyPrevious", current.Value, "PASSWORD", "Ancienne clé API agent (période de transition)");
+                await UpsertSetting("AgentApiKeyPreviousExpiresAt", DateTime.UtcNow.AddDays(dto.TransitionDays).ToString("o"), "STRING", "Fin de validité de l'ancienne clé agent");
+            }
+            else
+            {
+                await UpsertSetting("AgentApiKeyPrevious", "", "PASSWORD", "Ancienne clé API agent (période de transition)");
+                await UpsertSetting("AgentApiKeyPreviousExpiresAt", "", "STRING", "Fin de validité de l'ancienne clé agent");
+            }
+            current.Value = _secrets.Protect(newKey);
+
+            _auditService.LogAction("AGENT_KEY_ROTATE",
+                dto.TransitionDays > 0 ? $"Nouvelle clé API agent (ancienne clé acceptée encore {dto.TransitionDays} jour(s))" : "Nouvelle clé API agent (ancienne clé révoquée immédiatement)",
+                User.Identity?.Name, "WARNING", resourceName: "AgentApiKey");
+            await _context.SaveChangesAsync();
+
+            return Ok(new { key = newKey, previousValidUntil = dto.TransitionDays > 0 ? DateTime.UtcNow.AddDays(dto.TransitionDays) : (DateTime?)null });
+        }
+
+        // Valeur déjà chiffrée (ou non secrète) : écrite telle quelle
+        private async Task UpsertSetting(string key, string value, string type, string description)
+        {
+            var setting = await _context.ServerSettings.FindAsync(key);
+            if (setting == null) _context.ServerSettings.Add(new ServerSetting { Key = key, Value = value, Type = type, Description = description });
+            else setting.Value = value;
+        }
+
         [HttpPost("Save")]
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<IActionResult> SaveSettings([FromBody] SettingsUpdateDto dto)
         {
+            if (!string.IsNullOrWhiteSpace(dto.AdLdapFilter) && LdapFilterNormalizer.Normalize(dto.AdLdapFilter) == null)
+                return BadRequest(LdapFilterError);
+
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
 
             var modifiedCategories = new HashSet<string>();
@@ -161,6 +217,9 @@ namespace Autoprint.Server.Controllers
 
         private async Task UpdateSetting(string key, string value)
         {
+            // Les secrets sont stockés chiffrés (audit #9)
+            if (SecretProtector.IsSecret(key)) value = _secrets.Protect(value);
+
             var setting = await _context.ServerSettings.FindAsync(key);
             if (setting != null)
                 setting.Value = value ?? "";
@@ -174,7 +233,16 @@ namespace Autoprint.Server.Controllers
         {
             try
             {
-                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, dto.Password, dto.Ssl, dto.From, dto.To);
+                // Mot de passe laissé masqué : on réutilise celui enregistré, uniquement vers le serveur SMTP enregistré
+                string password = dto.Password;
+                if (IsEmptyOrMasked(password))
+                {
+                    var savedHost = _context.ServerSettings.Find("SmtpHost")?.Value;
+                    if (!string.IsNullOrWhiteSpace(savedHost) && !string.Equals(savedHost.Trim(), dto.Host?.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return BadRequest("Pour tester un autre serveur SMTP que celui enregistré, saisissez son mot de passe.");
+                    password = _secrets.Unprotect(_context.ServerSettings.Find("SmtpPass")?.Value);
+                }
+                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
                 return Ok(new { Message = "Connexion SMTP réussie !" });
             }
             catch (Exception ex) { return BadRequest("Echec du test SMTP : " + ex.Message); }
@@ -185,14 +253,17 @@ namespace Autoprint.Server.Controllers
         public IActionResult TestAd([FromBody] TestAdDto dto)
         {
             if (!OperatingSystem.IsWindows()) return BadRequest("Le serveur doit tourner sous Windows.");
+            var domainError = CheckAdTestTarget(dto.Domain, dto.UseServiceAccount, dto.ServicePassword);
+            if (domainError != null) return BadRequest(domainError);
+
             try
             {
                 ContextType contextType = ContextType.Domain;
                 string finalPass = dto.ServicePassword;
-                if (dto.UseServiceAccount && string.IsNullOrEmpty(finalPass))
+                if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
-                    if (saved != null) finalPass = saved.Value;
+                    if (saved != null) finalPass = _secrets.Unprotect(saved.Value);
                 }
 
                 string finalUser = dto.ServiceUser;
@@ -218,13 +289,21 @@ namespace Autoprint.Server.Controllers
         public IActionResult TestAdFilter([FromBody] TestAdFilterDto dto)
         {
             if (!OperatingSystem.IsWindows()) return Ok(new { Success = false, Message = "Windows requis." });
+
+            var domainError = CheckAdTestTarget(dto.Domain, dto.UseServiceAccount, dto.ServicePassword);
+            if (domainError != null) return Ok(new { Success = false, Message = domainError });
+
+            string? normalizedFilter = LdapFilterNormalizer.Normalize(dto.Filter);
+            if (!string.IsNullOrWhiteSpace(dto.Filter) && normalizedFilter == null)
+                return Ok(new { Success = false, Message = LdapFilterError });
+
             try
             {
                 string finalPass = dto.ServicePassword;
-                if (dto.UseServiceAccount && string.IsNullOrEmpty(finalPass))
+                if (dto.UseServiceAccount && IsEmptyOrMasked(finalPass))
                 {
                     var saved = _context.ServerSettings.Find("AdServicePassword");
-                    if (saved != null) finalPass = saved.Value;
+                    if (saved != null) finalPass = _secrets.Unprotect(saved.Value);
                 }
 
                 string ldapPath = string.IsNullOrEmpty(dto.BaseDn) ? $"LDAP://{dto.Domain}" : $"LDAP://{dto.Domain}/{dto.BaseDn}";
@@ -240,12 +319,14 @@ namespace Autoprint.Server.Controllers
                     : new DirectoryEntry(ldapPath, null, null, AuthenticationTypes.Secure);
 
                 using DirectorySearcher searcher = new DirectorySearcher(entry);
-                string configFilter = string.IsNullOrWhiteSpace(dto.Filter) ? "(objectClass=user)" : dto.Filter;
+                string configFilter = normalizedFilter ?? "(objectClass=user)";
 
-                if (!string.IsNullOrWhiteSpace(dto.TestUserQuery))
-                    searcher.Filter = $"(&{configFilter}(sAMAccountName={dto.TestUserQuery}))";
-                else
-                    searcher.Filter = configFilter;
+                // Filtre final relu lui aussi : le nom testé est échappé puis l'ensemble reconstruit
+                string? finalFilter = string.IsNullOrWhiteSpace(dto.TestUserQuery)
+                    ? configFilter
+                    : LdapFilterNormalizer.Normalize($"(&{configFilter}(sAMAccountName={SecurityHelper.EscapeLdapFilter(dto.TestUserQuery.Trim())}))");
+                if (finalFilter == null) return Ok(new { Success = false, Message = "Nom à rechercher invalide." });
+                searcher.Filter = finalFilter;
 
                 searcher.SizeLimit = 1;
                 var result = searcher.FindOne();
@@ -257,6 +338,27 @@ namespace Autoprint.Server.Controllers
             }
             catch (Exception ex) { return Ok(new { Success = false, Message = $"💥 Erreur LDAP : {ex.Message}" }); }
         }
+
+        private static bool IsEmptyOrMasked(string? value) => string.IsNullOrEmpty(value) || value == "●●●●●●●●";
+
+        // Sans mot de passe saisi, le test s'authentifie avec un secret du serveur (mot de passe AD enregistré ou compte machine) :
+        // il est alors limité au domaine enregistré, pour qu'on ne puisse pas envoyer ce secret vers un serveur tiers.
+        private string? CheckAdTestTarget(string? domain, bool useServiceAccount, string? typedPassword)
+        {
+            if (string.IsNullOrWhiteSpace(domain) || !System.Text.RegularExpressions.Regex.IsMatch(domain, @"^[A-Za-z0-9]([A-Za-z0-9.-]{0,252})$"))
+                return "Nom de domaine invalide.";
+
+            bool usesServerSecret = !useServiceAccount || IsEmptyOrMasked(typedPassword);
+            if (!usesServerSecret) return null;
+
+            var savedDomain = _context.ServerSettings.Find("AdDomain")?.Value;
+            if (!string.IsNullOrWhiteSpace(savedDomain) && !string.Equals(savedDomain.Trim(), domain.Trim(), StringComparison.OrdinalIgnoreCase))
+                return "Pour tester un autre domaine que celui enregistré, saisissez le mot de passe du compte de service.";
+
+            return null;
+        }
+
+        private const string LdapFilterError = "Filtre LDAP invalide : vérifiez les parenthèses, les noms d'attributs et les caractères spéciaux (écrire \\28, \\29, \\2a, \\5c pour ( ) * \\ dans une valeur).";
     }
 
     public class SettingsUpdateDto

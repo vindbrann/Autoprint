@@ -26,7 +26,7 @@ namespace Autoprint.Client.ViewModels
             _configService = configService;
 
             AdminServerUrl = _configService.PrintServerName ?? "";
-            AdminApiKey = _configService.ApiKey ?? "";
+            AdminApiKey = MaskKey(_configService.ApiKey);
 
             var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             var infoAttr = assembly.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
@@ -149,7 +149,14 @@ namespace Autoprint.Client.ViewModels
         public void ReloadConfig()
         {
             AdminServerUrl = _configService?.PrintServerName ?? "";
-            AdminApiKey = _configService?.ApiKey ?? "";
+            AdminApiKey = MaskKey(_configService?.ApiKey);
+        }
+
+        // La clé n'est jamais affichée en clair sur le poste (audit #11) : seuls les 4 derniers caractères permettent de la comparer à la console
+        private static string MaskKey(string? key)
+        {
+            if (string.IsNullOrEmpty(key)) return "(aucune clé configurée)";
+            return key.Length <= 4 ? "••••••••" : "••••••••" + key[^4..];
         }
 
         public void ResetAdminPanel()
@@ -179,7 +186,8 @@ namespace Autoprint.Client.ViewModels
         {
             if (IsTesting) return;
 
-            if (string.IsNullOrWhiteSpace(AdminServerUrl) || string.IsNullOrWhiteSpace(AdminApiKey))
+            string apiKey = _configService?.ApiKey ?? "";
+            if (string.IsNullOrWhiteSpace(AdminServerUrl) || string.IsNullOrWhiteSpace(apiKey))
             {
                 SetStatus("Champs vides !", Brushes.Red);
                 return;
@@ -205,23 +213,47 @@ namespace Autoprint.Client.ViewModels
 
             try
             {
-                var tempApiService = new ApiService(urlNettoyee, AdminApiKey);
+                var tempApiService = new ApiService(urlNettoyee, apiKey);
                 await tempApiService.GetLieuxAsync();
 
                 SetStatus("✅ Connexion réussie !", Brushes.Green);
             }
             catch (Exception ex)
             {
-                string msg = ex.Message;
-                if (msg.Contains("401")) msg = "Clé API refusée (401)";
-                else if (msg.Contains("404")) msg = "Serveur introuvable (404)";
-
-                SetStatus($"ÉCHEC : {msg}", Brushes.Red);
+                SetStatus($"❌ {DescribeConnectionError(ex)}", Brushes.Red);
             }
             finally
             {
                 IsTesting = false;
             }
+        }
+
+        // Message compréhensible par un technicien pour chaque cause d'échec
+        private static string DescribeConnectionError(Exception ex)
+        {
+            if (ex is TaskCanceledException) return "Serveur injoignable (délai dépassé). Vérifiez le nom du serveur, le réseau et le pare-feu.";
+
+            if (ex is System.Net.Http.HttpRequestException httpEx)
+            {
+                if (httpEx.InnerException is System.Security.Authentication.AuthenticationException)
+                    return "Certificat du serveur refusé. Le certificat HTTPS n'est pas reconnu par ce poste (autorité interne non installée ?).";
+
+                switch (httpEx.StatusCode)
+                {
+                    case System.Net.HttpStatusCode.Unauthorized:
+                        return "Clé refusée par le serveur. Comparez les 4 derniers caractères avec la console (Paramètres > Sécurité).";
+                    case System.Net.HttpStatusCode.NotFound:
+                        return "Adresse incorrecte : le serveur répond mais ce n'est pas Autoprint.";
+                    case System.Net.HttpStatusCode.BadRequest:
+                        return "Nom de serveur non autorisé : utilisez le nom public de la console (pas l'adresse IP ni un alias).";
+                    case null:
+                        return "Serveur injoignable. Vérifiez le nom du serveur, le réseau et le pare-feu.";
+                    default:
+                        return $"Erreur du serveur ({(int)httpEx.StatusCode}).";
+                }
+            }
+
+            return "Erreur inattendue : " + ex.Message;
         }
 
         private void SetStatus(string msg, Brush color)

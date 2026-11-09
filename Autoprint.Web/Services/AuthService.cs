@@ -1,6 +1,5 @@
 ﻿using System.Net.Http.Json;
 using Autoprint.Shared.DTOs;
-using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Autoprint.Web.Services

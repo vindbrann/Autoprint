@@ -150,6 +150,19 @@ else if (stats != null)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ARRÊTÉ" Variant="Variant.Flat" class="rz-px-3 rz-py-1" />
                             }
+                            @if (stats.IsSpoolerServiceRunning.HasValue)
+                            {
+                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mt-2 rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Service AutoprintSpooler</RadzenText>
+                                @if (stats.IsSpoolerServiceRunning.Value)
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="EN LIGNE" Variant="Variant.Flat" class="rz-px-3 rz-py-1" />
+                                }
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ARRÊTÉ" Variant="Variant.Flat" class="rz-px-3 rz-py-1"
+                                                 title="Les modifications des files d'impression ne sont plus appliquées : démarrez le service sur le serveur (services.msc)." />
+                                }
+                            }
                         </RadzenColumn>
 
                         <RadzenColumn Size="4" Class="rz-text-align-center" Style="border-right: 1px solid var(--rz-border-color);">
@@ -163,7 +176,7 @@ else if (stats != null)
                             <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-1" Style="color: var(--rz-text-tertiary-color);">Erreurs Synchro</RadzenText>
                             @if (stats.SyncErrorCount > 0)
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@($"{stats.SyncErrorCount} erreurs")" Variant="Variant.Flat"
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@($"{stats.SyncErrorCount} erreur{(stats.SyncErrorCount > 1 ? "s" : "")}")" Variant="Variant.Flat"
                                              Style="cursor: pointer;" @onclick="@(() => NavManager.NavigateTo("imprimantes"))" />
                             }
                             else
@@ -297,7 +310,15 @@ else if (stats != null)
 
     private string GetTimeAgo(DateTime date)
     {
-        var span = DateTime.UtcNow - date.ToUniversalTime();
+        // Dates enregistrées en UTC et renvoyées sans fuseau (Kind non spécifié) : ToUniversalTime() les prenait pour
+        // de l'heure locale (« 1 h » pour une action d'il y a quelques minutes en hiver) (B58)
+        var utc = date.Kind switch
+        {
+            DateTimeKind.Utc => date,
+            DateTimeKind.Local => date.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(date, DateTimeKind.Utc)
+        };
+        var span = DateTime.UtcNow - utc;
         if (span.TotalMinutes < 1) return "À l'instant";
         if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} min";
         if (span.TotalHours < 24) return $"{(int)span.TotalHours} h";

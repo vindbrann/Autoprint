@@ -58,22 +58,22 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<List<DiscoveredOidDto>>> ScanPrinterOids([FromBody] SnmpScanRequestDto request)
         {
-            _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", request?.IpAddress);
-            if (request == null || string.IsNullOrWhiteSpace(request.IpAddress))
+            if (request == null || !IsValidHost(request.IpAddress))
             {
-                return BadRequest("L'adresse IP de l'imprimante de test est obligatoire.");
+                return BadRequest("Adresse IP ou nom d'hôte de l'imprimante invalide.");
             }
+            _logger.LogInformation("[SNMP_SCAN_API] Scan demandé pour IP={Ip}", ForLog(request.IpAddress));
 
             try
             {
-                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request);
-                _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", request.IpAddress, discoveredOids.Count);
+                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
+                _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", ForLog(request.IpAddress), discoveredOids.Count);
                 return Ok(discoveredOids);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", request.IpAddress);
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", ForLog(request.IpAddress));
+                return BadRequest(DescribeSnmpError(ex));
             }
         }
 
@@ -82,24 +82,23 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<List<SnmpTestProfileResultDto>>> TestProfileItems([FromBody] SnmpTestProfileRequestDto request)
         {
-            _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", request?.IpAddress, request?.Items?.Count ?? 0);
-
-            if (request == null || string.IsNullOrWhiteSpace(request.IpAddress))
+            if (request == null || !IsValidHost(request.IpAddress))
             {
-                _logger.LogWarning("[SNMP_TEST_API] Requête invalide : IP obligatoire.");
-                return BadRequest("L'adresse IP de l'imprimante de test est obligatoire.");
+                _logger.LogWarning("[SNMP_TEST_API] Requête invalide : adresse IP ou nom d'hôte incorrect.");
+                return BadRequest("Adresse IP ou nom d'hôte de l'imprimante invalide.");
             }
+            _logger.LogInformation("[SNMP_TEST_API] Requête reçue sur test-profile pour IP={Ip}, Items={Count}", ForLog(request.IpAddress), request.Items?.Count ?? 0);
 
             try
             {
-                var testResults = await _snmpService.TestProfileItemsAsync(request);
-                _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", request.IpAddress, testResults.Count);
+                var testResults = await _snmpService.TestProfileItemsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
+                _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", ForLog(request.IpAddress), testResults.Count);
                 return Ok(testResults);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[SNMP_TEST_API] Erreur sur test-profile pour IP={Ip}", request.IpAddress);
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "[SNMP_TEST_API] Erreur sur test-profile pour IP={Ip}", ForLog(request.IpAddress));
+                return BadRequest(DescribeSnmpError(ex));
             }
         }
 
@@ -272,6 +271,39 @@ namespace Autoprint.Server.Controllers
         private bool SnmpProfileExists(int id)
         {
             return _context.SnmpProfiles.Any(e => e.Id == id);
+        }
+
+        // Profil d'identifiants enregistré (SNMPv3 possible) ou communauté saisie dans l'écran de test
+        private async Task<SnmpCredentials> ResolveRequestCredentialsAsync(int? credentialId, string community, int version)
+        {
+            if (credentialId != null)
+            {
+                var profile = await _context.SnmpCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.Id == credentialId.Value)
+                              ?? throw new InvalidOperationException("Profil d'identifiants SNMP introuvable.");
+                return SnmpCredentials.FromProfile(profile, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
+            }
+            return SnmpCredentials.Legacy(community, version);
+        }
+
+        // Retours à la ligne retirés avant journalisation (CodeQL « Log entries created from user input ») ;
+        // IsValidHost les refuse déjà, mais CodeQL ne reconnaît que ce nettoyage.
+        private static string ForLog(string? value) => (value ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+
+        // Validation avant toute journalisation
+        private static bool IsValidHost(string? host)
+        {
+            if (string.IsNullOrWhiteSpace(host)) return false;
+            host = host.Trim();
+            if (System.Net.IPAddress.TryParse(host, out _)) return true;
+            return host.Length <= 253 && System.Text.RegularExpressions.Regex.IsMatch(host, @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$");
+        }
+
+        // Les InvalidOperationException du service SNMP portent un diagnostic réseau rédigé pour l'administrateur ; le reste reste interne
+        private string DescribeSnmpError(Exception ex)
+        {
+            return ex is InvalidOperationException
+                ? ex.Message
+                : Autoprint.Server.Helpers.ApiErrors.LogAndDescribe(HttpContext, ex, "Erreur interne pendant l'interrogation SNMP.");
         }
     }
 }

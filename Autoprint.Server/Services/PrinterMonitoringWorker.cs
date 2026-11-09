@@ -98,6 +98,7 @@ namespace Autoprint.Server.Services
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var snmpService = scope.ServiceProvider.GetRequiredService<ISnmpService>();
+            var secrets = scope.ServiceProvider.GetRequiredService<SecretProtector>();
 
             if (_lastArchivingSweep == null || DateTime.UtcNow.Date > _lastArchivingSweep.Value.Date)
             {
@@ -112,6 +113,9 @@ namespace Autoprint.Server.Services
                 .Where(i => !i.IsArchived)
                 .ToListAsync(stoppingToken);
 
+            // Profils d'identifiants SNMP chargés une fois par cycle
+            var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(context, stoppingToken);
+
             foreach (var printer in activePrinters)
             {
                 if (stoppingToken.IsCancellationRequested) break;
@@ -123,8 +127,7 @@ namespace Autoprint.Server.Services
                     var diagnostic = await snmpService.GetPrinterDiagnosticAsync(
                         printer.AdresseIp,
                         printer.SnmpPort,
-                        printer.SnmpCommunity ?? "public",
-                        printer.SnmpVersion,
+                        SnmpCredentials.Resolve(printer, snmpProfiles, secrets),
                         printer.Modele?.SnmpProfile
                     );
 

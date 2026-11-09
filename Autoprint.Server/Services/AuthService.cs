@@ -1,4 +1,4 @@
-using System.DirectoryServices.AccountManagement;
+﻿using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -16,19 +16,37 @@ namespace Autoprint.Server.Services
     public interface IAuthService
     {
         Task<LoginResponse?> LoginAsync(LoginRequest request);
+        Task<bool> IsDirectoryLoginAsync(string username);
+        Task<LoginResponse?> RefreshAsync(int userId, long authTime);
         Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
+    }
+
+    /// <summary>L'annuaire n'a pas pu être interrogé pendant la connexion d'un utilisateur AD.</summary>
+    public class DirectoryUnavailableException : Exception
+    {
+        public DirectoryUnavailableException(Exception inner)
+            : base("Annuaire Active Directory injoignable : vos droits ne peuvent pas être vérifiés. Réessayez dans quelques minutes.", inner) { }
     }
 
     public class AuthService : IAuthService
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly SecretProtector _secrets;
 
-        public AuthService(ApplicationDbContext context, IConfiguration configuration)
+        public AuthService(ApplicationDbContext context, IConfiguration configuration, SecretProtector secrets)
         {
             _context = context;
             _configuration = configuration;
+            _secrets = secrets;
         }
+
+        /// <summary>
+        /// Vrai si la connexion de cet identifiant est vérifiée par l'annuaire (pas de compte local Autoprint) :
+        /// ses échecs comptent aussi dans le seuil de verrouillage du domaine (B53).
+        /// </summary>
+        public async Task<bool> IsDirectoryLoginAsync(string username) =>
+            !await _context.Users.AnyAsync(u => u.Username == username && !u.IsAdUser);
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
         {
@@ -47,7 +65,10 @@ namespace Autoprint.Server.Services
 
                     if (SecurityHelper.IsRehashNeeded(localUser.PasswordHash ?? ""))
                     {
+                        // Ancien hachage SHA-256 non salé : on migre, et on impose un nouveau mot de passe
+                        // (l'ancien a pu être exposé sous une forme facilement cassable)
                         localUser.PasswordHash = SecurityHelper.HashPassword(request.Password);
+                        localUser.ForceChangePassword = true;
                     }
                 }
             }
@@ -59,7 +80,7 @@ namespace Autoprint.Server.Services
 
                 string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
                 string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                 if (!string.IsNullOrWhiteSpace(domain) && !string.IsNullOrWhiteSpace(serviceUser) && !string.IsNullOrWhiteSpace(servicePass))
                 {
@@ -107,6 +128,13 @@ namespace Autoprint.Server.Services
                             }
                         }
                     }
+                    catch (Exception ex) when (IsDirectoryUnreachable(ex))
+                    {
+                        // Contrôleur de domaine injoignable : ce n'est pas un mauvais mot de passe. Avant : « Identifiants incorrects »
+                        // et un échec compté (blocage du compte après 3 essais pendant une panne réseau) (B68)
+                        Console.WriteLine($"[AuthService] Annuaire injoignable : {ex.Message}");
+                        throw new DirectoryUnavailableException(ex);
+                    }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"[AuthService] Erreur Login AD : {ex.Message}");
@@ -149,7 +177,7 @@ namespace Autoprint.Server.Services
             user.LastLogin = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            var token = GenerateJwtToken(user, permissions, passwordExpired, request.RememberMe);
+            var token = GenerateJwtToken(user, permissions, passwordExpired, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
             return new LoginResponse
             {
@@ -172,7 +200,7 @@ namespace Autoprint.Server.Services
             string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
             string customFilter = settings.FirstOrDefault(s => s.Key == "AdLdapFilter")?.Value ?? "";
             string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-            string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+            string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
             if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(serviceUser) || string.IsNullOrWhiteSpace(servicePass))
             {
@@ -239,7 +267,7 @@ namespace Autoprint.Server.Services
                     string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
                     string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                    string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                    string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                     if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(serviceUser) && !string.IsNullOrEmpty(servicePass))
                     {
@@ -316,7 +344,7 @@ namespace Autoprint.Server.Services
                 string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
 
                 string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                string servicePass = settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value ?? "";
+                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
 
                 if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(serviceUser)) return;
 
@@ -336,16 +364,16 @@ namespace Autoprint.Server.Services
 
                 SearchResult? userResult = searcher.FindOne();
 
+                // Compte hors de la base de recherche (Base DN) : aucun groupe vérifiable, les rôles AD de groupe sont retirés
+                var adGroupNames = new List<string>();
                 if (userResult != null)
                 {
                     string userDn = userResult.Properties["distinguishedName"][0].ToString()!;
 
                     using DirectorySearcher groupSearcher = new DirectorySearcher(entry);
-                    groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={userDn}))";
+                    groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={SecurityHelper.EscapeLdapFilter(userDn)}))";
                     groupSearcher.PropertiesToLoad.Add("sAMAccountName");
                     groupSearcher.PageSize = 1000;
-
-                    var adGroupNames = new List<string>();
 
                     foreach (SearchResult groupRes in groupSearcher.FindAll())
                     {
@@ -354,7 +382,9 @@ namespace Autoprint.Server.Services
                             adGroupNames.Add(groupRes.Properties["sAMAccountName"][0].ToString()!);
                         }
                     }
+                }
 
+                {
                     var allMappings = await _context.AdRoleMappings.ToListAsync();
                     var applicableMappings = new List<AdRoleMapping>();
 
@@ -374,46 +404,114 @@ namespace Autoprint.Server.Services
                         if (match) applicableMappings.Add(mapping);
                     }
 
-                    if (applicableMappings.Any())
-                    {
-                        var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
-                        if (currentRoles.Any()) _context.UserRoles.RemoveRange(currentRoles);
+                    // Les rôles issus de l'AD sont recalculés à chaque connexion (retrait du groupe = retrait du rôle).
+                    // Les rôles attribués manuellement (IsFromAd = false) sont conservés.
+                    var currentRoles = await _context.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
+                    var targetAdRoleIds = applicableMappings.Select(m => m.RoleId).Distinct().ToHashSet();
 
-                        foreach (var map in applicableMappings)
-                        {
-                            if (!_context.UserRoles.Local.Any(ur => ur.UserId == user.Id && ur.RoleId == map.RoleId))
-                            {
-                                _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = map.RoleId });
-                            }
-                        }
-                        await _context.SaveChangesAsync();
+                    var rolesToRemove = currentRoles.Where(ur => ur.IsFromAd && !targetAdRoleIds.Contains(ur.RoleId)).ToList();
+                    var rolesToAdd = targetAdRoleIds.Where(id => !currentRoles.Any(ur => ur.RoleId == id)).ToList();
+
+                    _context.UserRoles.RemoveRange(rolesToRemove);
+                    foreach (var roleId in rolesToAdd)
+                    {
+                        _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleId, IsFromAd = true });
                     }
+
+                    // Les autres sessions ouvertes de cet utilisateur portent d'anciens droits : on les coupe
+                    if (rolesToRemove.Count > 0 || rolesToAdd.Count > 0) user.RenewSecurityStamp();
+
+                    await _context.SaveChangesAsync();
                 }
             }
-            catch (Exception ex)
+            catch (System.Runtime.InteropServices.COMException ex) // inclut DirectoryServicesCOMException (serveur LDAP injoignable, délai dépassé…)
             {
+                // Annuaire injoignable : impossible de vérifier les groupes, donc de savoir si des droits ont été retirés.
+                // La connexion est refusée plutôt que d'accorder des rôles peut-être révoqués (backlog B13).
                 Console.WriteLine($"[AD-SYNC-ERROR] {ex.Message}");
+                throw new DirectoryUnavailableException(ex);
             }
+        }
+
+        // Serveur d'annuaire injoignable (et non refus des identifiants) : PrincipalServerDownException, LDAP 81 / 0x8007203A…
+        private static bool IsDirectoryUnreachable(Exception ex)
+        {
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                if (e is PrincipalServerDownException) return true;
+                if (e is System.DirectoryServices.Protocols.LdapException ldap && ldap.ErrorCode is 81 or 85 or 91) return true;
+                if (e is System.Runtime.InteropServices.COMException com && (uint)com.HResult is 0x8007203A or 0x80072030 or 0x8007054B) return true;
+            }
+            return false;
         }
 
         private async Task<List<string>> GetUserPermissionsAsync(User user)
         {
-            return await _context.UserRoles
+            var permissions = await _context.UserRoles
                 .Where(ur => ur.UserId == user.Id)
                 .SelectMany(ur => ur.Role.RolePermissions)
                 .Select(rp => rp.Permission.Code)
                 .Distinct()
                 .ToListAsync();
+
+            // « Administration » donne tous les droits, y compris ceux ajoutés par une mise à jour
+            if (permissions.Contains(PermissionGuard.AdminPermission))
+                permissions = await _context.Permissions.Select(p => p.Code).ToListAsync();
+
+            return permissions;
         }
 
-        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired, bool rememberMe)
+        // Durée maximale d'une session, renouvellements compris : au-delà, reconnexion obligatoire (backlog B19)
+        private static readonly TimeSpan MaxSessionLifetime = TimeSpan.FromHours(10);
+
+        /// <summary>
+        /// Renouvellement silencieux du jeton par la console (backlog B19) : droits et statut relus en base,
+        /// date de connexion d'origine conservée pour appliquer la durée maximale de session.
+        /// </summary>
+        public async Task<LoginResponse?> RefreshAsync(int userId, long authTime)
+        {
+            if (DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(authTime) > MaxSessionLifetime) return null;
+
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null || !user.IsActive) return null;
+
+            var permissions = await GetUserPermissionsAsync(user);
+            if (!permissions.Any()) return null;
+
+            bool passwordExpired = !user.IsAdUser && (user.ForceChangePassword || await IsPasswordExpiredAsync(user));
+            return new LoginResponse
+            {
+                Token = GenerateJwtToken(user, permissions, passwordExpired, authTime),
+                Username = user.Username,
+                DisplayName = user.DisplayName,
+                Permissions = permissions,
+                PasswordExpired = passwordExpired
+            };
+        }
+
+        private async Task<bool> IsPasswordExpiredAsync(User user)
+        {
+            int maxDays = 90;
+            var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpirationDays");
+            if (setting != null && int.TryParse(setting.Value, out int days)) maxDays = days;
+            if (maxDays <= 0) return false;
+            return user.LastPasswordChangeDate == null || DateTime.UtcNow > user.LastPasswordChangeDate.Value.AddDays(maxDays);
+        }
+
+        private string GenerateJwtToken(User user, List<string> permissions, bool passwordExpired, long authTime)
         {
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim("DisplayName", user.DisplayName ?? "")
+                new Claim("DisplayName", user.DisplayName ?? ""),
+                // Vérifiée à chaque requête (Program.cs, OnTokenValidated) pour pouvoir révoquer les sessions
+                new Claim("sstamp", user.SecurityStamp ?? ""),
+                // Date de la connexion d'origine (conservée lors des renouvellements)
+                new Claim("auth_time", authTime.ToString(), ClaimValueTypes.Integer64)
             };
 
             if (passwordExpired) claims.Add(new Claim("ForcePasswordChange", "true"));

@@ -133,8 +133,21 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="Serveur (Instance) :" VerticalAlignment="Center" Margin="0,0,0,10"/>
-                            <TextBox Grid.Column="1" x:Name="TxtSqlServer" Text="localhost" Padding="3" Margin="0,0,0,10"/>
+                            <TextBlock Text="Serveur (Instance) :" VerticalAlignment="Top" Margin="0,4,0,10"/>
+                            <StackPanel Grid.Column="1" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="70"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtSqlServer" Text="localhost" Padding="3"/>
+                                    <TextBlock Grid.Column="1" Text="Port :" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" Padding="3" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
+                                </Grid>
+                                <TextBlock Text="Ex. : sqlsrv01 ou sqlsrv01\SQLEXPRESS. Port facultatif (vide = port par défaut ou instance nommée)."
+                                           Foreground="#777" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
 
                             <TextBlock Grid.Row="1" Text="Nom de la base :" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb" Padding="3"/>
@@ -185,6 +198,10 @@
                     <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" Padding="5" MaxLength="5"/>
                 </Grid>
                 <TextBlock Text="Note : L'installeur configurera le pare-feu automatiquement." FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+
+                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5"/>
+                <TextBox x:Name="TxtPublicHost" Padding="5" Width="350" HorizontalAlignment="Left"/>
+                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé)." FontSize="11" Foreground="Gray" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel x:Name="View6_Install" Visibility="Collapsed" VerticalAlignment="Center">
@@ -197,6 +214,10 @@
                 <TextBlock x:Name="TxtFinishTitle" Text="Installation Terminée" FontSize="24" Foreground="#2E7D32" Margin="0,0,0,20"/>
 
                 <TextBlock Text="Autoprint Server a été installé et configuré avec succès." FontSize="14"/>
+
+                <Border x:Name="PanelSqlAction" Visibility="Collapsed" Background="#FFF8E1" BorderBrush="#FFB300" BorderThickness="1" Padding="10" Margin="0,15,0,0">
+                    <TextBlock x:Name="TxtSqlAction" TextWrapping="Wrap" Foreground="#5D4037"/>
+                </Border>
 
                 <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
                     <TextBlock Text="👉" Margin="0,0,10,0"/>

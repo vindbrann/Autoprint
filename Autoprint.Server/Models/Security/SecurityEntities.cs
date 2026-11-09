@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Autoprint.Shared.Enums;
 
@@ -28,6 +28,13 @@ namespace Autoprint.Server.Models.Security
 
         public bool ForceChangePassword { get; set; } = false;
 
+        // Change à chaque modification sensible (mot de passe, statut, rôles) : les jetons émis avant sont alors refusés
+        [MaxLength(64)]
+        public string? SecurityStamp { get; set; }
+
+        public void RenewSecurityStamp() => SecurityStamp = Guid.NewGuid().ToString("N");
+
+        // « Mot de passe oublié » (backlog B5) : contient l'empreinte SHA-256 du jeton envoyé par e-mail, jamais le jeton lui-même
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpires { get; set; }
     }
@@ -83,6 +90,9 @@ namespace Autoprint.Server.Models.Security
         public User User { get; set; } = null!;
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
+
+        // true = rôle attribué par un mapping de groupe AD (retiré si l'utilisateur quitte le groupe) ; false = rôle attribué manuellement
+        public bool IsFromAd { get; set; }
     }
 
     public class RolePermission

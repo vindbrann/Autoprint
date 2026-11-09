@@ -74,6 +74,13 @@ else
                                             <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sauvegarde</RadzenText>
                                         </RadzenStack>
                                         <RadzenText TextStyle="TextStyle.Body2">Exportez la configuration complète au format JSON.</RadzenText>
+                                        <RadzenStack Gap="0.25rem">
+                                            <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" Style="font-size: 0.85rem; font-weight: 600;" />
+                                            <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                                Avec un mot de passe, les mots de passe AD / SMTP et la clé agent sont inclus chiffrés. Sans mot de passe, ils sont exclus du fichier.
+                                            </RadzenText>
+                                        </RadzenStack>
                                         <RadzenButton Text="Télécharger le fichier" Icon="download" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Click="@DownloadBackup" Class="rz-mt-auto" />
                                     </RadzenStack>
                                 </RadzenCard>
@@ -103,6 +110,17 @@ else
                                             <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
                                                 <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
                                                     <div><strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())</div>
+                                                    @if (uploadedBackup.SecretsProtected)
+                                                    {
+                                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="font-size: 0.8rem;">
+                                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
+                                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
+                                                        </div>
+                                                    }
                                                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                                                         <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
                                                         <RadzenButton Text="Ecraser" Size="ButtonSize.ExtraSmall" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
@@ -151,6 +169,12 @@ else
                                         <RadzenLabel Text="Activer SSL / TLS" Class="rz-ml-2" />
                                     </RadzenColumn>
                                 </RadzenRow>
+                                @if (!model.SmtpEnableSsl)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false" Class="rz-mt-2">
+                                        Sans TLS, le mot de passe SMTP et le contenu des rapports circulent en clair sur le réseau. À réserver à un relais interne de confiance.
+                                    </RadzenAlert>
+                                }
                             </RadzenFieldset>
                         </RadzenColumn>
 
@@ -373,7 +397,7 @@ else
                                         Permet de scanner périodiquement les imprimantes actives par Ping et SNMP pour remonter les statuts et niveaux de toner.
                                     </RadzenText>
 
-                                    <RadzenDivider />
+                                    <hr style="margin: 0.75rem 0; border-color: var(--rz-border-color);" />
 
                                     <RadzenRow>
                                         <RadzenColumn Size="12" SizeMD="6">
@@ -387,7 +411,7 @@ else
                                         </RadzenColumn>
                                     </RadzenRow>
 
-                                    <RadzenDivider />
+                                    <hr style="margin: 0.75rem 0; border-color: var(--rz-border-color);" />
 
                                     <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;">Horaires de fonctionnement (Pause Nocturne)</RadzenText>
                                     <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -10px;">
@@ -632,20 +656,31 @@ else
                                     <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning); font-size: 2rem;" />
                                     <RadzenStack Gap="0">
                                         <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
-                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux agents Autoprint de s'identifier. Ne la modifiez qu'en cas de sinistre.</RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux postes clients de s'identifier. Elle est demandée à l'installation du MSI client (APIKEY=...).</RadzenText>
                                     </RadzenStack>
                                 </RadzenStack>
 
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mt-2">
-                                    <RadzenSwitch @bind-Value="@isAgentKeyEditable" />
-                                    <RadzenLabel Text="@(isAgentKeyEditable ? "Modification AUTORISÉE (DANGER)" : "Verrouillé (Lecture seule)")"
-                                                 Style="@(isAgentKeyEditable ? "color: var(--rz-danger); font-weight: bold;" : "color: var(--rz-text-disabled-color);")" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                    <RadzenTextBox Value="@model.AgentApiKey" Disabled="true" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
+                                    <RadzenButton Icon="content_copy" Text="Copier la clé" ButtonStyle="ButtonStyle.Secondary" Click="@CopyAgentKey" Tooltip="Copie la clé en clair dans le presse-papiers (action tracée dans l'audit)" />
                                 </RadzenStack>
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                                    La clé n'est jamais affichée en clair. Chaque copie est enregistrée dans le journal d'audit.
+                                </RadzenText>
 
-                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                    <RadzenTextBox @bind-Value="@model.AgentApiKey" Disabled="@(!isAgentKeyEditable)" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
-                                    <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await JS.InvokeVoidAsync("navigator.clipboard.writeText", model.AgentApiKey))" Tooltip="Copier" />
+                                @* Changement de clé (backlog B18) *@
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap" Class="rz-mt-2">
+                                    <RadzenLabel Text="Ancienne clé encore acceptée pendant" Component="Transition" />
+                                    <RadzenDropDown Name="Transition" TValue="int" @bind-Value="@agentKeyTransitionDays" Data="@agentKeyTransitions" TextProperty="Text" ValueProperty="Value" Style="width: 170px;" />
+                                    <RadzenButton Icon="autorenew" Text="Générer une nouvelle clé" ButtonStyle="ButtonStyle.Warning" Click="@RotateAgentKey" IsBusy="@rotatingAgentKey" />
                                 </RadzenStack>
+                                @if (agentKeyPreviousUntil != null && agentKeyPreviousUntil > DateTime.UtcNow)
+                                {
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
+                                        Période de transition : l'ancienne clé est encore acceptée jusqu'au @agentKeyPreviousUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm").
+                                        Redéployez la nouvelle clé sur les postes (MSI <code>APIKEY=…</code> ou GPO sur <code>HKLM\SOFTWARE\Autoprint\APIKEY</code>) avant cette date.
+                                    </RadzenAlert>
+                                }
                             </RadzenStack>
                         </RadzenCard>
 
@@ -686,7 +721,68 @@ else
     private bool sauvegardeEnCours = false;
     private bool testEnCours = false;
     private bool testAdFilterEnCours = false;
-    private bool isAgentKeyEditable = false;
+    private int agentKeyTransitionDays = 30;
+    private bool rotatingAgentKey;
+    private DateTime? agentKeyPreviousUntil;
+    private readonly object[] agentKeyTransitions =
+    {
+        new { Text = "7 jours", Value = 7 },
+        new { Text = "30 jours", Value = 30 },
+        new { Text = "90 jours", Value = 90 },
+        new { Text = "Aucune (révocation immédiate)", Value = 0 }
+    };
+
+    private async Task RotateAgentKey()
+    {
+        var message = agentKeyTransitionDays > 0
+            ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
+            : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
+        if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
+
+        rotatingAgentKey = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays });
+            if (!response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
+                return;
+            }
+            var result = await response.Content.ReadFromJsonAsync<AgentKeyRotationResult>();
+            agentKeyPreviousUntil = result?.PreviousValidUntil;
+            await DialogService.Alert(
+                $"Nouvelle clé : {result?.Key}\n\nCopiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier la clé ».",
+                "Nouvelle clé d'API agent", new AlertOptions { OkButtonText = "J'ai copié la clé" });
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { rotatingAgentKey = false; }
+    }
+
+    private class AgentKeyRotationResult { public string Key { get; set; } = ""; public DateTime? PreviousValidUntil { get; set; } }
+
+    private async Task CopyAgentKey()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<AgentKeyResponse>("api/Settings/agent-key");
+            if (string.IsNullOrEmpty(response?.Key)) throw new InvalidOperationException("Clé introuvable.");
+            try
+            {
+                await JS.InvokeVoidAsync("navigator.clipboard.writeText", response.Key);
+                NotificationService.Notify(NotificationSeverity.Success, "Copiée", "La clé d'API agent est dans le presse-papiers.");
+            }
+            catch (JSException)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Copie impossible", "Le navigateur a refusé l'accès au presse-papiers (la console doit être ouverte en HTTPS).");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de récupérer la clé : " + ex.Message);
+        }
+    }
+
+    private class AgentKeyResponse { public string Key { get; set; } = ""; }
     private string testEmailTo = "";
     private string testAdQuery = "";
     private string builderGroupName = "";
@@ -739,6 +835,7 @@ else
         {
             var s = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
             model.AgentApiKey = GV(s, "AgentApiKey");
+            agentKeyPreviousUntil = DateTime.TryParse(GV(s, "AgentApiKeyPreviousExpiresAt"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var until) ? until : null;
             model.LogRetentionDays = int.Parse(GV(s, "LogRetentionDays", "180"));
             model.SmtpHost = GV(s, "SmtpHost");
             model.SmtpPort = int.Parse(GV(s, "SmtpPort", "25"));
@@ -790,13 +887,34 @@ else
         finally { sauvegardeEnCours = false; }
     }
 
+    private string? backupSecretsPassword;
+    private string? restoreSecretsPassword;
+
     private async Task DownloadBackup()
     {
+        bool withSecrets = !string.IsNullOrEmpty(backupSecretsPassword);
+        if (withSecrets && backupSecretsPassword!.Length < PasswordPolicy.MinLength)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Mot de passe trop court", $"Le mot de passe de protection doit faire au moins {PasswordPolicy.MinLength} caractères.");
+            return;
+        }
+
+        // Avertissement avant export (audit #9)
+        var confirmed = await DialogService.Confirm(
+            (withSecrets
+                ? "Les mots de passe AD / SMTP et la clé d'API agent seront inclus, CHIFFRÉS avec votre mot de passe de protection : sans lui, ils ne pourront pas être restaurés. "
+                : "Les mots de passe AD / SMTP et la clé d'API agent ne seront PAS inclus : après une restauration sur un autre serveur, il faudra les ressaisir. ") +
+            "Le fichier contient aussi les empreintes des mots de passe des comptes locaux et toute la configuration : " +
+            "conservez-le dans un emplacement protégé (accès réservé aux administrateurs) et ne l'envoyez pas par e-mail. Continuer ?",
+            "Sauvegarde : données sensibles",
+            new ConfirmOptions { OkButtonText = "J'ai compris, télécharger", CancelButtonText = "Annuler" });
+        if (confirmed != true) return;
+
         try
         {
             NotificationService.Notify(NotificationSeverity.Info, "Export", "Préparation du téléchargement...");
 
-            var response = await Http.GetAsync("api/Backup/export");
+            var response = await Http.PostAsJsonAsync("api/Backup/export", new Autoprint.Shared.DTOs.BackupExportRequestDto { SecretsPassword = withSecrets ? backupSecretsPassword : null });
 
             if (response.IsSuccessStatusCode)
             {
@@ -824,8 +942,19 @@ else
         {
             using var stream = e.File.OpenReadStream(5 * 1024 * 1024);
             uploadedBackup = await (JsonSerializer.DeserializeAsync<Autoprint.Shared.DTOs.BackupRootDto>(stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }));
+            if (uploadedBackup == null || string.IsNullOrWhiteSpace(uploadedBackup.Version)) throw new JsonException();
         }
-        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", ex.Message); }
+        catch (JsonException)
+        {
+            // Pas le détail technique de la désérialisation (types .NET, numéros de ligne) (B57)
+            uploadedBackup = null;
+            NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", "Ce fichier n'est pas une sauvegarde Autoprint lisible (fichier modifié ou endommagé ?).");
+        }
+        catch (IOException)
+        {
+            uploadedBackup = null;
+            NotificationService.Notify(NotificationSeverity.Error, "Fichier invalide", "Fichier illisible ou trop volumineux (5 Mo au maximum).");
+        }
     }
 
     private async Task ExecuteRestore()
@@ -837,6 +966,7 @@ else
             isRestoring = true;
             try
             {
+                uploadedBackup.SecretsPassword = uploadedBackup.SecretsProtected ? restoreSecretsPassword : null;
                 var res = await Http.PostAsJsonAsync("api/Backup/restore", uploadedBackup);
                 if (res.IsSuccessStatusCode)
                 {

@@ -1,4 +1,5 @@
-﻿using Autoprint.Server.Data;
+using Autoprint.Server.Helpers;
+using Autoprint.Server.Data;
 using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
@@ -48,20 +49,9 @@ namespace Autoprint.Server.Controllers
                 return await query.ToListAsync();
             }
 
-            if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
+            if (await AgentAuth.IsValidAgentRequestAsync(Request, _context))
             {
-                var setting = await _context.ServerSettings
-                    .FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
-
-                if (setting == null)
-                {
-                    return StatusCode(500, new { message = "Erreur configuration serveur : AgentApiKey manquante." });
-                }
-
-                if (receivedSecret == setting.Value)
-                {
-                    return await query.ToListAsync();
-                }
+                return await query.ToListAsync();
             }
 
             return Unauthorized(new { message = "Accès refusé. Authentification ou Clé API requise." });

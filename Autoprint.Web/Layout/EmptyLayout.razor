@@ -1,13 +1,13 @@
 ﻿@inherits LayoutComponentBase
 @using Radzen
 @using Radzen.Blazor
-@using Blazored.LocalStorage
+@using Autoprint.Web.Services
 
 @inject ThemeService ThemeService
 @inject ILocalStorageService LocalStorage
 
 <RadzenComponents />
-<RadzenTheme />
+<RadzenTheme Theme="material" />
 
 <div class="main" style="background-color: var(--rz-base-background-color); min-height: 100vh;">
     <div class="content px-4">

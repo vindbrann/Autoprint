@@ -10,29 +10,28 @@
 
 	<ItemGroup>
 		<PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.7" />
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0">
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.14">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
 
-		<PackageReference Include="PdfSharpCore" Version="1.3.67" />
-		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.6.2" />
+		<PackageReference Include="SkiaSharp" Version="4.154.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
 
-		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.0" />
-		<PackageReference Include="System.Management" Version="10.0.0" />
-		<PackageReference Include="System.Management.Automation" Version="7.5.4" />
-		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.14" />
+		<PackageReference Include="System.Management" Version="10.0.14" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
 
 		<!-- Explicit package overrides to resolve security vulnerabilities in transitive dependencies -->
-		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
-		<PackageReference Include="SixLabors.ImageSharp" Version="2.1.11" />
-		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+		<PackageReference Include="Microsoft.OpenApi" Version="2.13.0" />
+		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -44,8 +43,27 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Autoprint.Shared\Autoprint.Shared.csproj" />
+		<ProjectReference Include="..\Autoprint.Spooler\Autoprint.Spooler.csproj" />
 
 		<ProjectReference Include="..\Autoprint.Web\Autoprint.Web.csproj" />
 	</ItemGroup>
+
+	<!-- Police des rapports PDF : sous-ensemble latin de Liberation Sans (licence OFL), renommé « Autoprint Sans ».
+	     Embarquée dans l'assembly : PDF légers (~25 Ko par style) et indépendants des polices installées sur le serveur.
+	     Régénération : tools/fonts/make_autoprint_sans.py (voir Resources/Fonts/README.md). -->
+	<ItemGroup>
+		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Regular.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Regular.ttf" />
+		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Bold.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Bold.ttf" />
+		<None Include="Resources\Fonts\OFL-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\AutoprintSans-OFL-LICENSE.txt" />
+	</ItemGroup>
+
+	<!-- SkiaSharp (rapports PDF) livre sa bibliothèque native pour toutes les plateformes, avec ~100 Mo de symboles chacune :
+	     le serveur étant x64 sous Windows, seul runtimes\win-x64
+ative\libSkiaSharp.dll est publié (et donc mis dans le MSI). -->
+	<Target Name="TrimSkiaSharpNativeAssets" AfterTargets="ComputeResolvedFilesToPublishList">
+		<ItemGroup>
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('libSkiaSharp')) And ('%(Extension)' == '.pdb' Or !$([System.String]::Copy('%(RelativePath)').Replace('/', '').StartsWith('runtimes\win-x64')))" />
+		</ItemGroup>
+	</Target>
 
 </Project>

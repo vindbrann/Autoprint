@@ -1,6 +1,6 @@
 # PROJECT_MAP.md
 
-Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appels et des flux de données de la solution **Autoprint** (Version `26.8.24.3`).
+Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appels et des flux de données de la solution **Autoprint** (Version `26.11.8.2`).
 
 ---
 
@@ -13,7 +13,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | **Serveur d'API & Hôte Web** | `Autoprint.Server` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Program.cs) | `dotnet run --project Autoprint.Server`<br/>Production : Hébergé sous IIS (`w3wp.exe`) via le module ASP.NET Core Hosting Bundle.<br/>CLI Maintenance : `Autoprint.Server.exe --migrate-only` ou `Autoprint.Server.exe --reset-admin` |
 | **Frontend Web Admin** | `Autoprint.Web` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Web/Program.cs) | Téléchargé et exécuté dans le navigateur client via WebAssembly depuis l'hôte serveur (`_framework/blazor.webassembly.js`). En dev local : `dotnet watch --project Autoprint.Web` |
 | **Client Bureau Utilisateur** | `Autoprint.Client` | [`App.xaml.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/App.xaml.cs) | `Autoprint.Client.exe`<br/>Arguments optionnels : `--firstrun`, `--silent`, `--api-key <CLE>`, `--print-server <SERVEUR>`, `--config-path <DOSSIER>` |
-| **Service Système Windows** | `Autoprint.Service` | [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Program.cs) | Géré par le Windows Service Control Manager (`sc.exe start AutoprintService`). En debug console : exécution directe du binaire. |
 | **Installateur Serveur** | `Autoprint.Installer.Server.UI` | [`App.xaml.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Installer.Server.UI/App.xaml.cs) | `Autoprint.Installer.Server.UI.exe` (Exécute avec élévation UAC `requireAdministrator`). |
 
 ---
@@ -36,7 +35,7 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
    - Authentification (`UseAuthentication`) et Autorisation (`UseAuthorization`).
    - Routage : Razor Pages, Contrôleurs API, Hub SignalR [`EventsHub`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Hubs/EventsHub.cs) sur `/hubs/events`, et page de repli `index.html`.
 10. **Amorçage Automatique de la Base au Démarrage :** Portée de service temporaire pour exécuter les migrations EF Core et [`DbInitializer.Initialize()`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Data/DbInitializer.cs) (création des tables, injection des permissions, création du compte `admin` initial si absent, synchronisation des clés de configuration par défaut).
-11. **Interception `--reset-admin` :** Si spécifié en ligne de commande, réinitialisation du mot de passe `admin` à `admin123` avec `ForceChangePassword = true`, puis arrêt.
+11. **Interception `--reset-admin` :** Si spécifié en ligne de commande, réinitialisation du mot de passe `admin` avec un mot de passe temporaire aléatoire affiché une seule fois dans la console, `ForceChangePassword = true`, puis arrêt.
 12. **Exécution continue :** `app.Run()`.
 
 #### B. Initialisation du Client Desktop (`Autoprint.Client`)
@@ -53,13 +52,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 6. **Liaison Temps Réel SignalR :** [`RealTimeService`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/RealTimeService.cs) se connecte au hub `/hubs/events` du serveur distant et déclenche `RafraichirDonneesAsync` lors de la réception de `RefreshPrinters`.
 7. **Surveillance Réseau :** Abonnement à `NetworkChange.NetworkAddressChanged` pour déclencher une détection automatique avec temporisation anti-rebond de 3 secondes.
 8. **Premier Scan :** Appel de `RafraichirDonneesAsync(estDemarrage: true)` avec détection de l'IP active, matching CIDR, lecture du cache/API et application de l'imprimante par défaut.
-
-#### C. Initialisation du Service Windows (`Autoprint.Service`)
-1. [`Program.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Program.cs) configure le worker d'hôte avec `AddWindowsService(ServiceName = "AutoprintService")`.
-2. [`Worker.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Worker.cs) démarre et instancie [`PrinterEngine`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/PrinterEngine.cs) et [`NamedPipeServer`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/NamedPipeServer.cs).
-3. Le serveur de tube nommé écoute sur `\\.\pipe\AutoprintPipe` avec des permissions sécurisées restreintes aux utilisateurs authentifiés (`AuthenticatedUserSid`), prêt à exécuter l'installation machine de pilotes (`printui.dll /ia`) et les écritures dans `HKLM\SOFTWARE\Autoprint`.
-
----
 
 ## 2. Cadastre des Composants & Logique Métier
 
@@ -91,7 +83,7 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | [`Autoprint.Server/Services/WindowsPrintSpoolerService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/WindowsPrintSpoolerService.cs) | `WindowsPrintSpoolerService` : `IPrintSpoolerService` | `winspool.drv` (P/Invoke), WMI | Interaction directe bas niveau avec Windows : création de ports TCP/IP (`Win32_TCPIPPrinterPort`), files (`Win32_Printer`), renommage WMI, écriture registre mode direct filiale (`BranchOffice`). |
 | [`Autoprint.Server/Services/SnmpService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/SnmpService.cs) | `SnmpService` : `ISnmpService` | `SharpSnmpLib`, Ping ICMP | Diagnostic réseau, interrogation groupée UDP des OIDs de consommables/bacs, auto-découverte par balayage arborescent Printer-MIB (RFC 3805). |
 | [`Autoprint.Server/Services/PredictiveService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/PredictiveService.cs) | `PredictiveService` : `IPredictiveService` | Mathématiques | Algorithme de régression linéaire par moindres carrés pour estimer le nombre de jours restant avant épuisement de chaque cartouche. |
-| [`Autoprint.Server/Services/ReportGeneratorService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/ReportGeneratorService.cs) | `ReportGeneratorService` : `IReportGeneratorService` | `PdfSharpCore`, `ISnmpService` | Extraction des données filtrées par règles dynamiques, génération vectorielle des rapports PDF avec jauges graphiques et export CSV. |
+| [`Autoprint.Server/Services/ReportGeneratorService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/ReportGeneratorService.cs) | `ReportGeneratorService` : `IReportGeneratorService` | `PdfReportWriter` (SkiaSharp), `ISnmpService` | Extraction des données filtrées par règles dynamiques, génération vectorielle des rapports PDF avec jauges graphiques et export CSV. |
 | [`Autoprint.Server/Services/EmailService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/EmailService.cs) | `EmailService` : `IEmailService` | `System.Net.Mail.SmtpClient` | Envoi d'e-mails HTML et de pièces jointes (rapports, alertes découverte) selon les paramètres SMTP stockés en base. |
 | [`Autoprint.Server/Services/DiscoveryService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/DiscoveryService.cs) | `DiscoveryService` | `SharpSnmpLib`, TCP, Ping | Balayage réseau multi-threadé (`Parallel.ForEachAsync`) pour la détection de nouvelles imprimantes (port 9100) et de nouveaux sous-réseaux. |
 | [`Autoprint.Server/Services/NamingService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Services/NamingService.cs) | `NamingService` : `INamingService` | Regex, `ServerSettings` | Génération de noms standardisés d'imprimantes à partir d'un gabarit de variables (`{LIEU}`, `{MODELE}`, `{IP}`, etc.). |
@@ -104,8 +96,6 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | [`Autoprint.Client/Services/IpHelper.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/IpHelper.cs) | `IpHelper` | Mathématiques réseau binaire | Vérification d'appartenance d'une adresse IPv4 à un bloc de sous-réseau CIDR (`IsIpInCidr`). |
 | [`Autoprint.Client/Services/RealTimeService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/RealTimeService.cs) | `RealTimeService` | `HubConnection` (SignalR) | Maintien de la connexion WebSocket avec le serveur et notification de rafraîchissement au client WPF. |
 | [`Autoprint.Client/Services/ApiService.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Client/Services/ApiService.cs) | `ApiService` | `HttpClient`, JSON | Appels HTTP vers les contrôleurs `/api/emplacements` et `/api/imprimantes` avec jeton secret machine. |
-| [`Autoprint.Service/Services/NamedPipeServer.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/NamedPipeServer.cs) | `NamedPipeServer` | `NamedPipeServerStreamAcl` | Écoute IPC sur `AutoprintPipe`, réception des commandes `INSTALL_DRIVER` et `UPDATE_CONFIG`. |
-| [`Autoprint.Service/Services/PrinterEngine.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Service/Services/PrinterEngine.cs) | `PrinterEngine` | `rundll32 printui.dll` | Exécution privilégiée en compte SYSTEM de l'installation silencieuse de pilotes d'impression machine. |
 
 ---
 
@@ -129,7 +119,7 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 | [`NamingController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/NamingController.cs) | `/api/Naming` | `[Authorize]` | `POST preview` : Prévisualisation dynamique d'un nom d'imprimante selon un gabarit. |
 | [`PilotesController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/PilotesController.cs) | `/api/Pilotes` | `DRIVER_READ`, `DRIVER_SCAN` | Consultation et suppression des pilotes enregistrés dans le référentiel. |
 | [`ReportSchedulesController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/ReportSchedulesController.cs) | `/api/ReportSchedules` | `REPORT_MANAGE` | CRUD des planifications de rapports périodiques, `POST {id}/send` (génération et envoi immédiat par e-mail). |
-| [`RolesController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/RolesController.cs) | `/api/Roles` | `ROLE_READ`, `ROLE_WRITE`, `ROLE_DELETE` | CRUD des rôles, gestion des associations de permissions, mapping des groupes Active Directory (`AdRoleMappings`). |
+| [`RolesController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/RolesController.cs) | `/api/Roles` | `ROLE_READ`, `ROLE_WRITE` | CRUD des rôles, gestion des associations de permissions, mapping des groupes Active Directory (`AdRoleMappings`). |
 | [`SettingsController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/SettingsController.cs) | `/api/Settings` | `SETTINGS_MANAGE` | Consultation avec masquage des secrets, enregistrement global avec audit, tests de connectivité SMTP et Active Directory. |
 | [`SnmpProfilesController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/SnmpProfilesController.cs) | `/api/SnmpProfiles` | `SNMP_PROFILE_READ`, `WRITE`, `DELETE` | CRUD des profils et items SNMP, `POST scan-printer` (auto-découverte MIB), `POST test-profile`, `GET {id}/export`, `POST import`. |
 | [`SyncController.cs`](file:///C:/Git/Developpement/Autoprint/Autoprint/Autoprint.Server/Controllers/SyncController.cs) | `/api/Sync` | `PRINTER_SYNC` | `GET preview` (liste des changements en attente), `POST apply` (application par lot dans le Spouleur Windows). |

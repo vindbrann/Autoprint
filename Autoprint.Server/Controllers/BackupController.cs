@@ -1,3 +1,5 @@
+using Autoprint.Server.Services;
+using Autoprint.Server.Helpers;
 using System.Text;
 using System.Text.Json;
 using Autoprint.Server.Data;
@@ -17,15 +19,22 @@ namespace Autoprint.Server.Controllers
     public class BackupController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly SecretProtector _secrets;
 
-        public BackupController(ApplicationDbContext context)
+        public BackupController(ApplicationDbContext context, SecretProtector secrets)
         {
             _context = context;
+            _secrets = secrets;
         }
 
-        [HttpGet("export")]
-        public async Task<IActionResult> Export()
+        // POST : le mot de passe de protection ne doit jamais apparaître dans une URL
+        [HttpPost("export")]
+        public async Task<IActionResult> Export([FromBody] BackupExportRequestDto? request)
         {
+            var secretsPassword = request?.SecretsPassword;
+            if (!string.IsNullOrEmpty(secretsPassword) && secretsPassword.Length < PasswordPolicy.MinLength)
+                return BadRequest($"Le mot de passe de protection doit faire au moins {PasswordPolicy.MinLength} caractères.");
+
             var backup = new BackupRootDto
             {
                 CreatedAt = DateTime.UtcNow,
@@ -80,7 +89,8 @@ namespace Autoprint.Server.Controllers
                     Nom = x.Nom,
                     MarqueId = x.MarqueId,
                     PiloteId = x.PiloteId,
-                    SnmpProfileId = x.SnmpProfileId
+                    SnmpProfileId = x.SnmpProfileId,
+                    SnmpCredentialId = x.SnmpCredentialId
                 }).ToListAsync(),
 
                 Imprimantes = await _context.Imprimantes.Select(x => new BackupImprimanteDto
@@ -94,7 +104,12 @@ namespace Autoprint.Server.Controllers
                     EmplacementId = x.EmplacementId,
                     Status = x.Status,
                     Localisation = x.Localisation,
-                    SerialNumber = x.SerialNumber
+                    SerialNumber = x.SerialNumber,
+                    IsDirectPrintingEnabled = x.IsDirectPrintingEnabled,
+                    SnmpPort = x.SnmpPort,
+                    SnmpVersion = x.SnmpVersion,
+                    SnmpCommunity = x.SnmpCommunity,
+                    SnmpCredentialId = x.SnmpCredentialId
                 }).ToListAsync(),
 
                 ReportSchedules = await _context.ReportSchedules
@@ -141,13 +156,44 @@ namespace Autoprint.Server.Controllers
                     Email = x.Email,
                     IsAdUser = x.IsAdUser,
                     IsActive = x.IsActive,
-                    RoleIds = x.UserRoles.Select(ur => ur.RoleId).ToList()
+                    RoleIds = x.UserRoles.Select(ur => ur.RoleId).ToList(),
+                    AdRoleIds = x.UserRoles.Where(ur => ur.IsFromAd).Select(ur => ur.RoleId).ToList(),
+                    PasswordHash = x.PasswordHash,
+                    LastPasswordChangeDate = x.LastPasswordChangeDate,
+                    ForceChangePassword = x.ForceChangePassword
                 }).ToListAsync(),
 
-                Settings = await _context.ServerSettings.Select(x => new BackupSettingDto { Key = x.Key, Value = x.Value, Type = x.Type }).ToListAsync(),
+                Settings = (await _context.ServerSettings.AsNoTracking().ToListAsync()).Select(x => new BackupSettingDto
+                {
+                    Key = x.Key,
+                    Type = x.Type,
+                    // Secrets : rechiffrés avec le mot de passe de la sauvegarde, ou exclus (audit #9)
+                    Value = !SecretProtector.IsSecret(x.Key) ? x.Value
+                          : string.IsNullOrEmpty(secretsPassword) || string.IsNullOrEmpty(x.Value) ? ""
+                          : SecretProtector.ProtectForBackup(_secrets.Unprotect(x.Value), secretsPassword)
+                }).ToList(),
+                SecretsProtected = !string.IsNullOrEmpty(secretsPassword),
 
                 AdMappings = await _context.AdRoleMappings.Select(x => new BackupAdMappingDto { Identifier = x.AdIdentifier, Type = (int)x.MappingType, RoleId = x.RoleId }).ToListAsync()
             };
+
+            // Identifiants SNMP et communautés : mêmes règles que les autres secrets (chiffrés avec le mot de passe, sinon exclus)
+            string? ForBackup(string? plain) => string.IsNullOrEmpty(secretsPassword) || string.IsNullOrEmpty(plain) ? null : SecretProtector.ProtectForBackup(plain, secretsPassword);
+            backup.SnmpCredentials = (await _context.SnmpCredentials.AsNoTracking().ToListAsync()).Select(c => new BackupSnmpCredentialDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Description = c.Description,
+                Version = c.Version,
+                Community = ForBackup(_secrets.Unprotect(c.Community)),
+                V3Username = c.V3Username,
+                V3SecurityLevel = c.V3SecurityLevel,
+                V3AuthProtocol = c.V3AuthProtocol,
+                V3AuthPassword = ForBackup(_secrets.Unprotect(c.V3AuthPassword)),
+                V3PrivProtocol = c.V3PrivProtocol,
+                V3PrivPassword = ForBackup(_secrets.Unprotect(c.V3PrivPassword))
+            }).ToList();
+            foreach (var printer in backup.Imprimantes) printer.SnmpCommunity = ForBackup(printer.SnmpCommunity);
 
             var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions { WriteIndented = true });
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -157,6 +203,79 @@ namespace Autoprint.Server.Controllers
         [HttpPost("restore")]
         public async Task<IActionResult> Restore([FromBody] BackupRootDto backup)
         {
+            // Secrets : déchiffrés AVANT toute suppression, pour qu'un mauvais mot de passe ne laisse pas la base à moitié vidée
+            var currentSecrets = await _context.ServerSettings.AsNoTracking()
+                .Where(s => SecretProtector.SecretKeys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+            var restoredSecrets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in backup.Settings.Where(s => SecretProtector.IsSecret(s.Key)))
+            {
+                if (string.IsNullOrEmpty(s.Value))
+                {
+                    restoredSecrets[s.Key] = currentSecrets.GetValueOrDefault(s.Key) ?? ""; // absent du fichier : on garde la valeur du serveur
+                }
+                else if (SecretProtector.IsBackupProtected(s.Value))
+                {
+                    if (string.IsNullOrEmpty(backup.SecretsPassword))
+                        return BadRequest("Cette sauvegarde contient des secrets protégés : saisissez son mot de passe de protection.");
+                    try
+                    {
+                        restoredSecrets[s.Key] = _secrets.Protect(SecretProtector.UnprotectFromBackup(s.Value, backup.SecretsPassword));
+                    }
+                    catch (System.Security.Cryptography.CryptographicException)
+                    {
+                        return BadRequest("Mot de passe de protection de la sauvegarde incorrect. Aucune donnée n'a été modifiée.");
+                    }
+                }
+                else
+                {
+                    restoredSecrets[s.Key] = _secrets.Protect(s.Value); // ancienne sauvegarde : secret en clair
+                }
+            }
+
+            // Identifiants SNMP / communautés : déchiffrés avant suppression ; absents du fichier => valeurs actuelles conservées
+            var currentCredentials = await _context.SnmpCredentials.AsNoTracking().ToDictionaryAsync(c => c.Id);
+            var currentCommunities = await _context.Imprimantes.AsNoTracking().ToDictionaryAsync(i => i.Id, i => i.SnmpCommunity);
+            string? RestoreSecret(string? value, string? current)
+            {
+                if (string.IsNullOrEmpty(value)) return current;
+                if (!SecretProtector.IsBackupProtected(value)) return value; // valeur en clair (champ non secret historique)
+                if (string.IsNullOrEmpty(backup.SecretsPassword))
+                    throw new System.Security.Cryptography.CryptographicException("Mot de passe de protection manquant.");
+                return SecretProtector.UnprotectFromBackup(value, backup.SecretsPassword);
+            }
+            var restoredCredentials = new List<SnmpCredential>();
+            try
+            {
+                foreach (var c in backup.SnmpCredentials ?? new())
+                {
+                    var current = currentCredentials.GetValueOrDefault(c.Id);
+                    string? Plain(string? v, string? cur) { var r = RestoreSecret(v, cur == null ? null : _secrets.Unprotect(cur)); return string.IsNullOrEmpty(r) ? null : _secrets.Protect(r); }
+                    restoredCredentials.Add(new SnmpCredential
+                    {
+                        Id = c.Id, Name = c.Name, Description = c.Description, Version = c.Version,
+                        Community = Plain(c.Community, current?.Community),
+                        V3Username = c.V3Username, V3SecurityLevel = c.V3SecurityLevel, V3AuthProtocol = c.V3AuthProtocol,
+                        V3AuthPassword = Plain(c.V3AuthPassword, current?.V3AuthPassword),
+                        V3PrivProtocol = c.V3PrivProtocol,
+                        V3PrivPassword = Plain(c.V3PrivPassword, current?.V3PrivPassword)
+                    });
+                }
+                foreach (var printer in backup.Imprimantes)
+                    printer.SnmpCommunity = RestoreSecret(printer.SnmpCommunity, currentCommunities.GetValueOrDefault(printer.Id));
+            }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                return BadRequest(string.IsNullOrEmpty(backup.SecretsPassword)
+                    ? "Cette sauvegarde contient des secrets protégés : saisissez son mot de passe de protection."
+                    : "Mot de passe de protection de la sauvegarde incorrect. Aucune donnée n'a été modifiée.");
+            }
+
+            // Sauvegardes antérieures sans hachage : on conserve le mot de passe actuel des comptes locaux de même nom
+            var currentHashes = await _context.Users.AsNoTracking()
+                .Where(u => !u.IsAdUser && u.PasswordHash != null)
+                .ToDictionaryAsync(u => u.Username, u => u.PasswordHash!, StringComparer.OrdinalIgnoreCase);
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -174,6 +293,7 @@ namespace Autoprint.Server.Controllers
 
                 _context.SnmpProfileItems.RemoveRange(_context.SnmpProfileItems);
                 _context.SnmpProfiles.RemoveRange(_context.SnmpProfiles);
+                _context.SnmpCredentials.RemoveRange(_context.SnmpCredentials);
                 _context.ReportSchedules.RemoveRange(_context.ReportSchedules);
                 _context.IntegrationTokens.RemoveRange(_context.IntegrationTokens);
 
@@ -256,6 +376,15 @@ namespace Autoprint.Server.Controllers
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Emplacements");
 
+                if (restoredCredentials.Any())
+                {
+                    await EnableIdentityInsert("SnmpCredentials");
+                    _context.SnmpCredentials.AddRange(restoredCredentials);
+                    await _context.SaveChangesAsync();
+                    await DisableIdentityInsert("SnmpCredentials");
+                }
+                var credentialIds = restoredCredentials.Select(c => c.Id).ToHashSet();
+
                 await EnableIdentityInsert("Modeles");
                 _context.Modeles.AddRange(backup.Modeles.Select(x => new Modele
                 {
@@ -263,7 +392,8 @@ namespace Autoprint.Server.Controllers
                     Nom = x.Nom,
                     MarqueId = x.MarqueId,
                     PiloteId = x.PiloteId,
-                    SnmpProfileId = x.SnmpProfileId
+                    SnmpProfileId = x.SnmpProfileId,
+                    SnmpCredentialId = x.SnmpCredentialId != null && credentialIds.Contains(x.SnmpCredentialId.Value) ? x.SnmpCredentialId : null
                 }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Modeles");
@@ -280,7 +410,12 @@ namespace Autoprint.Server.Controllers
                     EmplacementId = x.EmplacementId,
                     Status = x.Status,
                     Localisation = x.Localisation,
-                    SerialNumber = x.SerialNumber
+                    SerialNumber = x.SerialNumber,
+                    IsDirectPrintingEnabled = x.IsDirectPrintingEnabled,
+                    SnmpPort = x.SnmpPort > 0 ? x.SnmpPort : 161,
+                    SnmpVersion = x.SnmpVersion is 1 or 2 ? x.SnmpVersion : 2,
+                    SnmpCommunity = string.IsNullOrEmpty(x.SnmpCommunity) ? "public" : x.SnmpCommunity,
+                    SnmpCredentialId = x.SnmpCredentialId != null && credentialIds.Contains(x.SnmpCredentialId.Value) ? x.SnmpCredentialId : null
                 }));
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Imprimantes");
@@ -336,18 +471,37 @@ namespace Autoprint.Server.Controllers
                 }
 
                 await EnableIdentityInsert("Users");
-                foreach (var u in backup.Users) _context.Users.Add(new User { Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive });
+                foreach (var u in backup.Users)
+                {
+                    var restoredUser = new User
+                    {
+                        Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive,
+                        PasswordHash = !string.IsNullOrEmpty(u.PasswordHash) ? u.PasswordHash : currentHashes.GetValueOrDefault(u.Username),
+                        LastPasswordChangeDate = u.LastPasswordChangeDate,
+                        ForceChangePassword = u.ForceChangePassword
+                    };
+                    // Les sessions ouvertes avant la restauration ne sont plus valables
+                    restoredUser.RenewSecurityStamp();
+                    _context.Users.Add(restoredUser);
+                }
                 await _context.SaveChangesAsync();
                 await DisableIdentityInsert("Users");
 
                 foreach (var u in backup.Users)
                 {
-                    foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid });
+                    foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid, IsFromAd = u.AdRoleIds.Contains(rid) });
                 }
 
                 foreach (var s in backup.Settings)
                 {
-                    _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = s.Value, Type = s.Type });
+                    var value = SecretProtector.IsSecret(s.Key) ? restoredSecrets.GetValueOrDefault(s.Key, "") : s.Value;
+                    _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = value, Type = s.Type });
+                }
+
+                // Secret absent du fichier : on garde celui du serveur (sinon la clé agent serait régénérée et tous les postes rejetés)
+                foreach (var kv in currentSecrets.Where(kv => !backup.Settings.Any(s => string.Equals(s.Key, kv.Key, StringComparison.OrdinalIgnoreCase))))
+                {
+                    _context.ServerSettings.Add(new ServerSetting { Key = kv.Key, Value = kv.Value, Type = "PASSWORD" });
                 }
 
                 _context.AdRoleMappings.AddRange(backup.AdMappings.Select(x => new AdRoleMapping
@@ -368,24 +522,27 @@ namespace Autoprint.Server.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return BadRequest($"Erreur Restauration : {ex.Message}");
+                return BadRequest(ApiErrors.LogAndDescribe(HttpContext, ex, "Erreur pendant la restauration, aucune donnée n'a été modifiée."));
             }
         }
 
-        private async Task EnableIdentityInsert(string table)
+        // Un nom de table ne peut pas être paramétré en SQL : il est donc vérifié par liste blanche
+        private static readonly HashSet<string> IdentityTables = new(StringComparer.Ordinal)
         {
-            if (_context.Database.IsSqlServer())
-            {
-                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} ON");
-            }
-        }
+            "Marques", "Pilotes", "SnmpProfiles", "SnmpProfileItems", "SnmpCredentials", "Emplacements", "EmplacementNetworks",
+            "Modeles", "Imprimantes", "ReportSchedules", "IntegrationTokens", "Roles", "Users", "AdRoleMappings"
+        };
 
-        private async Task DisableIdentityInsert(string table)
+        private Task EnableIdentityInsert(string table) => SetIdentityInsert(table, "ON");
+        private Task DisableIdentityInsert(string table) => SetIdentityInsert(table, "OFF");
+
+        private async Task SetIdentityInsert(string table, string state)
         {
-            if (_context.Database.IsSqlServer())
-            {
-                await _context.Database.ExecuteSqlRawAsync($"SET IDENTITY_INSERT {table} OFF");
-            }
+            if (!_context.Database.IsSqlServer()) return;
+            if (!IdentityTables.Contains(table)) throw new ArgumentException($"Table non autorisée : {table}");
+#pragma warning disable EF1002, EF1003 // nom de table issu de la liste blanche ci-dessus
+            await _context.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT [" + table + "] " + state);
+#pragma warning restore EF1002, EF1003
         }
     }
 }
