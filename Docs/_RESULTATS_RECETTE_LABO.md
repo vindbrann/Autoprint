@@ -13,7 +13,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 - GitHub, onglet Security (connexion de l'utilisateur) : P1-02, P2-43 (joués le 09/11 via la PR brouillon vindbrann/Autoprint#6 : voir « Derniers tests »).
 - SC-04 (session de 10 h) : contrôle dans le code (`AuthService.MaxSessionLifetime`).
 
-**Ensuite** : décision sur la livraison 26.11.8.2 (dossier `Livraison-26.11.8.2` à produire), B70, suites de B32 / B58.
+**Livraison** : `Livraison-26.11.9.1` produite le 09/11/2026 (commit `a6d3551`) : 26.11.8.2 validée + B72 à B75 ; test du filtre AD (B75) à rejouer sur cette version. **Ensuite** : B70, suites de B32 / B58, fusion de la PR vindbrann/Autoprint#6.
 
 **État du labo** (VM arrêtées le 09/11 à 01:00) :
 - SRV-PRINT : installation **SQL Server** en 26.11.8.2 finale, HTTPS 443 (certificat du labo, empreinte E2CAA9A9…) et 8080. Instantanés : « SQL Server 26.11.8.2 final (livraison, recette 09-11) » (état courant), « SQL Server 26.11.8.2 (B65-B68 à chaud, avant écran) », « SQL Server 2025 redémarré, avant S8-06 » (SQL Server sans Autoprint), « Serveur en 1.1.2 (base existante corrigée) » (base existante 1.1, à n'utiliser que dans le labo), « Recette SQLite 10-11 (avant SQL Server) », « Labo configuré », « OS installé ».
