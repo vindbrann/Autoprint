@@ -28,6 +28,12 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 3. Tests API : `tools\lab\Recette-Api.ps1 -BaseUrl https://srv-print.lab.autoprint.test -Profil sql -Lot <Lot>` (HTTP redirige vers HTTPS et perd l'authentification). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Cle`, `Donnees`, `Serveur`, `Email`, `Snmp`, `Divers`, `Infra`, `Limitation`. Les lots qui se connectent beaucoup peuvent atteindre la limite de 10 connexions / minute : rejouer le lot seul.
 
 **Fichiers locaux (hors dépôt, chiffrés pour le compte Windows)** dans `%USERPROFILE%\.autoprint-lab\` : `labadmin.cred`, `recette-secrets.xml` (comptes du labo, `sql.*`, `snmp.*`), `recette-secrets-sql.xml` / `-sqlauth.xml` / `-sqldistant.xml` / `-sm.xml` (comptes Autoprint par installation), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim, installeurs 1.1.0 / 1.1.2 / 26.08.24.2), `snmpsim-venv\`.
+## Derniers tests (09/11/2026, soir)
+
+| ID | Résultat | Remarque |
+|---|---|---|
+| SC-04 | ✅ (code) | Non observable sans attendre 10 h : `AuthService.RefreshAsync` refuse tout renouvellement 10 h après la connexion d'origine (`auth_time` conservé à chaque renouvellement) ; la console se déconnecte à l'expiration du jeton en cas de refus (`CustomAuthStateProvider`). |
+| P3-15 | ✅ après correctif (B72) | « Autre serveur » simulé sur SRV-PRINT : export protégé, puis dossier `Keys` remplacé par des clés neuves (secrets en base illisibles), puis restauration. Avant correctif : restauration refusée « mot de passe incorrect », postes et console en 500. Après : avant restauration « Clé agent absente » (404), ancienne clé refusée (401) ; après restauration : AD, SMTP, lecture de la clé et clé agent d'origine OK. |
 ## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
 
 Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).
@@ -217,4 +223,5 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B69 | Corrigé en 26.11.8.2 | Plusieurs rôles du même nom (dont un faux « SuperAdmin »). |
 | B70 | Mineur | Liste de débogage des pilotes en avertissement dans le journal. |
 | B71 | Corrigé en 26.11.8.2 | Deux icônes Autoprint sur le bureau. |
+| B72 | Corrigé en 26.11.8.2 | Clés de chiffrement perdues : restauration refusée (« mot de passe incorrect »), postes en erreur 500. |
 | B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
