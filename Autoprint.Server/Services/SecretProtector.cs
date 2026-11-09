@@ -21,10 +21,12 @@ namespace Autoprint.Server.Services
         private const int Pbkdf2Iterations = 210_000;
 
         private readonly IDataProtector _protector;
+        private readonly ILogger<SecretProtector>? _logger;
 
-        public SecretProtector(IDataProtectionProvider provider)
+        public SecretProtector(IDataProtectionProvider provider, ILogger<SecretProtector>? logger = null)
         {
             _protector = provider.CreateProtector("Autoprint.ServerSettings.v1");
+            _logger = logger;
         }
 
         public static bool IsSecret(string key) => SecretKeys.Contains(key, StringComparer.OrdinalIgnoreCase);
@@ -39,7 +41,17 @@ namespace Autoprint.Server.Services
         {
             if (string.IsNullOrEmpty(stored)) return string.Empty;
             if (!stored.StartsWith(DbPrefix, StringComparison.Ordinal)) return stored; // texte clair hérité
-            return _protector.Unprotect(stored[DbPrefix.Length..]);
+            try
+            {
+                return _protector.Unprotect(stored[DbPrefix.Length..]);
+            }
+            catch (CryptographicException ex)
+            {
+                // Clés de chiffrement perdues ou remplacées (serveur réinstallé, base restaurée seule : B23) : secret illisible,
+                // traité comme absent. Avant : erreur 500 pour les postes et la console, et restauration refusée (B72).
+                _logger?.LogWarning("Secret illisible avec les clés de chiffrement de ce serveur ({Message}) : restaurez une sauvegarde protégée ou ressaisissez-le.", ex.Message);
+                return string.Empty;
+            }
         }
 
         /// <summary>Chiffre au démarrage les secrets encore en clair (migration des installations existantes).</summary>
