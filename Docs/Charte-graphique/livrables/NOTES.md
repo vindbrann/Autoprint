@@ -20,6 +20,7 @@
 - **Icônes** : Material Symbols Outlined, graisse 300, licence Apache 2.0. Natif dans Radzen ; pour WPF, les mêmes glyphes existent dans Material Design Icons (PackIcon) ou en chemins SVG.
 - **Logo** : on garde la punaise avec l'imprimante. `ressources/logo/autoprint-symbole.svg` en est une version vectorielle à plat (sans dégradé), lisible à 16 px. Versions horizontales et PNG à venir.
 - **Diagnostic** : icône stéthoscope (`stethoscope`), car le diagnostic couvre l'état, les erreurs, le toner et le réseau. L'icône réseau (`lan`) reste réservée aux profils SNMP et aux tests de connexion.
+- **Menus réductibles** : le menu principal et le menu des sections ont chacun un bouton pour se réduire en barre d'icônes, avec le nom au survol. Le choix est à mémoriser par utilisateur, comme le thème (la maquette ne le mémorise pas). Les pastilles d'alerte restent visibles en point rouge sur l'icône. Sous 1024 px, les deux menus se réduisent tout seuls ; sous 640 px, le menu des sections devient une liste déroulante. Utile sur un portable de 14 pouces (souvent 1280 à 1366 px de large utiles avec la mise à l'échelle de Windows).
 - **Barres de défilement** : fines et discrètes partout (couleur du texte discret, sans flèches), jamais l'ascenseur Windows par défaut. Les barres d'onglets n'en affichent pas du tout. À reprendre dans `autoprint-theme.css` et dans les styles `ScrollViewer` des dictionnaires XAML.
 - **Densité** : contrôles de 32 px, lignes de grille de 36 px (32 en compact), menu de 248 px (au lieu de 280).
 - **Textes** : casse de phrase partout (fin des majuscules espacées « PARC ACTIF », « EXPORT CSV »), pas de point final sur les libellés courts.
@@ -47,7 +48,7 @@ Propositions visibles dans les maquettes :
 - **Connexion** : écran partagé, avec à gauche le plan d'étage d'un lieu et ses imprimantes (l'univers du produit), à droite le formulaire.
 - **Tableau de bord** : « État du service » devient un bandeau sous le titre ; la répartition par modèle est une barre empilée suivie d'une liste classée.
 - **Imprimantes** : filtres en pastilles (Lieu, Statut, Modèle), actions groupées quand des lignes sont sélectionnées, lieu et détail sur deux lignes, colonnes ajustables. Le code inventaire passe dans le choix des colonnes. Pas de niveau de toner dans la grille principale : le toner bas apparaît seulement comme statut. Sur chaque ligne, les boutons Modifier et Diagnostic sont côte à côte.
-- **Paramètres** : chaque réglage a son titre et son explication à gauche, ses champs à droite ; la restauration est isolée en zone sensible ; une barre d'enregistrement apparaît en bas dès qu'une modification est en attente.
+- **Paramètres** : les 8 onglets sont remplacés par un menu des sections, à gauche dans la page (le menu principal ne change pas) ; un titre et une description rappellent la section ouverte ; chaque réglage a son titre et son explication à gauche, ses champs à droite ; la restauration est isolée en zone sensible ; une barre d'enregistrement apparaît en bas dès qu'une modification est en attente.
 - **Client** : le lieu détecté sert de titre ; une carte par imprimante, l'imprimante par défaut est mise en avant ; la zone technique est encadrée en pointillés.
 - **Installeur** : fini l'en-tête noir ; les 7 étapes sont listées à gauche, l'étape en cours est mise en avant, la barre de boutons reste en bas.
 

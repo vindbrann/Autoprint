@@ -2,24 +2,29 @@
 <body>
 {{> defs}}
 {{> theme}}
-{{> barre interface="Console" ecran="Paramètres" iface="console" note="Onglet Maintenance, modifications non enregistrées"}}
+{{> barre interface="Console" ecran="Paramètres" iface="console" note="Section Maintenance, menus réductibles, modification en attente"}}
 <div class="ap-app">
   {{> sidebar active="parametres"}}
   <main class="ap-main"><div class="ap-main-inner">
     <div class="ap-page-header">
       <div class="titles"><h1>Configuration du système</h1><span class="sub">Paramètres globaux du serveur Autoprint</span></div>
     </div>
-    <div class="ap-tabs" role="tablist">
-      <span class="ap-tab is-active" role="tab" aria-selected="true"><svg class="ic"><use href="#i-history"/></svg>Maintenance</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-mail"/></svg>SMTP</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-sell"/></svg>Nommage</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-group"/></svg>Active Directory</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-visibility"/></svg>Supervision</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-bar_chart"/></svg>Monitoring</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-radar"/></svg>Scanner réseau</span>
-      <span class="ap-tab" role="tab"><svg class="ic"><use href="#i-lock"/></svg>Sécurité</span>
-    </div>
-
+    <div class="ap-subnav-select ap-select" role="button" aria-label="Choisir la section"><span><span class="caption">Section</span> Maintenance</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div>
+    <div class="ap-subnav-layout">
+      <input type="checkbox" id="subnav-collapsed" class="sr-only">
+      <nav class="ap-subnav" aria-label="Sections des paramètres">
+        <div class="ap-subnav-head"><span class="t">Sections</span><label class="ap-btn ap-btn--icon ap-btn--sm ap-collapse" for="subnav-collapsed" title="Réduire ou agrandir les sections"><svg class="ic ic-sm when-open"><use href="#i-left_panel_close"/></svg><svg class="ic ic-sm when-closed"><use href="#i-left_panel_open"/></svg><span class="sr-only">Réduire ou agrandir les sections</span></label></div>
+          <a href="#" class="is-active" aria-current="page" title="Maintenance"><svg class="ic"><use href="#i-history"/></svg><span class="lbl">Maintenance</span></a>
+          <a href="#" title="SMTP"><svg class="ic"><use href="#i-mail"/></svg><span class="lbl">SMTP</span></a>
+          <a href="#" title="Nommage"><svg class="ic"><use href="#i-sell"/></svg><span class="lbl">Nommage</span></a>
+          <a href="#" title="Active Directory"><svg class="ic"><use href="#i-group"/></svg><span class="lbl">Active Directory</span></a>
+          <a href="#" title="Supervision"><svg class="ic"><use href="#i-visibility"/></svg><span class="lbl">Supervision</span></a>
+          <a href="#" title="Monitoring"><svg class="ic"><use href="#i-bar_chart"/></svg><span class="lbl">Monitoring</span></a>
+          <a href="#" title="Scanner réseau"><svg class="ic"><use href="#i-radar"/></svg><span class="lbl">Scanner réseau</span></a>
+          <a href="#" title="Sécurité"><svg class="ic"><use href="#i-lock"/></svg><span class="lbl">Sécurité</span></a>
+      </nav>
+      <div class="ap-subnav-content">
+        <div class="ap-section-head"><h2>Maintenance</h2><p>Conservation du journal, sauvegarde et restauration de la configuration</p></div>
     <div class="ap-settings">
       <section class="ap-card">
         <div class="ap-set-row">
@@ -61,6 +66,8 @@
       <span class="grow"></span>
       <button class="ap-btn ap-btn--text">Annuler les modifications</button>
       <button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-check"/></svg>Enregistrer la configuration</button>
+    </div>
+      </div>
     </div>
   </div></main>
 </div>
