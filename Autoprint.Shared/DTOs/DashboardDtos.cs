@@ -14,6 +14,8 @@ namespace Autoprint.Shared.DTOs
 
         public List<ChartDataDto> RepartitionModeles { get; set; } = new();
         public bool IsSpoolerRunning { get; set; }
+        // Service AutoprintSpooler (null : non utilisé, le site applique lui-même les modifications du spouleur)
+        public bool? IsSpoolerServiceRunning { get; set; }
         public int SyncErrorCount { get; set; }
         public string ServerVersion { get; set; } = "1.0.0";
         public int OfflinePrintersCount { get; set; }

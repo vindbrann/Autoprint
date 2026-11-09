@@ -1,4 +1,4 @@
-@using Autoprint.Shared.DTOs
+﻿@using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
@@ -6,6 +6,7 @@
 @inject IRoleService RoleService
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject CustomAuthStateProvider AuthProvider
 
 @if (isLoading)
 {
@@ -82,13 +83,23 @@ else
                     @if (!editMode && !isAdUser)
                     {
                         <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                        <RadzenLengthValidator Component="Password" Min="6" Text="Le mot de passe doit faire au moins 6 caractères" Popup="false" Style="display: block; margin-top: 5px;" />
+                        <RadzenLengthValidator Component="Password" Min="@PasswordPolicy.MinLength" Text="@PasswordPolicy.MinLengthMessage" Popup="false" Style="display: block; margin-top: 5px;" />
                     }
                     @if (!string.IsNullOrEmpty(passwordError))
                     {
                         <div style="color: var(--rz-danger); font-size: 0.8rem; margin-top: 5px; display: block;">@passwordError</div>
                     }
                 </RadzenColumn>
+
+                @if (!editMode)
+                {
+                    <RadzenColumn Size="12">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenCheckBox @bind-Value="@formData.ForceChangePassword" Name="ForceChangeNew" />
+                            <RadzenLabel Text="Changement du mot de passe obligatoire à la première connexion" Component="ForceChangeNew" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                }
 
                 @if (editMode)
                 {
@@ -137,7 +148,7 @@ else
         public string Password { get; set; } = "";
         public int RoleId { get; set; }
         public bool IsActive { get; set; } = true;
-        public bool ForceChangePassword { get; set; }
+        public bool ForceChangePassword { get; set; } = true;
     }
 
     private UserFormData formData = new();
@@ -151,6 +162,15 @@ else
         try
         {
             availableRoles = await RoleService.GetRoles();
+
+            // Seuls les rôles que l'utilisateur connecté peut attribuer sont proposés (même règle que le serveur : PermissionRules)
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var myPermissions = authState.User.Claims.Where(c => c.Type == "Permission").Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var currentRoleNames = UserToEdit?.Roles ?? new List<string>();
+            availableRoles = availableRoles
+                .Where(r => r.PermissionCodes.All(c => Autoprint.Shared.PermissionRules.CanGrant(myPermissions, c)) || currentRoleNames.Contains(r.Name))
+                .ToList();
+
             if (editMode)
             {
                 formData = new UserFormData
@@ -159,6 +179,8 @@ else
                     DisplayName = UserToEdit.DisplayName,
                     Email = UserToEdit.Email,
                     IsActive = UserToEdit.IsActive,
+                    // Valeur réelle du compte (avant : toujours décochée, donc effacée à chaque enregistrement)
+                    ForceChangePassword = UserToEdit.ForceChangePassword,
                     RoleId = GetRoleIdFromNames(UserToEdit.Roles)
                 };
             }
@@ -167,7 +189,7 @@ else
                 formData.RoleId = availableRoles.FirstOrDefault()?.Id ?? 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de charger les rôles.");
         }
@@ -196,9 +218,9 @@ else
         {
             if (editMode)
             {
-                if (!string.IsNullOrEmpty(formData.Password) && formData.Password.Length < 6)
+                if (!string.IsNullOrEmpty(formData.Password) && formData.Password.Length < PasswordPolicy.MinLength)
                 {
-                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    passwordError = PasswordPolicy.MinLengthMessage;
                     return;
                 }
             }
@@ -208,9 +230,9 @@ else
                 {
                     return;
                 }
-                if (formData.Password.Length < 6)
+                if (formData.Password.Length < PasswordPolicy.MinLength)
                 {
-                    passwordError = "Le mot de passe doit faire au moins 6 caractères.";
+                    passwordError = PasswordPolicy.MinLengthMessage;
                     return;
                 }
             }
@@ -240,7 +262,8 @@ else
                     DisplayName = formData.DisplayName,
                     Email = formData.Email,
                     Password = formData.Password,
-                    RoleId = formData.RoleId
+                    RoleId = formData.RoleId,
+                    ForceChangePassword = formData.ForceChangePassword
                 };
                 await UserService.CreateUser(createDto);
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Utilisateur créé.");

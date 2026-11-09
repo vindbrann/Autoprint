@@ -3,80 +3,35 @@ using System.Runtime.Versioning;
 using System.Management;
 using Autoprint.Shared;
 using Autoprint.Shared.DTOs;
+using Autoprint.Spooler;
+using static Autoprint.Spooler.SpoolerNative;
 
 namespace Autoprint.Server.Services
 {
     [SupportedOSPlatform("windows")]
     public class WindowsPrintSpoolerService : IPrintSpoolerService
     {
-        private const int PRINTER_ATTRIBUTE_QUEUED = 0x00000001;
-        private const int PRINTER_ATTRIBUTE_DIRECT = 0x00000002;
-        private const int PRINTER_ACCESS_ADMINISTER = 0x00000004;
-        private const int PRINTER_ACCESS_USE = 0x00000008;
-        private const int STANDARD_RIGHTS_REQUIRED = 0x000F0000;
-        private const int PRINTER_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | PRINTER_ACCESS_ADMINISTER | PRINTER_ACCESS_USE);
-        private const int PRINTER_ENUM_LOCAL = 0x00000002;
-        private const uint PRINTER_ATTRIBUTE_SHARED = 0x00000008;
+        // Écritures : déléguées au service Windows AutoprintSpooler (mode « Service ») ou exécutées sur place (mode « InProcess »).
+        // Lectures : faites ici, elles ne demandent aucun privilège.
+        private readonly ISpoolerAdmin _admin;
 
-        private const uint REG_DWORD = 4;
-        private const int ERROR_SUCCESS = 0;
-        private const int ERROR_INSUFFICIENT_BUFFER = 122;
-
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        private struct PRINTER_INFO_2
+        public WindowsPrintSpoolerService(ISpoolerAdmin admin)
         {
-            [MarshalAs(UnmanagedType.LPStr)] public string pServerName;
-            [MarshalAs(UnmanagedType.LPStr)] public string pPrinterName;
-            [MarshalAs(UnmanagedType.LPStr)] public string pShareName;
-            [MarshalAs(UnmanagedType.LPStr)] public string pPortName;
-            [MarshalAs(UnmanagedType.LPStr)] public string pDriverName;
-            [MarshalAs(UnmanagedType.LPStr)] public string pComment;
-            [MarshalAs(UnmanagedType.LPStr)] public string pLocation;
-            public IntPtr pDevMode;
-            [MarshalAs(UnmanagedType.LPStr)] public string pSepFile;
-            [MarshalAs(UnmanagedType.LPStr)] public string pPrintProcessor;
-            [MarshalAs(UnmanagedType.LPStr)] public string pDatatype;
-            [MarshalAs(UnmanagedType.LPStr)] public string pParameters;
-            public IntPtr pSecurityDescriptor;
-            public uint Attributes;
-            public uint Priority;
-            public uint DefaultPriority;
-            public uint StartTime;
-            public uint UntilTime;
-            public uint Status;
-            public uint cJobs;
-            public uint AveragePPM;
+            _admin = admin;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct PRINTER_DEFAULTS
-        {
-            public IntPtr pDatatype;
-            public IntPtr pDevMode;
-            public int DesiredAccess;
-        }
+        public Task CreerPortTcp(string ipAddress) => _admin.CreatePortAsync(ipAddress);
 
-        [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        private static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, ref PRINTER_DEFAULTS pd);
+        public Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableDirectMode)
+            => _admin.CreatePrinterAsync(nom, driverName, ipAddress, enableDirectMode);
 
-        [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        private static extern bool ClosePrinter(IntPtr hPrinter);
+        public Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? shareName, bool isShared, string? forcePortIp = null)
+            => _admin.UpdatePrinterAsync(nomActuel, comment, location, enableDirectMode, shareName, isShared, forcePortIp);
 
-        [DllImport("winspool.drv", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern bool GetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int cbBuf, out int pcbNeeded);
+        public Task RenommerImprimante(string ancienNom, string nouveauNom) => _admin.RenamePrinterAsync(ancienNom, nouveauNom);
 
-        [DllImport("winspool.drv", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern bool SetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int Command);
+        public Task SupprimerImprimante(string nom) => _admin.DeletePrinterAsync(nom);
 
-        [DllImport("winspool.drv", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern bool EnumPrinters(int Flags, string? Name, int Level, IntPtr pPrinterEnum, int cbBuf, out int pcbNeeded, out int pcReturned);
-
-        [DllImport("winspool.drv", EntryPoint = "SetPrinterDataExA", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern uint SetPrinterDataEx(IntPtr hPrinter, string pKeyName, string pValueName, uint Type, ref int pData, int cbData);
-
-        [DllImport("winspool.drv", EntryPoint = "GetPrinterDataExA", SetLastError = true, CharSet = CharSet.Ansi)]
-        private static extern uint GetPrinterDataEx(IntPtr hPrinter, string pKeyName, string pValueName, out uint pType, out int pData, int nndSize, out int pcbNeeded);
 
 
         public Task<string?> RecupererNomImprimanteParIp(string ipAddress)
@@ -88,109 +43,20 @@ namespace Autoprint.Server.Services
 
                 var allPrinters = GetAllPrintersNative();
 
+                // Port exact : « IP_10.0.0.1 » ne doit pas correspondre à « IP_10.0.0.10 » (B66)
                 var match = allPrinters.FirstOrDefault(p =>
-                    p.pPortName != null &&
-                    p.pPortName.Contains(targetPortPattern, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(p.pPortName, targetPortPattern, StringComparison.OrdinalIgnoreCase));
 
                 return match.pPrinterName;
             });
         }
 
-        public async Task ModifierImprimante(string nomActuel, string? comment, string? location, bool enableDirectMode, string? shareName, bool isShared, string? forcePortIp = null)
+        public Task<List<KeyValuePair<string, string>>> ListerFilesLocales()
         {
-            IntPtr hPrinter = IntPtr.Zero;
-            IntPtr pPrinterInfo = IntPtr.Zero;
-
-            try
-            {
-                PRINTER_DEFAULTS defaults = new PRINTER_DEFAULTS
-                {
-                    pDatatype = IntPtr.Zero,
-                    pDevMode = IntPtr.Zero,
-                    DesiredAccess = PRINTER_ALL_ACCESS
-                };
-
-                if (!OpenPrinter(nomActuel, out hPrinter, ref defaults))
-                {
-                    throw new Exception($"Impossible d'ouvrir l'imprimante '{nomActuel}' pour modification. Code: {Marshal.GetLastWin32Error()}");
-                }
-
-                GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
-                if (needed == 0) throw new Exception("Erreur lecture taille buffer.");
-
-                pPrinterInfo = Marshal.AllocHGlobal(needed);
-                if (!GetPrinter(hPrinter, 2, pPrinterInfo, needed, out _))
-                {
-                    throw new Exception($"Erreur GetPrinter. Code: {Marshal.GetLastWin32Error()}");
-                }
-
-                PRINTER_INFO_2 info = Marshal.PtrToStructure<PRINTER_INFO_2>(pPrinterInfo);
-
-                info.pSecurityDescriptor = IntPtr.Zero;
-
-                bool changed = false;
-
-                if (comment != null && info.pComment != comment)
-                {
-                    info.pComment = comment;
-                    changed = true;
-                }
-
-                if (location != null && info.pLocation != location)
-                {
-                    info.pLocation = location;
-                    changed = true;
-                }
-
-                if (shareName != null && info.pShareName != shareName)
-                {
-                    info.pShareName = shareName;
-                    changed = true;
-                }
-
-                if (isShared)
-                {
-                    if ((info.Attributes & PRINTER_ATTRIBUTE_SHARED) != PRINTER_ATTRIBUTE_SHARED)
-                    {
-                        info.Attributes |= PRINTER_ATTRIBUTE_SHARED;
-                        changed = true;
-                    }
-                }
-                else
-                {
-                    if ((info.Attributes & PRINTER_ATTRIBUTE_SHARED) == PRINTER_ATTRIBUTE_SHARED)
-                    {
-                        info.Attributes &= ~PRINTER_ATTRIBUTE_SHARED;
-                        changed = true;
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(forcePortIp))
-                {
-                    string targetPort = $"IP_{forcePortIp.Trim()}";
-                    if (!string.Equals(info.pPortName, targetPort, StringComparison.OrdinalIgnoreCase))
-                    {
-                        info.pPortName = targetPort;
-                        changed = true;
-                    }
-                }
-
-                if (changed)
-                {
-                    Marshal.StructureToPtr(info, pPrinterInfo, false);
-                    if (!SetPrinter(hPrinter, 2, pPrinterInfo, 0))
-                    {
-                        throw new Exception($"Echec SetPrinter (Update). Code: {Marshal.GetLastWin32Error()}");
-                    }
-                }
-
-                await SetDirectPrintingMode(nomActuel, enableDirectMode);
-            }
-            finally
-            {
-                if (pPrinterInfo != IntPtr.Zero) Marshal.FreeHGlobal(pPrinterInfo);
-                if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter);
-            }
+            return Task.Run(() => GetAllPrintersNative()
+                .Where(p => !string.IsNullOrEmpty(p.pPrinterName))
+                .Select(p => new KeyValuePair<string, string>(p.pPrinterName, p.pPortName ?? ""))
+                .ToList());
         }
 
         private List<PRINTER_INFO_2> GetAllPrintersNative()
@@ -231,139 +97,6 @@ namespace Autoprint.Server.Services
             }
 
             return results;
-        }
-
-        public Task CreerPortTcp(string ipAddress)
-        {
-            return Task.Run(() =>
-            {
-                string cleanIp = ipAddress.Trim();
-                string targetPortName = $"IP_{cleanIp}";
-
-                if (PortExistsNative(targetPortName)) return;
-
-                var portClass = new ManagementClass("Win32_TCPIPPrinterPort");
-                var newPort = portClass.CreateInstance();
-
-                newPort["Name"] = targetPortName;
-                newPort["Protocol"] = 1; // TCP
-                newPort["HostAddress"] = cleanIp;
-                newPort["PortNumber"] = 9100;
-                newPort["SNMPEnabled"] = false;
-
-                try { newPort.Put(); } catch {  }
-            });
-        }
-
-        private bool PortExistsNative(string portName)
-        {
-            try
-            {
-                var query = new SelectQuery("Win32_TCPIPPrinterPort", $"Name = '{portName}'");
-                using var searcher = new ManagementObjectSearcher(query);
-                return searcher.Get().Count > 0;
-            }
-            catch { return false; }
-        }
-
-        public async Task CreerImprimante(string nom, string driverName, string ipAddress, bool enableDirectMode)
-        {
-            try
-            {
-                var printerClass = new ManagementClass("Win32_Printer");
-                var newPrinter = printerClass.CreateInstance();
-                newPrinter["Name"] = nom;
-                newPrinter["DriverName"] = driverName;
-                newPrinter["PortName"] = "IP_" + ipAddress;
-                newPrinter["DeviceID"] = nom;
-                newPrinter["Shared"] = true;
-                newPrinter["ShareName"] = nom;
-                newPrinter.Put();
-
-                await SetDirectPrintingMode(nom, enableDirectMode);
-            }
-            catch (Exception ex) { throw new Exception($"Erreur création: {ex.Message}"); }
-        }
-
-        public Task SupprimerImprimante(string nom)
-        {
-            try
-            {
-                var query = new SelectQuery("Win32_Printer", $"Name = '{nom}'");
-                using var searcher = new ManagementObjectSearcher(query);
-                foreach (ManagementObject printer in searcher.Get()) printer.Delete();
-            }
-            catch { }
-            return Task.CompletedTask;
-        }
-
-        private Task SetDirectPrintingMode(string printerName, bool enableDirect)
-        {
-            IntPtr hPrinter = IntPtr.Zero;
-            IntPtr pPrinterInfo = IntPtr.Zero;
-
-            try
-            {
-                PRINTER_DEFAULTS defaults = new PRINTER_DEFAULTS
-                {
-                    pDatatype = IntPtr.Zero,
-                    pDevMode = IntPtr.Zero,
-                    DesiredAccess = PRINTER_ACCESS_ADMINISTER | PRINTER_ACCESS_USE
-                };
-
-                if (!OpenPrinter(printerName, out hPrinter, ref defaults))
-                {
-                    int err = Marshal.GetLastWin32Error();
-                    throw new Exception($"[Win32] Impossible d'ouvrir '{printerName}'. Code: {err}");
-                }
-
-                int regData = enableDirect ? 1 : 0;
-                SetPrinterDataEx(hPrinter, "PrinterDriverData", "EnableBranchOfficePrinting", REG_DWORD, ref regData, 4);
-
-                GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out int needed);
-                if (needed > 0)
-                {
-                    pPrinterInfo = Marshal.AllocHGlobal(needed);
-                    if (GetPrinter(hPrinter, 2, pPrinterInfo, needed, out _))
-                    {
-                        PRINTER_INFO_2 info = Marshal.PtrToStructure<PRINTER_INFO_2>(pPrinterInfo);
-                        uint oldAttributes = info.Attributes;
-
-                        info.pSecurityDescriptor = IntPtr.Zero;
-
-                        if (enableDirect)
-                        {
-                            info.Attributes |= (uint)PRINTER_ATTRIBUTE_DIRECT;
-                            info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_QUEUED;
-                        }
-                        else
-                        {
-                            info.Attributes &= ~(uint)PRINTER_ATTRIBUTE_DIRECT;
-                            info.Attributes |= (uint)PRINTER_ATTRIBUTE_QUEUED;
-                        }
-
-                        if (info.Attributes != oldAttributes)
-                        {
-                            Marshal.StructureToPtr(info, pPrinterInfo, false);
-                            if (!SetPrinter(hPrinter, 2, pPrinterInfo, 0))
-                            {
-                                throw new Exception($"Echec écriture attributs Win32. Code: {Marshal.GetLastWin32Error()}");
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Erreur Config Mode Direct : {ex.Message}");
-            }
-            finally
-            {
-                if (pPrinterInfo != IntPtr.Zero) Marshal.FreeHGlobal(pPrinterInfo);
-                if (hPrinter != IntPtr.Zero) ClosePrinter(hPrinter);
-            }
-
-            return Task.CompletedTask;
         }
 
         public Task<bool> VerifierModeDirect(string nomImprimante, bool modeAttendu)
@@ -412,35 +145,14 @@ namespace Autoprint.Server.Services
             }
         }
 
-        public Task RenommerImprimante(string ancienNom, string nouveauNom)
-        {
-            try
-            {
-                var query = new SelectQuery("Win32_Printer", $"Name = '{ancienNom}'");
-                using var searcher = new ManagementObjectSearcher(query);
-                foreach (ManagementObject printer in searcher.Get())
-                {
-                    var paramsCim = printer.GetMethodParameters("RenamePrinter");
-                    paramsCim["NewPrinterName"] = nouveauNom;
-                    printer.InvokeMethod("RenamePrinter", paramsCim, null);
-                    return Task.CompletedTask;
-                }
-                throw new Exception($"Imprimante '{ancienNom}' introuvable.");
-            }
-            catch (Exception ex) { throw new Exception($"Erreur renommage : {ex.Message}"); }
-        }
-
-
-        public Task<List<DiscoveredPrinterDto>> ScanPrintersAsync(string targetHost, string? username, string? password)
+        public Task<List<DiscoveredPrinterDto>> ScanLocalPrintersAsync()
         {
             var results = new List<DiscoveredPrinterDto>();
             ManagementScope scope;
             try
             {
-                var options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Authentication = AuthenticationLevel.PacketPrivacy, Timeout = TimeSpan.FromSeconds(10) };
-                if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password)) { options.Username = username; options.Password = password; }
-                string path = $@"\\{targetHost}\root\cimv2";
-                scope = new ManagementScope(path, options);
+                var options = new ConnectionOptions { Impersonation = ImpersonationLevel.Impersonate, Timeout = TimeSpan.FromSeconds(10) };
+                scope = new ManagementScope(@"\\.\root\cimv2", options);
                 scope.Connect();
 
                 var portMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -473,8 +185,8 @@ namespace Autoprint.Server.Services
                     });
                 }
             }
-            catch (UnauthorizedAccessException) { throw new Exception("Accès refusé au serveur distant (Erreur WMI)."); }
-            catch (Exception ex) { throw new Exception($"Erreur WMI ({targetHost}): {ex.Message}"); }
+            catch (UnauthorizedAccessException) { throw new Exception("Accès refusé au spouleur local (Erreur WMI)."); }
+            catch (Exception ex) { throw new Exception($"Erreur WMI (spouleur local): {ex.Message}"); }
             return Task.FromResult(results);
         }
 

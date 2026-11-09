@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
@@ -39,6 +39,7 @@ namespace Autoprint.Server.Controllers
                     Email = u.Email,
                     IsAdUser = u.IsAdUser,
                     IsActive = u.IsActive,
+                    ForceChangePassword = u.ForceChangePassword,
                     LastLogin = u.LastLogin,
                     Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
                 })
@@ -69,6 +70,12 @@ namespace Autoprint.Server.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                 return BadRequest("Ce nom d'utilisateur existe déjà.");
 
+            if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle qui a « Administration » ou « Paramètres ».");
+
+            if (string.Equals(request.Password, request.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
+
             var newUser = new User
             {
                 Username = request.Username,
@@ -76,7 +83,10 @@ namespace Autoprint.Server.Controllers
                 Email = request.Email,
                 IsAdUser = false,
                 IsActive = true,
-                LastLogin = DateTime.MinValue
+                LastLogin = DateTime.MinValue,
+                // Choix explicite de l'administrateur (avant : changement toujours imposé, faute de date de dernier changement)
+                ForceChangePassword = request.ForceChangePassword,
+                LastPasswordChangeDate = DateTime.UtcNow
             };
 
             if (!string.IsNullOrEmpty(request.Password))
@@ -99,7 +109,8 @@ namespace Autoprint.Server.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, newUser);
+            // On ne renvoie jamais le hachage du mot de passe
+            return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, new { newUser.Id, newUser.Username, newUser.DisplayName, newUser.Email, newUser.IsActive });
         }
 
         [HttpPut("{id}")]
@@ -113,6 +124,12 @@ namespace Autoprint.Server.Controllers
 
             if (user == null) return NotFound();
 
+            if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
+                return StatusCode(403, "Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier.");
+
+            if (request.RoleId > 0 && !await PermissionGuard.CanManageRolesAsync(_context, User, new[] { request.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas attribuer un rôle qui a « Administration » ou « Paramètres ».");
+
             var snapshotBefore = new
             {
                 user.Username,
@@ -123,7 +140,16 @@ namespace Autoprint.Server.Controllers
                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
             };
 
+            // Désactiver le dernier administrateur, ou lui retirer son rôle d'administrateur, rendrait l'application ingérable
+            int previousRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
+            bool losesAdmin = (user.IsActive && !request.IsActive)
+                || (request.RoleId > 0 && request.RoleId != previousRoleId && !await PermissionGuard.RoleHasAdminAsync(_context, request.RoleId));
+            if (losesAdmin && await PermissionGuard.UserIsAdminAsync(_context, id) && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeUserId: id))
+                return BadRequest("Impossible : ce compte est le dernier administrateur actif.");
+
             bool isPasswordReset = !string.IsNullOrWhiteSpace(request.NewPassword);
+            if (isPasswordReset && string.Equals(request.NewPassword, user.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
             bool isForceChangeToggled = user.ForceChangePassword != request.ForceChangePassword;
             bool isStatusChanged = user.IsActive != request.IsActive;
 
@@ -139,6 +165,13 @@ namespace Autoprint.Server.Controllers
             }
 
             int currentRoleId = user.UserRoles.FirstOrDefault()?.RoleId ?? 0;
+            bool isRoleChanged = request.RoleId > 0 && request.RoleId != currentRoleId;
+
+            // Toute modification sensible coupe les sessions ouvertes de ce compte (audit #10)
+            if (isPasswordReset || isStatusChanged || isRoleChanged || (isForceChangeToggled && request.ForceChangePassword))
+            {
+                user.RenewSecurityStamp();
+            }
 
             if (request.RoleId > 0 && request.RoleId != currentRoleId)
             {
@@ -206,6 +239,12 @@ namespace Autoprint.Server.Controllers
 
             if (user.Username == "admin") return BadRequest("Impossible de supprimer l'administrateur racine.");
 
+            if (!await PermissionGuard.CanManageUserAsync(_context, User, id))
+                return StatusCode(403, "Ce compte a « Administration » ou « Paramètres » : vous ne pouvez pas le supprimer.");
+
+            if (await PermissionGuard.UserIsAdminAsync(_context, id) && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeUserId: id))
+                return BadRequest("Impossible : ce compte est le dernier administrateur actif.");
+
             _auditService.LogAction(
                 "USER_DELETE",
                 $"Suppression utilisateur : {user.Username}",
@@ -267,8 +306,15 @@ namespace Autoprint.Server.Controllers
             if (!SecurityHelper.VerifyPassword(user.PasswordHash ?? "", request.CurrentPassword))
                 return BadRequest("Le mot de passe actuel est incorrect.");
 
+            if (request.NewPassword == request.CurrentPassword)
+                return BadRequest("Le nouveau mot de passe doit être différent de l'actuel.");
+
+            if (string.Equals(request.NewPassword, user.Username, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Le mot de passe ne peut pas être identique au nom d'utilisateur.");
+
             user.PasswordHash = SecurityHelper.HashPassword(request.NewPassword);
             user.LastPasswordChangeDate = DateTime.UtcNow;
+            user.RenewSecurityStamp();
 
             user.ForceChangePassword = false;
 

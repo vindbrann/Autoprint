@@ -10,7 +10,7 @@
 			 Scope="perMachine"
 			 Compressed="yes"
 			 InstallerVersion="200">
-		<MajorUpgrade DowngradeErrorMessage="Une version plus récente est déjà installée." Schedule="afterInstallInitialize" />
+		<MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="Une version plus récente est déjà installée." Schedule="afterInstallInitialize" />
 		<MediaTemplate EmbedCab="yes" />
 
 		<!-- Fermeture des processus client et arrêt de l'ancien service avant validation -->
@@ -26,16 +26,36 @@
 		              Execute="immediate"
 		              Return="ignore" />
 
+		<!-- Clé agent (B54) : écrite par une action différée masquée (HideTarget) et non par RegistryValue, que Windows Installer
+		     journalise en clair (RegAddValue) dans msiexec /l*v, journal souvent conservé par Intune. Exécutée en SYSTEM. -->
+		<CustomAction Id="WriteApiKey"
+		              Directory="SystemFolder"
+		              ExeCommand="&quot;[SystemFolder]reg.exe&quot; add &quot;HKLM\SOFTWARE\Autoprint&quot; /v APIKEY /t REG_SZ /d &quot;[APIKEY]&quot; /f /reg:64"
+		              Execute="deferred"
+		              Impersonate="no"
+		              HideTarget="yes"
+		              Return="check" />
+
+		<CustomAction Id="RemoveApiKey"
+		              Directory="SystemFolder"
+		              ExeCommand="&quot;[SystemFolder]reg.exe&quot; delete &quot;HKLM\SOFTWARE\Autoprint&quot; /v APIKEY /f /reg:64"
+		              Execute="deferred"
+		              Impersonate="no"
+		              Return="ignore" />
+
 		<InstallExecuteSequence>
 			<Custom Action="StopOldWorkerService" Before="CloseRunningClient" />
 			<Custom Action="CloseRunningClient" Before="InstallValidate" />
+			<Custom Action="WriteApiKey" After="WriteRegistryValues" Condition="APIKEY AND NOT REMOVE~=&quot;ALL&quot;" />
+			<Custom Action="RemoveApiKey" After="RemoveRegistryValues" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
 		</InstallExecuteSequence>
 
 		<!-- Optimisations d'installation rapide (pas de point de restauration inutile, pas de reboot forcé) -->
 		<Property Id="MSIFASTINSTALL" Value="7" />
 		<Property Id="REBOOT" Value="ReallySuppress" />
 
-		<Property Id="APIKEY" Secure="yes">
+		<!-- Hidden : la clé n'apparaît pas dans les journaux d'installation (msiexec /l*v, Intune), B54 -->
+		<Property Id="APIKEY" Secure="yes" Hidden="yes">
 			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\Autoprint" Name="APIKEY" Type="raw" />
 		</Property>
 		<Property Id="PRINTSERVER" Secure="yes">
@@ -88,7 +108,7 @@
 		<ComponentGroup Id="ManualComponents">
 			<Component Id="RegistryConfig" Guid="{6EBBC4AC-3A75-488B-8414-5679EB4D10C2}" Directory="INSTALLFOLDER">
 				<RegistryKey Root="HKLM" Key="SOFTWARE\Autoprint">
-					<RegistryValue Name="APIKEY" Value="[APIKEY]" Type="string" />
+					<!-- APIKEY : écrite par l'action WriteApiKey (B54) -->
 					<RegistryValue Name="PRINTSERVER" Value="[PRINTSERVER]" Type="string" />
 				</RegistryKey>
 			</Component>
@@ -124,9 +144,11 @@
 				<RegistryValue Root="HKCU" Key="Software\Autoprint\Shortcut" Name="installed" Type="integer" Value="1" KeyPath="yes" />
 			</Component>
 
-			<!-- Nettoyage et arrêt de l'ancien service Windows AutoprintWorker (V1) -->
+			<!-- Nettoyage et arrêt des anciens services Windows (AutoprintWorker V1, AutoprintService) -->
 			<Component Id="CleanupOldService" Guid="{A17C1744-8846-4B82-B268-F02A0BB6D672}" Directory="INSTALLFOLDER">
 				<ServiceControl Id="StopOldWorker" Name="AutoprintWorker" Stop="both" Remove="both" Wait="yes" />
+				<!-- Service AutoprintService (26.08.24.1 et antérieures) : tube nommé ouvert à tous les utilisateurs, élévation de privilèges possible -->
+				<ServiceControl Id="StopOldAutoprintService" Name="AutoprintService" Stop="both" Remove="both" Wait="yes" />
 			</Component>
 		</ComponentGroup>
 

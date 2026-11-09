@@ -1,3 +1,4 @@
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
@@ -97,7 +98,7 @@ namespace Autoprint.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erreur de scan : {ex.Message}");
+                return StatusCode(500, ApiErrors.LogAndDescribe(HttpContext, ex, "Erreur pendant le scan réseau."));
             }
         }
     }

@@ -66,7 +66,13 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "ROLE_WRITE")]
         public async Task<IActionResult> CreateRole(RoleEditDto request)
         {
-            var newRole = new Role { Name = request.Name, Description = request.Description };
+            if (!await PermissionGuard.CanGrantPermissionIdsAsync(_context, User, request.PermissionIds ?? new()))
+                return StatusCode(403, "Vous ne pouvez pas accorder ces droits : « Administration » est réservée aux administrateurs, et « Paramètres » ne peut être accordé que par un compte qui l'a déjà.");
+
+            var nameError = await ValidateRoleNameAsync(request.Name, null);
+            if (nameError != null) return BadRequest(nameError);
+
+            var newRole = new Role { Name = request.Name.Trim(), Description = request.Description };
             _context.Roles.Add(newRole);
 
             _auditService.LogAction("ROLE_CREATE", $"Création rôle : {newRole.Name}", User.Identity?.Name, "WARNING", newRole.Name);
@@ -94,6 +100,19 @@ namespace Autoprint.Server.Controllers
             if (role == null) return NotFound();
             if (role.Name == "SuperAdmin" && request.Name != "SuperAdmin") return BadRequest("Impossible de renommer SuperAdmin.");
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { id }))
+                return StatusCode(403, "Ce rôle a « Administration » ou « Paramètres » : vous ne pouvez pas le modifier.");
+
+            if (!await PermissionGuard.CanGrantPermissionIdsAsync(_context, User, request.PermissionIds ?? new()))
+                return StatusCode(403, "Vous ne pouvez pas accorder ces droits : « Administration » est réservée aux administrateurs, et « Paramètres » ne peut être accordé que par un compte qui l'a déjà.");
+
+            // Retirer Administration d'un rôle : il doit rester un autre administrateur actif
+            bool hadAdmin = role.RolePermissions.Any(rp => rp.Permission.Code == PermissionGuard.AdminPermission);
+            bool keepsAdmin = request.PermissionIds != null && await _context.Permissions
+                .AnyAsync(p => request.PermissionIds.Contains(p.Id) && p.Code == PermissionGuard.AdminPermission);
+            if (hadAdmin && !keepsAdmin && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeRoleId: id))
+                return BadRequest("Impossible de retirer « Administration » : ce rôle porte le dernier compte administrateur actif.");
+
             var snapshotBefore = new
             {
                 Role = role.Name,
@@ -101,7 +120,10 @@ namespace Autoprint.Server.Controllers
                 Permissions = role.RolePermissions.Select(rp => rp.Permission.Code).OrderBy(c => c).ToList()
             };
 
-            role.Name = request.Name;
+            var nameError = await ValidateRoleNameAsync(request.Name, id);
+            if (nameError != null) return BadRequest(nameError);
+
+            role.Name = request.Name.Trim();
             role.Description = request.Description;
 
             _context.RolePermissions.RemoveRange(role.RolePermissions);
@@ -126,6 +148,9 @@ namespace Autoprint.Server.Controllers
                 Permissions = newPermissionCodes
             };
 
+            // Les droits portés par les jetons des membres de ce rôle ne sont plus à jour : on coupe leurs sessions (audit #10)
+            await RenewStampsOfRoleMembersAsync(role.Id);
+
             _auditService.LogCustomAudit(
                 "ROLE_UPDATE",
                 $"Modification rôle : {role.Name}",
@@ -147,8 +172,15 @@ namespace Autoprint.Server.Controllers
             if (role == null) return NotFound();
             if (role.Name == "SuperAdmin") return BadRequest("Impossible de supprimer SuperAdmin.");
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { id }))
+                return StatusCode(403, "Ce rôle a « Administration » ou « Paramètres » : vous ne pouvez pas le supprimer.");
+
+            if (await PermissionGuard.RoleHasAdminAsync(_context, id) && !await PermissionGuard.HasOtherActiveAdminAsync(_context, excludeRoleId: id))
+                return BadRequest("Impossible de supprimer ce rôle : il porte le dernier compte administrateur actif.");
+
             _auditService.LogAction("ROLE_DELETE", $"Suppression rôle : {role.Name}", User.Identity?.Name, "WARNING", role.Name);
 
+            await RenewStampsOfRoleMembersAsync(role.Id);
             _context.Roles.Remove(role);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -177,6 +209,9 @@ namespace Autoprint.Server.Controllers
             if (await _context.AdRoleMappings.AnyAsync(m => m.AdIdentifier == dto.AdIdentifier && m.RoleId == dto.RoleId))
                 return BadRequest("Mapping existant.");
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { dto.RoleId }))
+                return StatusCode(403, "Vous ne pouvez pas lier un groupe AD à un rôle qui a « Administration » ou « Paramètres ».");
+
             var mapping = new AdRoleMapping { AdIdentifier = dto.AdIdentifier, MappingType = dto.MappingType, RoleId = dto.RoleId };
             _context.AdRoleMappings.Add(mapping);
 
@@ -193,11 +228,32 @@ namespace Autoprint.Server.Controllers
             var mapping = await _context.AdRoleMappings.FindAsync(id);
             if (mapping == null) return NotFound();
 
+            if (!await PermissionGuard.CanManageRolesAsync(_context, User, new[] { mapping.RoleId }))
+                return StatusCode(403, "Ce lien AD concerne un rôle qui a « Administration » ou « Paramètres ».");
+
             _auditService.LogAction("ROLE_MAP_DEL", $"Suppression lien AD : {mapping.AdIdentifier}", User.Identity?.Name, "INFO", mapping.AdIdentifier);
 
             _context.AdRoleMappings.Remove(mapping);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        // Nom obligatoire et unique (sans tenir compte de la casse) : plusieurs écrans et contrôles reconnaissent SuperAdmin
+        // par son nom ; deux rôles « SuperAdmin » (ou deux « Lecteur ») ne doivent pas pouvoir coexister (B69)
+        private async Task<string?> ValidateRoleNameAsync(string? name, int? currentId)
+        {
+            var clean = name?.Trim();
+            if (string.IsNullOrEmpty(clean)) return "Nom du rôle obligatoire.";
+            if (clean.Length > 100) return "Nom du rôle trop long (100 caractères au maximum).";
+            var lower = clean.ToLower();
+            bool exists = await _context.Roles.AnyAsync(r => r.Name.ToLower() == lower && (currentId == null || r.Id != currentId));
+            return exists ? $"Un rôle nommé « {clean} » existe déjà." : null;
+        }
+
+        private async Task RenewStampsOfRoleMembersAsync(int roleId)
+        {
+            var members = await _context.Users.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleId)).ToListAsync();
+            foreach (var member in members) member.RenewSecurityStamp();
         }
     }
 }

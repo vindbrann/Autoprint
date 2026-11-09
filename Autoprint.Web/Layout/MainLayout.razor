@@ -5,7 +5,7 @@
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
-@using Blazored.LocalStorage
+@using Autoprint.Web.Services
 
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
@@ -16,7 +16,7 @@
 @inject NotificationService NotificationService
 
 <RadzenComponents />
-<RadzenTheme />
+<RadzenTheme Theme="material" />
 
 <AuthorizeView>
     <Authorized>

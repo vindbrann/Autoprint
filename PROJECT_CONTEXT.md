@@ -23,14 +23,13 @@ Pour prévenir toute mauvaise supposition architecturale ou fonctionnelle :
 ## 2. Stack Technique & Dépendances
 
 ### Langages, Frameworks & Versions Cibles
-La version globale de l'ensemble de la solution est **26.8.24.3** (définie de manière centralisée dans [`Directory.Build.props`](file:///C:/Git/Developpement/Autoprint/Autoprint/Directory.Build.props)).
+La version globale de l'ensemble de la solution est **26.11.8.2** (définie de manière centralisée dans [`Directory.Build.props`](file:///C:/Git/Developpement/Autoprint/Autoprint/Directory.Build.props)).
 
 | Composant | Projet | Framework Cible | Type d'Application |
 | :--- | :--- | :--- | :--- |
 | **Backend API & Hôte Web** | `Autoprint.Server` | `.NET 10.0` (`net10.0`) | ASP.NET Core Web API / Minimal API / SignalR / Razor Pages |
 | **Frontend Web d'Administration** | `Autoprint.Web` | `.NET 10.0` (`net10.0`) | Blazor WebAssembly (Standalone WASM hébergé) |
 | **Client Bureau Utilisateur** | `Autoprint.Client` | `.NET 10.0 Windows` (`net10.0-windows`) | Application Windows WPF (Desktop Systray) |
-| **Service d'Arrière-Plan Windows** | `Autoprint.Service` | `.NET 10.0 Windows` (`net10.0-windows`) | Windows Service Worker (`AutoprintService`) |
 | **Modèles Partagés & Contrats** | `Autoprint.Shared` | `.NET 10.0` (`net10.0`) | Bibliothèque de classes C# partagée (DTOs, Entités, IPC) |
 | **Installateur Serveur UI** | `Autoprint.Installer.Server.UI` | `.NET 10.0 Windows` (`net10.0-windows`) | Assistant d'installation / Assistant de migration WPF |
 | **Packages Déploiement** | `*.Setup` | WiX Toolset v4/v5 | Projets d'installation MSI (`Package.wxs`) |
@@ -45,11 +44,11 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 ### Bibliothèques Tierces Clés & Rôle Exact
 - **Réseau, SNMP & Impression :**
   - `Lextm.SharpSnmpLib` (v12.5.7) : Envoi de requêtes UDP SNMP v1/v2c (paquets `Messenger.Get`, parcours arborescent `Messenger.Walk`) sur le port 161 pour le diagnostic, la découverte automatique des tables MIB consommables/bacs, et la supervision.
-  - `PdfSharpCore` (v1.3.67) : Moteur de rendu graphique PDF vectoriel côté serveur pour l'exportation et l'envoi automatisé des rapports d'audit et de santé des consommables.
+  - `SkiaSharp` (v4.154, Microsoft, MIT) : dessin vectoriel des rapports PDF (`PdfReportWriter`), police embarquée « Autoprint Sans » (sous-ensemble de Liberation Sans, OFL). Remplace PDFsharp, passé en AGPL à partir de la 6.5.
 - **Interface Utilisateur & Web :**
   - `Radzen.Blazor` (v8.3.8) : Bibliothèque de composants graphiques UI pour le tableau de bord Blazor WebAssembly (grilles de données `RadzenDataGrid`, boîtes de dialogue, notifications).
-  - `Blazored.LocalStorage` (v4.5.0) : Stockage côté client WebAssembly du jeton de session JWT et des préférences de navigation.
-  - `MaterialDesignThemes` & `MaterialDesignColors` (v5.3.0) : Thème graphique Google Material Design pour le client de bureau WPF.
+  - `LocalStorageService` (maison, `Autoprint.Web/Services`) : stockage côté navigateur du jeton de session JWT et des préférences (remplace Blazored.LocalStorage, même format).
+  - `MaterialDesignThemes` & `MaterialDesignColors` (v5.4) : Thème graphique Google Material Design pour le client de bureau WPF.
   - `Hardcodet.NotifyIcon.Wpf` (v2.0.1) : Gestion de l'icône résidente dans la zone de notification Windows (systray), des bulles d'information contextuelles (*BalloonTips*) et du menu contextuel du client.
 - **Système Windows, Administration & Déploiement :**
   - `Microsoft.Web.Administration` (v11.1.0) : Pilotage programmatique d'Internet Information Services (IIS) pour la création, la configuration et le recyclage du pool applicatif et du site web serveur.
@@ -67,9 +66,8 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
   - Rôle Serveur d'impression (`Print-Server` ou fonctionnalité `Printing-Foundation-Features`).
   - Service Windows Spouleur d'impression actif (`spoolsv.exe`).
 - **Droits et Privilèges d'Exécution :**
-  - **Serveur :** Le pool d'application IIS d'Autoprint (`Autoprint`) est configuré pour tourner sous l'identité **`LocalSystem`** (`ProcessModelIdentityType.LocalSystem`) avec un `IdleTimeout` de zéro. Ce niveau de privilège est obligatoire pour autoriser le processus web à créer des ports TCP/IP réseau via WMI, modifier les files du Spouleur Windows via P/Invoke (`winspool.drv`), et configurer les paramètres de pilotes d'impression dans le Registre Windows.
-  - **Service Windows :** `Autoprint.Service` s'exécute sous le compte `NT AUTHORITY\SYSTEM`.
-  - **Client :** S'exécute sous la session utilisateur standard. Les opérations requérant des privilèges administrateur (installation de pilote machine) sont déléguées au service d'arrière-plan via le tube nommé sécurisé `\\.\pipe\AutoprintPipe`.
+  - **Serveur :** Le pool d'application IIS d'Autoprint (`Autoprint`) tourne sous **`ApplicationPoolIdentity`** (`IIS AppPool\Autoprint`, aucun privilège) avec un `IdleTimeout` de zéro. Les opérations qui exigent des droits d'administrateur (création de ports TCP/IP via WMI, création / modification / renommage / suppression de files via `winspool.drv`, mode direct) sont déléguées au service Windows **`AutoprintSpooler`** (LocalSystem) par le tube nommé local `\\.\pipe\AutoprintSpooler` (ACL : identité du pool + SYSTEM, accès réseau refusé). Paramètre `Spooler:Mode` : `Service` (production) ou `InProcess` (développement).
+  - **Client :** S'exécute sous la session utilisateur standard, sans service Windows privilégié (l'ancien `Autoprint.Service` a été retiré). Les pilotes d'impression sont pré-déployés par les outils managés.
 - **Binaires Système & Fichiers Externes :**
   - `winspool.drv` (bibliothèque native Windows Print Spooler).
   - `rundll32.exe printui.dll,PrintUIEntry` (commandes natives Windows d'installation/connexion/suppression de files et pilotes).
@@ -271,7 +269,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
                 ├─► Filtrage des imprimantes selon ScopeFilterJson
                 ├─► Pour chaque toner : PredictiveService.PredictDaysRemaining(historique)
                 │      └─► Calcul régression linéaire sur la consommation
-                ├─► Génération du document PDF (PdfSharpCore) ou CSV
+                ├─► Génération du document PDF (SkiaSharp) ou CSV
                 ├─► Expédition par e-mail SMTP avec pièce jointe (EmailService)
                 └─► Recalcul de l'horodatage NextRunAt (Quotidien / Hebdomadaire / Mensuel)
 ```
@@ -297,8 +295,8 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 ## 4. Modèle de Sécurité, Permissions & Concurrence
 
 ### Droits Système & Élévation de Privilèges
-- **Backend / Serveur IIS :** Tourne sous l'identité **`LocalSystem`**. Cette élévation est obligatoire pour interagir avec le sous-système d'impression Windows sans blocage de sécurité UAC ou d'accès mémoire protégé.
-- **Service Windows (`Autoprint.Service`) :** S'exécute sous `NT AUTHORITY\SYSTEM` et contrôle le tube nommé `AutoprintPipe` avec une ACL restreinte aux utilisateurs authentifiés (`WellKnownSidType.AuthenticatedUserSid`).
+- **Backend / Serveur IIS :** Tourne sous **`ApplicationPoolIdentity`**. Seul le service `AutoprintSpooler` (5 commandes typées, paramètres revalidés, pilote obligatoirement déjà installé) dispose de `LocalSystem`.
+- **Service Windows client :** Aucun. L'ancien service `Autoprint.Service` (SYSTEM, tube nommé `AutoprintPipe`) a été retiré pour cause d'élévation locale de privilèges ; le MSI client supprime les services `AutoprintWorker` et `AutoprintService` s'ils sont présents.
 - **Client Utilisateur :** Tourne sans privilèges administrateur (droits utilisateur standard).
 
 ### Gestion des Secrets & Chiffrement
@@ -314,15 +312,15 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 - **Attribution Dynamique des Rôles par Groupes AD (`AdRoleMappings`) :**
   - Lors de la connexion d'un utilisateur de domaine, le serveur interroge Active Directory avec le filtre d'appartenance récursive `(member:1.2.840.113556.1.4.1941:={userDn})`. Tous les groupes de sécurité parents directs et indirects sont résolus et confrontés à la table `AdRoleMappings` pour affecter automatiquement les rôles applicatifs correspondants.
 - **Matrice Granulaire des Permissions :**
-  L'application implémente 29 permissions unitaires (`Permission`) portées par les rôles (`Role`) et injectées sous forme de claims (`Permission: <CODE>`) dans le token JWT :
-  - `ADMIN_ACCESS` : Accès SuperAdmin total.
+  L'application implémente 29 permissions unitaires (28 + `NETWORK_SCAN`) (`Permission`) portées par les rôles (`Role`) et injectées sous forme de claims (`Permission: <CODE>`) dans le token JWT :
+  - `ADMIN_ACCESS` : tous les droits (le jeton reçoit toutes les permissions) ; accordable uniquement par un administrateur.
   - `PRINTER_READ`, `PRINTER_WRITE`, `PRINTER_DELETE`, `PRINTER_SYNC`, `PRINTER_ARCHIVE`.
   - `LOCATION_READ`, `LOCATION_WRITE`, `LOCATION_DELETE`.
   - `BRAND_READ`, `BRAND_WRITE`, `BRAND_DELETE`.
   - `MODEL_READ`, `MODEL_WRITE`, `MODEL_DELETE`.
   - `DRIVER_READ`, `DRIVER_SCAN`.
   - `USER_READ`, `USER_WRITE`, `USER_DELETE`.
-  - `ROLE_READ`, `ROLE_WRITE`, `ROLE_DELETE`.
+  - `ROLE_READ`, `ROLE_WRITE` (créer, modifier, supprimer ; accorde tout sauf `ADMIN_ACCESS`, et `SETTINGS_MANAGE` seulement si on l'a déjà : `Autoprint.Shared/PermissionRules.cs`).
   - `SETTINGS_MANAGE`, `AUDIT_READ`, `REPORT_MANAGE`, `NETWORK_SCAN`.
   - `SNMP_PROFILE_READ`, `SNMP_PROFILE_WRITE`, `SNMP_PROFILE_DELETE`.
 - **Authentification Machine Agent Client :**
@@ -350,7 +348,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 2. **Migrations de structure SQLite manuelles dans `DbInitializer` :**
    Pour les déploiements utilisant le moteur SQLite, les évolutions de schéma sont exécutées par des requêtes DDL brutes (`ALTER TABLE ... ADD COLUMN`, `CREATE TABLE IF NOT EXISTS`) capturées dans des blocs `try/catch` vides au sein de `DbInitializer.cs`, au lieu d'exploiter un pipeline de migration formel EF Core identique à celui de SQL Server.
 3. **Sur-privilège du processus serveur web sous IIS :**
-   L'exécution du pool IIS sous l'identité `LocalSystem` est imposée par les besoins d'accès au Spouleur Windows et à WMI. Cela confère au processus web des privilèges très élevés sur la machine hôte.
+   Résolu : le pool IIS ne tourne plus en `LocalSystem` ; seul le service `AutoprintSpooler` conserve ce compte pour les 5 opérations d'administration du spouleur.
 4. **Absence de file d'attente de réessais (Retry Queue avec Exponential Backoff) :**
    En cas d'échec d'envoi d'un e-mail SMTP (rapport planifié ou alerte de découverte) ou d'une notification SignalR, l'exception est consignée dans les logs mais le message n'est pas réinjecté dans une file de retry persistante pour rejeu différé.
 5. **Supervision séquentielle dans `PrinterMonitoringWorker` :**
@@ -364,7 +362,7 @@ La version globale de l'ensemble de la solution est **26.8.24.3** (définie de m
 
 ```yaml
 project_name: "Autoprint"
-version: "26.8.24.3"
+version: "26.11.8.2"
 runtime: ".NET 10.0 (C# 13)"
 target_environment: "Windows Server (2016-2025) / Windows 10/11 x64"
 architecture:
@@ -393,7 +391,7 @@ strict_limitations:
   - "No external message broker: SignalR in-memory and local Named Pipes IPC"
   - "Single-tenant infrastructure model"
 known_debt:
-  - "IIS application pool requires LocalSystem identity for spooler/WMI access"
+  - "IIS application pool runs as ApplicationPoolIdentity; privileged spooler writes go through the AutoprintSpooler Windows service (named pipe, 5 typed commands)"
   - "Manual raw SQL schema patching in DbInitializer for SQLite runtime updates"
   - "Sequential printer polling loop in PrinterMonitoringWorker"
   - "No persistent retry queue for failed SMTP email deliveries"

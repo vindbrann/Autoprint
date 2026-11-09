@@ -1,3 +1,4 @@
+using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
@@ -32,15 +33,46 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes([FromQuery] bool includeArchived = false)
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
-                return await GetImprimantesListWithIncludes(includeArchived);
+                return HideSnmpCommunity(await GetImprimantesListWithIncludes(includeArchived));
 
-            if (Request.Headers.TryGetValue("X-Agent-Secret", out var receivedSecret))
-            {
-                var setting = await _context.ServerSettings.FirstOrDefaultAsync(s => s.Key == "AgentApiKey");
-                if (setting != null && receivedSecret == setting.Value)
-                    return await GetImprimantesListWithIncludes(includeArchived);
-            }
+            if (await AgentAuth.IsValidAgentRequestAsync(Request, _context))
+                return await GetImprimantesForAgent();
+
             return Unauthorized(new { message = "Accès refusé." });
+        }
+
+        // Vue réduite pour les postes clients (audit #11) : la clé agent est lisible par tout utilisateur d'un poste,
+        // on ne renvoie donc que ce dont le client a besoin (ni IP, ni communauté SNMP, ni commentaires, ni n° de série).
+        private async Task<List<Imprimante>> GetImprimantesForAgent()
+        {
+            return await _context.Imprimantes
+                .AsNoTracking()
+                .Where(i => !i.IsArchived)
+                .Select(i => new Imprimante
+                {
+                    Id = i.Id,
+                    NomAffiche = i.NomAffiche,
+                    Code = i.Code,
+                    AdresseIp = string.Empty,
+                    SnmpCommunity = string.Empty,
+                    EstPartagee = i.EstPartagee,
+                    NomPartage = i.NomPartage,
+                    IsDirectPrintingEnabled = i.IsDirectPrintingEnabled,
+                    EmplacementId = i.EmplacementId,
+                    Localisation = i.Localisation,
+                    ModeleId = i.ModeleId,
+                    Status = i.Status,
+                    Modele = i.Modele == null ? null : new Modele
+                    {
+                        Id = i.Modele.Id,
+                        Nom = i.Modele.Nom,
+                        MarqueId = i.Modele.MarqueId,
+                        Marque = i.Modele.Marque == null ? null : new Marque { Id = i.Modele.Marque.Id, Nom = i.Modele.Marque.Nom },
+                        PiloteId = i.Modele.PiloteId,
+                        Pilote = i.Modele.Pilote == null ? null : new Pilote { Id = i.Modele.Pilote.Id, Nom = i.Modele.Pilote.Nom, Version = i.Modele.Pilote.Version }
+                    }
+                })
+                .ToListAsync();
         }
 
         private async Task<List<Imprimante>> GetImprimantesListWithIncludes(bool includeArchived)
@@ -63,19 +95,31 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<Imprimante>> GetImprimante(int id)
         {
             var imprimante = await _context.Imprimantes
+                .AsNoTracking()
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m.Marque)
                 .Include(i => i.Modele).ThenInclude(m => m.Pilote)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
-            return imprimante;
+            return HideSnmpCommunity(new List<Imprimante> { imprimante })[0];
+        }
+
+        // Communauté SNMP « ancien mode » (en clair en base, B32) : visible seulement par ceux qui peuvent modifier
+        // les imprimantes ; les autres (lecture, archivage) reçoivent une valeur vide, conservée à l'enregistrement.
+        private List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
+        {
+            if (User.HasClaim(c => c.Type == "Permission" && c.Value == "PRINTER_WRITE")) return printers;
+            foreach (var p in printers) p.SnmpCommunity = string.Empty;
+            return printers;
         }
 
         [HttpPost]
         [Authorize(Policy = "PRINTER_WRITE")]
         public async Task<ActionResult<Imprimante>> PostImprimante(Imprimante imprimante)
         {
+            var nameError = ValidatePrinterNames(imprimante.NomAffiche, imprimante.NomPartage);
+            if (nameError != null) return BadRequest(nameError);
             if (imprimante.ModeleId == 0) return BadRequest("Modèle obligatoire.");
             if (imprimante.EmplacementId == 0) return BadRequest("Emplacement obligatoire.");
 
@@ -114,7 +158,7 @@ namespace Autoprint.Server.Controllers
         [Authorize]
         public async Task<IActionResult> PutImprimante(int id, Imprimante inputImprimante)
         {
-            if (id != inputImprimante.Id) return BadRequest("ID incohÃ©rent.");
+            if (id != inputImprimante.Id) return BadRequest("ID incohérent.");
 
             var dbImprimante = await _context.Imprimantes.FindAsync(id);
             if (dbImprimante == null) return NotFound();
@@ -141,7 +185,13 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("ModÃ¨le introuvable.");
+            if (dbImprimante.NomAffiche != inputImprimante.NomAffiche || dbImprimante.NomPartage != inputImprimante.NomPartage)
+            {
+                var nameError = ValidatePrinterNames(inputImprimante.NomAffiche, inputImprimante.NomPartage);
+                if (nameError != null) return BadRequest(nameError);
+            }
+
+            if (!await _context.Modeles.AnyAsync(m => m.Id == inputImprimante.ModeleId)) return BadRequest("Modèle introuvable.");
             if (!await _context.Emplacements.AnyAsync(e => e.Id == inputImprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
 
             if (dbImprimante.Status == PrinterStatus.Synchronized || dbImprimante.Status == PrinterStatus.SyncError)
@@ -158,6 +208,15 @@ namespace Autoprint.Server.Controllers
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
             dbImprimante.SerialNumber = inputImprimante.SerialNumber;
+            // Profil d'identifiants SNMP propre à l'imprimante (vide = celui du modèle)
+            if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
+                return BadRequest("Profil d'identifiants SNMP introuvable.");
+            dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
+            // Communauté vide = non transmise (masquée aux comptes sans PRINTER_WRITE, B32) : valeur actuelle conservée
+            if (!string.IsNullOrWhiteSpace(inputImprimante.SnmpCommunity))
+                dbImprimante.SnmpCommunity = inputImprimante.SnmpCommunity;
+            dbImprimante.SnmpVersion = inputImprimante.SnmpVersion;
+            dbImprimante.SnmpPort = inputImprimante.SnmpPort;
             dbImprimante.DateModification = DateTime.UtcNow;
             dbImprimante.ModifiePar = User.Identity?.Name ?? "Système";
 
@@ -342,12 +401,10 @@ namespace Autoprint.Server.Controllers
                 .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();
 
-            var result = await _snmpService.GetPrinterDiagnosticAsync(
-                printer.AdresseIp, 
-                printer.SnmpPort, 
-                printer.SnmpCommunity ?? "public", 
-                printer.SnmpVersion,
-                printer.Modele?.SnmpProfile);
+            var profiles = await SnmpCredentials.LoadProfilesAsync(_context);
+            var credentials = SnmpCredentials.Resolve(printer, profiles, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
+
+            var result = await _snmpService.GetPrinterDiagnosticAsync(printer.AdresseIp, printer.SnmpPort, credentials, printer.Modele?.SnmpProfile);
 
             // Update database status based on diagnostic results
             if (!result.PingSuccess)
@@ -436,5 +493,19 @@ namespace Autoprint.Server.Controllers
         }
 
         private bool ImprimanteExists(int id) => _context.Imprimantes.Any(e => e.Id == id);
+
+        // Règles du spouleur Windows : nom d'imprimante (220 car., sans \ ni ,) et nom de partage (80 car., jeu restreint)
+        private static string? ValidatePrinterNames(string? nomAffiche, string? nomPartage)
+        {
+            if (string.IsNullOrWhiteSpace(nomAffiche)) return "Nom d'imprimante obligatoire.";
+            if (nomAffiche.Length > 220 || nomAffiche.Any(char.IsControl) || nomAffiche.IndexOfAny(new[] { '\\', ',' }) >= 0)
+                return "Nom d'imprimante invalide : 220 caractères maximum, sans \\ ni virgule.";
+
+            if (!string.IsNullOrEmpty(nomPartage) &&
+                (nomPartage.Length > 80 || nomPartage.Any(char.IsControl) || nomPartage.IndexOfAny("\\/[]:|<>+=;,?*\"".ToCharArray()) >= 0))
+                return "Nom de partage invalide : 80 caractères maximum, sans \\ / [ ] : | < > + = ; , ? * \"";
+
+            return null;
+        }
     }
 }

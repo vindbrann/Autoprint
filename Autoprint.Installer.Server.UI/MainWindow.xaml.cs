@@ -24,9 +24,15 @@ namespace Autoprint.Installer.Server.UI
         private readonly PrerequisiteService _prereqService;
         private bool _prereqsValidated = false;
         private bool _isUpgrade = false;
+        // Mise à jour d'une version antérieure à 26.11 : « AllowedHosts » vaut encore « * » (backlog B17)
+        private bool _needsPublicHost = false;
+        private bool _sqlGrantFailed = false;   // droits SQL non accordés par l'installeur (script à exécuter par un DBA)
         private int _existingPort = 0;
 
         private const string InstallPath = @"C:\Program Files\Autoprint Server";
+        // Base SQLite hors du dossier du programme (backlog B25) : le compte du site n'a pas besoin d'écrire dans Program Files
+        private static readonly string DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autoprint", "Data");
+        private static string SqlitePath => Path.Combine(DataPath, "Autoprint.db");
 
         private const string NamespacePrefix = "Autoprint.Installer.Server.UI.Resources.";
         private const string MsiResourceName = NamespacePrefix + "Autoprint.Server.Setup.msi";
@@ -69,6 +75,16 @@ namespace Autoprint.Installer.Server.UI
         {
             if (!ValidateCurrentStep()) return;
 
+            if (_currentStep == 3 && _isUpgrade && _needsPublicHost)
+            {
+                // Seul le nom public est demandé : le port du site existant est conservé
+                if (_existingPort > 0) TxtWebPort.Text = _existingPort.ToString();
+                TxtWebPort.IsEnabled = false;
+                _currentStep = 5;
+                UpdateView();
+                return;
+            }
+
             if (_currentStep == 3 && _isUpgrade)
             {
                 _currentStep = 6;
@@ -98,6 +114,8 @@ namespace Autoprint.Installer.Server.UI
 
         private void BtnPrev_Click(object sender, RoutedEventArgs e)
         {
+            // En mise à jour, l'écran SQL (étape 4) n'est pas proposé
+            if (_isUpgrade && _currentStep == 5) { _currentStep = 3; UpdateView(); return; }
             if (_currentStep > 1) { _currentStep--; UpdateView(); }
         }
 
@@ -141,12 +159,26 @@ namespace Autoprint.Installer.Server.UI
             }
             if (_currentStep == 3 && !_prereqsValidated)
             {
-                MessageBox.Show("Pré-requis manquants. Utilisez les boutons 'Installer'.", "Système", MessageBoxButton.OK, MessageBoxImage.Stop);
+                MessageBox.Show("Pré-requis manquants ou trop anciens. Utilisez les boutons « Installer » ou « Mettre à jour », puis continuez.", "Système", MessageBoxButton.OK, MessageBoxImage.Stop);
                 return false;
+            }
+            if (_currentStep == 4 && RadioSqlServer.IsChecked == true)
+            {
+                try { BuildSqlDataSource(TxtSqlServer.Text, TxtSqlPort.Text); }
+                catch (ArgumentException ex)
+                {
+                    MessageBox.Show(ex.Message, "SQL Server", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
             }
             if (_currentStep == 5 && (!int.TryParse(TxtWebPort.Text, out int p) || p < 1))
             {
                 MessageBox.Show("Port Web invalide.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+            if (_currentStep == 5 && !System.Text.RegularExpressions.Regex.IsMatch(TxtPublicHost.Text.Trim(), @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$"))
+            {
+                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             return true;
@@ -160,6 +192,14 @@ namespace Autoprint.Installer.Server.UI
             UpdatePrereqRow(IconIis, MsgIis, BtnInstallIis, res.IsIisInstalled);
             UpdatePrereqRow(IconPrint, MsgPrint, BtnInstallPrint, res.IsPrintServerRoleInstalled);
             UpdatePrereqRow(IconNet, MsgNet, BtnInstallNet, res.IsNet10Installed);
+            if (res.IsNet10Installed)
+                MsgNet.Text = $"Installé (version {res.InstalledAspNetCoreVersion})";
+            else if (res.InstalledAspNetCoreVersion != null)
+            {
+                // Runtime présent mais plus ancien que celui embarqué : il lui manque des correctifs de sécurité
+                MsgNet.Text = $"Version {res.InstalledAspNetCoreVersion} trop ancienne : {res.RequiredAspNetCoreVersion} requise (correctifs de sécurité)";
+                BtnInstallNet.Content = "Mettre à jour";
+            }
 
             _prereqsValidated = res.IsAllGood;
         }
@@ -200,7 +240,7 @@ namespace Autoprint.Installer.Server.UI
                 BtnInstallNet.Content = "Installation...";
                 await RunProcess(tempExe, "/install /passive /norestart");
 
-                MessageBox.Show("Runtime .NET installé.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Runtime .NET {PrerequisiteService.RequiredAspNetCoreVersion} installé.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
                 RunPrereqCheck();
             }
             catch (Exception ex)
@@ -222,11 +262,33 @@ namespace Autoprint.Installer.Server.UI
             PanelSqlCreds.Visibility = (ComboAuth.SelectedIndex == 1) ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        /// <summary>
+        /// Adresse SQL Server à partir du nom du serveur et d'un port facultatif. SQL Server note le port après une virgule
+        /// (« serveur,1433 ») : l'utilisateur saisit le port dans son propre champ, ou « serveur:1433 », ou même la virgule.
+        /// </summary>
+        internal static string BuildSqlDataSource(string server, string? port)
+        {
+            string s = (server ?? "").Trim();
+            string p = (port ?? "").Trim();
+
+            // « serveur:1433 » ou « serveur,1433 » saisi dans le champ serveur (pas d'IPv6 entre crochets à gérer ici)
+            int sep = s.LastIndexOfAny(new[] { ':', ',' });
+            if (sep > 0 && sep < s.Length - 1 && s.IndexOf(':') == s.LastIndexOf(':') && int.TryParse(s[(sep + 1)..], out _))
+            {
+                if (p.Length == 0) p = s[(sep + 1)..];
+                s = s[..sep].Trim();
+            }
+
+            if (p.Length == 0) return s;
+            if (!int.TryParse(p, out int n) || n < 1 || n > 65535) throw new ArgumentException($"Port SQL Server invalide : « {p} » (1 à 65535).");
+            return $"{s},{n}";
+        }
+
         private string GetSqlConnectionString(int timeout = 60)
         {
             var builder = new SqlConnectionStringBuilder
             {
-                DataSource = TxtSqlServer.Text,
+                DataSource = BuildSqlDataSource(TxtSqlServer.Text, TxtSqlPort.Text),
                 InitialCatalog = TxtSqlDb.Text,
                 TrustServerCertificate = true,
                 ConnectTimeout = timeout
@@ -248,9 +310,19 @@ namespace Autoprint.Installer.Server.UI
             BtnTestSql.Content = "Test...";
             try
             {
-                string cnx = GetSqlConnectionString(5);
-                await Task.Run(() => { using var c = new SqlConnection(cnx); c.Open(); });
-                MessageBox.Show("Connexion réussie !", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                // Connexion au serveur (base master) : sur une installation neuve, la base n'existe pas encore (B59)
+                string cnx = WithCatalog(GetSqlConnectionString(5), "master");
+                string db = TxtSqlDb.Text.Trim();
+                bool exists = await Task.Run(() =>
+                {
+                    using var c = new SqlConnection(cnx); c.Open();
+                    using var cmd = new SqlCommand("SELECT DB_ID(@db)", c);
+                    cmd.Parameters.AddWithValue("@db", db);
+                    return cmd.ExecuteScalar() is not (null or DBNull);
+                });
+                MessageBox.Show(exists ? $"Connexion réussie ; la base « {db} » existe."
+                                       : $"Connexion réussie ; la base « {db} » n'existe pas encore : elle sera créée pendant l'installation.",
+                    "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -319,19 +391,29 @@ namespace Autoprint.Installer.Server.UI
                         TxtInstallLog.Text += $"\n[Erreur] Echec de la fusion : {ex.Message}";
                         await File.WriteAllTextAsync(configPath, oldJsonContent);
                     }
+
+                    if (_needsPublicHost) await ApplyPublicHost(configPath);
+                    await MoveSqliteDatabaseToProgramData(configPath);
+                    await CapJwtLifetime(configPath);
+
+                    TxtInstallLog.Text = "Passage du site en compte sans privilège...";
+                    await EnableSpoolerServiceMode();
+                    await GrantSqlAccessForUpgrade();
                 }
                 else if (!_isUpgrade)
                 {
-                    if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                    if (RadioSqlServer.IsChecked == true)
                     {
-                        TxtInstallLog.Text = "Configuration droits SQL...";
-                        string adminString = GetSqlConnectionString(60);
-                        await GrantAccessToLocalSystem(adminString);
+                        // La base doit exister avant d'y accorder des droits (B59)
+                        TxtInstallLog.Text = "Création de la base SQL...";
+                        await EnsureSqlDatabase(GetSqlConnectionString(60), TxtSqlDb.Text.Trim());
                     }
-
                     TxtInstallLog.Text = "Génération configuration (JSON)...";
                     await ConfigureAppSettings();
                 }
+
+                TxtInstallLog.Text = "Protection des fichiers sensibles...";
+                await Task.Run(() => HardenSensitiveFiles());
 
                 TxtInstallLog.Text = "Migration de la base de données...";
                 await RunMigrationProcess();
@@ -340,10 +422,43 @@ namespace Autoprint.Installer.Server.UI
                 {
                     TxtInstallLog.Text = "Configuration finale IIS...";
                     ConfigureIIS();
+
+                    // Droits SQL du site : après la création du pool, sinon « IIS AppPool\Autoprint » est inconnu de Windows (B59)
+                    if (RadioSqlServer.IsChecked == true && ComboAuth.SelectedIndex == 0)
+                    {
+                        TxtInstallLog.Text = "Configuration droits SQL...";
+                        string adminString = GetSqlConnectionString(60);
+                        string login = GetSqlLoginForSite(adminString);
+                        if (login == PoolIdentity) await Task.Run(() => WaitForPoolAccount());
+                        await GrantSqlAccessToSite(adminString, TxtSqlDb.Text, login);
+                    }
                 }
+                else
+                {
+                    SwitchPoolToApplicationPoolIdentity();
+                }
+
+                TxtInstallLog.Text = "Ouverture du port dans le pare-feu...";
+                int sitePort = _isUpgrade ? _existingPort : int.Parse(TxtWebPort.Text);
+                await Task.Run(() => EnsureFirewallRule(sitePort));
+
+                // Le pool existe maintenant : droits NTFS de son identité (et base SQLite créée par la migration)
+                await Task.Run(() => HardenSensitiveFiles());
+
+                TxtInstallLog.Text = "Démarrage du service AutoprintSpooler...";
+                await Task.Run(() => RestartSpoolerService());
 
                 _currentStep = 7;
                 UpdateView();
+
+                if (_sqlGrantFailed)
+                {
+                    // Rappel sur l'écran final : la console ne fonctionnera qu'après le script de l'administrateur SQL (B73)
+                    TxtSqlAction.Text = "Action requise : faire exécuter par un administrateur SQL le script « " +
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Autoprint-droits-SQL.sql") +
+                        " ». D'ici là, la console ne peut pas accéder à sa base.";
+                    PanelSqlAction.Visibility = Visibility.Visible;
+                }
 
                 if (_isUpgrade)
                 {
@@ -415,43 +530,6 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
-        private async Task GrantAccessToLocalSystem(string adminConnectionString)
-        {
-            string[] systemAccountNames = { @"NT AUTHORITY\SYSTEM", @"AUTORITE NT\Système" };
-
-            using var connection = new SqlConnection(adminConnectionString);
-            await connection.OpenAsync();
-
-            foreach (var accountName in systemAccountNames)
-            {
-                try
-                {
-                    string sql = $@"
-                        USE [master];
-                        IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '{accountName}')
-                        BEGIN
-                            CREATE LOGIN [{accountName}] FROM WINDOWS;
-                        END
-                        
-                        USE [{TxtSqlDb.Text}];
-                        IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = '{accountName}')
-                        BEGIN
-                            CREATE USER [{accountName}] FOR LOGIN [{accountName}];
-                        END
-                        
-                        ALTER ROLE db_owner ADD MEMBER [{accountName}];
-                    ";
-
-                    using var cmd = new SqlCommand(sql, connection);
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-        }
-
         private Task ExtractResource(string resource, string dest)
         {
             return Task.Run(() =>
@@ -497,7 +575,8 @@ namespace Autoprint.Installer.Server.UI
             else
             {
                 provider = "Sqlite";
-                connectionString = "Data Source=Autoprint.db";
+                Directory.CreateDirectory(DataPath);
+                connectionString = $"Data Source={SqlitePath}";
             }
 
             var appSettings = new
@@ -508,21 +587,24 @@ namespace Autoprint.Installer.Server.UI
                     ConnectionStrings = new
                     {
                         SqlServer = (provider == "SqlServer") ? connectionString : "",
-                        Sqlite = "Data Source=Autoprint.db"
+                        Sqlite = provider == "Sqlite" ? connectionString : $"Data Source={SqlitePath}"
                     }
                 },
                 Logging = new
                 {
                     LogLevel = new { Default = "Information", Microsoft = "Warning" }
                 },
-                AllowedHosts = "*",
-                ClientUrl = $"http://localhost:{TxtWebPort.Text}",
+                // Seuls le nom public et localhost sont acceptés (protection contre l'usurpation d'en-tête Host)
+                AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
+                // Opérations du spouleur déléguées au service AutoprintSpooler (le site tourne sans privilège)
+                Spooler = new { Mode = "Service" },
                 Jwt = new
                 {
                     Key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
                     Issuer = "AutoprintServer",
                     Audience = "AutoprintClient",
-                    ExpireMinutes = 120
+                    // Jeton court, renouvelé automatiquement par la console (backlog B19)
+                    ExpireMinutes = 30
                 },
                 ConnectionStrings = new
                 {
@@ -562,6 +644,14 @@ namespace Autoprint.Installer.Server.UI
 
                 proc.WaitForExit();
 
+                if (proc.ExitCode != 0 && _isUpgrade && _sqlGrantFailed)
+                {
+                    // L'installeur n'a pas de droit SQL (script à exécuter par un administrateur SQL) : sa migration échoue
+                    // forcément ; le site l'appliquera à son démarrage sous le compte du pool, une fois les droits accordés (B73)
+                    Dispatcher.Invoke(() => TxtInstallLog.Text += "\n[Attention] Migration de la base différée : le site l'appliquera à son démarrage, après exécution du script SQL.");
+                    return;
+                }
+
                 if (proc.ExitCode != 0)
                 {
                     string details = "";
@@ -577,18 +667,35 @@ namespace Autoprint.Installer.Server.UI
             try
             {
                 using var mgr = new ServerManager();
+                // Le pool a été arrêté au début de l'installation (StopIISPool) : un pool arrêté ne se recycle pas,
+                // il faut le redémarrer, sinon le site reste en erreur 503 après chaque mise à jour (B61)
                 var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
-                if (pool != null) pool.Recycle();
+                if (pool != null)
+                {
+                    if (pool.State is ObjectState.Stopped or ObjectState.Stopping)
+                    {
+                        for (int i = 0; i < 10 && pool.State == ObjectState.Stopping; i++) System.Threading.Thread.Sleep(500);
+                        pool.Start();
+                    }
+                    else pool.Recycle();
+                }
 
                 var site = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint");
-                if (site != null && site.State == ObjectState.Started)
+                if (site != null)
                 {
-                    site.Stop();
-                    System.Threading.Thread.Sleep(1000);
-                    site.Start();
+                    if (site.State == ObjectState.Started)
+                    {
+                        site.Stop();
+                        System.Threading.Thread.Sleep(1000);
+                    }
+                    if (site.State != ObjectState.Started) site.Start();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Ne plus masquer l'échec : l'administrateur doit savoir que le site n'a pas redémarré
+                TxtInstallLog.Text += $"\n[Attention] Redémarrage du site Autoprint impossible ({ex.Message}) : démarrer le pool « Autoprint » dans le Gestionnaire IIS.";
+            }
         }
 
         private void CleanupIIS()
@@ -626,7 +733,19 @@ namespace Autoprint.Installer.Server.UI
                 {
                     string json = File.ReadAllText(configPath);
                     using var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
+                    string allowedHosts = doc.RootElement.TryGetProperty("AllowedHosts", out var hostsElement) ? hostsElement.GetString() ?? "" : "";
+                    _needsPublicHost = string.IsNullOrWhiteSpace(allowedHosts) || allowedHosts.Trim() == "*";
+
+                    // Port du site existant : liaison IIS en priorité (backlog B11), à défaut l'ancien paramètre ClientUrl
+                    try
+                    {
+                        using var mgr = new ServerManager();
+                        var binding = mgr.Sites.FirstOrDefault(s => s.Name == "Autoprint")?.Bindings.FirstOrDefault(b => b.EndPoint != null);
+                        if (binding != null) _existingPort = binding.EndPoint.Port;
+                    }
+                    catch { }
+
+                    if (_existingPort == 0 && doc.RootElement.TryGetProperty("ClientUrl", out var urlElement))
                     {
                         string url = urlElement.GetString() ?? "";
                         var parts = url.Split(':');
@@ -644,6 +763,66 @@ namespace Autoprint.Installer.Server.UI
             }
         }
 
+        // Mise à jour d'une installation SQLite : la base quitte le dossier du programme pour ProgramData (backlog B25)
+        private async Task MoveSqliteDatabaseToProgramData(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            string provider = root["Database"]?["Provider"]?.GetValue<string>() ?? "";
+            if (!provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase)) return;
+
+            string cs = root["Database"]?["ConnectionStrings"]?["Sqlite"]?.GetValue<string>() ?? "Data Source=Autoprint.db";
+            string source = cs.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase) ? cs.Substring("Data Source=".Length).Trim() : "Autoprint.db";
+            string sourcePath = Path.IsPathRooted(source) ? source : Path.Combine(InstallPath, source);
+
+            // Déjà ailleurs que dans le dossier du programme : rien à faire
+            if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(sourcePath))?.TrimEnd('\\'), InstallPath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return;
+
+            Directory.CreateDirectory(DataPath);
+            if (File.Exists(sourcePath))
+            {
+                if (File.Exists(SqlitePath))
+                    throw new Exception($"Une base existe déjà dans {DataPath} : déplacement annulé pour ne rien écraser. Vérifiez manuellement.");
+
+                // Le site doit être arrêté pour libérer la base
+                using (var mgr = new ServerManager())
+                {
+                    var appPool = mgr.ApplicationPools.FirstOrDefault(ap => ap.Name == "Autoprint");
+                    if (appPool != null && appPool.State == ObjectState.Started) appPool.Stop();
+                }
+                await Task.Delay(3000);
+
+                foreach (var suffix in new[] { "", "-wal", "-shm" })
+                {
+                    if (File.Exists(sourcePath + suffix)) File.Move(sourcePath + suffix, SqlitePath + suffix);
+                }
+                TxtInstallLog.Text += $"\nBase SQLite déplacée vers {SqlitePath}";
+            }
+
+            root["Database"]!["ConnectionStrings"]!["Sqlite"] = $"Data Source={SqlitePath}";
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        // Mise à jour : « AllowedHosts » passe de « * » au nom public saisi (+ localhost)
+        private async Task ApplyPublicHost(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            root["AllowedHosts"] = $"{TxtPublicHost.Text.Trim()};localhost";
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        // Durée des jetons : 30 min depuis B19 (renouvellement automatique par la console). La fusion de la configuration
+        // conservait l'ancienne valeur (120 min en 1.1.x) : on la ramène à 30 min si elle est plus longue (B63).
+        private const int MaxJwtMinutes = 30;
+        private static async Task CapJwtLifetime(string configPath)
+        {
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))?.AsObject();
+            if (root?["Jwt"] is not JsonObject jwt) return;
+            int current = int.TryParse(jwt["ExpireMinutes"]?.ToString(), out int v) ? v : 0;
+            if (current is > 0 and <= MaxJwtMinutes) return;
+            jwt["ExpireMinutes"] = MaxJwtMinutes;
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
         private void UpdateUiForUpgrade()
         {
             if (_isUpgrade)
@@ -658,23 +837,90 @@ namespace Autoprint.Installer.Server.UI
         {
             try
             {
+                // Les versions précédentes donnaient « Modification » à NETWORK SERVICE sur tout le dossier : n'importe quel service
+                // tournant sous ce compte pouvait remplacer les DLL chargées en SYSTEM par le pool IIS. Le pool tourne en LocalSystem :
+                // ce droit est inutile, on le retire (y compris lors d'une mise à jour).
                 var dirInfo = new DirectoryInfo(InstallPath);
                 var security = dirInfo.GetAccessControl();
                 var networkService = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
-
-                var rule = new FileSystemAccessRule(
-                    networkService,
-                    FileSystemRights.Modify,
-                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None,
-                    AccessControlType.Allow);
-
-                security.AddAccessRule(rule);
+                security.PurgeAccessRules(networkService);
                 dirInfo.SetAccessControl(security);
             }
             catch (Exception ex)
             {
                 throw new Exception($"Erreur lors de l'application des droits NTFS : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// SID du compte virtuel « IIS AppPool\&lt;pool&gt; » : S-1-5-82 suivi du SHA-1 du nom du pool en minuscules (UTF-16).
+        /// Identique sur tous les serveurs et indépendant de la langue ; disponible avant même la création du pool.
+        /// </summary>
+        internal static SecurityIdentifier AppPoolSid(string poolName)
+        {
+            byte[] hash = SHA1.HashData(System.Text.Encoding.Unicode.GetBytes(poolName.ToLowerInvariant()));
+            var parts = Enumerable.Range(0, 5).Select(i => BitConverter.ToUInt32(hash, i * 4));
+            return new SecurityIdentifier("S-1-5-82-" + string.Join("-", parts));
+        }
+
+        // Fichiers contenant des secrets (clé JWT, chaîne SQL, base SQLite, clés de chiffrement) : accès réservé à SYSTEM
+        // (identité du pool IIS) et aux Administrateurs, sans héritage des droits « Utilisateurs » de Program Files / ProgramData (audit #9).
+        private void HardenSensitiveFiles()
+        {
+            var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+            var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+
+            // Identité du pool IIS : SID calculé, car la résolution par nom échoue tant qu'IIS n'a pas pris en compte
+            // le pool (installation neuve : le site n'avait alors aucun droit sur appsettings.json et plantait, B51)
+            SecurityIdentifier pool = AppPoolSid(PoolIdentity.Substring(PoolIdentity.IndexOf('\\') + 1));
+
+            foreach (var file in new[] { Path.Combine(InstallPath, "appsettings.json") }.Where(File.Exists))
+            {
+                var fileSecurity = new FileSecurity();
+                fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, AccessControlType.Allow));
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, AccessControlType.Allow));
+                // appsettings.json : lecture seule pour le site
+                if (pool != null) fileSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Read, AccessControlType.Allow));
+                new FileInfo(file).SetAccessControl(fileSecurity);
+            }
+
+            // Même emplacement que le serveur (Program.cs, DataProtection:KeysPath par défaut)
+            string keysPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autoprint", "Keys");
+            var keysDir = Directory.CreateDirectory(keysPath);
+            var dirSecurity = new DirectorySecurity();
+            dirSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            var inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+            dirSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+            dirSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+            // Le site crée et renouvelle ses clés de chiffrement (rotation automatique tous les 90 jours)
+            if (pool != null) dirSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
+            keysDir.SetAccessControl(dirSecurity);
+
+            // Base SQLite (et ses fichiers -wal / -shm) : dossier dédié, réservé à SYSTEM, aux Administrateurs et au site
+            if (Directory.Exists(DataPath))
+            {
+                var dataSecurity = new DirectorySecurity();
+                dataSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                dataSecurity.AddAccessRule(new FileSystemAccessRule(system, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+                dataSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+                if (pool != null) dataSecurity.AddAccessRule(new FileSystemAccessRule(pool, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
+                new DirectoryInfo(DataPath).SetAccessControl(dataSecurity);
+                foreach (var dbFile in Directory.GetFiles(DataPath))
+                {
+                    var fs = new FileInfo(dbFile).GetAccessControl();
+                    fs.SetAccessRuleProtection(isProtected: false, preserveInheritance: false); // héritage du dossier
+                    new FileInfo(dbFile).SetAccessControl(fs);
+                }
+            }
+
+            // Aucun droit explicite du site sur le dossier du programme (il ne doit pas pouvoir modifier ses propres DLL)
+            if (pool != null)
+            {
+                var installDir = new DirectoryInfo(InstallPath);
+                var installSecurity = installDir.GetAccessControl();
+                installSecurity.PurgeAccessRules(pool);
+                installDir.SetAccessControl(installSecurity);
             }
         }
 
@@ -695,7 +941,9 @@ namespace Autoprint.Installer.Server.UI
 
             var newPool = mgr.ApplicationPools.Add(poolName);
             newPool.ManagedRuntimeVersion = "";
-            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.LocalSystem;
+            // Compte automatique IIS (« IIS AppPool\Autoprint ») : le site n'a plus aucun privilège local (audit #8).
+            // Les opérations sur les files d'impression passent par le service Windows AutoprintSpooler.
+            newPool.ProcessModel.IdentityType = ProcessModelIdentityType.ApplicationPoolIdentity;
             newPool.ProcessModel.IdleTimeout = TimeSpan.Zero;
             newPool.ProcessModel.LoadUserProfile = true;
 
@@ -703,6 +951,206 @@ namespace Autoprint.Installer.Server.UI
             newSite.ApplicationDefaults.ApplicationPoolName = poolName;
 
             mgr.CommitChanges();
+        }
+
+        /// <summary>
+        /// Attend que Windows résolve le compte du pool (SQL Server le recherche par son nom pour CREATE LOGIN) ;
+        /// juste après la création du pool, le nom peut être encore inconnu : démarrage du pool puis nouvelles tentatives.
+        /// </summary>
+        private static void WaitForPoolAccount()
+        {
+            for (int i = 0; i < 60; i++)
+            {
+                try { new NTAccount(PoolIdentity).Translate(typeof(SecurityIdentifier)); return; }
+                catch (IdentityNotMappedException) { }
+                if (i == 3)
+                {
+                    try
+                    {
+                        using var mgr = new ServerManager();
+                        var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+                        if (pool != null && pool.State != ObjectState.Started) pool.Start();
+                    }
+                    catch { }
+                }
+                System.Threading.Thread.Sleep(1000);
+            }
+        }
+
+        private const string PoolIdentity = @"IIS AppPool\Autoprint";
+        private const string FirewallRuleName = "Autoprint Server";
+
+        /// <summary>
+        /// Ouvre le port du site dans le pare-feu Windows (B52 : sans cette règle, la console n'était joignable que depuis le serveur).
+        /// La règle est recréée à chaque installation ou mise à jour pour suivre le port configuré.
+        /// </summary>
+        private static void EnsureFirewallRule(int port)
+        {
+            if (port < 1) return;
+            RunNetsh($"advfirewall firewall delete rule name=\"{FirewallRuleName}\"", ignoreErrors: true);
+            RunNetsh($"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow protocol=TCP localport={port} profile=any", ignoreErrors: false);
+        }
+
+        private static void RunNetsh(string args, bool ignoreErrors)
+        {
+            using var p = Process.Start(new ProcessStartInfo { FileName = "netsh.exe", Arguments = args, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })
+                          ?? throw new Exception("netsh introuvable");
+            string output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            if (p.ExitCode != 0 && !ignoreErrors) throw new Exception($"Règle de pare-feu non créée (netsh {p.ExitCode}) : {output.Trim()}");
+        }
+
+        // Mise à jour : les anciennes versions faisaient tourner le pool en LocalSystem
+        private void SwitchPoolToApplicationPoolIdentity()
+        {
+            using var mgr = new ServerManager();
+            var pool = mgr.ApplicationPools.FirstOrDefault(p => p.Name == "Autoprint");
+            if (pool == null) return;
+            if (pool.ProcessModel.IdentityType != ProcessModelIdentityType.ApplicationPoolIdentity)
+            {
+                pool.ProcessModel.IdentityType = ProcessModelIdentityType.ApplicationPoolIdentity;
+                mgr.CommitChanges();
+            }
+        }
+
+        // Le service peut avoir démarré avant la création du pool : on le redémarre pour qu'il autorise immédiatement son identité
+        private static void RestartSpoolerService()
+        {
+            try
+            {
+                using var sc = new System.ServiceProcess.ServiceController("AutoprintSpooler");
+                if (sc.Status != System.ServiceProcess.ServiceControllerStatus.Stopped)
+                {
+                    sc.Stop();
+                    sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                }
+                sc.Start();
+                sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Le service AutoprintSpooler n'a pas pu être démarré : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Compte Windows sous lequel le site se connecte à SQL Server en authentification Windows :
+        /// SQL sur ce serveur => identité du pool ; SQL sur une autre machine => compte machine de ce serveur (DOMAINE\SERVEUR$).
+        /// </summary>
+        private static string GetSqlLoginForSite(string connectionString)
+        {
+            var dataSource = new SqlConnectionStringBuilder(connectionString).DataSource ?? "";
+            string host = dataSource.Replace("tcp:", "", StringComparison.OrdinalIgnoreCase).Split('\\', ',')[0].Trim();
+
+            bool isLocal = host is "." or "" || host.StartsWith("(local", StringComparison.OrdinalIgnoreCase)
+                           || host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "::1"
+                           || host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase)
+                           || host.StartsWith(Environment.MachineName + ".", StringComparison.OrdinalIgnoreCase);
+            if (isLocal) return PoolIdentity;
+
+            // Compte machine résolu par l'annuaire (nom NetBIOS du domaine), à défaut domaine de l'utilisateur courant
+            try
+            {
+                var sid = (SecurityIdentifier)new NTAccount(Environment.MachineName + "$").Translate(typeof(SecurityIdentifier));
+                return ((NTAccount)sid.Translate(typeof(NTAccount))).Value;
+            }
+            catch
+            {
+                return $"{Environment.UserDomainName}\\{Environment.MachineName}$";
+            }
+        }
+
+        /// <summary>Donne au site l'accès db_owner à sa base (authentification Windows uniquement).</summary>
+        private static async Task GrantSqlAccessToSite(string adminConnectionString, string databaseName, string login)
+        {
+            string safeLogin = login.Replace("]", "]]");
+            string safeLoginLiteral = login.Replace("'", "''");
+            string safeDb = databaseName.Replace("]", "]]");
+
+            string sql = $@"
+                USE [master];
+                IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = N'{safeLoginLiteral}')
+                    CREATE LOGIN [{safeLogin}] FROM WINDOWS;
+
+                USE [{safeDb}];
+                IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'{safeLoginLiteral}')
+                    CREATE USER [{safeLogin}] FOR LOGIN [{safeLogin}];
+
+                ALTER ROLE db_owner ADD MEMBER [{safeLogin}];
+            ";
+
+            using var connection = new SqlConnection(WithCatalog(adminConnectionString, "master"));
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(sql, connection);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        private static string WithCatalog(string connectionString, string catalog) =>
+            new SqlConnectionStringBuilder(connectionString) { InitialCatalog = catalog }.ConnectionString;
+
+        /// <summary>Crée la base si elle n'existe pas (installation neuve sur un serveur SQL vierge), connexion par master.</summary>
+        private static async Task EnsureSqlDatabase(string connectionString, string databaseName)
+        {
+            string safeDb = databaseName.Replace("]", "]]");
+            using var connection = new SqlConnection(WithCatalog(connectionString, "master"));
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand($"IF DB_ID(@db) IS NULL CREATE DATABASE [{safeDb}];", connection);
+            cmd.Parameters.AddWithValue("@db", databaseName);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // Mise à jour : droits SQL du nouveau compte du site, avec la chaîne de connexion existante (exécutée sous le compte de l'installeur)
+        private async Task GrantSqlAccessForUpgrade()
+        {
+            string configPath = Path.Combine(InstallPath, "appsettings.json");
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath));
+            string provider = root?["Database"]?["Provider"]?.GetValue<string>() ?? "SqlServer";
+            string? cs = root?["Database"]?["ConnectionStrings"]?["SqlServer"]?.GetValue<string>();
+            if (!provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(cs)) return;
+
+            var builder = new SqlConnectionStringBuilder(cs);
+            if (!builder.IntegratedSecurity) return; // authentification SQL : rien à faire
+
+            string login = GetSqlLoginForSite(cs);
+            try
+            {
+                await GrantSqlAccessToSite(cs, builder.InitialCatalog, login);
+            }
+            catch (Exception ex)
+            {
+                _sqlGrantFailed = true;
+                TxtInstallLog.Text += $"\n[Attention] Droits SQL à accorder manuellement à [{login}] (db_owner sur [{builder.InitialCatalog}]) : {ex.Message}";
+
+                // Script fourni sous forme de fichier et dans le presse-papiers (avant : seulement lisible dans le message) (B73)
+                string safeLogin = login.Replace("]", "]]");
+                string safeDb = builder.InitialCatalog.Replace("]", "]]");
+                string script =
+                    $"-- Autoprint : accès du site web à sa base (à exécuter par un administrateur SQL sur {builder.DataSource})\r\n" +
+                    $"USE [master];\r\nIF SUSER_ID(N'{login.Replace("'", "''")}') IS NULL CREATE LOGIN [{safeLogin}] FROM WINDOWS;\r\n" +
+                    $"USE [{safeDb}];\r\nIF USER_ID(N'{login.Replace("'", "''")}') IS NULL CREATE USER [{safeLogin}] FOR LOGIN [{safeLogin}];\r\n" +
+                    $"ALTER ROLE db_owner ADD MEMBER [{safeLogin}];\r\n";
+                string scriptPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Autoprint-droits-SQL.sql");
+                bool saved = false, copied = false;
+                try { File.WriteAllText(scriptPath, script); saved = true; } catch { }
+                try { Clipboard.SetText(script); copied = true; } catch { }
+
+                MessageBox.Show(
+                    "Le compte de l'installeur n'a pas pu donner l'accès à la base au site web.\n\n" +
+                    "Un administrateur SQL doit exécuter le script suivant sur le serveur SQL" +
+                    (saved ? $" (enregistré dans « {scriptPath} »" + (copied ? " et copié dans le presse-papiers)" : ")") : copied ? " (copié dans le presse-papiers)" : "") + " :\n\n" +
+                    script + "\n" +
+                    "La mise à jour continue ; le site appliquera lui-même les éventuelles mises à niveau de la base à son démarrage, une fois le script exécuté.",
+                    "Droits SQL", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // Mise à jour : passage en mode « Service » (l'ancienne configuration, conservée par la fusion, n'a pas cette clé)
+        private async Task EnableSpoolerServiceMode()
+        {
+            string configPath = Path.Combine(InstallPath, "appsettings.json");
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
+            root["Spooler"] = new JsonObject { ["Mode"] = "Service" };
+            await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
         private void BtnOpenIis_Click(object sender, RoutedEventArgs e)

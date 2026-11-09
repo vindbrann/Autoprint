@@ -1,0 +1,41 @@
+# Compilation + recherche de dépendances vulnérables à chaque push / pull request (audit 2026-11, phase 3).
+# L'analyse de code (CodeQL) est assurée par la configuration par défaut de GitHub.
+name: Contrôles de sécurité
+
+on:
+  push:
+    branches: [ "master", "security/**", "feature/**" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: "0 6 * * 1"   # chaque lundi : détecte les nouvelles vulnérabilités publiées
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Les projets WiX (MSI) ne sont pas compilés ici
+      - name: Compilation
+        shell: bash
+        run: |
+          for p in Autoprint.Shared Autoprint.Spooler Autoprint.SpoolerService Autoprint.Web Autoprint.Server Autoprint.Client; do
+            dotnet build "$p/$p.csproj" -c Release
+          done
+
+      - name: Dépendances vulnérables
+        shell: bash
+        run: |
+          dotnet list Autoprint.sln package --vulnerable --include-transitive | tee vuln.txt
+          if grep -qi "has the following vulnerable packages" vuln.txt; then
+            echo "::error::Des packages NuGet vulnérables ont été détectés."
+            exit 1
+          fi

@@ -77,7 +77,8 @@ else
                     }
                     else
                     {
-                        @u.LastLogin.ToString("g")
+                        @* Enregistrée en UTC (DateTime.UtcNow) ; la base la renvoie sans fuseau : affichée en heure locale (B58) *@
+                        @((u.LastLogin.Kind == DateTimeKind.Local ? u.LastLogin : DateTime.SpecifyKind(u.LastLogin, DateTimeKind.Utc).ToLocalTime()).ToString("g"))
                     }
                 </Template>
             </RadzenDataGridColumn>

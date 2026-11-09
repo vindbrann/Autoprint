@@ -35,7 +35,10 @@ namespace Autoprint.Server.Helpers
             // Détection de l'ancien hachage SHA-256 (hexadécimal de 64 caractères)
             if (hashedPassword.Length == 64 && System.Text.RegularExpressions.Regex.IsMatch(hashedPassword, @"^[a-fA-F0-9]+$"))
             {
-                return hashedPassword.Equals(ComputeSha256Hash(providedPassword), StringComparison.OrdinalIgnoreCase);
+                // Comparaison en temps constant
+                return CryptographicOperations.FixedTimeEquals(
+                    Encoding.ASCII.GetBytes(hashedPassword.ToLowerInvariant()),
+                    Encoding.ASCII.GetBytes(ComputeSha256Hash(providedPassword)));
             }
 
             var result = _hasher.VerifyHashedPassword("", hashedPassword, providedPassword);
@@ -54,7 +57,7 @@ namespace Autoprint.Server.Helpers
 
         public static string EscapeLdapFilter(string input)
         {
-            if (string.IsNullOrEmpty(input)) return input;
+            if (string.IsNullOrEmpty(input)) return string.Empty;
             var sb = new StringBuilder(input.Length);
             foreach (char c in input)
             {
@@ -67,6 +70,18 @@ namespace Autoprint.Server.Helpers
                     case '\0': sb.Append("\\00"); break;
                     default:   sb.Append(c); break;
                 }
+            }
+            return sb.ToString();
+        }
+
+        // Valeur d'un filtre LDAP sous forme d'octets (RFC 4515) : ASCII imprimable conservé, le reste en \hh
+        public static string EscapeLdapFilter(byte[] value)
+        {
+            var sb = new StringBuilder(value.Length);
+            foreach (byte b in value)
+            {
+                if (b >= 0x20 && b < 0x7F && b != '(' && b != ')' && b != '*' && b != '\\') sb.Append((char)b);
+                else sb.Append('\\').Append(b.ToString("x2"));
             }
             return sb.ToString();
         }
