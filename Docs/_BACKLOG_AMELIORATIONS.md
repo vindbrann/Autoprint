@@ -4,6 +4,23 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
+## ▶️ Point de reprise (09/11/2026, 23:30)
+
+**Fait** :
+- **étape 1 terminée** : correctifs B76, B78, B70, B58 (2, 3, 5), validés en labo et fusionnés dans `master` (PR vindbrann/Autoprint#14, `409b4c9`) ;
+- `master` : 0 alerte CodeQL ouverte (15 fermées, dont n° 8 et 9), 0 alerte Dependabot ;
+- charte graphique v1 reçue et vérifiée sur `feature/charte-graphique` (B77).
+
+**Prochaines actions, dans l'ordre** :
+1. **Livraison 26.11.10.1** sur la branche `release/26.11.10.1` : version dans `Directory.Build.props`, MSI serveur (`-p:SolutionDir=…`), installeur, MSI client, dossier `Livraison-26.11.10.1` avec LISEZMOI ; mise à jour en labo depuis la 26.11.9.1, puis PR vers `master`.
+2. Supprimer la branche fusionnée `fix/correctifs-26.11.10` (GitHub et local).
+3. Étape 1 bis : PR Dependabot (fermer n° 12, fusionner n° 7, 8, 11, examiner n° 9 en échec).
+4. Étape 2 : B32 (communautés SNMP) sur `fix/snmp-communautes`.
+
+**État du labo** (VM arrêtées) :
+- SRV-PRINT : 26.11.9.1 installée (SQL Server) + correctifs 26.11.10 copiés à chaud ; instantané « SQL Server 26.11.9.1 + correctifs 26.11.10 à chaud » ; instantané propre : « SQL Server 26.11.9.1 (livraison validée) ».
+- SRV-AD : OU de test « Équipements » et « Lyon, Part-Dieu » (utilisateurs désactivés `ad.accent`, `ad.virgule`) pour les tests B76.
+
 ## 🗺️ Feuille de route (décidée le 09/11/2026)
 
 Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
