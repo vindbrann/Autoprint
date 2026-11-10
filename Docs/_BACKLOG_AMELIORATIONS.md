@@ -4,23 +4,22 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (09/11/2026, 23:30)
+## ▶️ Point de reprise (11/11/2026)
 
 **Fait** :
 - **étape 1 terminée** : correctifs B76, B78, B70, B58 (2, 3, 5), validés en labo et fusionnés dans `master` (PR vindbrann/Autoprint#14, `409b4c9`) ;
 - `master` : 0 alerte CodeQL ouverte (15 fermées, dont n° 8 et 9), 0 alerte Dependabot ;
-- charte graphique v1 reçue et vérifiée sur `feature/charte-graphique` (B77).
+- charte graphique v1 reçue et vérifiée sur `feature/charte-graphique` (B77) ;
+- livraison 26.11.11.1 abandonnée le 11/11 (voir la règle de livraison ci-dessous).
 
 **Prochaines actions, dans l'ordre** :
-1. **Livraison 26.11.10.1** sur la branche `release/26.11.10.1` : version dans `Directory.Build.props`, MSI serveur (`-p:SolutionDir=…`), installeur, MSI client, dossier `Livraison-26.11.10.1` avec LISEZMOI ; mise à jour en labo depuis la 26.11.9.1, puis PR vers `master`.
-2. Supprimer la branche fusionnée `fix/correctifs-26.11.10` (GitHub et local).
-3. Étape 1 bis : PR Dependabot (fermer n° 12, fusionner n° 7, 8, 11, examiner n° 9 en échec).
-4. Étape 2 : B32 (communautés SNMP) sur `fix/snmp-communautes`.
+1. Supprimer la branche fusionnée `fix/correctifs-26.11.10` (GitHub et local).
+2. Étape 1 bis : PR Dependabot (fermer n° 12, fusionner n° 7, 8, 11, examiner n° 9 en échec).
+3. Étape 2 : B32 (communautés SNMP) sur `fix/snmp-communautes`.
 
 **État du labo** (VM arrêtées) :
-- SRV-PRINT : 26.11.9.1 installée (SQL Server) + correctifs 26.11.10 copiés à chaud ; instantané « SQL Server 26.11.9.1 + correctifs 26.11.10 à chaud » ; instantané propre : « SQL Server 26.11.9.1 (livraison validée) ».
+- SRV-PRINT : 26.11.9.1 propre (instantané « SQL Server 26.11.9.1 (livraison validée) » restauré le 11/11). Avec les correctifs de l'étape 1 copiés à chaud : instantané « SQL Server 26.11.9.1 + correctifs 26.11.10 à chaud ».
 - SRV-AD : OU de test « Équipements » et « Lyon, Part-Dieu » (utilisateurs désactivés `ad.accent`, `ad.virgule`) pour les tests B76.
-
 ## 🗺️ Feuille de route (décidée le 09/11/2026)
 
 Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
@@ -28,7 +27,7 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | # | Branche | Contenu | Raison de l'ordre |
 |---|---|---|---|
 | 0 | (manuel) | B44 : SDK 10.0.403 sur le poste de build | tout se compile sur ce poste |
-| 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; livraison 26.11.10.x |
+| 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; **fait** (fusionné le 09/11) |
 | 1 bis | PR Dependabot | fermer n° 12 (SQLitePCLRaw 3, incompatible EF Core 10), fusionner n° 7, 8, 11, examiner n° 9 | nettoyage, en parallèle |
 | 2 | `fix/snmp-communautes` | B32 : communautés SNMP « ancien mode » chiffrées ou supprimées | sécurité ; avant la refonte, car elle touche la fiche imprimante |
 | 3 | `chore/radzen-12` | Radzen 12 sans changement visuel (reprend la PR n° 10) + recette de la console | prérequis de la refonte |
@@ -38,7 +37,10 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | 7 | `chore/…` | .NET 11, puis décisions WiX 7 et SqlClient 7 (B12 / B37) | selon `_POLITIQUE_VERSIONS.md`, hors refonte |
 | — | à tout moment | B23 (documenter la sauvegarde des clés), B55 (vérification sur poste Entra ID hybride) | documentation, vérification |
 
-Règle : **une seule branche à la fois touche les écrans de la console** (étapes 2, 3, 4). Livraisons : 26.11.10.x après l'étape 1 (avec l'étape 2 si prête) ; version « refonte » après les étapes 3 à 5, avec recette complète en labo.
+Règles :
+- **une seule branche à la fois touche les écrans de la console** (étapes 2, 3, 4) ;
+- **on livre quand c'est utile, pas après chaque étape** (décision du 11/11/2026) : chaque correctif est testé en labo par copie à chaud, puis fusionné dans `master` ; une livraison (installeur, mise à jour en labo par l'installeur, dossier `Livraison-…`) n'est faite que sur besoin ou à la fin d'un lot cohérent, a priori la version « refonte » après les étapes 3 à 5, avec recette complète ;
+- le labo n'est démarré que pour tester.
 
 ---
 
