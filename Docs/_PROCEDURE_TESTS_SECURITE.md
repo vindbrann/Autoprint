@@ -423,9 +423,9 @@ Prérequis : une imprimante (ou un simulateur) configurée en SNMPv3 avec un uti
 
 | ID | Test | Résultat attendu | ✔ |
 |---|---|---|---|
-| SE-01 | Serveur avec un runtime ASP.NET Core 10 plus ancien que 10.0.14 (ex. 10.0.0) : lancer l'installeur, étape des prérequis. | « Version 10.0.x trop ancienne : 10.0.14 requise » et bouton « Mettre à jour » ; l'étape suivante est bloquée (B39). | ☐ |
-| SE-02 | Cliquer « Mettre à jour », puis relancer l'analyse. | « Runtime .NET 10.0.14 installé » puis « Installé (version 10.0.14) » ; le site redémarre correctement (B38). | ☐ |
-| SE-03 | Serveur déjà en 10.0.14 ou plus récent. | « Installé (version …) », pas de bouton (B39). | ☐ |
+| SE-01 | Serveur avec un runtime ASP.NET Core 10 plus ancien que la version embarquée (ex. 10.0.0 ou 10.0.14) : lancer l'installeur, étape des prérequis. | « Version 10.0.x trop ancienne : 10.0.15 requise » et bouton « Mettre à jour » ; l'étape suivante est bloquée (B39). | ☐ |
+| SE-02 | Cliquer « Mettre à jour », puis relancer l'analyse. | « Runtime .NET 10.0.15 installé » puis « Installé (version 10.0.15) » ; le site redémarre correctement (B38). | ☐ |
+| SE-03 | Serveur déjà en 10.0.15 ou plus récent. | « Installé (version …) », pas de bouton (B39). | ☐ |
 | SE-04 | Console : mise à jour d'un serveur où l'on était déjà connecté (navigateur non fermé). | Session conservée, thème et colonnes de la grille Imprimantes conservés (format de stockage inchangé, B41). | ☐ |
 | SE-05 | Console : changer de thème, trier / masquer des colonnes de la grille Imprimantes, recharger la page, se déconnecter. | Préférences conservées après rechargement ; jeton supprimé à la déconnexion (contrôlé ici, B41). | ☐ |
 | SE-06 | Console après mise à jour : outils de développement › Réseau. | `index.html` avec `Cache-Control: no-cache` ; bibliothèques chargées en `?v=5.3.8`, `?v=1.13.2`, `?v=4.6.1` (contrôlé ici, B40, B43). | ☐ |
