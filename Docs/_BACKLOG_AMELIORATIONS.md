@@ -4,14 +4,32 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
+## ▶️ Point de reprise (11/11/2026)
+
+**Fait** :
+- **étape 1 terminée** : correctifs B76, B78, B70, B58 (2, 3, 5), validés en labo et fusionnés dans `master` (PR vindbrann/Autoprint#14, `409b4c9`) ;
+- `master` : 0 alerte CodeQL ouverte (15 fermées, dont n° 8 et 9), 0 alerte Dependabot ;
+- charte graphique v1 reçue et vérifiée sur `feature/charte-graphique` (B77) ;
+- livraison 26.11.11.1 abandonnée le 11/11 (voir la règle de livraison ci-dessous).
+
+**Prochaines actions, dans l'ordre** :
+0. B79 (.NET 10.0.15, branche `chore/dotnet-10.0.15`) : fusionner la PR ; tests en labo à la prochaine session de labo.
+1. Supprimer la branche fusionnée `fix/correctifs-26.11.10` (GitHub et local).
+2. Étape 1 bis : PR Dependabot (fermer n° 12, fusionner n° 7, 8, 11, examiner n° 9 en échec).
+3. Étape 2 : B32 (communautés SNMP) sur `fix/snmp-communautes`.
+
+**État du labo** (VM arrêtées) :
+- SRV-PRINT : 26.11.9.1 propre (instantané « SQL Server 26.11.9.1 (livraison validée) » restauré le 11/11). Avec les correctifs de l'étape 1 copiés à chaud : instantané « SQL Server 26.11.9.1 + correctifs 26.11.10 à chaud ».
+- SRV-AD : OU de test « Équipements » et « Lyon, Part-Dieu » (utilisateurs désactivés `ad.accent`, `ad.virgule`) pour les tests B76.
 ## 🗺️ Feuille de route (décidée le 09/11/2026)
 
 Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
 
 | # | Branche | Contenu | Raison de l'ordre |
 |---|---|---|---|
-| 0 | (manuel) | B44 : SDK 10.0.403 sur le poste de build | tout se compile sur ce poste |
-| 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; livraison 26.11.10.x |
+| 0 | (manuel) | B44 : SDK du poste de build | **fait** le 11/11 (SDK 10.0.404) |
+| 0 bis | `chore/dotnet-10.0.15` | B79 : .NET 10.0.15 (paquets, Hosting Bundle embarqué) | sécurité : 16 CVE ; **fait** le 11/11, tests en labo à faire |
+| 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; **fait** (fusionné le 09/11) |
 | 1 bis | PR Dependabot | fermer n° 12 (SQLitePCLRaw 3, incompatible EF Core 10), fusionner n° 7, 8, 11, examiner n° 9 | nettoyage, en parallèle |
 | 2 | `fix/snmp-communautes` | B32 : communautés SNMP « ancien mode » chiffrées ou supprimées | sécurité ; avant la refonte, car elle touche la fiche imprimante |
 | 3 | `chore/radzen-12` | Radzen 12 sans changement visuel (reprend la PR n° 10) + recette de la console | prérequis de la refonte |
@@ -21,7 +39,10 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | 7 | `chore/…` | .NET 11, puis décisions WiX 7 et SqlClient 7 (B12 / B37) | selon `_POLITIQUE_VERSIONS.md`, hors refonte |
 | — | à tout moment | B23 (documenter la sauvegarde des clés), B55 (vérification sur poste Entra ID hybride) | documentation, vérification |
 
-Règle : **une seule branche à la fois touche les écrans de la console** (étapes 2, 3, 4). Livraisons : 26.11.10.x après l'étape 1 (avec l'étape 2 si prête) ; version « refonte » après les étapes 3 à 5, avec recette complète en labo.
+Règles :
+- **une seule branche à la fois touche les écrans de la console** (étapes 2, 3, 4) ;
+- **on livre quand c'est utile, pas après chaque étape** (décision du 11/11/2026) : chaque correctif est testé en labo par copie à chaud, puis fusionné dans `master` ; une livraison (installeur, mise à jour en labo par l'installeur, dossier `Livraison-…`) n'est faite que sur besoin ou à la fin d'un lot cohérent, a priori la version « refonte » après les étapes 3 à 5, avec recette complète ;
+- le labo n'est démarré que pour tester.
 
 ---
 
@@ -147,7 +168,8 @@ Règle : toujours rester sur des technologies à jour (correctifs de sécurité 
 |---|---|---|---|---|
 | B42 | ✅ | **Corrigé (phase E, 04/11/2026) : remplacé par SkiaSharp 4.154** (Microsoft, MIT, option 3 choisie). Nouveau `PdfReportWriter` (texte, traits, rectangles, pages A4) ; police embarquée « Autoprint Sans » = sous-ensemble latin de Liberation Sans 2.1.5 (OFL, renommée car « Liberation » est un nom réservé), mêmes largeurs qu'Arial : PDF de 40 Ko pour 62 imprimantes (70 Ko avec PDFsharp ; 1,1 Mo avec Arial car Skia intègre la police entière). Seule la bibliothèque native win-x64 est publiée (évite ~330 Mo). Au passage : accents rétablis (« Généré », « Fréquence », « ACTIVITÉ »), en-tête du tableau répété sur chaque page, **colonnes de mesures inversées corrigées** (intitulés dans l'ordre de sélection, valeurs dans un ordre fixe), trait gris sous le bandeau (B36). — *Constat initial :* **PDFsharp 6.5 passe sous licence AGPL-3.0** (au lieu de MIT) et refuse de créer un PDF sans licence valide (`PdfSharpLicenseException`). 6.2.4 est la dernière version MIT : elle ne recevra plus de correctifs. **Décision à prendre** : acheter une licence commerciale PDFsharp, ou remplacer la bibliothèque des rapports PDF (une seule méthode concernée : `GeneratePdfReportAsync`). En attendant : 6.2.4 conservée, Dependabot bloqué sur ≥ 6.3. **Options étudiées (04/11/2026)** : (1) *PDFsharp 6.2.4 tel quel* : gratuit, risque faible à court terme (on ne fait qu'écrire des PDF à partir de nos données, aucun PDF externe n'est lu) mais plus aucun correctif, contraire à la politique des versions ; (2) *Licence commerciale PDFsharp* : 750 € HT une fois, perpétuelle, développeurs / serveurs / déploiements illimités, mises à jour 6.5.x et 7.0.x incluses, réservée aux entreprises ; aucun changement de code ; (3) *SkiaSharp* (Microsoft, MIT, 4.154 du 28/10/2026, .NET 10) : gratuit et maintenu par Microsoft ; réécriture de `GeneratePdfReportAsync` (~250 lignes de dessin, API très proche : texte, traits, rectangles, pagination déjà manuelle), environ une demi-journée + recette PDF ; ajoute ~10 Mo de bibliothèque native ; (4) *QuestPDF* : API de mise en page plus confortable, mais gratuit seulement sous 1 M$ de chiffre d'affaires et **interdit au secteur public et aux sociétés cotées** même petites ; sinon 1 999 $/an pour les mises à jour : risqué pour une application diffusée en entreprise ; (5) *iText* : AGPL ou licence commerciale chère, écarté. **Recommandation : SkiaSharp** (gratuit, éditeur Microsoft, aucune contrainte de licence pour les clients) ; à défaut, licence PDFsharp si l'on veut zéro développement. | `ReportGeneratorService`, `.github/dependabot.yml` | 04/11/2026 |
 | B43 | ✅ | **Corrigé (phase E).** `index.html` était servi sans `Cache-Control` : après une mise à jour du serveur, un navigateur pouvait garder l'ancienne console (anciennes bibliothèques, anciens fichiers Blazor). Désormais `no-cache` (revalidation à chaque visite). | `Autoprint.Server/Program.cs` | 04/11/2026 |
-| B44 | 🔐 | Poste de développement : runtime ASP.NET Core **10.0.0** et SDK 10.0.100 ; les tests locaux tournent sans un an de correctifs. Installer le SDK 10.0.403 (runtime 10.0.14). Action manuelle. | Poste de build | 04/11/2026 |
+| B44 | ✅ | **Fait (11/11/2026)** : SDK 10.0.404 installé sur le poste de build (runtime 10.0.15), utilisé pour compiler. — *Constat initial :* Poste de développement : runtime ASP.NET Core **10.0.0** et SDK 10.0.100 ; les tests locaux tournent sans un an de correctifs. Installer le SDK 10.0.403 (runtime 10.0.14). Action manuelle. | Poste de build | 04/11/2026 |
+| B79 | 🔐 | **Fait (11/11/2026), tests en labo à faire.** **.NET 10.0.15** (publié le 10/11/2026, 16 CVE corrigées) : 24 références de paquets `Microsoft.*` / `System.*` et l'outil `dotnet-ef` passés de 10.0.14 à 10.0.15 ; Hosting Bundle 10.0.15 embarqué dans l'installeur (empreinte SHA-512 publiée par Microsoft et signature Microsoft vérifiées), donc minimum exigé sur les serveurs : 10.0.15. Compilation complète OK (serveur, console, client, service, MSI serveur et client, installeur), aucun paquet vulnérable. **À tester en labo** : mise à jour d'un serveur en 10.0.14 (SE-01, SE-02 : « trop ancienne : 10.0.15 requise », puis mise à jour), puis lots API. | `*.csproj`, `Autoprint.Server/.config/dotnet-tools.json`, `Autoprint.Installer.Server.UI/Resources/dotnet-hosting-10.exe` (hors git) | 11/11/2026 |
 | B45 | 🔧 | Le site publié contient ~100 Mo de bibliothèques natives inutiles pour d'autres systèmes (`runtimes/linux-x64`, `osx-*` : MSAL, SqlClient…) et le proxy de débogage Blazor (`BlazorDebugProxy`, 12 Mo) : le MSI serveur est inutilement gros. Publier pour `win-x64` uniquement (`-r win-x64 --self-contained false`) puis vérifier que tout fonctionne (SQL Server, AD). Existait avant la phase E. | `Autoprint.Server.Setup.wixproj` (commande `dotnet publish`) | 04/11/2026 |
 | B46 | 🐞 | **Corrigé (04/11/2026).** Le dossier de publication du site n'était jamais vidé : chaque MSI serveur embarquait aussi les fichiers des publications précédentes (720 fichiers obsolètes : anciennes versions de la console, paquets supprimés). Le MSI passe de 744 à 498 fichiers et de 94 à 72 Mo. Dossiers de publication vidés avant chaque génération du MSI. | `Autoprint.Server.Setup.wixproj` | 04/11/2026 |
 | B47 | 🐞 | **Corrigé (06/11/2026).** **Mise à jour impossible des serveurs SQLite installés en 1.1.x** (constaté sur un serveur 1.1.0 : échec des mises à jour 1.1.1.0 / 1.1.2.0 « erreur lors de la migration », puis en 26.11.4.1 erreurs 500 sur le tableau de bord, les imprimantes et les lieux : `no such column: IsArchived`, `no such table: ReportSchedules`). Cause : ces bases ont été créées sans historique de migrations, et les migrations EF, écrites pour SQL Server, échouaient en SQLite ; le schéma restait figé à sa version d'origine et la mise à niveau ne rattrapait que les ajouts récents. Correctif : `SqliteSchemaReconciler` compare la base au modèle à chaque démarrage et à chaque mise à jour, puis ajoute toute table ou colonne manquante (valeurs initiales du modèle : port SNMP 161, v2c…), reprend les réseaux des lieux (`Emplacements.CidrIpv4` → `EmplacementNetworks`) et supprime les anciennes colonnes obligatoires devenues inutiles, qui bloquaient la création de lignes. Validé sur la base existante du serveur, avant et après la mise à jour ratée, ainsi que sur une installation neuve. | `Autoprint.Server/Data/SqliteSchemaReconciler.cs`, `DatabaseSchema.cs` | 06/11/2026 |
