@@ -32,10 +32,11 @@ else if (!schedules.Any())
 }
 else
 {
-    <div class="ap-grid-wrap"><RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;"
+                        AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
         <Columns>
             <RadzenDataGridColumn TItem="ReportSchedule" Property="ReportName" Title="Nom du Rapport" />
-            <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px">
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px" Sortable="false" Filterable="false">
                 <Template Context="s">
                     @if (s.Frequency == "Quotidien")
                     {
@@ -55,7 +56,7 @@ else
                     }
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="s">
                     <RadzenBadge BadgeStyle="@(s.Format == "PDF" ? BadgeStyle.Danger : BadgeStyle.Success)" Text="@s.Format" />
                 </Template>
@@ -76,7 +77,7 @@ else
                     @(s.NextRunAt.HasValue ? s.NextRunAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
                 <Template Context="s">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
                         <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" title="Envoyer maintenant (Test)" />

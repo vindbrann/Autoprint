@@ -59,7 +59,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="UserViewDto" Title="Rôle" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="UserViewDto" Property="RolesText" Title="Rôle" Sortable="true" Filterable="true">
                 <Template Context="u">
                     @foreach (var r in u.Roles)
                     {

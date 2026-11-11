@@ -25,7 +25,15 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<PaginatedList<AuditLogDto>>> GetLogs(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            // Filtres et tri par colonne de la grille (retour de recette du 11/11 : filtrer sur tous les champs)
+            [FromQuery] string? utilisateur = null,
+            [FromQuery] string? action = null,
+            [FromQuery] string[]? niveau = null,
+            [FromQuery] DateTime? du = null,
+            [FromQuery] DateTime? au = null,
+            [FromQuery] string? tri = null,
+            [FromQuery] bool desc = true)
         {
             var query = _context.AuditLogs.AsQueryable();
 
@@ -37,8 +45,23 @@ namespace Autoprint.Server.Controllers
                     (l.Details != null && l.Details.Contains(search)) ||
                     (l.ResourceName != null && l.ResourceName.Contains(search)));
             }
+            if (!string.IsNullOrWhiteSpace(utilisateur))
+                query = query.Where(l => l.Utilisateur != null && l.Utilisateur.Contains(utilisateur));
+            if (!string.IsNullOrWhiteSpace(action))
+                query = query.Where(l => (l.Action != null && l.Action.Contains(action)) || (l.Details != null && l.Details.Contains(action))
+                                      || (l.ResourceName != null && l.ResourceName.Contains(action)));
+            if (niveau is { Length: > 0 })
+                query = query.Where(l => l.Niveau != null && niveau.Contains(l.Niveau));
+            if (du.HasValue) query = query.Where(l => l.DateAction >= du.Value.ToUniversalTime());
+            if (au.HasValue) query = query.Where(l => l.DateAction < au.Value.ToUniversalTime());
 
-            query = query.OrderByDescending(l => l.DateAction);
+            query = (tri?.ToLowerInvariant()) switch
+            {
+                "niveau" => desc ? query.OrderByDescending(l => l.Niveau).ThenByDescending(l => l.DateAction) : query.OrderBy(l => l.Niveau).ThenByDescending(l => l.DateAction),
+                "utilisateur" => desc ? query.OrderByDescending(l => l.Utilisateur).ThenByDescending(l => l.DateAction) : query.OrderBy(l => l.Utilisateur).ThenByDescending(l => l.DateAction),
+                "action" => desc ? query.OrderByDescending(l => l.Action).ThenByDescending(l => l.DateAction) : query.OrderBy(l => l.Action).ThenByDescending(l => l.DateAction),
+                _ => desc ? query.OrderByDescending(l => l.DateAction) : query.OrderBy(l => l.DateAction)
+            };
 
             var totalItems = await query.CountAsync();
 

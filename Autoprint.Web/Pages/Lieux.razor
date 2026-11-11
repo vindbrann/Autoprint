@@ -99,7 +99,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Emplacement" Property="Status" Title="État" Width="140px" Sortable="true" Filterable="true">
+            <RadzenDataGridColumn TItem="Emplacement" Property="Status" Title="État" Width="140px" Sortable="true" Filterable="true" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="l">
                     @if (l.Status == LieuStatus.Active)
                     {
