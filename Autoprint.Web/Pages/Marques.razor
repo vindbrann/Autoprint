@@ -100,7 +100,7 @@ else
     {
         var resultat = await DialogService.OpenAsync<MarqueModal>(
             marque.Id == 0 ? "Ajouter une Marque" : "Modifier la Marque",
-            new Dictionary<string, object> { { "MarqueToEdit", marque } },
+            new Dictionary<string, object?> { { "MarqueToEdit", marque } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
         );
 

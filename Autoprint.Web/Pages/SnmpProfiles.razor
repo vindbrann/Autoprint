@@ -130,7 +130,7 @@ else
     {
         var title = profile.Id == 0 ? "Créer un Profil SNMP" : $"Modifier le Profil SNMP : {profile.Name}";
         var r = await DialogService.OpenAsync<SnmpProfileModal>(title,
-            new Dictionary<string, object> { { "ProfileToEdit", profile } },
+            new Dictionary<string, object?> { { "ProfileToEdit", profile } },
             new DialogOptions { Width = "1050px", Height = "90vh", CloseDialogOnOverlayClick = false, Resizable = true });
 
         if (r == true)

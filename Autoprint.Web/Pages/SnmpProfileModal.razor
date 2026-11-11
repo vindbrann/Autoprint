@@ -551,7 +551,7 @@
         };
 
         var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Ajouter un Champ OID",
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 { "ItemToEdit", item },
                 { "TestIpAddress", testRequest.IpAddress },
@@ -584,7 +584,7 @@
         };
 
         var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Modifier le Champ OID",
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 { "ItemToEdit", itemCopy },
                 { "TestIpAddress", testRequest.IpAddress },

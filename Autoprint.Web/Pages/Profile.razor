@@ -161,7 +161,7 @@ else
     private async Task OpenPasswordModal()
     {
         var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
-            new Dictionary<string, object> { { "IsForced", false } },
+            new Dictionary<string, object?> { { "IsForced", false } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
         );
 
