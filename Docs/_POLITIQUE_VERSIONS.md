@@ -25,12 +25,12 @@ Exception possible : une mise à jour **bloquée** par une autre dépendance (ex
 | Composant | Version actuelle | Dernière | État | Action |
 |---|---|---|---|---|
 | .NET (projets) | net10.0 | — | ✅ supportée (LTS, jusqu'à nov. 2028) | Évaluer .NET 11 dès sa sortie (prévue en novembre 2026). |
-| Paquets Microsoft.* / System.* | 10.0.14 | 10.0.14 | ✅ | Suivi Dependabot. |
-| **SDK et runtime du poste de build** | SDK 10.0.100 / runtime 10.0.0 | SDK 10.0.403 / runtime 10.0.14 | ⚠️ le poste de développement exécute et teste Autoprint sur le runtime 10.0.0 (sans un an de correctifs) | Installer le SDK 10.0.403 sur le poste de build (action manuelle, backlog B44). Le workflow GitHub utilise déjà la dernière 10.0.x. |
-| **Hosting Bundle embarqué dans l'installeur** | 10.0.14 | 10.0.14 | ✅ phase E | Fichier vérifié (empreinte SHA-512 publiée par Microsoft, signature Microsoft). La compilation échoue si le fichier ne correspond pas à `HostingBundleVersion` (B38). |
+| Paquets Microsoft.* / System.* | 10.0.15 | 10.0.15 | ✅ (11/11/2026, 16 CVE corrigées par la 10.0.15) | Suivi Dependabot. |
+| **SDK et runtime du poste de build** | SDK 10.0.404 / runtime 10.0.15 | SDK 10.0.404 / runtime 10.0.15 | ✅ (11/11/2026, B44) | Le workflow GitHub utilise la dernière 10.0.x. |
+| **Hosting Bundle embarqué dans l'installeur** | 10.0.15 | 10.0.15 | ✅ (11/11/2026, B79) | Fichier vérifié (empreinte SHA-512 publiée par Microsoft, signature Microsoft). La compilation échoue si le fichier ne correspond pas à `HostingBundleVersion` (B38). |
 | **Détection du runtime par l'installeur** | version minimale = Hosting Bundle embarqué | — | ✅ phase E | Un runtime plus ancien est signalé « trop ancien » avec un bouton « Mettre à jour » (B39). |
 | ~~PDFsharp~~ → **SkiaSharp** | 4.154.0 | 4.154.0 | ✅ phase E | PDFsharp 6.5 passé en AGPL-3.0 : remplacé par SkiaSharp (Microsoft, MIT). Police embarquée « Autoprint Sans » (Liberation Sans 2.1.5, OFL ; police stable, régénération décrite dans `Autoprint.Server/Resources/Fonts/README.md`). B42. |
-| Radzen.Blazor | 8.3.8 | 12.1.11 | 🔴 4 majeures de retard | Chantier dédié + recette complète de la console (backlog B12). |
+| Radzen.Blazor | 12.2.0 | 12.2.0 | ✅ (11/11/2026, recette console en labo à faire) | Thème `material` conservé ; la refonte (B77) passera au thème « Standard ». |
 | WiX Toolset (MSI) | 6.0.2 | 7.0.1 | 🔴 majeure | Vérifier d'abord les conditions de licence de WiX 7 (backlog B12). |
 | Microsoft.Data.SqlClient (installeur) | 6.1.3 | 7.1.1 | 🔴 majeure | Chantier dédié avec recette de l'installeur (backlog B12). |
 | Microsoft.OpenApi | 2.13.0 | 3.11.0 | ⏸️ **bloquée** | Débloquée quand ASP.NET Core (Microsoft.AspNetCore.OpenApi) acceptera la 3.x (probablement .NET 11). |

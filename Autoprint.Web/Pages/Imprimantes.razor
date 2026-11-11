@@ -501,7 +501,7 @@ else
         {
             var previewItems = await SyncService.GetPreview();
             var selectedIds = await DialogService.OpenAsync<SyncPreviewModal>("Aperçu des modifications",
-                new Dictionary<string, object> { { "Items", previewItems } },
+                new Dictionary<string, object?> { { "Items", previewItems } },
                 new DialogOptions() { Width = "800px", Height = "600px", CloseDialogOnOverlayClick = false }
             );
             if (selectedIds is List<int> idsToSync && idsToSync.Any())
@@ -587,12 +587,14 @@ else
             SerialNumber = imp.SerialNumber,
             SnmpPort = imp.SnmpPort,
             SnmpCommunity = imp.SnmpCommunity,
-            SnmpVersion = imp.SnmpVersion
+            SnmpVersion = imp.SnmpVersion,
+            // Sans lui, enregistrer la fiche retirait le profil d'identifiants SNMP propre à l'imprimante (vu avec B32)
+            SnmpCredentialId = imp.SnmpCredentialId
         };
 
         var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
         var result = await DialogService.OpenAsync<ImprimanteModal>(title,
-            new Dictionary<string, object> { { "ImprimanteToEdit", impClone } },
+            new Dictionary<string, object?> { { "ImprimanteToEdit", impClone } },
             new DialogOptions() { Width = "900px", CloseDialogOnOverlayClick = true }
         );
         if (result == true)
@@ -604,7 +606,7 @@ else
     private async Task OuvrirDiagnosticModal(Imprimante imp)
     {
         await DialogService.OpenAsync<PrinterDiagnosticModal>($"🩺 Diagnostic en Temps Réel : {imp.NomAffiche}",
-            new Dictionary<string, object> { { "Imprimante", imp } },
+            new Dictionary<string, object?> { { "Imprimante", imp } },
             new DialogOptions() { Width = "750px", CloseDialogOnOverlayClick = true }
         );
         await ChargerListe();

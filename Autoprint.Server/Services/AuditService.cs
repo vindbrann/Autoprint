@@ -85,10 +85,19 @@ namespace Autoprint.Server.Services
                 Niveau = level,
                 DateAction = DateTime.UtcNow,
                 ResourceName = resource,
-                OldValues = oldVal,
-                NewValues = newVal
+                OldValues = MaskSecrets(oldVal),
+                NewValues = MaskSecrets(newVal)
             });
         }
+
+        public const string MaskedValue = "●●●●●●●●";
+
+        // La fiche complète d'une imprimante est enregistrée à chaque modification : sa communauté SNMP n'y apparaît jamais (B32)
+        private static readonly System.Text.RegularExpressions.Regex SecretJsonValue =
+            new("(\"snmpCommunity\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        public static string MaskSecrets(string? json) =>
+            string.IsNullOrEmpty(json) ? json ?? "" : SecretJsonValue.Replace(json, "$1\"" + MaskedValue + "\"");
 
         private string GetSafeEntityName(object entity, int id)
         {

@@ -485,6 +485,24 @@ function Lot-AD {
     $bad = Get-SettingsDto $ta; $bad.AdLdapFilter = '(cn=a**b)'
     $r = Invoke-Api POST '/api/Settings/Save' $bad $ta
     Check 'B75-6' 'filtre invalide (**) refusé à l''enregistrement' $r.Code 400 $r.Text
+    # B76 : DN de base relu (RFC 4514) puis reconstruit ; OU accentuée et OU avec virgule créées dans le domaine
+    Invoke-OnDc {
+        param($base)
+        foreach ($o in @(@{ n = 'Équipements'; u = 'ad.accent' }, @{ n = 'Lyon, Part-Dieu'; u = 'ad.virgule' })) {
+            if (-not (Get-ADOrganizationalUnit -Filter "Name -eq '$($o.n)'")) { New-ADOrganizationalUnit -Name $o.n -Path "OU=Autoprint,$base" -ProtectedFromAccidentalDeletion $false }
+            $dn = (Get-ADOrganizationalUnit -Filter "Name -eq '$($o.n)'").DistinguishedName
+            if (-not (Get-ADUser -Filter "SamAccountName -eq '$($o.u)'")) { New-ADUser -Name $o.u -SamAccountName $o.u -Path $dn -Enabled $false }
+        }
+    } @($AdBase) | Out-Null
+    function D([string]$dn, [string]$q) { $h = $f.Clone(); $h.baseDn = $dn; if ($q) { $h.testUserQuery = $q }; $h }
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (D "OU=Équipements,OU=Autoprint,$AdBase" 'ad.accent') $ta
+    Check 'B76-1' 'DN de base avec OU accentuée : objet trouvé' $r.Json.success $true $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (D "OU=Lyon\, Part-Dieu,OU=Autoprint,$AdBase" 'ad.virgule') $ta
+    Check 'B76-2' 'DN de base avec virgule échappée : objet trouvé' $r.Json.success $true $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (D "OU=Équipements,OU=Autoprint,$AdBase" 'ad.user1') $ta
+    Check 'B76-3' 'objet hors du DN de base : non trouvé' $r.Json.success $false $r.Text
+    $r = Invoke-Api POST '/api/Settings/TestAdFilter' (D 'OU=a+CN=b,DC=lab' '') $ta
+    Check 'B76-4' 'DN de base invalide refusé' ($r.Text -match 'DN de base invalide') $true $r.Text
     $bad = Get-SettingsDto $ta; $bad.AdLdapFilter = '(objectClass=user'
     $r = Invoke-Api POST '/api/Settings/Save' $bad $ta
     Check 'P1-45' 'filtre LDAP mal formé refusé à l''enregistrement' $r.Code 400 $r.Text
