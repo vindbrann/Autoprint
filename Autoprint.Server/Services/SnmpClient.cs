@@ -48,7 +48,7 @@ namespace Autoprint.Server.Services
         {
             int? id = printer.SnmpCredentialId ?? printer.Modele?.SnmpCredentialId;
             if (id != null && profiles.TryGetValue(id.Value, out var profile)) return FromProfile(profile, secrets);
-            return Legacy(printer.SnmpCommunity, printer.SnmpVersion);
+            return Legacy(secrets.Unprotect(printer.SnmpCommunity), printer.SnmpVersion); // chiffrée en base (B32)
         }
 
         public static async Task<Dictionary<int, SnmpCredential>> LoadProfilesAsync(ApplicationDbContext context, CancellationToken token = default)

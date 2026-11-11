@@ -160,7 +160,8 @@ namespace Autoprint.Server.Controllers
                     AdRoleIds = x.UserRoles.Where(ur => ur.IsFromAd).Select(ur => ur.RoleId).ToList(),
                     PasswordHash = x.PasswordHash,
                     LastPasswordChangeDate = x.LastPasswordChangeDate,
-                    ForceChangePassword = x.ForceChangePassword
+                    ForceChangePassword = x.ForceChangePassword,
+                    LastLogin = x.LastLogin == DateTime.MinValue ? null : x.LastLogin
                 }).ToListAsync(),
 
                 Settings = (await _context.ServerSettings.AsNoTracking().ToListAsync()).Select(x => new BackupSettingDto
@@ -193,7 +194,7 @@ namespace Autoprint.Server.Controllers
                 V3PrivProtocol = c.V3PrivProtocol,
                 V3PrivPassword = ForBackup(_secrets.Unprotect(c.V3PrivPassword))
             }).ToList();
-            foreach (var printer in backup.Imprimantes) printer.SnmpCommunity = ForBackup(printer.SnmpCommunity);
+            foreach (var printer in backup.Imprimantes) printer.SnmpCommunity = ForBackup(_secrets.Unprotect(printer.SnmpCommunity)); // chiffrée en base (B32)
 
             var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions { WriteIndented = true });
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -261,8 +262,9 @@ namespace Autoprint.Server.Controllers
                         V3PrivPassword = Plain(c.V3PrivPassword, current?.V3PrivPassword)
                     });
                 }
+                // Communautés : valeur du fichier (ou actuelle si absente), rechiffrée avec les clés de ce serveur (B32)
                 foreach (var printer in backup.Imprimantes)
-                    printer.SnmpCommunity = RestoreSecret(printer.SnmpCommunity, currentCommunities.GetValueOrDefault(printer.Id));
+                    printer.SnmpCommunity = _secrets.ProtectCommunity(RestoreSecret(printer.SnmpCommunity, _secrets.Unprotect(currentCommunities.GetValueOrDefault(printer.Id))));
             }
             catch (System.Security.Cryptography.CryptographicException)
             {
@@ -275,6 +277,9 @@ namespace Autoprint.Server.Controllers
             var currentHashes = await _context.Users.AsNoTracking()
                 .Where(u => !u.IsAdUser && u.PasswordHash != null)
                 .ToDictionaryAsync(u => u.Username, u => u.PasswordHash!, StringComparer.OrdinalIgnoreCase);
+            // Sauvegardes antérieures sans date de dernière connexion : on garde celle du compte actuel de même nom (B58)
+            var currentLastLogins = await _context.Users.AsNoTracking()
+                .ToDictionaryAsync(u => u.Username, u => u.LastLogin, StringComparer.OrdinalIgnoreCase);
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -414,7 +419,7 @@ namespace Autoprint.Server.Controllers
                     IsDirectPrintingEnabled = x.IsDirectPrintingEnabled,
                     SnmpPort = x.SnmpPort > 0 ? x.SnmpPort : 161,
                     SnmpVersion = x.SnmpVersion is 1 or 2 ? x.SnmpVersion : 2,
-                    SnmpCommunity = string.IsNullOrEmpty(x.SnmpCommunity) ? "public" : x.SnmpCommunity,
+                    SnmpCommunity = string.IsNullOrEmpty(x.SnmpCommunity) ? _secrets.ProtectCommunity(null) : x.SnmpCommunity, // déjà chiffrée ci-dessus
                     SnmpCredentialId = x.SnmpCredentialId != null && credentialIds.Contains(x.SnmpCredentialId.Value) ? x.SnmpCredentialId : null
                 }));
                 await _context.SaveChangesAsync();
@@ -478,7 +483,8 @@ namespace Autoprint.Server.Controllers
                         Id = u.Id, Username = u.Username, DisplayName = u.DisplayName, Email = u.Email, IsAdUser = u.IsAdUser, IsActive = u.IsActive,
                         PasswordHash = !string.IsNullOrEmpty(u.PasswordHash) ? u.PasswordHash : currentHashes.GetValueOrDefault(u.Username),
                         LastPasswordChangeDate = u.LastPasswordChangeDate,
-                        ForceChangePassword = u.ForceChangePassword
+                        ForceChangePassword = u.ForceChangePassword,
+                        LastLogin = u.LastLogin ?? currentLastLogins.GetValueOrDefault(u.Username, DateTime.MinValue)
                     };
                     // Les sessions ouvertes avant la restauration ne sont plus valables
                     restoredUser.RenewSecurityStamp();

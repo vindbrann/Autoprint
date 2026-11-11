@@ -408,7 +408,7 @@
         };
 
         var result = await DialogService.OpenAsync<ImprimanteModal>("Configurer l'imprimante avant import",
-            new Dictionary<string, object> { 
+            new Dictionary<string, object?> { 
                 { "ImprimanteToEdit", tempImp },
                 { "IsStagingMode", true }
             },

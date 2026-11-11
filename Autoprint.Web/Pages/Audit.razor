@@ -149,7 +149,7 @@
         if (fullLog != null)
         {
             await DialogService.OpenAsync<AuditDetailModal>($"Détails Log #{logId}",
-                new Dictionary<string, object> { { "Log", fullLog } },
+                new Dictionary<string, object?> { { "Log", fullLog } },
                 new DialogOptions() { Width = "800px" }
             );
         }

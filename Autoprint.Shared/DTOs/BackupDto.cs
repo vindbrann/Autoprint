@@ -150,6 +150,8 @@ namespace Autoprint.Shared.DTOs
         public DateTime? LastPasswordChangeDate { get; set; }
         public bool ForceChangePassword { get; set; }
         public List<int> AdRoleIds { get; set; } = new();
+        // Absente des sauvegardes antérieures à 26.11.10 : la restauration garde alors la date du compte actuel (B58)
+        public DateTime? LastLogin { get; set; }
     }
 
     public class BackupRoleDto

@@ -139,7 +139,7 @@ else
     {
         var result = await DialogService.OpenAsync<ReportScheduleModal>(
             s.Id > 0 ? "Modifier la planification" : "Créer un rapport planifié",
-            new Dictionary<string, object> { { "ScheduleToEdit", s } },
+            new Dictionary<string, object?> { { "ScheduleToEdit", s } },
             new DialogOptions { Width = "750px" }
         );
 

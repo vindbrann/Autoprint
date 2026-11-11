@@ -164,7 +164,7 @@ else
     {
         var resultat = await DialogService.OpenAsync<LieuModal>(
             lieu.Id == 0 ? "Nouveau Lieu" : "Modifier le Lieu",
-            new Dictionary<string, object> { { "LieuToEdit", lieu } },
+            new Dictionary<string, object?> { { "LieuToEdit", lieu } },
             new DialogOptions() { Width = "550px", CloseDialogOnOverlayClick = true }
         );
 

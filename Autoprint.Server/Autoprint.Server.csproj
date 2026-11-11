@@ -10,24 +10,24 @@
 
 	<ItemGroup>
 		<PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.7" />
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.14" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.14">
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.15" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.15" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.15">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
 
-		<PackageReference Include="SkiaSharp" Version="4.154.0" />
+		<PackageReference Include="SkiaSharp" Version="4.155.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
 
-		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.14" />
-		<PackageReference Include="System.Management" Version="10.0.14" />
-		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
-		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
+		<PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.15" />
+		<PackageReference Include="System.Management" Version="10.0.15" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
+		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.15" />
 
 		<!-- Explicit package overrides to resolve security vulnerabilities in transitive dependencies -->
 		<PackageReference Include="Microsoft.OpenApi" Version="2.13.0" />
