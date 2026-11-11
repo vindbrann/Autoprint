@@ -39,7 +39,7 @@
     background: var(--ap-danger);
     padding: 1rem;
     color: var(--ap-on-danger);
-    border-radius: var(--ap-radius-md, 6px);
+    border-radius: var(--ap-r-md);
 }
 
     .blazor-error-boundary::after {
@@ -88,3 +88,53 @@ html, body {
 code {
     color: var(--ap-danger);
 }
+
+/* ---------- Menu principal (charte B77, maquette « _sidebar ») ---------- */
+.ap-shell .ap-sidebar {
+    width: var(--ap-sidebar-width); min-width: var(--ap-sidebar-width);
+    display: flex; flex-direction: column; z-index: 2; overflow: visible;
+    transition: width var(--ap-base) var(--ap-ease), min-width var(--ap-base) var(--ap-ease);
+}
+.ap-shell.is-collapsed .ap-sidebar { width: var(--ap-sidebar-width-collapsed); min-width: var(--ap-sidebar-width-collapsed); }
+
+.ap-sidenav { display: flex; flex-direction: column; height: 100%; width: 100%; padding: var(--ap-s3) 0 var(--ap-s2); }
+.ap-side-top { display: flex; align-items: center; justify-content: space-between; gap: var(--ap-s2); padding: 0 var(--ap-s2) var(--ap-s3) var(--ap-s4); }
+.ap-brand { display: flex; align-items: center; gap: var(--ap-s2); color: var(--ap-on-sidebar); text-decoration: none; font-weight: 600; font-size: 15px; min-width: 0; }
+.ap-brand img { width: 26px; height: 26px; flex: none; }
+.ap-side-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.ap-nav-section { padding: var(--ap-s4) var(--ap-s4) var(--ap-s1); font-size: var(--ap-fs-xs); font-weight: 600; color: var(--ap-text-muted); }
+
+.ap-navitem { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: calc(var(--ap-nav-item-height) - 14px); }
+.ap-navitem > .rzi, .ap-navitem > .rz-icon { font-size: 18px; flex: none; }
+.ap-navitem-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-navitem .ap-count-badge { margin-left: auto; }
+
+.ap-side-foot { display: flex; align-items: center; gap: var(--ap-s1); margin-top: auto; padding: var(--ap-s3) var(--ap-s2) 0 var(--ap-s3); border-top: 1px solid var(--ap-border); }
+.ap-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; border-radius: var(--ap-r-md); }
+.ap-avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--ap-primary-subtle); color: var(--ap-link); font-weight: 600; font-size: 12.5px; }
+.ap-who-text { min-width: 0; line-height: 1.3; }
+.ap-who-text b { display: block; font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-who-text small { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); }
+
+/* Menu réduit : icônes seules, bulle au survol / focus, pastilles en point rouge */
+.ap-shell.is-collapsed .ap-side-scroll { overflow: visible; }
+/* Radzen coupe ce qui dépasse des entrées de menu : en mode réduit, la bulle doit sortir de la barre */
+.ap-shell .ap-sidebar { position: relative; }
+.ap-shell.is-collapsed .rz-panel-menu,
+.ap-shell.is-collapsed .rz-navigation-item,
+.ap-shell.is-collapsed .rz-navigation-item-wrapper { overflow: visible; }
+.ap-shell.is-collapsed .ap-side-top { flex-direction: column; padding: 0 0 var(--ap-s3); }
+.ap-shell.is-collapsed .ap-brand-name,
+.ap-shell.is-collapsed .ap-navitem-label,
+.ap-shell.is-collapsed .ap-who-text { display: none; }
+.ap-shell.is-collapsed .rz-navigation-item-link { justify-content: center; padding-inline: 0; }
+.ap-shell.is-collapsed .ap-navitem { justify-content: center; }
+.ap-shell.is-collapsed .ap-navitem .ap-count-badge { position: absolute; top: -3px; right: 6px; min-width: 8px; width: 8px; height: 8px; padding: 0; font-size: 0; }
+.ap-shell.is-collapsed .ap-nav-section { height: 1px; margin: 12px 10px; padding: 0; background: var(--ap-border); font-size: 0; }
+.ap-shell.is-collapsed .ap-side-foot { flex-direction: column; padding-inline: 0; }
+.ap-shell.is-collapsed .ap-who { flex: none; }
+
+/* Contenu de page : marges de la charte */
+.ap-page { padding: var(--ap-s5) var(--ap-s6) var(--ap-s6); }
+@media (max-width: 1024px) { .ap-page { padding: var(--ap-s4); } }

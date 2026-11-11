@@ -6,6 +6,9 @@ window.autoprintSetTheme = (dark) => {
     else document.documentElement.removeAttribute('data-theme');
 };
 
+// Menu principal réduit d'office sur les écrans étroits (charte B77)
+window.autoprintIsNarrow = () => window.innerWidth < 1024;
+
 window.setupChart = (id, labels, data) => {
     const ctx = document.getElementById(id);
     if (window.myChart instanceof Chart) {

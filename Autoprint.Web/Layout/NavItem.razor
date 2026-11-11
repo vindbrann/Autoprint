@@ -1,0 +1,27 @@
+@* Entrée du menu principal (charte B77) : icône + libellé ; menu réduit = icône seule, nom dans une bulle au survol / focus,
+   pastille d'alerte en point rouge. *@
+
+<RadzenPanelMenuItem Path="@Path">
+    <Template>
+        <span class="ap-navitem">
+            <RadzenIcon Icon="@Icon" />
+            <span class="ap-navitem-label">@Text</span>
+            @if (Alert)
+            {
+                <span class="ap-count-badge" aria-hidden="true">!</span>
+            }
+            @if (Collapsed)
+            {
+                <span class="ap-rail-tip" role="tooltip">@Text@(Alert ? " · à traiter" : "")</span>
+            }
+        </span>
+    </Template>
+</RadzenPanelMenuItem>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public bool Alert { get; set; }
+    [CascadingParameter(Name = "NavCollapsed")] public bool Collapsed { get; set; }
+}
