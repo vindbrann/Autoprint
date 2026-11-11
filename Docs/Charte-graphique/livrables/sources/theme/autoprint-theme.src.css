@@ -150,7 +150,7 @@ html:root, html:root[data-theme="dark"] {
   --rz-panel-menu-font-size: 0.84375rem;
   --rz-panel-menu-item-padding-block: 0.4375rem; --rz-panel-menu-item-padding-inline: 0.625rem;
   --rz-panel-menu-item-margin-inline: 0.5rem; --rz-panel-menu-item-margin-block: 1px;
-  --rz-panel-menu-item-border-radius: {{RADIUS_MD}};
+  --rz-panel-menu-item-border-radius: {{RADIUS_MD}}; --rz-panel-menu-item-border: none; /* Standard trace un filet sous chaque entrée */
   --rz-panel-menu-item-color: var(--ap-text-secondary); --rz-panel-menu-item-background-color: transparent;
   --rz-panel-menu-item-hover-color: var(--ap-text); --rz-panel-menu-item-hover-background-color: var(--ap-hover);
   --rz-panel-menu-item-active-color: var(--ap-link); --rz-panel-menu-item-active-background-color: var(--ap-primary-subtle);
