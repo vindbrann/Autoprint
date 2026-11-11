@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Timers;
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace Autoprint.Web.Services
 {
@@ -11,13 +13,62 @@ namespace Autoprint.Web.Services
     {
         private readonly ILocalStorageService _localStorage;
         private readonly HttpClient _http;
+        private readonly IJSRuntime _js;
+        private readonly NavigationManager _nav;
 
         private System.Timers.Timer? _authTimer;
+        private System.Timers.Timer? _idleTimer;
 
-        public CustomAuthStateProvider(ILocalStorageService localStorage, HttpClient http)
+        public CustomAuthStateProvider(ILocalStorageService localStorage, HttpClient http, IJSRuntime js, NavigationManager nav)
         {
             _localStorage = localStorage;
             _http = http;
+            _js = js;
+            _nav = nav;
+        }
+
+        // --- Déconnexion après inactivité (B35) ---
+        // L'activité (souris, clavier, défilement) est relevée par app.js dans tous les onglets de la console ;
+        // le délai vient du serveur à la connexion (Paramètres, Sécurité ; 0 = jamais).
+        public const string IdleTimeoutKey = "idleTimeoutMinutes";
+        public const string LogoutReasonKey = "logoutReason";
+
+        private void StartIdleWatch()
+        {
+            if (_idleTimer != null) return;
+            _idleTimer = new System.Timers.Timer(30_000) { AutoReset = true };
+            _idleTimer.Elapsed += async (s, e) => await CheckIdleAsync();
+            _idleTimer.Start();
+        }
+
+        private void StopIdleWatch()
+        {
+            _idleTimer?.Stop();
+            _idleTimer?.Dispose();
+            _idleTimer = null;
+        }
+
+        private async Task<int> GetIdleTimeoutAsync()
+        {
+            try { return await _localStorage.GetItemAsync<int?>(IdleTimeoutKey) ?? 30; } catch { return 30; }
+        }
+
+        private async Task<bool> IsIdleAsync()
+        {
+            int minutes = await GetIdleTimeoutAsync();
+            if (minutes <= 0) return false;
+            try { return await _js.InvokeAsync<double>("apIdleSeconds") >= minutes * 60; }
+            catch { return false; }
+        }
+
+        private async Task CheckIdleAsync()
+        {
+            if (!await IsIdleAsync()) return;
+            int minutes = await GetIdleTimeoutAsync();
+            await _localStorage.RemoveItemAsync("authToken");
+            await _localStorage.SetItemAsync(LogoutReasonKey, $"idle:{minutes}");
+            MarkUserAsLoggedOut();
+            _nav.NavigateTo("/login", true);
         }
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -43,6 +94,7 @@ namespace Autoprint.Web.Services
                 StartAuthTimer(expDate);
             }
 
+            StartIdleWatch();
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("bearer", token);
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt")));
         }
@@ -60,11 +112,13 @@ namespace Autoprint.Web.Services
                 StartAuthTimer(DateTimeOffset.FromUnixTimeSeconds(exp));
             }
 
+            StartIdleWatch();
             NotifyAuthenticationStateChanged(authState);
         }
 
         public void MarkUserAsLoggedOut()
         {
+            StopIdleWatch();
             if (_authTimer != null)
             {
                 _authTimer.Stop();
@@ -125,6 +179,8 @@ namespace Autoprint.Web.Services
 
         private async Task<bool> TryRefreshAsync()
         {
+            // Pas de renouvellement silencieux pour un onglet laissé sans activité (B35)
+            if (await IsIdleAsync()) return false;
             try
             {
                 var response = await _http.PostAsync("api/auth/refresh", null);
@@ -133,6 +189,7 @@ namespace Autoprint.Web.Services
                 if (string.IsNullOrEmpty(result?.Token)) return false;
 
                 await _localStorage.SetItemAsync("authToken", result.Token);
+                await _localStorage.SetItemAsync(IdleTimeoutKey, result.IdleTimeoutMinutes);
                 MarkUserAsAuthenticated(result.Token); // relance le minuteur et met à jour les droits affichés
                 return true;
             }
@@ -186,6 +243,7 @@ namespace Autoprint.Web.Services
         public void Dispose()
         {
             _authTimer?.Dispose();
+            _idleTimer?.Dispose();
         }
     }
 }

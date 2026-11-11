@@ -25,6 +25,11 @@
             <p class="ap-login-lead">Console d'administration du serveur d'impression</p>
         </div>
 
+        @if (!string.IsNullOrEmpty(InfoMessage) && string.IsNullOrEmpty(ErrorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Class="rz-mb-4">@InfoMessage</RadzenAlert>
+        }
+
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
             <RadzenAlert AlertStyle="@(ErrorMessage.Contains("droit") ? AlertStyle.Warning : AlertStyle.Danger)"
@@ -77,6 +82,7 @@
 @code {
     private LoginRequest loginRequest = new LoginRequest();
     private string ErrorMessage = string.Empty;
+    private string InfoMessage = string.Empty;
     private bool isBusy = false;
     private bool forgotPasswordMode = false;
     private string forgotEmailOrUser = "";
@@ -85,6 +91,15 @@
     {
         // « Retenir l'identifiant » a été retiré (audit #10) : on efface l'identifiant mémorisé par les versions précédentes
         await LocalStorage.RemoveItemAsync("saved_username");
+
+        // Déconnexion automatique après inactivité (B35) : on en donne la raison
+        var reason = await LocalStorage.GetItemAsync<string>(CustomAuthStateProvider.LogoutReasonKey);
+        if (reason?.StartsWith("idle:") == true)
+        {
+            var minutes = reason[5..];
+            InfoMessage = $"Session fermée après {minutes} minute{(minutes == "1" ? "" : "s")} sans activité. Reconnectez-vous pour continuer.";
+            await LocalStorage.RemoveItemAsync(CustomAuthStateProvider.LogoutReasonKey);
+        }
     }
 
     private async Task HandleLogin()

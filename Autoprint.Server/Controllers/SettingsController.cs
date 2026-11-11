@@ -1,4 +1,4 @@
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
@@ -145,6 +145,7 @@ namespace Autoprint.Server.Controllers
             Check("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString(), "Mode Direct par défaut", "Impression");
 
             Check("PasswordExpirationDays", dto.PasswordExpirationDays.ToString(), "Expiration MDP", "Sécurité");
+            Check("Security_IdleTimeoutMinutes", dto.IdleTimeoutMinutes.ToString(), "Déconnexion après inactivité", "Sécurité");
             Check("AdDomain", dto.AdDomain, "AD Domaine", "Active Directory");
             Check("AdBaseDn", dto.AdBaseDn, "AD BaseDN", "Active Directory");
             Check("AdLdapFilter", dto.AdLdapFilter, "AD Filtre", "Active Directory");
@@ -176,6 +177,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("NamingSameShare", dto.NamingSameShare.ToString());
             await UpdateSetting("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString());
             if (dto.PasswordExpirationDays >= 0) await UpdateSetting("PasswordExpirationDays", dto.PasswordExpirationDays.ToString());
+            if (dto.IdleTimeoutMinutes is >= 0 and <= 1440) await UpdateSetting("Security_IdleTimeoutMinutes", dto.IdleTimeoutMinutes.ToString());
 
             await UpdateSetting("AdDomain", dto.AdDomain);
             await UpdateSetting("AdBaseDn", dto.AdBaseDn);
@@ -378,6 +380,7 @@ namespace Autoprint.Server.Controllers
         public bool NamingSameShare { get; set; } = false;
         public bool Printer_DefaultDirectModeEnabled { get; set; }
         public int PasswordExpirationDays { get; set; }
+        public int IdleTimeoutMinutes { get; set; } = 30;
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";
         public string AdLdapFilter { get; set; } = "";
