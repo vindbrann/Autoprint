@@ -150,7 +150,7 @@ else
         var title = user == null ? "➕ Créer un utilisateur" : "✏️ Modifier l'utilisateur";
 
         var result = await DialogService.OpenAsync<UserModal>(title,
-            new Dictionary<string, object> { { "UserToEdit", user } },
+            new Dictionary<string, object?> { { "UserToEdit", user } },
             new DialogOptions() { Width = "700px", CloseDialogOnOverlayClick = true }
         );
         if (result == true)

@@ -4,23 +4,19 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (11/11/2026)
+## ▶️ Point de reprise (11/11/2026, soir)
 
-**Fait** :
-- **étape 1 terminée** : correctifs B76, B78, B70, B58 (2, 3, 5), validés en labo et fusionnés dans `master` (PR vindbrann/Autoprint#14, `409b4c9`) ;
-- `master` : 0 alerte CodeQL ouverte (15 fermées, dont n° 8 et 9), 0 alerte Dependabot ;
-- charte graphique v1 reçue et vérifiée sur `feature/charte-graphique` (B77) ;
-- livraison 26.11.11.1 abandonnée le 11/11 (voir la règle de livraison ci-dessous).
+**Fait le 11/11 (fusionné dans `master`)** : B44 (SDK 10.0.404), B79 (.NET 10.0.15, PR #15), SqlClient 7.1.1 dans l'installeur (PR #16), PR Dependabot n° 7, 8 et 11, B32 (communautés SNMP chiffrées, PR #18). `master` : 0 alerte CodeQL, 0 alerte Dependabot. Radzen 12 (étape 3) sur `chore/radzen-12`.
 
-**Prochaines actions, dans l'ordre** :
-0. B79 (.NET 10.0.15, branche `chore/dotnet-10.0.15`) : fusionner la PR ; tests en labo à la prochaine session de labo.
-1. Supprimer la branche fusionnée `fix/correctifs-26.11.10` (GitHub et local).
-2. Étape 1 bis : PR Dependabot (fermer n° 12, fusionner n° 7, 8, 11, examiner n° 9 en échec).
-3. Étape 2 : B32 (communautés SNMP) sur `fix/snmp-communautes`.
+**Restent ouvertes, volontairement** : PR Dependabot n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 (étape .NET 11) ; n° 10 (Radzen 12) remplacée par `chore/radzen-12`, à fermer après sa fusion.
 
-**État du labo** (VM arrêtées) :
-- SRV-PRINT : 26.11.9.1 propre (instantané « SQL Server 26.11.9.1 (livraison validée) » restauré le 11/11). Avec les correctifs de l'étape 1 copiés à chaud : instantané « SQL Server 26.11.9.1 + correctifs 26.11.10 à chaud ».
-- SRV-AD : OU de test « Équipements » et « Lyon, Part-Dieu » (utilisateurs désactivés `ad.accent`, `ad.virgule`) pour les tests B76.
+**Tests en labo à faire** (prochaine session de labo, une seule campagne) : B79 (mise à jour d'un serveur 10.0.14, SE-01 / SE-02), SqlClient 7 (connexion SQL Server de l'installeur), B32 (migration SQL Server, supervision SNMP en communauté propre, sauvegarde / restauration), Radzen 12 (recette de la console).
+
+**Prochaines actions** : PR de `chore/radzen-12` ; puis étape 4, intégration de la charte (B77) sur `feature/charte-graphique`.
+
+**Test local sans labo** : la console peut être lancée sur le poste de développement avec une base SQLite et des clés jetables (variables `Database__Provider=Sqlite`, `Database__ConnectionStrings__Sqlite`, `DataProtection__KeysPath`), compte `admin` / `admin123` à changer au premier login.
+
+**État du labo** (VM arrêtées) : SRV-PRINT en 26.11.9.1 propre (instantané « SQL Server 26.11.9.1 (livraison validée) ») ; SRV-AD avec les OU de test « Équipements » et « Lyon, Part-Dieu » (B76).
 ## 🗺️ Feuille de route (décidée le 09/11/2026)
 
 Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
@@ -32,7 +28,7 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | 1 | `fix/correctifs-26.11.10` | B76, B78, B70, B58 (2, 3, 5) | petits correctifs indépendants ; ferme les 2 alertes CodeQL critiques ; **fait** (fusionné le 09/11) |
 | 1 bis | PR Dependabot | fusionner n° 7, 8, 11 ; SqlClient 7 fait sur `chore/sqlclient-7` (11/11) ; **n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3) restent ouvertes** : bloquées par .NET 10, elles seront réglées par l'étape .NET 11 | on ne fait jamais taire une alerte : on corrige la cause (décision du 11/11) |
 | 2 | `fix/snmp-communautes` | B32 : communautés SNMP « ancien mode » chiffrées | sécurité ; avant la refonte ; **fait** le 11/11, tests en labo à faire |
-| 3 | `chore/radzen-12` | Radzen 12 sans changement visuel (reprend la PR n° 10) + recette de la console | prérequis de la refonte |
+| 3 | `chore/radzen-12` | Radzen 12 sans changement visuel (reprend la PR n° 10) + recette de la console | prérequis de la refonte ; **fait** le 11/11 (contrôle local), recette en labo à faire |
 | 4 | `feature/charte-graphique` | B77 : intégration du template (console après l'étape 3 ; client et installeur dès l'étape 1) | |
 | 5 | `chore/publication-win-x64` | B45 : MSI serveur allégé | même campagne de recette que l'étape 4 |
 | 6 | petites branches | B35 (déconnexion après inactivité), B33 (diagnostic SNMP sans profil) | plus simples après la refonte |
@@ -71,7 +67,7 @@ Règles :
 | B9 | ✅ | **Corrigé (phase D, 04/11/2026).** De ~150 à 46 avertissements (uniques). Corrigés : appels asynchrones non attendus (dont 2 déconnexions dans la page de connexion), composant `RadzenDivider` inexistant (rien ne s'affichait), SQL construit par interpolation (liste blanche des tables), API PDFsharp et SharpSnmpLib obsolètes, variables inutilisées, paramètre de recherche AD non encodé dans l'URL. Restent : annotations de nullabilité (CS86xx), plateforme (CA1416) et WiX (WIX1076), sans effet sur le fonctionnement. — *Constat initial :* ~149 avertissements de compilation sur la solution (dont l'usage d'API PDFsharp 6 marquées obsolètes : conversions implicites `XUnit` ↔ `double` dans `ReportGeneratorService`). | Solution | 04/11/2026 |
 | B10 | ✅ | **Corrigé (phase D, 04/11/2026).** CORS activé uniquement en développement. — *Constat initial :* Politique CORS figée sur `https://localhost:7159` / `http://localhost:5139` : inutile en production (la console est servie par le même site). À supprimer ou rendre configurable. | `Program.cs` | 04/11/2026 |
 | B11 | ✅ | **Corrigé (phase D, 04/11/2026).** L'installeur lit le port dans la liaison IIS du site (ClientUrl en secours pour les anciennes installations) et n'écrit plus `ClientUrl`. — *Constat initial :* L'installeur écrit `ClientUrl = http://localhost:<port>` dans `appsettings.json` : le serveur ne l'utilise pas, seul l'installeur la relit pour retrouver le port lors d'une mise à jour. À renommer / clarifier. | `Autoprint.Installer.Server.UI/MainWindow.xaml.cs` | 04/11/2026 |
-| B12 | 🟡 | **En partie (phase D, 04/11/2026 ; 11/11/2026).** Fait : MaterialDesign 5.4 (client), Swagger UI 10 (développement), **Microsoft.Data.SqlClient 7.1.1 dans l'installeur (11/11, compilation OK, aucun paquet vulnérable, chargement des composants natifs vérifié ; connexion SQL Server à tester en labo)**. **Bloqués par .NET 10** : Microsoft.OpenApi 3 (ASP.NET Core 10 exige < 3.0) et SQLitePCLRaw 3 (EF Core 10 utilise 2.1.x) ; leurs PR Dependabot (n° 9, n° 12) restent ouvertes jusqu'au passage à .NET 11, qui les débloque. **Non faits, décision à prendre** : Radzen 8 → 12 (4 versions majeures, toute la console à retester), WiX 6 → 7 (changement de conditions de licence à examiner), Microsoft.Data.SqlClient 6 → 7 (installeur seul, aucun gain de sécurité, non testable ici). Aucun de ces paquets n'a de vulnérabilité connue. — *Constat initial :* Mises à jour majeures disponibles, sans faille connue : Radzen.Blazor 8 → 12, Swashbuckle 6 → 10, Microsoft.OpenApi 2 → 3, WiX 6 → 7, Microsoft.Data.SqlClient 6 → 7, MaterialDesign 5.3 → 5.4. | `*.csproj`, `*.wixproj` | 04/11/2026 |
+| B12 | 🟡 | **En partie (phase D, 04/11/2026 ; 11/11/2026).** Fait : MaterialDesign 5.4 (client), Swagger UI 10 (développement), **Microsoft.Data.SqlClient 7.1.1 dans l'installeur (11/11, compilation OK, aucun paquet vulnérable, chargement des composants natifs vérifié ; connexion SQL Server à tester en labo)**. **Bloqués par .NET 10** : Microsoft.OpenApi 3 (ASP.NET Core 10 exige < 3.0) et SQLitePCLRaw 3 (EF Core 10 utilise 2.1.x) ; leurs PR Dependabot (n° 9, n° 12) restent ouvertes jusqu'au passage à .NET 11, qui les débloque. **Radzen 8 → 12.2.0 fait le 11/11/2026** (`chore/radzen-12`) : compilation sans erreur, contrôle visuel en local (connexion, changement de mot de passe imposé, tableau de bord, audit, paramètres, utilisateurs, fenêtres, filtres, sélecteur de date, thème sombre) identique à Radzen 8, aucune erreur dans la console du navigateur ; textes des composants désormais en français (filtres, sélecteur de date) ; recette complète en labo à faire. **Non faits, décision à prendre** : WiX 6 → 7 (changement de conditions de licence à examiner), Microsoft.Data.SqlClient 6 → 7 (installeur seul, aucun gain de sécurité, non testable ici). Aucun de ces paquets n'a de vulnérabilité connue. — *Constat initial :* Mises à jour majeures disponibles, sans faille connue : Radzen.Blazor 8 → 12, Swashbuckle 6 → 10, Microsoft.OpenApi 2 → 3, WiX 6 → 7, Microsoft.Data.SqlClient 6 → 7, MaterialDesign 5.3 → 5.4. | `*.csproj`, `*.wixproj` | 04/11/2026 |
 
 ## Sécurité hors périmètre des phases
 
