@@ -633,7 +633,8 @@
                         if (mod != null)
                         {
                             mod.SnmpProfileId = created.Id;
-                            await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                            var link = await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                            if (!await link.CheckAsync(NotificationService, "Profil créé, mais non associé au modèle")) { DialogService.Close(true); return; }
                         }
                     }
 
@@ -656,7 +657,8 @@
                         if (mod != null && mod.SnmpProfileId != profileEdit.Id)
                         {
                             mod.SnmpProfileId = profileEdit.Id;
-                            await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                            var link = await Http.PutAsJsonAsync($"api/Modeles/{mod.Id}", mod);
+                            if (!await link.CheckAsync(NotificationService, "Profil enregistré, mais non associé au modèle")) { DialogService.Close(true); return; }
                         }
                     }
 

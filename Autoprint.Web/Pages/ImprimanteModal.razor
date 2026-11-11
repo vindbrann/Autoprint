@@ -461,16 +461,14 @@
                 imprimanteEdit.Status = PrinterStatus.PendingUpdate;
             }
 
-            if (imprimanteEdit.Id == 0)
-            {
-                await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante créée.");
-            }
-            else
-            {
-                await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante mise à jour.");
-            }
+            // Refus du serveur (nom, lieu, validation…) : message affiché, la fenêtre reste ouverte (avant : « Succès » à tort)
+            bool creation = imprimanteEdit.Id == 0;
+            var response = creation
+                ? await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit)
+                : await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
+            if (!await response.CheckAsync(NotificationService, creation ? "Création refusée" : "Modification refusée")) return;
+
+            NotificationService.Notify(NotificationSeverity.Success, "Succès", creation ? "Imprimante créée." : "Imprimante mise à jour.");
             DialogService.Close(true);
         }
         catch (Exception ex)
@@ -487,7 +485,8 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                var response = await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                if (!await response.CheckAsync(NotificationService, "Suppression refusée")) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "L'imprimante a été supprimée.");
                 DialogService.Close(true);
             }

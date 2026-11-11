@@ -149,9 +149,11 @@ namespace Autoprint.Server.Controllers
             await _context.SaveChangesAsync();
 
             var newPrinter = await _context.Imprimantes
+                .AsNoTracking()
                 .Include(i => i.Emplacement)
                 .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .FirstOrDefaultAsync(i => i.Id == imprimante.Id);
+            if (newPrinter != null) newPrinter.SnmpCommunity = string.Empty; // jamais renvoyée, même chiffrée (B32)
 
             return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, newPrinter);
         }

@@ -1231,7 +1231,8 @@ else
             sauvegardeEnCours = true;
             try
             {
-                await Http.PostAsJsonAsync("api/Settings/Save", model);
+                var save = await Http.PostAsJsonAsync("api/Settings/Save", model);
+                if (!await save.CheckAsync(NotificationService)) return;
                 var r = await Http.PostAsync("api/Imprimantes/ForceDirectMode", null);
 
                 if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Tout le parc est passé en Mode Direct.");
