@@ -355,7 +355,7 @@ namespace Autoprint.Server.Controllers
                                     Oid = item.Oid,
                                     OidMaxCapacity = item.OidMaxCapacity,
                                     ValueType = item.ValueType,
-                                    ColorHex = item.ColorHex,
+                                    ColorHex = item.ColorHex ?? "#212529",
                                     SortOrder = item.SortOrder
                                 });
                             }

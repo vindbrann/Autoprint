@@ -32,9 +32,9 @@
                                         AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                                         Style="width: 100%;">
                             <Template Context="lieu">
-                                @((lieu as Emplacement).Nom)
+                                @(((Emplacement)lieu).Nom)
                                 @{
-                                    var l = lieu as Emplacement;
+                                    var l = (Emplacement)lieu;
                                     if (l.Networks != null && l.Networks.Any())
                                     {
                                         var mainNet = l.Networks.First();
@@ -419,7 +419,7 @@
         {
             p.Name = updatedImp.NomAffiche;
             p.PortName = updatedImp.AdresseIp;
-            p.ShareName = updatedImp.NomPartage;
+            p.ShareName = updatedImp.NomPartage ?? "";
             p.IsShared = updatedImp.EstPartagee;
             p.SelectedModeleId = updatedImp.ModeleId;
             p.SelectedLieuId = updatedImp.EmplacementId;

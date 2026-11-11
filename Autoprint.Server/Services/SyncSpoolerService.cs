@@ -45,7 +45,7 @@ namespace Autoprint.Server.Services
                     NomImprimante = i.NomAffiche,
                     Status = i.Status,
                     DateModification = i.DateModification,
-                    ModifiePar = i.ModifiePar,
+                    ModifiePar = i.ModifiePar ?? "Système",
                     Action = i.Status == PrinterStatus.PendingCreation ? "Création" :
                              i.Status == PrinterStatus.PendingDelete ? "Suppression" :
                              i.Status == PrinterStatus.SyncError ? "Correction (Retry)" : "Mise à jour",
@@ -73,7 +73,7 @@ namespace Autoprint.Server.Services
             var spooler = scope.ServiceProvider.GetRequiredService<IPrintSpoolerService>();
 
             var tasks = await context.Imprimantes
-                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
+                .Include(i => i.Modele).ThenInclude(m => m!.Pilote)
                 .Include(i => i.Emplacement)
                 .Where(i => idsToProcess.Contains(i.Id))
                 .ToListAsync();

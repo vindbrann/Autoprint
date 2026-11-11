@@ -1,4 +1,4 @@
-using Autoprint.Server.Helpers;
+﻿using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Server.Hubs;
 using Autoprint.Server.Services;
@@ -118,7 +118,6 @@ namespace Autoprint.Server.Controllers
                 await _auditService.LogUpdateAsync(
                     id,
                     emplacement,
-                    "LOCATION_UPDATE",
                     "LOCATION_UPDATE",
                     User.Identity?.Name);
 

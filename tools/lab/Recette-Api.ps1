@@ -421,7 +421,7 @@ function Get-SettingsDto([string]$Token) {
     $ints = 'LogRetentionDays', 'SmtpPort', 'PasswordExpirationDays', 'Monitoring_IntervalMinutes', 'Monitoring_StartHour', 'Monitoring_EndHour'
     $bools = 'SmtpEnableSsl', 'NamingEnabled', 'NamingSameShare', 'Printer_DefaultDirectModeEnabled', 'AdUseServiceAccount', 'Monitoring_Enabled',
              'Monitoring_ScanOnWeekends', 'Monitoring_IncludeOffline', 'Monitoring_IncludeWarning', 'Monitoring_IncludeCritical', 'Monitoring_IncludeArchived'
-    $strings = 'SmtpHost', 'SmtpUser', 'SmtpPass', 'SmtpFromAddress', 'NamingTemplate', 'AdDomain', 'AdBaseDn', 'AdLdapFilter', 'AdServiceUser', 'AdServicePassword', 'AdAdminEmails'
+    $strings = 'SmtpHost', 'SmtpUser', 'SmtpPass', 'SmtpFromAddress', 'NamingTemplate', 'AdDomain', 'AdBaseDn', 'AdLdapFilter', 'AdServiceUser', 'AdServicePassword'
     $dto = [ordered]@{}
     foreach ($k in $ints) { if ($kv.ContainsKey($k) -and $kv[$k] -match '^-?\d+$') { $dto[$k] = [int]$kv[$k] } }
     foreach ($k in $bools) { if ($kv.ContainsKey($k) -and $kv[$k]) { $dto[$k] = [bool]::Parse($kv[$k]) } }

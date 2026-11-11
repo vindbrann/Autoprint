@@ -26,7 +26,9 @@
 	</ItemGroup>
 
 	<!-- Après la compilation des projets référencés (Autoprint.Server…) : sinon ce dotnet publish, lancé dans un autre processus,
-	     écrit dans leurs dossiers obj pendant que la compilation parallèle de la solution les compile (B65) -->
+	     écrit dans leurs dossiers obj pendant que la compilation parallèle de la solution les compile (B65).
+	     La solution fait aussi dépendre ce projet de tous les projets C# (ProjectDependencies) : la référence ci-dessus compile
+	     Autoprint.Server sous d'autres propriétés globales que la solution, donc en parallèle de celle-ci (échec revu le 11/11/2026). -->
 	<Target Name="PublishApp" BeforeTargets="BeforeBuild" DependsOnTargets="ResolveProjectReferences">
 		<!-- Le MSI embarque tout le dossier publié (publish\**) : le vider avant, sinon les fichiers des publications
 		     précédentes (anciennes versions de la console, paquets supprimés) partent aussi dans le MSI -->

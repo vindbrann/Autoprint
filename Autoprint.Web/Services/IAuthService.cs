@@ -5,7 +5,7 @@ namespace Autoprint.Web.Services
 {
     public interface IAuthService
     {
-        Task<LoginResponse?> Login(LoginRequest request);
+        Task<LoginResponse> Login(LoginRequest request);
 
         Task Logout();
     }

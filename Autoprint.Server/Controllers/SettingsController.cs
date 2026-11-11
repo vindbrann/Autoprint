@@ -152,7 +152,6 @@ namespace Autoprint.Server.Controllers
             Check("AdUseServiceAccount", dto.AdUseServiceAccount.ToString(), "AD Service Account", "Active Directory");
             Check("AdServiceUser", dto.AdServiceUser, "AD User", "Active Directory");
             if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
-            Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes", "Active Directory");
             Check("Monitoring_Enabled", dto.Monitoring_Enabled.ToString(), "Supervision active", "Supervision");
             Check("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString(), "Intervalle de scan (min)", "Supervision");
             Check("Monitoring_StartHour", dto.Monitoring_StartHour.ToString(), "Heure de début du scan", "Supervision");
@@ -185,7 +184,6 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("AdUseServiceAccount", dto.AdUseServiceAccount.ToString());
             await UpdateSetting("AdServiceUser", dto.AdServiceUser);
             if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") await UpdateSetting("AdServicePassword", dto.AdServicePassword);
-            await UpdateSetting("AdAdminEmails", dto.AdAdminEmails);
             await UpdateSetting("Monitoring_Enabled", dto.Monitoring_Enabled.ToString());
             await UpdateSetting("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString());
             await UpdateSetting("Monitoring_StartHour", dto.Monitoring_StartHour.ToString());
@@ -244,7 +242,7 @@ namespace Autoprint.Server.Controllers
                         return BadRequest("Pour tester un autre serveur SMTP que celui enregistré, saisissez son mot de passe.");
                     password = _secrets.Unprotect(_context.ServerSettings.Find("SmtpPass")?.Value);
                 }
-                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
+                await _emailService.SendTestEmailAsync(dto.Host ?? "", dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
                 return Ok(new { Message = "Connexion SMTP réussie !" });
             }
             catch (Exception ex) { return BadRequest("Echec du test SMTP : " + ex.Message); }
@@ -387,7 +385,6 @@ namespace Autoprint.Server.Controllers
         public bool AdUseServiceAccount { get; set; } = false;
         public string AdServiceUser { get; set; } = "";
         public string AdServicePassword { get; set; } = "";
-        public string AdAdminEmails { get; set; } = "";
         public bool Monitoring_Enabled { get; set; } = true;
         public int Monitoring_IntervalMinutes { get; set; } = 60;
         public int Monitoring_StartHour { get; set; } = 8;

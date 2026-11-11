@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Autoprint.Server.Services
 {
@@ -70,7 +70,7 @@ namespace Autoprint.Server.Services
         public void Text(string text, float x, float baselineY, float size, SKColor color, bool bold = false)
         {
             using var paint = new SKPaint { Color = color, IsAntialias = true };
-            Canvas.DrawText(text, x, baselineY, Font(size, bold), paint);
+            Canvas.DrawText(text, x, baselineY, SKTextAlign.Left, Font(size, bold), paint);
         }
 
         /// <summary>Texte dont <paramref name="topY"/> est le haut des lettres (comme XStringFormats.TopLeft).</summary>

@@ -172,7 +172,7 @@ else
                 {
                     Username = UserToEdit!.Username,
                     DisplayName = UserToEdit.DisplayName,
-                    Email = UserToEdit.Email,
+                    Email = UserToEdit.Email ?? "",
                     IsActive = UserToEdit.IsActive,
                     // Valeur réelle du compte (avant : toujours décochée, donc effacée à chaque enregistrement)
                     ForceChangePassword = UserToEdit.ForceChangePassword,

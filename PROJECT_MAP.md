@@ -1,4 +1,4 @@
-# PROJECT_MAP.md
+﻿# PROJECT_MAP.md
 
 Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appels et des flux de données de la solution **Autoprint** (Version `26.11.8.2`).
 
@@ -289,7 +289,7 @@ Cadastre technique exhaustif de l'arborescence, des composants, du graphe d'appe
 #### B. Table Base de Données `ServerSettings`
 - **SMTP :** `SmtpHost`, `SmtpPort`, `SmtpEnableSsl`, `SmtpIgnoreCertError`, `SmtpAuthRequired`, `SmtpUser`, `SmtpPass`, `SmtpFromAddress`, `SmtpDisplayName`.
 - **Nommage Dynamique :** `NamingTemplate` (défaut : `IMP_{LIEU}_{MODELE}`), `NamingEnabled`, `NamingSameShare`.
-- **Active Directory :** `AdDomain`, `AdBaseDn`, `AdLdapFilter`, `AdUseServiceAccount`, `AdServiceUser`, `AdServicePassword`, `AdAdminEmails`.
+- **Active Directory :** `AdDomain`, `AdBaseDn`, `AdLdapFilter`, `AdUseServiceAccount`, `AdServiceUser`, `AdServicePassword`.
 - **Sécurité :** `PasswordExpirationDays` (défaut : 90 jours), `AgentApiKey` (GUID secret pour les agents clients), `LogRetentionDays` (défaut : 180 jours).
 - **Supervision & Télémétrie :**
   - `Monitoring_Enabled` (booléen)
