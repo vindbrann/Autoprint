@@ -148,7 +148,8 @@ namespace Autoprint.Client.Services
             {
                 try
                 {
-                    return await context.Emplacements.ToListAsync();
+                    // Réseaux des lieux indispensables hors ligne : sans eux, aucun lieu ne correspond au poste (« Télétravail » à tort)
+                    return await context.Emplacements.Include(e => e.Networks).AsNoTracking().ToListAsync();
                 }
                 catch
                 {

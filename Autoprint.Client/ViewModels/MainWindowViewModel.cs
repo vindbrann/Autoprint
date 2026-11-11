@@ -89,6 +89,7 @@ namespace Autoprint.Client.ViewModels
         }
 
         public bool CanInstall => !IsOffline && IsSmbAvailable;
+        public bool HasLoaded => _loaded;
         public bool HasSite => _currentLieux.Count > 0;
         public string HeaderKicker => !_loaded ? "Autoprint" : IsOffline ? "Serveur injoignable" : HasSite ? "Vous êtes à" : "Hors des sites";
         public string SiteName => !_loaded ? "Chargement…" : HasSite ? string.Join(" + ", _currentLieux.Select(l => l.Nom)) : "Télétravail ou réseau inconnu";

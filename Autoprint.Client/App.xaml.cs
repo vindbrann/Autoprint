@@ -74,6 +74,10 @@ namespace Autoprint.Client
 
                 _mainViewModel = new MainWindowViewModel(_prefService, _configService);
                 _mainWindow = new MainWindow { DataContext = _mainViewModel };
+                _mainViewModel.PropertyChanged += (s, args) =>
+                {
+                    if (args.PropertyName == nameof(MainWindowViewModel.CanInstall)) UpdateTrayState();
+                };
 
                 // Console / API : SERVERURL (à défaut le serveur d'impression) ; les partages restent sur PRINTSERVER
                 string baseUrl = _configService.WebBaseUrl;
@@ -182,6 +186,47 @@ namespace Autoprint.Client
             {
                 _verrouRafraichissement.Release();
             }
+        }
+
+        // Icône près de l'horloge : point orange quand l'ajout d'imprimantes est impossible (serveur ou partage injoignable)
+        private System.Drawing.Icon? _trayIconNormal;
+        private System.Drawing.Icon? _trayIconWarning;
+        private bool? _trayWarning;
+
+        private void UpdateTrayState()
+        {
+            if (_notifyIcon == null || _mainViewModel == null) return;
+            bool warning = _mainViewModel.HasLoaded && !_mainViewModel.CanInstall;
+            if (_trayWarning == warning) return;
+            _trayWarning = warning;
+            try
+            {
+                if (_trayIconNormal == null)
+                {
+                    var res = GetResourceStream(new Uri("pack://application:,,,/Autoprint.ico"));
+                    if (res == null) return;
+                    using (res.Stream) _trayIconNormal = new System.Drawing.Icon(res.Stream, 32, 32);
+                    _trayIconWarning = WithWarningDot(_trayIconNormal);
+                }
+                _notifyIcon.Icon = warning ? _trayIconWarning : _trayIconNormal;
+            }
+            catch (Exception ex) { Debug.WriteLine($"Icône de notification : {ex.Message}"); }
+            _notifyIcon.ToolTipText = warning ? "Autoprint · serveur injoignable" : "Autoprint";
+        }
+
+        private static System.Drawing.Icon WithWarningDot(System.Drawing.Icon baseIcon)
+        {
+            var bmp = new System.Drawing.Bitmap(32, 32);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.DrawIcon(baseIcon, new System.Drawing.Rectangle(0, 0, 32, 32));
+                using var ring = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+                using var dot = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xF5, 0x9E, 0x0B));
+                g.FillEllipse(ring, 17, 17, 15, 15);
+                g.FillEllipse(dot, 19, 19, 11, 11);
+            }
+            return System.Drawing.Icon.FromHandle(bmp.GetHicon());
         }
 
         /// <summary>Met l'imprimante (nom court) par défaut dans Windows, si elle est installée sur le poste.</summary>
