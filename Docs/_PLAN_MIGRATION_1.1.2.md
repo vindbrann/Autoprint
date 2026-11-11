@@ -84,7 +84,7 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
    - le panneau s'ouvre et le site est détecté ;
    - l'imprimante par défaut de chaque site est retrouvée ;
    - ajout et retrait d'une imprimante fonctionnent ;
-   - zone informatique (5 clics sur la version) : « Console et API » affiche le nouveau nom, « Partages d'impression » `\\anciennom`, et « Tester la connexion » répond « Connexion réussie ».
+   - informations serveur (5 clics sur la version) : « Console et API » affiche le nouveau nom, « Partages d'impression » `\\anciennom`, et « Tester la connexion » répond « Connexion réussie ».
 
 ## Étape 5 : fin de transition (tous les postes en 26.11)
 1. **Retirer l'ancien nom** dans la console : Paramètres > Sécurité > « Noms acceptés par le serveur ».

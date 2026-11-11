@@ -96,7 +96,7 @@ namespace Autoprint.Client.ViewModels
         public string NoteTitle => "Vos imprimantes fonctionnent.";
         public string NoteText => IsOffline
             ? "Pour en ajouter, connectez-vous au réseau de l'entreprise ou au VPN."
-            : "Le serveur d'impression ne répond pas : l'ajout est indisponible pour le moment.";
+            : "Le partage du serveur d'impression n'est pas accessible (réseau ou droits) : l'ajout est indisponible pour le moment.";
         public string AddDisabledTip => CanInstall ? "" : "Serveur injoignable";
 
         // ---------- Vos imprimantes ----------

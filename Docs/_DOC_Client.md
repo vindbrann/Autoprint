@@ -20,7 +20,7 @@ L'agent client est une application Windows légère s'exécutant entièrement da
   3. **Ajouter sur ce site :** tri alphabétique uniquement. Au-delà de 6 imprimantes, une ligne repliée « Ajouter une imprimante · N » ; dépliée, un champ filtre par nom, emplacement ou code inventaire.
   4. **Vos imprimantes sur d'autres sites :** section repliée (toutes les imprimantes réseau du poste hors site actuel), corbeille et « Tout retirer ».
   5. **Imprimer sur un autre site :** lien en bas, qui ouvre un volet : choix du site, puis de l'imprimante de ce site. Les recherches ignorent accents et majuscules.
-  6. **Réglages :** volet avec trois interrupteurs (imprimante selon le site, annonce du changement de site, démarrage avec Windows), lien vers les imprimantes de Windows, zone informatique après 5 clics sur la version.
+  6. **Réglages :** volet avec trois interrupteurs (imprimante selon le site, annonce du changement de site, démarrage avec Windows), lien vers les imprimantes de Windows, informations serveur après 5 clics sur la version.
 * **Hors ligne ou télétravail :** une note discrète dans le panneau, jamais de popup. La notification Windows n'annonce qu'un changement de site, panneau fermé (pas au démarrage si le site est le même qu'à la session précédente).
 * **Menu de l'icône (clic droit) :** ouvrir Autoprint, imprimantes et scanners de Windows, quitter.
 * **Cycle de vie :** Lancé automatiquement à l'ouverture de session via l'Active Setup de Windows.
@@ -73,7 +73,7 @@ L'application articule sa configuration sur deux niveaux :
   - `APIKEY` (`--api-key`) : clé agent.
   - À la mise à jour du MSI, une valeur passée en ligne de commande l'emporte sur celle déjà présente dans le registre ; une valeur absente de la ligne de commande est conservée.
 * **Préférences Utilisateur :** Stockées dans `%UserProfile%\Documents\Autoprint\user-settings.json` (imprimantes favorites par lieu, activation des notifications, bascule automatique, lancement au démarrage).
-* **Zone informatique :** accessible dans les réglages après 5 clics sur la version, elle affiche les paramètres machine en lecture seule (clé masquée, 4 derniers caractères) avec test de connectivité API, et se referme à la fermeture du panneau.
+* **Informations serveur :** accessible dans les réglages après 5 clics sur la version, elles affichent les paramètres machine en lecture seule (clé masquée, 4 derniers caractères) avec test de connectivité API, et se referme à la fermeture du panneau.
 
 ### 5.2 Packaging MSI Autonome (Single-File)
 Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 7 :
