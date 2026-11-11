@@ -188,10 +188,12 @@ namespace Autoprint.Server.Controllers
 
         [HttpGet("ad/search")]
         [Authorize(Policy = "ROLE_WRITE")]
-        public async Task<ActionResult<List<AdSearchResultDto>>> SearchAd([FromQuery] string q, [FromQuery] Shared.Enums.AdMappingType type)
+        public async Task<ActionResult<List<AdSearchResultDto>>> SearchAd([FromQuery] string q, [FromQuery] Shared.Enums.AdMappingType type, [FromQuery] bool sansFiltre = false)
         {
             if (!OperatingSystem.IsWindows()) return Ok(new List<AdSearchResultDto>());
-            return Ok(await _authService.SearchAdAsync(q, type));
+            // sansFiltre : recherche d'un groupe pour le filtre de connexion (Paramètres, Active Directory), réservée aux administrateurs des paramètres
+            if (sansFiltre && !User.HasClaim("Permission", "SETTINGS_MANAGE")) return Forbid();
+            return Ok(await _authService.SearchAdAsync(q, type, applyLoginFilter: !sansFiltre));
         }
 
         [HttpGet("{roleId}/admappings")]
