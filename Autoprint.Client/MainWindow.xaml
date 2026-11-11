@@ -1,4 +1,4 @@
-<Window x:Class="Autoprint.Client.MainWindow"
+﻿<Window x:Class="Autoprint.Client.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -14,52 +14,17 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="{DynamicResource {x:Static SystemFonts.MessageFontWeightKey}}"
         TextElement.FontSize="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}"
-        FontFamily="{DynamicResource MaterialDesignFont}"
+        FontFamily="{StaticResource Autoprint.Font}"
         Icon="Autoprint.ico">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-        <!-- Style personnalisé pour les onglets en pilule (Segmented Pill Tabs) -->
-        <Style x:Key="ModernPillTabStyle" TargetType="RadioButton">
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="14,6"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="TabBorder" 
-                                Background="Transparent" 
-                                CornerRadius="16" 
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
-                                <Setter Property="TextElement.Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-                                <Setter Property="TextElement.FontWeight" Value="Bold"/>
-                                <Setter Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect BlurRadius="4" ShadowDepth="1" Direction="270" Opacity="0.2"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="False">
-                                <Setter Property="TextElement.Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-                                <Setter Property="Opacity" Value="0.6"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
     </Window.Resources>
 
-    <Border CornerRadius="12" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" Opacity="0.99">
+    <!-- Charte graphique (B77) : fenêtre aux coins arrondis, couleurs et styles du dictionnaire Autoprint -->
+    <Border Style="{StaticResource Autoprint.Client.Window}" ClipToBounds="True">
 
         <Grid>
             <Grid.RowDefinitions>
@@ -88,12 +53,12 @@
                                Margin="0,0,10,0" 
                                RenderOptions.BitmapScalingMode="HighQuality"/>
 
-                        <TextBlock Text="AUTOPRINT CLIENT" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" Opacity="0.6"/>
+                        <TextBlock Text="Autoprint" Style="{StaticResource Autoprint.Text.Secondary}" FontWeight="SemiBold" VerticalAlignment="Center"/>
 
                         <!-- Badge Hors Ligne -->
-                        <Border CornerRadius="4" Background="{DynamicResource MaterialDesignValidationErrorBrush}" Margin="8,0,0,0" Padding="6,1" VerticalAlignment="Center">
+                        <Border Margin="8,0,0,0" VerticalAlignment="Center">
                             <Border.Style>
-                                <Style TargetType="Border">
+                                <Style TargetType="Border" BasedOn="{StaticResource Autoprint.Client.OfflineBadge}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsOffline}" Value="True">
@@ -102,14 +67,14 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBlock Text="MODE HORS LIGNE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock Text="Mode hors ligne"/>
                         </Border>
                     </StackPanel>
 
                     <!-- Titre du Lieu Actuel -->
                     <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,8,0,4">
                         <materialDesign:PackIcon Kind="MapMarker" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource MaterialDesignBody}"/>
-                        <TextBlock Text="{Binding TitreLieu}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding TitreLieu}" Style="{StaticResource Autoprint.Client.Place}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
 
                     <!-- Bouton Fermer (Réduire dans le Tray) -->
@@ -125,40 +90,36 @@
             </materialDesign:ColorZone>
 
             <!-- 2. Barre de Navigation par Onglets Segmentés (Pill Tabs) -->
-            <Border Grid.Row="1" Background="{DynamicResource MaterialDesignPaper}" Padding="15,4,15,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource MaterialDesignDivider}">
-                <Border Background="{DynamicResource MaterialDesignDivider}" CornerRadius="18" Padding="2" HorizontalAlignment="Center">
+            <Border Grid.Row="1" Background="{DynamicResource Autoprint.Brush.Surface}" Padding="15,4,15,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Autoprint.Brush.Border}">
+                <Border Style="{StaticResource Autoprint.PillTabs}" HorizontalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
 
                         <!-- Onglet 1 : Disponibles -->
-                        <RadioButton Style="{StaticResource ModernPillTabStyle}"
+                        <RadioButton Style="{StaticResource Autoprint.PillTab}"
                                      IsChecked="{Binding IsPrintersTabSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="Printers">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Printer" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <TextBlock Text="Disponibles" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
-                                <Border Background="#1E88E5" CornerRadius="8" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Imprimantes.Count}" FontSize="9" FontWeight="Bold" Foreground="White"/>
-                                </Border>
+                                <TextBlock Text="{Binding Imprimantes.Count}" Style="{StaticResource Autoprint.PillTab.Count}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
 
                         <!-- Onglet 2 : Mes installations (Nettoyage) -->
-                        <RadioButton Style="{StaticResource ModernPillTabStyle}"
+                        <RadioButton Style="{StaticResource Autoprint.PillTab}"
                                      IsChecked="{Binding IsManageTabSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="Manage">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Broom" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <TextBlock Text="Mes installations" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
-                                <Border Background="#43A047" CornerRadius="8" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding ManageViewModel.InstalledPrinters.Count}" FontSize="9" FontWeight="Bold" Foreground="White"/>
-                                </Border>
+                                <TextBlock Text="{Binding ManageViewModel.InstalledPrinters.Count}" Style="{StaticResource Autoprint.PillTab.Count}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
 
                         <!-- Onglet 3 : Options -->
-                        <RadioButton Style="{StaticResource ModernPillTabStyle}"
+                        <RadioButton Style="{StaticResource Autoprint.PillTab}"
                                      IsChecked="{Binding IsOptionsTabSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="Options">
@@ -191,7 +152,7 @@
             </Grid>
 
             <!-- 4. Pied de page unifié -->
-            <materialDesign:ColorZone Grid.Row="3" Mode="Standard" Padding="15,8" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0">
+            <materialDesign:ColorZone Grid.Row="3" Mode="Standard" Padding="15,8" BorderBrush="{DynamicResource Autoprint.Brush.Border}" BorderThickness="0,1,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -230,7 +191,7 @@
                             Click="BtnActualiser_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBlock Text="ACTUALISER" FontSize="11" VerticalAlignment="Center"/>
+                            <TextBlock Text="Actualiser" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </Grid>

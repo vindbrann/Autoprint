@@ -1,4 +1,4 @@
-<UserControl x:Class="Autoprint.Client.Views.PrintersView"
+﻿<UserControl x:Class="Autoprint.Client.Views.PrintersView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -17,8 +17,8 @@
                 <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                              Value="0" IsIndeterminate="True"
                              Width="16" Height="16" Margin="0,0,8,0"
-                             Foreground="White"/>
-                <TextBlock Text="Installation..." Foreground="White"/>
+                             Foreground="{DynamicResource Autoprint.Brush.OnPrimary}"/>
+                <TextBlock Text="Installation…" Foreground="{DynamicResource Autoprint.Brush.OnPrimary}"/>
             </StackPanel>
         </DataTemplate>
 
@@ -58,7 +58,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Background="{DynamicResource MaterialDesignDivider}" Width="60" CornerRadius="8,0,0,8">
+                                <Border Background="{DynamicResource Autoprint.Brush.Border}" Width="60" CornerRadius="8,0,0,8">
                                     <materialDesign:PackIcon Kind="Printer" Width="28" Height="28" Opacity="0.8" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MaterialDesignBody}"/>
                                 </Border>
 

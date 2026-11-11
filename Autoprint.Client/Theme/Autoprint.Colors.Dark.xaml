@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Autoprint : couleurs du client, thème sombre
+     Généré par Docs/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
+     Ne pas modifier à la main : modifier tokens.json ou le générateur, puis relancer le script.
+     À fusionner AVANT Autoprint.Theme.xaml. Échanger ce dictionnaire contre l'autre quand Windows change de thème
+     (voir ThemeWatcher.cs et LISEZMOI.md). Clés : Autoprint.Color.* (Color) et Autoprint.Brush.* (SolidColorBrush).
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- Thème sombre -->
+    <Color x:Key="Autoprint.Color.Primary">#FF5B9BF5</Color>
+    <Color x:Key="Autoprint.Color.OnPrimary">#FF0A1322</Color>
+    <Color x:Key="Autoprint.Color.PrimaryHover">#FF7CB0F8</Color>
+    <Color x:Key="Autoprint.Color.PrimarySubtle">#FF16253D</Color>
+    <Color x:Key="Autoprint.Color.Secondary">#FFC9CED8</Color>
+    <Color x:Key="Autoprint.Color.OnSecondary">#FF111317</Color>
+    <Color x:Key="Autoprint.Color.Brand">#FF4F8DEE</Color>
+    <Color x:Key="Autoprint.Color.Background">#FF111317</Color>
+    <Color x:Key="Autoprint.Color.Surface">#FF171A1F</Color>
+    <Color x:Key="Autoprint.Color.SurfaceRaised">#FF20242B</Color>
+    <Color x:Key="Autoprint.Color.Sidebar">#FF0D0F12</Color>
+    <Color x:Key="Autoprint.Color.OnSidebar">#FFE8EAEE</Color>
+    <Color x:Key="Autoprint.Color.Border">#FF262A31</Color>
+    <Color x:Key="Autoprint.Color.BorderStrong">#FF6B7381</Color>
+    <Color x:Key="Autoprint.Color.Divider">#FF1F2228</Color>
+    <Color x:Key="Autoprint.Color.Text">#FFE8EAEE</Color>
+    <Color x:Key="Autoprint.Color.TextSecondary">#FFA9AFBB</Color>
+    <Color x:Key="Autoprint.Color.TextMuted">#FF8A919E</Color>
+    <Color x:Key="Autoprint.Color.TextDisabled">#FF5C636F</Color>
+    <Color x:Key="Autoprint.Color.Link">#FF7CB0F8</Color>
+    <Color x:Key="Autoprint.Color.Success">#FF4CC38A</Color>
+    <Color x:Key="Autoprint.Color.OnSuccess">#FF0D0F12</Color>
+    <Color x:Key="Autoprint.Color.SuccessSubtle">#FF12291E</Color>
+    <Color x:Key="Autoprint.Color.Warning">#FFF0A33A</Color>
+    <Color x:Key="Autoprint.Color.OnWarning">#FF0D0F12</Color>
+    <Color x:Key="Autoprint.Color.WarningSubtle">#FF2D2210</Color>
+    <Color x:Key="Autoprint.Color.Danger">#FFF2726C</Color>
+    <Color x:Key="Autoprint.Color.OnDanger">#FF0D0F12</Color>
+    <Color x:Key="Autoprint.Color.DangerSubtle">#FF331614</Color>
+    <Color x:Key="Autoprint.Color.Info">#FF5CB3EA</Color>
+    <Color x:Key="Autoprint.Color.OnInfo">#FF0D0F12</Color>
+    <Color x:Key="Autoprint.Color.InfoSubtle">#FF112838</Color>
+    <Color x:Key="Autoprint.Color.Neutral">#FF8A919E</Color>
+    <Color x:Key="Autoprint.Color.FocusRing">#FF7CB0F8</Color>
+    <Color x:Key="Autoprint.Color.Chart1">#FF5B9BF5</Color>
+    <Color x:Key="Autoprint.Color.Chart2">#FFF0A04B</Color>
+    <Color x:Key="Autoprint.Color.Chart3">#FF3CC0A8</Color>
+    <Color x:Key="Autoprint.Color.Chart4">#FFB08AE8</Color>
+    <Color x:Key="Autoprint.Color.Chart5">#FFE2BE4A</Color>
+    <Color x:Key="Autoprint.Color.Chart6">#FFEC7AA0</Color>
+    <Color x:Key="Autoprint.Color.Chart7">#FF8CC8F0</Color>
+    <Color x:Key="Autoprint.Color.Chart8">#FF9AA1AD</Color>
+    <Color x:Key="Autoprint.Color.Hover">#0DE8EAEE</Color>
+    <Color x:Key="Autoprint.Color.Press">#17E8EAEE</Color>
+    <Color x:Key="Autoprint.Color.KnobOn">#FF0A1322</Color>
+    <Color x:Key="Autoprint.Color.ScrollThumb">#738A919E</Color>
+    <Color x:Key="Autoprint.Color.PillActive">#FF111317</Color>
+    <Color x:Key="Autoprint.Color.CardDefaultBackground">#FF162030</Color>
+    <Color x:Key="Autoprint.Color.CardDefaultBorder">#FF3E5D89</Color>
+    <Color x:Key="Autoprint.Color.SuccessLine">#FF205039</Color>
+    <Color x:Key="Autoprint.Color.WarningLine">#FF5E421A</Color>
+    <Color x:Key="Autoprint.Color.DangerLine">#FF632D2A</Color>
+    <Color x:Key="Autoprint.Color.InfoLine">#FF244B64</Color>
+    <Color x:Key="Autoprint.Color.DangerZone">#FF6D4346</Color>
+    <Color x:Key="Autoprint.Color.Backdrop">#FF07080A</Color>
+
+    <SolidColorBrush x:Key="Autoprint.Brush.Primary" Color="#FF5B9BF5" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnPrimary" Color="#FF0A1322" />
+    <SolidColorBrush x:Key="Autoprint.Brush.PrimaryHover" Color="#FF7CB0F8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.PrimarySubtle" Color="#FF16253D" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Secondary" Color="#FFC9CED8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnSecondary" Color="#FF111317" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Brand" Color="#FF4F8DEE" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Background" Color="#FF111317" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Surface" Color="#FF171A1F" />
+    <SolidColorBrush x:Key="Autoprint.Brush.SurfaceRaised" Color="#FF20242B" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Sidebar" Color="#FF0D0F12" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnSidebar" Color="#FFE8EAEE" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Border" Color="#FF262A31" />
+    <SolidColorBrush x:Key="Autoprint.Brush.BorderStrong" Color="#FF6B7381" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Divider" Color="#FF1F2228" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Text" Color="#FFE8EAEE" />
+    <SolidColorBrush x:Key="Autoprint.Brush.TextSecondary" Color="#FFA9AFBB" />
+    <SolidColorBrush x:Key="Autoprint.Brush.TextMuted" Color="#FF8A919E" />
+    <SolidColorBrush x:Key="Autoprint.Brush.TextDisabled" Color="#FF5C636F" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Link" Color="#FF7CB0F8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Success" Color="#FF4CC38A" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnSuccess" Color="#FF0D0F12" />
+    <SolidColorBrush x:Key="Autoprint.Brush.SuccessSubtle" Color="#FF12291E" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Warning" Color="#FFF0A33A" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnWarning" Color="#FF0D0F12" />
+    <SolidColorBrush x:Key="Autoprint.Brush.WarningSubtle" Color="#FF2D2210" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Danger" Color="#FFF2726C" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnDanger" Color="#FF0D0F12" />
+    <SolidColorBrush x:Key="Autoprint.Brush.DangerSubtle" Color="#FF331614" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Info" Color="#FF5CB3EA" />
+    <SolidColorBrush x:Key="Autoprint.Brush.OnInfo" Color="#FF0D0F12" />
+    <SolidColorBrush x:Key="Autoprint.Brush.InfoSubtle" Color="#FF112838" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Neutral" Color="#FF8A919E" />
+    <SolidColorBrush x:Key="Autoprint.Brush.FocusRing" Color="#FF7CB0F8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart1" Color="#FF5B9BF5" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart2" Color="#FFF0A04B" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart3" Color="#FF3CC0A8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart4" Color="#FFB08AE8" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart5" Color="#FFE2BE4A" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart6" Color="#FFEC7AA0" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart7" Color="#FF8CC8F0" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Chart8" Color="#FF9AA1AD" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Hover" Color="#0DE8EAEE" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Press" Color="#17E8EAEE" />
+    <SolidColorBrush x:Key="Autoprint.Brush.KnobOn" Color="#FF0A1322" />
+    <SolidColorBrush x:Key="Autoprint.Brush.ScrollThumb" Color="#738A919E" />
+    <SolidColorBrush x:Key="Autoprint.Brush.PillActive" Color="#FF111317" />
+    <SolidColorBrush x:Key="Autoprint.Brush.CardDefaultBackground" Color="#FF162030" />
+    <SolidColorBrush x:Key="Autoprint.Brush.CardDefaultBorder" Color="#FF3E5D89" />
+    <SolidColorBrush x:Key="Autoprint.Brush.SuccessLine" Color="#FF205039" />
+    <SolidColorBrush x:Key="Autoprint.Brush.WarningLine" Color="#FF5E421A" />
+    <SolidColorBrush x:Key="Autoprint.Brush.DangerLine" Color="#FF632D2A" />
+    <SolidColorBrush x:Key="Autoprint.Brush.InfoLine" Color="#FF244B64" />
+    <SolidColorBrush x:Key="Autoprint.Brush.DangerZone" Color="#FF6D4346" />
+    <SolidColorBrush x:Key="Autoprint.Brush.Backdrop" Color="#FF07080A" />
+</ResourceDictionary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -431,14 +431,8 @@ namespace Autoprint.Client
             await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync());
         }
 
-        private void UpdateTheme()
-        {
-            var paletteHelper = new PaletteHelper();
-            var theme = paletteHelper.GetTheme();
-            var systemTheme = Theme.GetSystemTheme() ?? BaseTheme.Light;
-            theme.SetBaseTheme(systemTheme);
-            paletteHelper.SetTheme(theme);
-        }
+        // Charte graphique (B77) : palette bleue Autoprint et dictionnaire de couleurs clair / sombre selon le thème de Windows
+        private void UpdateTheme() => AutoprintTheme.Apply();
 
         private void MenuExit_Click(object sender, RoutedEventArgs e) { Shutdown(); }
         private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherFenetre(ClientTab.Printers);
