@@ -11,12 +11,12 @@
 @inject NavigationManager NavManager
 @inject IAuthService AuthService
 @inject IJSRuntime JS
-@inject ThemeService ThemeService
+@inject AppThemeService AppTheme
 @inject ILocalStorageService LocalStorage
 @inject NotificationService NotificationService
 
 <RadzenComponents />
-<RadzenTheme Theme="material" />
+<RadzenTheme Theme="standard" />
 
 <AuthorizeView>
     <Authorized>
@@ -54,9 +54,7 @@
 @code {
     protected override async Task OnInitializedAsync()
     {
-        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
-        if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
-        ThemeService.SetTheme(savedTheme);
+        await AppTheme.InitializeAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

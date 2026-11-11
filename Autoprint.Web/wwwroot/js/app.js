@@ -1,5 +1,11 @@
 // Fonctions JS appelées par Blazor (sorties de index.html pour permettre une CSP sans 'unsafe-inline')
 
+// Thème clair / sombre de la charte (B77) : attribut lu par autoprint-theme.css, posé avec ThemeService.SetTheme
+window.autoprintSetTheme = (dark) => {
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+};
+
 window.setupChart = (id, labels, data) => {
     const ctx = document.getElementById(id);
     if (window.myChart instanceof Chart) {

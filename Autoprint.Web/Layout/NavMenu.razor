@@ -4,14 +4,14 @@
 @inject IAuthService AuthService
 @inject NavigationManager NavManager
 @inject AlertService AlertService
-@inject ThemeService ThemeService
+@inject AppThemeService AppTheme
 @inject ILocalStorageService LocalStorage
 
 <RadzenStack Orientation="Orientation.Vertical" Style="height: 100%; width: 100%;" Gap="0">
 
     <div class="rz-p-3" style="border-bottom: 1px solid var(--rz-border-color);">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-            <RadzenImage Path="images/Autoprint.png" Style="height: 32px; width: auto; object-fit: contain;" AlternateText="Logo" />
+            <RadzenImage Path="images/autoprint-symbole.svg" Style="height: 28px; width: auto; object-fit: contain;" AlternateText="" />
             <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; font-weight: bold;">Autoprint</RadzenText>
         </RadzenStack>
     </div>
@@ -37,7 +37,7 @@
                         </AuthorizeView>
 
                         <AuthorizeView Policy="LOCATION_READ">
-                            <RadzenPanelMenuItem Text="Lieux" Path="lieux" Icon="place" />
+                            <RadzenPanelMenuItem Text="Lieux" Path="lieux" Icon="location_on" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="BRAND_READ">
@@ -47,7 +47,7 @@
                         <AuthorizeView Policy="MODEL_READ">
                             <RadzenPanelMenuItem Path="modeles">
                                 <Template>
-                                    <RadzenIcon Icon="description" Style="margin-right: 4px;" />
+                                    <RadzenIcon Icon="category" Style="margin-right: 4px;" />
                                     <span style="flex: 1;">Modèles</span>
                                     @if (AlertService.State.ModelAlert)
                                     {
@@ -60,7 +60,7 @@
                         <AuthorizeView Policy="DRIVER_READ">
                             <RadzenPanelMenuItem Path="pilotes">
                                 <Template>
-                                    <RadzenIcon Icon="usb" Style="margin-right: 4px;" />
+                                    <RadzenIcon Icon="developer_board" Style="margin-right: 4px;" />
                                     <span style="flex: 1;">Pilotes</span>
                                     @if (AlertService.State.DriverAlert)
                                     {
@@ -71,12 +71,12 @@
                         </AuthorizeView>
 
                         <AuthorizeView Policy="SNMP_PROFILE_READ">
-                            <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="settings_ethernet" />
-                            <RadzenPanelMenuItem Text="Identifiants SNMP" Path="snmp-credentials" Icon="vpn_key" />
+                            <RadzenPanelMenuItem Text="Profils SNMP" Path="snmp-profiles" Icon="lan" />
+                            <RadzenPanelMenuItem Text="Identifiants SNMP" Path="snmp-credentials" Icon="key" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="REPORT_MANAGE">
-                            <RadzenPanelMenuItem Text="Rapports & Planification" Path="reports" Icon="assessment" />
+                            <RadzenPanelMenuItem Text="Rapports et planification" Path="reports" Icon="bar_chart" />
                         </AuthorizeView>
                     </RadzenPanelMenu>
                 }
@@ -93,15 +93,15 @@
                         </AuthorizeView>
 
                         <AuthorizeView Policy="USER_READ">
-                            <RadzenPanelMenuItem Text="Utilisateurs" Path="users" Icon="people" />
+                            <RadzenPanelMenuItem Text="Utilisateurs" Path="users" Icon="group" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="AUDIT_READ">
-                            <RadzenPanelMenuItem Text="Journal d'Audit" Path="audit" Icon="history" />
+                            <RadzenPanelMenuItem Text="Journal d'audit" Path="audit" Icon="history" />
                         </AuthorizeView>
 
                         <AuthorizeView Policy="ROLE_READ">
-                            <RadzenPanelMenuItem Text="Rôles & Droits" Path="roles" Icon="admin_panel_settings" />
+                            <RadzenPanelMenuItem Text="Rôles et droits" Path="roles" Icon="admin_panel_settings" />
                         </AuthorizeView>
                     </RadzenPanelMenu>
                 }
@@ -152,37 +152,22 @@
 </RadzenStack>
 
 @code {
-    private string currentThemeIcon = "dark_mode";
+    private string currentThemeIcon => AppTheme.IsDark ? "light_mode" : "dark_mode";
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         AlertService.OnChange += StateHasChanged;
+        AppTheme.OnChange += StateHasChanged;
         _ = AlertService.RefreshState();
-
-        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
-        UpdateIcon(savedTheme);
     }
 
     public void Dispose()
     {
         AlertService.OnChange -= StateHasChanged;
+        AppTheme.OnChange -= StateHasChanged;
     }
 
-    private async Task ToggleTheme()
-    {
-        var current = await LocalStorage.GetItemAsync<string>("user_theme") ?? "material";
-        var newTheme = (current == "material") ? "material-dark" : "material";
-
-        ThemeService.SetTheme(newTheme);
-        await LocalStorage.SetItemAsync("user_theme", newTheme);
-        UpdateIcon(newTheme);
-    }
-
-    private void UpdateIcon(string? theme)
-    {
-        if (theme == "material-dark") currentThemeIcon = "light_mode";
-        else currentThemeIcon = "dark_mode";
-    }
+    private Task ToggleTheme() => AppTheme.ToggleAsync();
 
     private async Task BeginLogout()
     {
