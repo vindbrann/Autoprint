@@ -1169,7 +1169,7 @@ else
         {
             await LoadTokens();
             await DialogService.OpenAsync<TokenShowModal>("Jeton d'Intégration Généré",
-                new Dictionary<string, object> { { "RawToken", creationResult.RawToken } },
+                new Dictionary<string, object?> { { "RawToken", creationResult.RawToken } },
                 new DialogOptions { Width = "550px" });
         }
     }

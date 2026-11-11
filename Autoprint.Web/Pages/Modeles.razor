@@ -167,7 +167,7 @@ else
     {
         var resultat = await DialogService.OpenAsync<ModeleModal>(
             modele.Id == 0 ? "Nouveau Modèle" : "Modifier le Modèle",
-            new Dictionary<string, object> { { "ModeleToEdit", modele } },
+            new Dictionary<string, object?> { { "ModeleToEdit", modele } },
             new DialogOptions() { Width = "600px", CloseDialogOnOverlayClick = true }
         );
         if (resultat == true)
