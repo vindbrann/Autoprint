@@ -94,6 +94,42 @@ namespace Autoprint.Server.Controllers
             return Ok(new { key = newKey, previousValidUntil = dto.TransitionDays > 0 ? DateTime.UtcNow.AddDays(dto.TransitionDays) : (DateTime?)null });
         }
 
+        // ---------- Noms d'hôte acceptés (B82) ----------
+
+        public class AllowedHostsDto
+        {
+            public List<string> Hosts { get; set; } = new();
+            /// <summary>Nom par lequel la console est ouverte (ne peut pas être retiré).</summary>
+            public string? CurrentHost { get; set; }
+        }
+
+        [HttpGet("allowed-hosts")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public ActionResult<AllowedHostsDto> GetAllowedHosts([FromServices] AllowedHostsService hosts)
+            => new AllowedHostsDto { Hosts = hosts.Hosts.ToList(), CurrentHost = Request.Host.Host };
+
+        // Remplace la liste. Garde-fous : au moins un nom, noms valides, le nom de la console ouverte reste dans la liste
+        [HttpPut("allowed-hosts")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> SaveAllowedHosts([FromBody] AllowedHostsDto dto, [FromServices] AllowedHostsService hosts)
+        {
+            var list = AllowedHostsService.Parse(string.Join(";", dto.Hosts ?? new()));
+            if (list.Count == 0) return BadRequest("Indiquez au moins un nom (le nom public de la console).");
+            var invalid = list.FirstOrDefault(h => !AllowedHostsService.IsValidHost(h));
+            if (invalid != null) return BadRequest($"Nom invalide : « {invalid} » (ex : autoprint.mondomaine.fr, sans https:// ni port).");
+
+            string current = Request.Host.Host;
+            if (!AllowedHostsService.IsLocal(current) && !list.Any(h => h.Equals(current, StringComparison.OrdinalIgnoreCase)))
+                return BadRequest($"Le nom « {current} », par lequel vous êtes connecté, ne peut pas être retiré : ouvrez la console avec un autre nom de la liste pour le retirer.");
+
+            var before = string.Join(";", hosts.Hosts);
+            await hosts.SaveAsync(_context, list);
+            _auditService.LogAction("ALLOWED_HOSTS_UPDATE", $"Noms d'hôte acceptés : {before} → {string.Join(";", list)}", User.Identity?.Name, "WARNING", resourceName: AllowedHostsService.SettingKey);
+            await _context.SaveChangesAsync();
+
+            return Ok(new AllowedHostsDto { Hosts = list, CurrentHost = current });
+        }
+
         // Valeur déjà chiffrée (ou non secrète) : écrite telle quelle
         private async Task UpsertSetting(string key, string value, string type, string description)
         {

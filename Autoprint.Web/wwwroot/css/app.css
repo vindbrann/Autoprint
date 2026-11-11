@@ -247,6 +247,9 @@ code {
 .ap-chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--ap-border-strong); border-radius: var(--ap-r-pill); background: var(--ap-surface); color: var(--ap-text); font: 500 12px var(--ap-mono); cursor: pointer; transition: background-color var(--ap-fast) var(--ap-ease), border-color var(--ap-fast) var(--ap-ease), color var(--ap-fast) var(--ap-ease); }
 .ap-chip .rzi { font-size: 14px; }
 .ap-chip:hover:not(:disabled) { background: var(--ap-primary-subtle); border-color: var(--ap-primary); color: var(--ap-primary); }
+.ap-chip-x { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: -4px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ap-text-muted); cursor: pointer; }
+.ap-chip-x:hover:not(:disabled) { background: var(--ap-danger-subtle); color: var(--ap-danger); }
+.ap-chip-x .rzi { font-size: 14px; }
 .ap-chip:focus-visible { outline: 2px solid var(--ap-focus-ring); outline-offset: 2px; }
 .ap-chip:disabled { cursor: not-allowed; color: var(--ap-text-disabled); border-color: var(--ap-border); }
 .ap-name-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ap-s2) var(--ap-s4); align-items: end; padding: var(--ap-s3) 14px; border-radius: var(--ap-r-lg); background: var(--ap-surface-raised); }

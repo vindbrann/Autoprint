@@ -54,13 +54,25 @@
 		<Property Id="MSIFASTINSTALL" Value="7" />
 		<Property Id="REBOOT" Value="ReallySuppress" />
 
-		<!-- Hidden : la clé n'apparaît pas dans les journaux d'installation (msiexec /l*v, Intune), B54 -->
-		<Property Id="APIKEY" Secure="yes" Hidden="yes">
+		<!-- Valeurs déjà présentes sur le poste (mise à jour). La recherche AppSearch écrase une propriété passée en ligne de commande :
+		     on cherche donc dans des propriétés à part, recopiées seulement si Intune n'a rien passé (B82 : une nouvelle valeur doit l'emporter).
+		     Hidden : la clé n'apparaît pas dans les journaux d'installation (msiexec /l*v, Intune), B54 -->
+		<Property Id="APIKEY" Secure="yes" Hidden="yes" />
+		<Property Id="EXISTING_APIKEY" Secure="yes" Hidden="yes">
 			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\Autoprint" Name="APIKEY" Type="raw" />
 		</Property>
-		<Property Id="PRINTSERVER" Secure="yes">
+		<Property Id="PRINTSERVER" Secure="yes" />
+		<Property Id="EXISTING_PRINTSERVER" Secure="yes">
 			<RegistrySearch Id="SearchPrintServer" Root="HKLM" Key="SOFTWARE\Autoprint" Name="PRINTSERVER" Type="raw" />
 		</Property>
+		<!-- Adresse de la console et de l'API, facultative (B82) : à défaut, le client utilise https://PRINTSERVER -->
+		<Property Id="SERVERURL" Secure="yes" />
+		<Property Id="EXISTING_SERVERURL" Secure="yes">
+			<RegistrySearch Id="SearchServerUrl" Root="HKLM" Key="SOFTWARE\Autoprint" Name="SERVERURL" Type="raw" />
+		</Property>
+		<SetProperty Id="APIKEY" Value="[EXISTING_APIKEY]" After="AppSearch" Sequence="both" Condition="NOT APIKEY AND EXISTING_APIKEY" />
+		<SetProperty Id="PRINTSERVER" Value="[EXISTING_PRINTSERVER]" After="AppSearch" Sequence="both" Condition="NOT PRINTSERVER AND EXISTING_PRINTSERVER" />
+		<SetProperty Id="SERVERURL" Value="[EXISTING_SERVERURL]" After="AppSearch" Sequence="both" Condition="NOT SERVERURL AND EXISTING_SERVERURL" />
 
 		<ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
 		<WixVariable Id="WixUILicenseRtf" Value="Resources\License.rtf" />
@@ -77,11 +89,14 @@
 				<Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
 				<Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
 
-				<Control Id="LblServer" Type="Text" X="20" Y="60" Width="290" Height="15" Text="Nom ou IP du Serveur d'Impression :" />
-				<Control Id="EditServer" Type="Edit" X="20" Y="75" Width="200" Height="18" Property="PRINTSERVER" />
+				<Control Id="LblServer" Type="Text" X="20" Y="54" Width="330" Height="15" Text="Serveur d'impression (nom des partages \\serveur\imprimante) :" />
+				<Control Id="EditServer" Type="Edit" X="20" Y="69" Width="240" Height="18" Property="PRINTSERVER" />
 
-				<Control Id="LblKey" Type="Text" X="20" Y="100" Width="290" Height="15" Text="Clé d'API (Agent Key) :" />
-				<Control Id="EditKey" Type="Edit" X="20" Y="115" Width="320" Height="18" Property="APIKEY" />
+				<Control Id="LblUrl" Type="Text" X="20" Y="96" Width="330" Height="15" Text="Adresse de la console, si différente (ex : https://autoprint.mondomaine.fr) :" />
+				<Control Id="EditUrl" Type="Edit" X="20" Y="111" Width="320" Height="18" Property="SERVERURL" />
+
+				<Control Id="LblKey" Type="Text" X="20" Y="138" Width="290" Height="15" Text="Clé d'API (Agent Key) :" />
+				<Control Id="EditKey" Type="Edit" X="20" Y="153" Width="320" Height="18" Property="APIKEY" />
 
 				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
 				<Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
@@ -114,6 +129,11 @@
 					<!-- APIKEY : écrite par l'action WriteApiKey (B54) -->
 					<RegistryValue Name="PRINTSERVER" Value="[PRINTSERVER]" Type="string" />
 				</RegistryKey>
+			</Component>
+
+			<!-- Adresse de la console (B82), écrite seulement si elle est renseignée -->
+			<Component Id="RegistryServerUrl" Guid="{3B0E2C7A-9F41-4D6B-A8E2-5C1F7D93B604}" Directory="INSTALLFOLDER" Condition="SERVERURL">
+				<RegistryValue Root="HKLM" Key="SOFTWARE\Autoprint" Name="SERVERURL" Value="[SERVERURL]" Type="string" KeyPath="yes" />
 			</Component>
 
 			<Component Id="ClientExecutable" Guid="{287CF2AF-2A22-456C-B5CC-D5EA4B64DA7D}" Directory="ClientDir">

@@ -177,8 +177,8 @@ namespace Autoprint.Server.Controllers
         // (sinon un attaquant pourrait faire envoyer un lien vers son propre site)
         private string? GetPublicBaseUrl()
         {
-            var hosts = (_configuration["AllowedHosts"] ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var publicHost = hosts.FirstOrDefault(h => h != "*" && !h.Equals("localhost", StringComparison.OrdinalIgnoreCase) && !h.StartsWith("*."));
+            // Premier nom de la liste des noms acceptés (console, Paramètres > Sécurité) : le nom principal
+            var publicHost = HttpContext.RequestServices.GetRequiredService<AllowedHostsService>().PublicHost;
             return publicHost == null ? null : $"https://{publicHost}";
         }
 

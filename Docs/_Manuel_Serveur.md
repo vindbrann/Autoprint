@@ -15,6 +15,17 @@ L'administration est accessible via votre navigateur Web favori.
 
 > **Sécurité :** Lors de votre première connexion, si le mot de passe est expiré ou défini par défaut, l'application vous imposera immédiatement de le remplacer par un mot de passe fort avant d'accéder aux menus.
 
+### Noms acceptés par le serveur
+- Le serveur ne répond qu'aux noms de la liste **Paramètres > Sécurité > « Noms acceptés par le serveur »**, plus `localhost`. Un autre nom reçoit une erreur 400 : protection contre l'usurpation de l'en-tête Host.
+- La liste est initialisée par l'installeur (champ « Nom public », plusieurs noms séparés par `;`), puis se modifie dans la console. Elle est prise en compte immédiatement, et chaque modification est inscrite au journal d'audit.
+- Le premier nom de la liste sert aux liens envoyés par courriel (mot de passe oublié).
+- Le nom par lequel la console est ouverte ne peut pas être retiré. La liste n'est jamais reprise d'une sauvegarde.
+- **Changement de nom** (ex. nouveau domaine) :
+  1. ajouter le nouveau nom, avec sa liaison HTTPS dans IIS (SNI) et son DNS ;
+  2. déployer les postes avec `SERVERURL=https://nouveau-nom` ;
+  3. retirer l'ancien nom quand plus aucun poste ne l'utilise.
+  - Détail : `Docs/_PLAN_MIGRATION_1.1.2.md`.
+
 ---
 
 ## 2. Le Tableau de Bord & Supervision

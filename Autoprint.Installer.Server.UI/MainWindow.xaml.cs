@@ -215,13 +215,26 @@ namespace Autoprint.Installer.Server.UI
                 MessageBox.Show("Port Web invalide.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
-            if (_currentStep == 5 && !System.Text.RegularExpressions.Regex.IsMatch(TxtPublicHost.Text.Trim(), @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$"))
+            if (_currentStep == 5 && (PublicHosts.Count == 0 || PublicHosts.Any(h => !IsValidHostName(h))))
             {
-                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port). Plusieurs noms : séparez-les par « ; ».", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             return true;
         }
+
+        /// <summary>Noms publics saisis (« nouveau.fr;ancien.fr » pendant un changement de nom, B82), sans doublon.</summary>
+        private List<string> PublicHosts => TxtPublicHost.Text
+            .Split(new[] { ';', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        internal static bool IsValidHostName(string host)
+            => System.Text.RegularExpressions.Regex.IsMatch(host, @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$");
+
+        // Valeur de « AllowedHosts » : les noms publics, puis localhost (toujours autorisé)
+        private string AllowedHostsValue
+            => string.Join(";", PublicHosts.Where(h => !h.Equals("localhost", StringComparison.OrdinalIgnoreCase)).Append("localhost"));
 
         private async void RunPrereqCheck()
         {
@@ -634,7 +647,7 @@ namespace Autoprint.Installer.Server.UI
                     LogLevel = new { Default = "Information", Microsoft = "Warning" }
                 },
                 // Seuls le nom public et localhost sont acceptés (protection contre l'usurpation d'en-tête Host)
-                AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
+                AllowedHosts = AllowedHostsValue,
                 // Opérations du spouleur déléguées au service AutoprintSpooler (le site tourne sans privilège)
                 Spooler = new { Mode = "Service" },
                 Jwt = new
@@ -841,11 +854,11 @@ namespace Autoprint.Installer.Server.UI
             await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        // Mise à jour : « AllowedHosts » passe de « * » au nom public saisi (+ localhost)
+        // Mise à jour : « AllowedHosts » passe de « * » aux noms publics saisis (+ localhost). Ensuite, la liste se gère dans la console.
         private async Task ApplyPublicHost(string configPath)
         {
             var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
-            root["AllowedHosts"] = $"{TxtPublicHost.Text.Trim()};localhost";
+            root["AllowedHosts"] = AllowedHostsValue;
             await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 

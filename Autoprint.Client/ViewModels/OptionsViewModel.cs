@@ -25,8 +25,7 @@ namespace Autoprint.Client.ViewModels
             OnPropertyChanged(nameof(StartWithWindows));
             _configService = configService;
 
-            AdminServerUrl = _configService.PrintServerName ?? "";
-            AdminApiKey = MaskKey(_configService.ApiKey);
+            ReloadConfig();
 
             var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             var infoAttr = assembly.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
@@ -107,6 +106,13 @@ namespace Autoprint.Client.ViewModels
             set { _adminServerUrl = value; OnPropertyChanged(); }
         }
 
+        private string _adminPrintServer = "";
+        public string AdminPrintServer
+        {
+            get => _adminPrintServer;
+            set { _adminPrintServer = value; OnPropertyChanged(); }
+        }
+
         private string _adminApiKey = "";
         public string AdminApiKey
         {
@@ -148,7 +154,8 @@ namespace Autoprint.Client.ViewModels
 
         public void ReloadConfig()
         {
-            AdminServerUrl = _configService?.PrintServerName ?? "";
+            AdminServerUrl = _configService?.WebBaseUrl ?? "";
+            AdminPrintServer = string.IsNullOrWhiteSpace(_configService?.PrintServerName) ? "(non configuré)" : $@"\\{PrinterService.CleanServerName(_configService!.PrintServerName)}";
             AdminApiKey = MaskKey(_configService?.ApiKey);
         }
 

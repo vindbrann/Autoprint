@@ -67,7 +67,11 @@ Le processus d'ajout d'imprimante s'exécute entièrement dans le contexte utili
 
 ### 5.1 Gestion de la Configuration
 L'application articule sa configuration sur deux niveaux :
-* **Configuration Machine (Serveur & Clé API) :** Stockée dans le Registre Windows `HKLM\SOFTWARE\Autoprint` (valeurs `PRINTSERVER` et `APIKEY`). Déposée par l'installateur MSI ou surchargeable via arguments en ligne de commande (`--print-server`, `--api-key`).
+* **Configuration Machine :** stockée dans le Registre Windows `HKLM\SOFTWARE\Autoprint`, déposée par le MSI ou surchargeable en ligne de commande :
+  - `PRINTSERVER` (`--print-server`) : nom du serveur des partages d'impression (`\\PRINTSERVER\imprimante`) ;
+  - `SERVERURL` (`--server-url`), facultative (B82) : adresse de la console et de l'API (`https://autoprint.mondomaine.fr`), quand elle diffère du nom des partages. À défaut : `https://PRINTSERVER` ;
+  - `APIKEY` (`--api-key`) : clé agent.
+  - À la mise à jour du MSI, une valeur passée en ligne de commande l'emporte sur celle déjà présente dans le registre ; une valeur absente de la ligne de commande est conservée.
 * **Préférences Utilisateur :** Stockées dans `%UserProfile%\Documents\Autoprint\user-settings.json` (imprimantes favorites par lieu, activation des notifications, bascule automatique, lancement au démarrage).
 * **Zone informatique :** accessible dans les réglages après 5 clics sur la version, elle affiche les paramètres machine en lecture seule (clé masquée, 4 derniers caractères) avec test de connectivité API, et se referme à la fermeture du panneau.
 
@@ -80,5 +84,7 @@ Le déploiement est assuré par un package MSI Windows Installer x64 généré v
 * **Active Setup :** Enregistre la commande dans `HKLM\Software\Microsoft\Active Setup\Installed Components` pour lancer automatiquement l'agent à l'ouverture de session de chaque utilisateur.
 * **Paramètres d'installation silencieuse :**
   ```cmd
-  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="https://mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn
+  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn
+  rem Console sous un autre nom que les partages (changement de nom web, B82) :
+  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="mon-serveur-print" SERVERURL="https://autoprint.mondomaine.fr" APIKEY="ma-super-cle-api-agent" /qn
   ```
