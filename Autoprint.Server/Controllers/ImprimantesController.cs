@@ -18,14 +18,16 @@ namespace Autoprint.Server.Controllers
         private readonly IPrintSpoolerService _spooler;
         private readonly ISnmpService _snmpService;
         private readonly IPredictiveService _predictiveService;
+        private readonly SecretProtector _secrets;
 
-        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService, IPredictiveService predictiveService)
+        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService, IPredictiveService predictiveService, SecretProtector secrets)
         {
             _context = context;
             _auditService = auditService;
             _spooler = spooler;
             _snmpService = snmpService;
             _predictiveService = predictiveService;
+            _secrets = secrets;
         }
 
         [HttpGet]
@@ -105,11 +107,10 @@ namespace Autoprint.Server.Controllers
             return HideSnmpCommunity(new List<Imprimante> { imprimante })[0];
         }
 
-        // Communauté SNMP « ancien mode » (en clair en base, B32) : visible seulement par ceux qui peuvent modifier
-        // les imprimantes ; les autres (lecture, archivage) reçoivent une valeur vide, conservée à l'enregistrement.
-        private List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
+        // Communauté SNMP « ancien mode » : chiffrée en base et jamais renvoyée, comme les autres secrets (B32) ;
+        // une valeur vide à l'enregistrement conserve la communauté actuelle.
+        private static List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
         {
-            if (User.HasClaim(c => c.Type == "Permission" && c.Value == "PRINTER_WRITE")) return printers;
             foreach (var p in printers) p.SnmpCommunity = string.Empty;
             return printers;
         }
@@ -142,6 +143,7 @@ namespace Autoprint.Server.Controllers
             imprimante.Modele = null!;
             imprimante.Emplacement = null!;
             imprimante.ModifiePar = User.Identity?.Name ?? "Système";
+            imprimante.SnmpCommunity = _secrets.ProtectCommunity(imprimante.SnmpCommunity); // chiffrée en base (B32)
             _context.Imprimantes.Add(imprimante);
             _auditService.LogAction("PRINTER_CREATE", $"Ajout : {imprimante.NomAffiche}", User.Identity?.Name, resourceName: imprimante.NomAffiche);
             await _context.SaveChangesAsync();
@@ -212,9 +214,9 @@ namespace Autoprint.Server.Controllers
             if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
                 return BadRequest("Profil d'identifiants SNMP introuvable.");
             dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
-            // Communauté vide = non transmise (masquée aux comptes sans PRINTER_WRITE, B32) : valeur actuelle conservée
+            // Communauté jamais renvoyée par l'API : vide = valeur actuelle conservée ; sinon chiffrée avant enregistrement (B32)
             if (!string.IsNullOrWhiteSpace(inputImprimante.SnmpCommunity))
-                dbImprimante.SnmpCommunity = inputImprimante.SnmpCommunity;
+                dbImprimante.SnmpCommunity = _secrets.ProtectCommunity(inputImprimante.SnmpCommunity);
             dbImprimante.SnmpVersion = inputImprimante.SnmpVersion;
             dbImprimante.SnmpPort = inputImprimante.SnmpPort;
             dbImprimante.DateModification = DateTime.UtcNow;

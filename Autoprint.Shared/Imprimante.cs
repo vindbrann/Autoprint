@@ -27,7 +27,8 @@ namespace Autoprint.Shared
         public PrinterStatus Status { get; set; } = PrinterStatus.PendingCreation;
 
         public int SnmpPort { get; set; } = 161;
-        [MaxLength(100)]
+        // Chiffrée en base (préfixe enc:v1:, B32) : longueur libre, une valeur chiffrée dépasse 100 caractères.
+        // Jamais renvoyée par l'API : vide à l'enregistrement = valeur actuelle conservée.
         public string SnmpCommunity { get; set; } = "public";
         public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c (ancien mode, sans profil d'identifiants)
 

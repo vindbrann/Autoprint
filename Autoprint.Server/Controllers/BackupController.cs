@@ -194,7 +194,7 @@ namespace Autoprint.Server.Controllers
                 V3PrivProtocol = c.V3PrivProtocol,
                 V3PrivPassword = ForBackup(_secrets.Unprotect(c.V3PrivPassword))
             }).ToList();
-            foreach (var printer in backup.Imprimantes) printer.SnmpCommunity = ForBackup(printer.SnmpCommunity);
+            foreach (var printer in backup.Imprimantes) printer.SnmpCommunity = ForBackup(_secrets.Unprotect(printer.SnmpCommunity)); // chiffrée en base (B32)
 
             var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions { WriteIndented = true });
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -262,8 +262,9 @@ namespace Autoprint.Server.Controllers
                         V3PrivPassword = Plain(c.V3PrivPassword, current?.V3PrivPassword)
                     });
                 }
+                // Communautés : valeur du fichier (ou actuelle si absente), rechiffrée avec les clés de ce serveur (B32)
                 foreach (var printer in backup.Imprimantes)
-                    printer.SnmpCommunity = RestoreSecret(printer.SnmpCommunity, currentCommunities.GetValueOrDefault(printer.Id));
+                    printer.SnmpCommunity = _secrets.ProtectCommunity(RestoreSecret(printer.SnmpCommunity, _secrets.Unprotect(currentCommunities.GetValueOrDefault(printer.Id))));
             }
             catch (System.Security.Cryptography.CryptographicException)
             {
@@ -418,7 +419,7 @@ namespace Autoprint.Server.Controllers
                     IsDirectPrintingEnabled = x.IsDirectPrintingEnabled,
                     SnmpPort = x.SnmpPort > 0 ? x.SnmpPort : 161,
                     SnmpVersion = x.SnmpVersion is 1 or 2 ? x.SnmpVersion : 2,
-                    SnmpCommunity = string.IsNullOrEmpty(x.SnmpCommunity) ? "public" : x.SnmpCommunity,
+                    SnmpCommunity = string.IsNullOrEmpty(x.SnmpCommunity) ? _secrets.ProtectCommunity(null) : x.SnmpCommunity, // déjà chiffrée ci-dessus
                     SnmpCredentialId = x.SnmpCredentialId != null && credentialIds.Contains(x.SnmpCredentialId.Value) ? x.SnmpCredentialId : null
                 }));
                 await _context.SaveChangesAsync();
