@@ -117,7 +117,7 @@ else
         var title = roleId == 0 ? "➕ Créer un Rôle" : "✏️ Modifier le Rôle";
 
         var result = await DialogService.OpenAsync<RolePermissionModal>(title,
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 { "RoleId", roleId },
                 { "AllPermissions", allPermissions }
@@ -131,7 +131,7 @@ else
     private async Task OpenAdModal(int roleId, string roleName)
     {
         await DialogService.OpenAsync<AdMappingModal>($"Mappage AD : {roleName}",
-            new Dictionary<string, object> { { "RoleId", roleId } },
+            new Dictionary<string, object?> { { "RoleId", roleId } },
             new DialogOptions() { Width = "800px", Height = "600px" }
         );
     }
