@@ -1,4 +1,4 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:firewall="http://wixtoolset.org/schemas/v4/wxs/firewall"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
@@ -64,6 +64,9 @@
 
 		<ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
 		<WixVariable Id="WixUILicenseRtf" Value="Resources\License.rtf" />
+    <!-- Charte graphique (B77) : bandeau 493×58 et page d'accueil / fin 493×312 -->
+    <WixVariable Id="WixUIBannerBmp" Value="Resources\banniere-493x58.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="Resources\accueil-493x312.bmp" />
 
 		<UI>
 			<Dialog Id="ConfigDlg" Width="370" Height="270" Title="Configuration Autoprint">

@@ -1,4 +1,4 @@
-using Autoprint.Installer.Server.UI.Services;
+﻿using Autoprint.Installer.Server.UI.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.Web.Administration;
 using System.Diagnostics;
@@ -148,6 +148,44 @@ namespace Autoprint.Installer.Server.UI
 
             if (_currentStep == 7) BtnNext.Content = "Terminer";
             else BtnNext.Content = "Suivant";
+
+            BuildRail();
+        }
+
+        // Étapes listées à gauche (charte B77, maquette « Installeur ») : faites (coche), en cours (mise en avant), à venir
+        private static readonly string[] StepLabels =
+            { "Bienvenue", "Contrat de licence", "Vérification du système", "Base de données", "Configuration web", "Installation", "Fin" };
+
+        private void BuildRail()
+        {
+            if (FindName("RailSteps") is not StackPanel rail) return;
+            rail.Children.Clear();
+            for (int i = 1; i <= StepLabels.Length; i++)
+            {
+                bool done = i < _currentStep, current = i == _currentStep;
+                var number = new Border
+                {
+                    Style = (Style)FindResource(done ? "Autoprint.StepNumber.Done" : current ? "Autoprint.StepNumber.Current" : "Autoprint.StepNumber"),
+                    Child = new TextBlock
+                    {
+                        Text = done ? "\uE73E" : i.ToString(),
+                        FontFamily = done ? new System.Windows.Media.FontFamily("Segoe MDL2 Assets") : null,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    }
+                };
+                if (!done) ((TextBlock)number.Child).ClearValue(TextBlock.FontFamilyProperty);
+                var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                row.Children.Add(number);
+                row.Children.Add(new TextBlock { Text = StepLabels[i - 1], VerticalAlignment = VerticalAlignment.Center });
+                rail.Children.Add(new Border
+                {
+                    Style = (Style)FindResource(done ? "Autoprint.Step.Done" : current ? "Autoprint.Step.Current" : "Autoprint.Step"),
+                    Child = row
+                });
+            }
+            if (FindName("TxtVersion") is TextBlock version && string.IsNullOrEmpty(version.Text))
+                version.Text = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "";
         }
 
         private bool ValidateCurrentStep()

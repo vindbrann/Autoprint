@@ -1,4 +1,4 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 	<Package Name="Autoprint Server" Manufacturer="Autoprint" Version="$(var.AppVersion)" UpgradeCode="a6f8f87a-9c9d-4e9f-8b8a-1234567890ab">
 		<MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="Une version plus récente est déjà installée." />
 
@@ -35,6 +35,9 @@
 		</Feature>
 
 		<ui:WixUI Id="WixUI_InstallDir" />
+		<!-- Charte graphique (B77) : bandeau 493×58 et page d'accueil / fin 493×312 -->
+		<WixVariable Id="WixUIBannerBmp" Value="Resources\banniere-493x58.bmp" />
+		<WixVariable Id="WixUIDialogBmp" Value="Resources\accueil-493x312.bmp" />
 		<Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 	</Package>
 </Wix>
