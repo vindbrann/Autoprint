@@ -65,7 +65,7 @@
             }
             else
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Erreur Serveur", response.ReasonPhrase);
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur Serveur", response.ReasonPhrase ?? $"Code {(int)response.StatusCode}");
                 DialogService.Close(false);
             }
         }

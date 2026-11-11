@@ -110,7 +110,7 @@
         debounceTimer.AutoReset = false;
         debounceTimer.Elapsed += async (sender, e) =>
         {
-            await InvokeAsync(() => grid?.Reload());
+            await InvokeAsync(() => grid?.Reload() ?? Task.CompletedTask);
         };
     }
 
@@ -150,7 +150,7 @@
     private void LoadNiveaux(DataGridLoadColumnFilterDataEventArgs<AuditLogDto> args)
     {
         // Radzen attend des lignes du type de la grille, dont il lit la propriété de la colonne
-        if (args.Column.Property == nameof(AuditLogDto.Niveau)) { args.Data = Niveaux.Select(n => new AuditLogDto { Niveau = n }).ToList(); args.Count = Niveaux.Length; }
+        if (args.Column?.Property == nameof(AuditLogDto.Niveau)) { args.Data = Niveaux.Select(n => new AuditLogDto { Niveau = n }).ToList(); args.Count = Niveaux.Length; }
     }
 
     private static string BuildColumnQuery(LoadDataArgs args)

@@ -165,8 +165,8 @@ namespace Autoprint.Client.Services
                 {
                     return await context.Imprimantes
                         .Include(i => i.Emplacement)
-                        .Include(i => i.Modele).ThenInclude(m => m.Marque)
-                        .Include(i => i.Modele).ThenInclude(m => m.Pilote)
+                        .Include(i => i.Modele).ThenInclude(m => m!.Marque)
+                        .Include(i => i.Modele).ThenInclude(m => m!.Pilote)
                         .ToListAsync();
                 }
                 catch

@@ -6,7 +6,6 @@
 @using Radzen
 @using Radzen.Blazor
 @using System.Text
-@using Autoprint.Web.Services
 @inject HttpClient Http
 @inject CustomAuthStateProvider AuthProvider
 @inject ISyncService SyncService
@@ -233,7 +232,7 @@ else
     </div>
 }
 @code {
-    RadzenDataGrid<Imprimante> grid;
+    RadzenDataGrid<Imprimante> grid = default!;
     private DataGridSettings? _gridSettings;
     private DataGridSettings? gridSettings
     {
@@ -499,7 +498,7 @@ else
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-                string msg = json.TryGetProperty("message", out var p) ? p.GetString() : "Audit terminé.";
+                string msg = (json.TryGetProperty("message", out var p) ? p.GetString() : null) ?? "Audit terminé.";
 
                 NotificationService.Notify(NotificationSeverity.Info, "Audit Terminé", msg);
                 await ChargerListe();

@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @using Autoprint.Shared.DTOs
 @using Autoprint.Shared
 @using Autoprint.Web.Services
@@ -181,7 +181,7 @@ else if (stats != null)
             var t1 = Http.GetFromJsonAsync<DashboardStatsDto>("api/Dashboard");
 
             Task<PaginatedList<AuditLogDto>>? t2 = null;
-            if (canReadAudit) t2 = Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>("api/Audit?page=1&pageSize=5");
+            if (canReadAudit) t2 = Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>("api/Audit?page=1&pageSize=5")!;
 
             await Task.WhenAll(t1);
             if (t2 != null) await t2;

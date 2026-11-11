@@ -47,7 +47,7 @@ namespace Autoprint.Server.Controllers
         {
             var imprimantes = await _context.Imprimantes.AsNoTracking()
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .OrderBy(i => i.NomAffiche)
                 .ToListAsync();
 
@@ -76,7 +76,7 @@ namespace Autoprint.Server.Controllers
         {
             var imprimantes = await _context.Imprimantes
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .ToListAsync();
 
             int count = 0;
@@ -100,7 +100,7 @@ namespace Autoprint.Server.Controllers
         {
             var imprimantes = await _context.Imprimantes
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .Where(i => i.EstPartagee)
                 .ToListAsync();
 

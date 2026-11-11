@@ -155,7 +155,7 @@ else
 
     void RowRender(RowRenderEventArgs<Modele> args)
     {
-        bool alertePilote = args.Data.PiloteId.HasValue && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
+        bool alertePilote = args.Data?.PiloteId.HasValue == true && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
         if (alertePilote)
         {
             args.Attributes.Add("style", "border-left: 4px solid var(--rz-danger) !important;");

@@ -1,4 +1,4 @@
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -135,7 +135,7 @@ namespace Autoprint.Server.Controllers
                 PiloteId = inputModele.PiloteId,
                 SnmpProfileId = inputModele.SnmpProfileId,
                 Marque = new Marque { Id = inputModele.MarqueId, Nom = nomMarque ?? "Inconnu" },
-                Pilote = nomPilote != null ? new Pilote { Id = inputModele.PiloteId.Value, Nom = nomPilote } : null
+                Pilote = nomPilote != null && inputModele.PiloteId.HasValue ? new Pilote { Id = inputModele.PiloteId.Value, Nom = nomPilote } : null
             };
 
             try

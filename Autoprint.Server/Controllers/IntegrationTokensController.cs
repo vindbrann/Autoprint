@@ -1,4 +1,4 @@
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -62,7 +62,7 @@ namespace Autoprint.Server.Controllers
                 "TOKEN_CREATE",
                 $"Création jeton d'intégration : {dto.Description}",
                 User.Identity?.Name,
-                resourceName: dto.Description);
+                resourceName: dto.Description ?? "");
 
             await _context.SaveChangesAsync();
 
@@ -88,7 +88,7 @@ namespace Autoprint.Server.Controllers
                 "TOKEN_DELETE",
                 $"Suppression jeton d'intégration : {token.Description}",
                 User.Identity?.Name,
-                resourceName: token.Description);
+                resourceName: token.Description ?? "");
 
             await _context.SaveChangesAsync();
             return NoContent();

@@ -30,7 +30,7 @@ namespace Autoprint.Server.Controllers
                 {
                     Id = m.Id,
                     Nom = m.Nom,
-                    PrinterCount = _context.Imprimantes.Count(i => i.Modele.MarqueId == m.Id)
+                    PrinterCount = _context.Imprimantes.Count(i => i.Modele!.MarqueId == m.Id)
                 })
                 .ToListAsync();
         }
@@ -45,7 +45,7 @@ namespace Autoprint.Server.Controllers
                 {
                     Id = m.Id,
                     Nom = m.Nom,
-                    PrinterCount = _context.Imprimantes.Count(i => i.Modele.MarqueId == m.Id)
+                    PrinterCount = _context.Imprimantes.Count(i => i.Modele!.MarqueId == m.Id)
                 })
                 .FirstOrDefaultAsync();
 

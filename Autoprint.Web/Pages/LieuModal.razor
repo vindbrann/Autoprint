@@ -90,7 +90,6 @@
     private string primaryCidr = "";
     private int primaryId = 0;
 
-    private RadzenDataGrid<EmplacementNetwork>? networksGrid;
     private List<EmplacementNetwork> secondaryNetworks = new();
     private string tempSecCidr = "";
     private string tempSecDesc = "";
@@ -165,14 +164,12 @@
         tempSecCidr = "";
         tempSecDesc = "";
 
-        if (networksGrid != null) await networksGrid.Reload();
     }
 
     private async Task SupprimerSecondaire(EmplacementNetwork net)
     {
         secondaryNetworks = secondaryNetworks.Where(n => n != net).ToList();
 
-        if (networksGrid != null) await networksGrid.Reload();
     }
 
     private async Task OnSubmit(Emplacement args)
@@ -207,7 +204,7 @@
                 lieuEdit.Networks.Add(reseauSecondaire);
             }
 
-            lieuEdit.Nom = lieuEdit.Nom?.Trim();
+            lieuEdit.Nom = lieuEdit.Nom?.Trim() ?? "";
             lieuEdit.Code = lieuEdit.Code?.Trim().ToUpper();
 
             if (lieuEdit.Id == 0)
