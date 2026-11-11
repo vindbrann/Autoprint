@@ -1,4 +1,4 @@
-/* Styles propres à l'application, hors charte. Les couleurs viennent des jetons --ap-* de autoprint-theme.css (B77).
+﻿/* Styles propres à l'application, hors charte. Les couleurs viennent des jetons --ap-* de autoprint-theme.css (B77).
    Les règles héritées du modèle Blazor (police, menu dégradé, .page / .sidebar / .nav-item) sont retirées :
    la charte fixe la police (IBM Plex Sans) et le menu est un RadzenSidebar. */
 
@@ -173,10 +173,12 @@ code {
 .ap-selection { display: inline-flex; align-items: center; gap: var(--ap-s2); white-space: nowrap; }
 
 /* Connexion (maquette) : marque, titre, accroche */
-.ap-login-brand { display: flex; align-items: center; gap: var(--ap-s2); font-size: 17px; font-weight: 600; }
-.ap-login-brand img { width: 32px; height: 32px; }
+/* En-tête centré : grand logo, nom, titre et sous-titre sur une ligne (retour utilisateur du 11/11) */
+.ap-login-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--ap-s1); }
+.ap-login-brand { display: flex; flex-direction: column; align-items: center; gap: var(--ap-s2); font-size: 20px; font-weight: 600; margin-bottom: var(--ap-s2); }
+.ap-login-brand img { width: 72px; height: 72px; }
 .ap-login-title { margin: 0; font-size: var(--ap-fs-h2); font-weight: 500; }
-.ap-login-lead { margin: 2px 0 0; color: var(--ap-text-secondary); }
+.ap-login-lead { margin: 0; color: var(--ap-text-secondary); font-size: var(--ap-fs-sm); }
 /* Paramètres : sections encore en blocs Radzen, harmonisées avec la charte (cartes neutres, plus de filets colorés,
    titres de bloc au format « h3 » de la maquette). La section Maintenance suit exactement la maquette (ap-set-row). */
 .ap-subnav-content .rz-fieldset { background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); padding: var(--ap-s4) 20px 20px; margin: 0 0 var(--ap-s4); }
