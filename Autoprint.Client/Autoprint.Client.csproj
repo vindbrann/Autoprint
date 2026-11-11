@@ -42,6 +42,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Polices de la charte (B77), licence OFL : Fonts\LICENSE-OFL-IBM-Plex.txt -->
+    <Resource Include="Fonts\*.ttf" />
     <Resource Include="Autoprint.ico">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

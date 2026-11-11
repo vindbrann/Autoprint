@@ -855,7 +855,8 @@ CLIENT = r'''
         <Setter Property="Margin" Value="0,0,-4,-4" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.OnSuccess}" />
     </Style>
-    <Style x:Key="Autoprint.Badge.Offline" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge.Warning}" />
+    <!-- Badge « Mode hors ligne » du client (avertissement) : clé distincte, Autoprint.Badge.Offline existe déjà (statut) -->
+    <Style x:Key="Autoprint.Client.OfflineBadge" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge.Warning}" />
 
     <!-- Bouton étoile (favori) : ToggleButton, gris puis bleu quand coché -->
     <Style x:Key="Autoprint.FavoriteToggle" TargetType="ToggleButton" BasedOn="{StaticResource Autoprint.Button.Icon}">

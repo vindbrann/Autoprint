@@ -1,0 +1,851 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Autoprint : thème du client de bureau (WPF + MaterialDesignInXAML 5)
+     Généré par Docs/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
+     Ne pas modifier à la main : modifier tokens.json ou le générateur, puis relancer le script.
+     Contient les polices, tailles et styles. Les couleurs viennent de Autoprint.Colors.Light.xaml ou .Dark.xaml,
+     fusionné juste avant ce fichier dans App.xaml. Polices : dossier Fonts du projet, action de génération « Resource ».
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ========== Polices (IBM Plex, licence OFL) : fichiers TTF en ressource dans le dossier Fonts du projet ========== -->
+    <FontFamily x:Key="Autoprint.Font">pack://application:,,,/Fonts/#IBM Plex Sans, Segoe UI</FontFamily>
+    <FontFamily x:Key="Autoprint.FontMono">pack://application:,,,/Fonts/#IBM Plex Mono, Consolas</FontFamily>
+    <sys:Double x:Key="Autoprint.FontSize.Xs">11</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.Sm">12</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.Secondary">13</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.Base">14</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.Lg">16</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.H4">18</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.H3">20</sys:Double>
+    <sys:Double x:Key="Autoprint.FontSize.H2">22</sys:Double>
+
+    <!-- ========== Tailles et arrondis ========== -->
+    <sys:Double x:Key="Autoprint.Size.ControlHeight">32</sys:Double>
+    <sys:Double x:Key="Autoprint.Size.ControlHeightSm">28</sys:Double>
+    <sys:Double x:Key="Autoprint.Size.ControlHeightLg">40</sys:Double>
+    <CornerRadius x:Key="Autoprint.Radius.Sm">4</CornerRadius>
+    <CornerRadius x:Key="Autoprint.Radius.Md">6</CornerRadius>
+    <CornerRadius x:Key="Autoprint.Radius.Lg">10</CornerRadius>
+    <CornerRadius x:Key="Autoprint.Radius.Xl">14</CornerRadius>
+    <CornerRadius x:Key="Autoprint.Radius.Window">12</CornerRadius>
+
+    <!-- ========== Focus clavier : anneau visible, uniquement à la navigation au clavier ========== -->
+    <Style x:Key="Autoprint.FocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-3" CornerRadius="8" BorderThickness="2" BorderBrush="{DynamicResource Autoprint.Brush.FocusRing}" SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========== Textes ========== -->
+    <Style x:Key="Autoprint.Text" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="Autoprint.Text.H1" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.H2}" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style x:Key="Autoprint.Text.H2" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.H4}" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Title" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Secondary" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Secondary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Sm}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Label" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Secondary}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Mono" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.FontMono}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Secondary}" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+    <Style x:Key="Autoprint.Text.Error" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text.Caption}">
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Danger}" />
+    </Style>
+
+    <!-- ========== Boutons : 32 px, arrondi 6, casse de phrase. Variantes : Primary, Secondary, Outline, Text, Danger, Icon ========== -->
+    <ControlTemplate x:Key="Autoprint.ButtonTemplate" TargetType="ButtonBase">
+        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource Autoprint.Radius.Md}" SnapsToDevicePixels="True">
+            <Grid>
+                <Border x:Name="Overlay" CornerRadius="5" Background="Transparent" />
+                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Overlay" Property="Background" Value="{DynamicResource Autoprint.Brush.Hover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Overlay" Property="Background" Value="{DynamicResource Autoprint.Brush.Press}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="Autoprint.Button.Base" TargetType="ButtonBase">
+        <Setter Property="Template" Value="{StaticResource Autoprint.ButtonTemplate}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Autoprint.FocusVisual}" />
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Height" Value="{StaticResource Autoprint.Size.ControlHeight}" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Primary" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Primary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.OnPrimary}" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Secondary" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.BorderStrong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Outline" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Link}" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Text" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Link}" />
+        <Setter Property="Padding" Value="10,0" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Danger" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Danger}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Danger}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.OnDanger}" />
+    </Style>
+    <Style x:Key="Autoprint.Button.Icon" TargetType="ButtonBase" BasedOn="{StaticResource Autoprint.Button.Base}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+        <Setter Property="Width" Value="{StaticResource Autoprint.Size.ControlHeight}" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- ========== Champs de saisie : contour à 3:1, halo au focus ========== -->
+    <ControlTemplate x:Key="Autoprint.InputTemplate" TargetType="Control">
+        <Grid>
+            <Border x:Name="Halo" Margin="-3" CornerRadius="8" BorderThickness="3" BorderBrush="{DynamicResource Autoprint.Brush.PrimarySubtle}" Visibility="Collapsed" />
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource Autoprint.Radius.Md}" SnapsToDevicePixels="True">
+                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" Focusable="False"
+                              HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+            </Border>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                <Setter TargetName="Halo" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="Validation.HasError" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Danger}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+                <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Autoprint.InputBase" TargetType="Control">
+        <Setter Property="Template" Value="{StaticResource Autoprint.InputTemplate}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.BorderStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="{StaticResource Autoprint.Size.ControlHeight}" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Validation.ErrorTemplate" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+    <Style x:Key="Autoprint.TextBox" TargetType="TextBox" BasedOn="{StaticResource Autoprint.InputBase}">
+        <Setter Property="CaretBrush" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+    </Style>
+    <Style x:Key="Autoprint.TextBox.Mono" TargetType="TextBox" BasedOn="{StaticResource Autoprint.TextBox}">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.FontMono}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Secondary}" />
+    </Style>
+    <Style x:Key="Autoprint.PasswordBox" TargetType="PasswordBox" BasedOn="{StaticResource Autoprint.InputBase}">
+        <Setter Property="CaretBrush" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+    </Style>
+
+    <!-- ========== Liste déroulante ========== -->
+    <Style x:Key="Autoprint.ComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="{StaticResource Autoprint.Radius.Sm}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Link}" />
+                            <Setter Property="FontWeight" Value="Medium" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="Autoprint.ComboBoxToggleTemplate" TargetType="ToggleButton">
+        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{StaticResource Autoprint.Radius.Md}" SnapsToDevicePixels="True">
+            <Path x:Name="Arrow" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0" Data="M 0 0 L 4.5 4.5 L 9 0"
+                  Stroke="{DynamicResource Autoprint.Brush.TextMuted}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Autoprint.ComboBox" TargetType="ComboBox">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.BorderStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="{StaticResource Autoprint.Size.ControlHeight}" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Autoprint.ComboBoxItem}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="Halo" Margin="-3" CornerRadius="8" BorderThickness="3" BorderBrush="{DynamicResource Autoprint.Brush.PrimarySubtle}" Visibility="Collapsed" />
+                        <ToggleButton x:Name="Toggle" Template="{StaticResource Autoprint.ComboBoxToggleTemplate}" Focusable="False" ClickMode="Press"
+                                      Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="10,0,30,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                          Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden" Margin="8,0,30,0" VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                 Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}" IsReadOnly="{TemplateBinding IsReadOnly}" />
+                        <Popup x:Name="PART_Popup" Placement="Bottom" VerticalOffset="4" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True"
+                               Focusable="False" PopupAnimation="Fade">
+                            <Border x:Name="DropDown" Margin="0,0,12,12" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}" Padding="4" CornerRadius="{StaticResource Autoprint.Radius.Lg}"
+                                    Background="{DynamicResource Autoprint.Brush.Surface}" BorderBrush="{DynamicResource Autoprint.Brush.Border}" BorderThickness="1">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.16" Color="#10141C" />
+                                </Border.Effect>
+                                <ScrollViewer SnapsToDevicePixels="True">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Toggle" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Halo" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="DropDown" Property="MinHeight" Value="40" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Toggle" Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+                            <Setter TargetName="Toggle" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========== Case à cocher et choix unique ========== -->
+    <Style x:Key="Autoprint.CheckBox" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Autoprint.FocusVisual}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Box" Width="18" Height="18" CornerRadius="{StaticResource Autoprint.Radius.Sm}" BorderThickness="1.5"
+                                BorderBrush="{DynamicResource Autoprint.Brush.BorderStrong}" Background="{DynamicResource Autoprint.Brush.Surface}" VerticalAlignment="Center">
+                            <Path x:Name="Check" Data="M 3.5 8.5 L 7 12 L 13.5 5" Stroke="{DynamicResource Autoprint.Brush.OnPrimary}" StrokeThickness="2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" Margin="-1.5" />
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Autoprint.RadioButton" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Autoprint.FocusVisual}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse x:Name="Ring" Width="18" Height="18" StrokeThickness="1.5" Stroke="{DynamicResource Autoprint.Brush.BorderStrong}"
+                                 Fill="{DynamicResource Autoprint.Brush.Surface}" VerticalAlignment="Center" />
+                        <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Ring" Property="StrokeThickness" Value="5" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Autoprint.Brush.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Choix sous forme de carte (ex. installeur : SQLite / SQL Server) -->
+    <Style x:Key="Autoprint.RadioCard" TargetType="RadioButton" BasedOn="{StaticResource Autoprint.RadioButton}">
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Card" CornerRadius="{StaticResource Autoprint.Radius.Lg}" BorderThickness="1" Padding="{TemplateBinding Padding}"
+                            BorderBrush="{DynamicResource Autoprint.Brush.BorderStrong}" Background="{DynamicResource Autoprint.Brush.Surface}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse x:Name="Ring" Width="18" Height="18" StrokeThickness="1.5" Stroke="{DynamicResource Autoprint.Brush.BorderStrong}"
+                                     Fill="{DynamicResource Autoprint.Brush.Surface}" VerticalAlignment="Top" Margin="0,2,0,0" />
+                            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" RecognizesAccessKey="True" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Card" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="Card" Property="Padding" Value="15,11" />
+                            <Setter TargetName="Card" Property="Background" Value="{DynamicResource Autoprint.Brush.PrimarySubtle}" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Ring" Property="StrokeThickness" Value="5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========== Barre de progression (fine, arrondie) ========== -->
+    <Style x:Key="Autoprint.ProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Primary}" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid x:Name="Root" ClipToBounds="True">
+                        <Border x:Name="PART_Track" CornerRadius="3" Background="{TemplateBinding Background}" />
+                        <Border x:Name="PART_Indicator" CornerRadius="3" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" />
+                        <Border x:Name="Moving" CornerRadius="3" Width="120" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" Visibility="Collapsed">
+                            <Border.RenderTransform>
+                                <TranslateTransform x:Name="MovingShift" X="-120" />
+                            </Border.RenderTransform>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsIndeterminate" Value="True">
+                            <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Moving" Property="Visibility" Value="Visible" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard x:Name="Run">
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="MovingShift" Storyboard.TargetProperty="X" From="-120" To="800" Duration="0:0:1.6" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="Run" />
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========== Barres de défilement fines, sans flèches ========== -->
+    <Style x:Key="Autoprint.ScrollPageButton" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Autoprint.ScrollThumb" TargetType="Thumb">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bd" Margin="2" CornerRadius="3" Background="{DynamicResource Autoprint.Brush.ScrollThumb}" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Autoprint.ScrollBar" TargetType="ScrollBar">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource Autoprint.ScrollPageButton}" Command="ScrollBar.PageUpCommand" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource Autoprint.ScrollThumb}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource Autoprint.ScrollPageButton}" Command="ScrollBar.PageDownCommand" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Height" Value="10" />
+                <Setter Property="MinHeight" Value="10" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource Autoprint.ScrollPageButton}" Command="ScrollBar.PageLeftCommand" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource Autoprint.ScrollThumb}" />
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource Autoprint.ScrollPageButton}" Command="ScrollBar.PageRightCommand" />
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ========== Surfaces : cartes, encadrés, badges, étiquette d'inventaire ========== -->
+    <Style x:Key="Autoprint.Card" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Success" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SuccessSubtle}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.SuccessLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Success}" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Warning" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.WarningSubtle}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.WarningLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Warning}" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Danger" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.DangerSubtle}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.DangerLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Danger}" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Info" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.InfoSubtle}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.InfoLine}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Info}" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Title" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="Autoprint.Callout.Body" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text.Secondary}">
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
+    <!-- Badges de statut : toujours une icône et un texte dans le badge, pas la couleur seule -->
+    <Style x:Key="Autoprint.Badge" TargetType="Border">
+        <Setter Property="Height" Value="22" />
+        <Setter Property="Padding" Value="6,0,8,0" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Sm}" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="TextElement.FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="TextElement.FontSize" Value="{StaticResource Autoprint.FontSize.Sm}" />
+        <Setter Property="TextElement.FontWeight" Value="Medium" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Online" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SuccessSubtle}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Success}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Offline" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.DangerSubtle}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Danger}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Warning" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.WarningSubtle}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Warning}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Info" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.InfoSubtle}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Info}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Archived" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Unknown" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+    </Style>
+    <Style x:Key="Autoprint.Badge.Neutral" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge}">
+        <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style x:Key="Autoprint.LabelTag" TargetType="Border">
+        <Setter Property="Height" Value="22" />
+        <Setter Property="Padding" Value="6,0" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Sm}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="TextElement.FontFamily" Value="{StaticResource Autoprint.FontMono}" />
+        <Setter Property="TextElement.FontSize" Value="{StaticResource Autoprint.FontSize.Sm}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+    </Style>
+    <Style x:Key="Autoprint.Divider" TargetType="Border">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Divider}" />
+    </Style>
+
+    <!-- ========================================================================
+         Client de bureau : fenêtre, onglets en pilule, cartes d'imprimante, interrupteur, zone technique
+         ======================================================================== -->
+    <Style x:Key="Autoprint.Client.Window" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Window}" />
+        <Setter Property="TextElement.FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+    </Style>
+    <Style x:Key="Autoprint.Client.Footer" TargetType="Border">
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Padding" Value="16,0,8,0" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Background}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Divider}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="CornerRadius" Value="0,0,12,12" />
+    </Style>
+    <Style x:Key="Autoprint.Client.Place" TargetType="TextBlock" BasedOn="{StaticResource Autoprint.Text}">
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.H4}" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+
+    <!-- Onglets en pilule : conteneur + RadioButton (GroupName commun) -->
+    <Style x:Key="Autoprint.PillTabs" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="3" />
+    </Style>
+    <Style x:Key="Autoprint.PillTab" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Autoprint.FocusVisual}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" CornerRadius="7" Padding="{TemplateBinding Padding}" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Autoprint.Brush.PillActive}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Autoprint.PillTab.Count" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.FontMono}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Sm}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+        <Setter Property="Margin" Value="6,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Carte d'imprimante (et variante « par défaut ») -->
+    <Style x:Key="Autoprint.PrinterCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Lg}" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style x:Key="Autoprint.PrinterCard.Default" TargetType="Border" BasedOn="{StaticResource Autoprint.PrinterCard}">
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.CardDefaultBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.CardDefaultBorder}" />
+    </Style>
+    <Style x:Key="Autoprint.PrinterGlyph" TargetType="Border">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="CornerRadius" Value="{StaticResource Autoprint.Radius.Md}" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.SurfaceRaised}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.TextSecondary}" />
+    </Style>
+    <Style x:Key="Autoprint.InstalledDot" TargetType="Border">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource Autoprint.Brush.Success}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Autoprint.Brush.Surface}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="0,0,-4,-4" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource Autoprint.Brush.OnSuccess}" />
+    </Style>
+    <!-- Badge « Mode hors ligne » du client (avertissement) : clé distincte, Autoprint.Badge.Offline existe déjà (statut) -->
+    <Style x:Key="Autoprint.Client.OfflineBadge" TargetType="Border" BasedOn="{StaticResource Autoprint.Badge.Warning}" />
+
+    <!-- Bouton étoile (favori) : ToggleButton, gris puis bleu quand coché -->
+    <Style x:Key="Autoprint.FavoriteToggle" TargetType="ToggleButton" BasedOn="{StaticResource Autoprint.Button.Icon}">
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.TextMuted}" />
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Primary}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Interrupteur -->
+    <Style x:Key="Autoprint.Switch" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="{StaticResource Autoprint.Font}" />
+        <Setter Property="FontSize" Value="{StaticResource Autoprint.FontSize.Base}" />
+        <Setter Property="Foreground" Value="{DynamicResource Autoprint.Brush.Text}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Autoprint.FocusVisual}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Track" Width="34" Height="20" CornerRadius="10" Background="{DynamicResource Autoprint.Brush.BorderStrong}" VerticalAlignment="Center">
+                            <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0">
+                                <Ellipse.RenderTransform>
+                                    <TranslateTransform x:Name="KnobShift" X="0" />
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource Autoprint.Brush.Primary}" />
+                            <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource Autoprint.Brush.KnobOn}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="KnobShift" Storyboard.TargetProperty="X" To="14" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="KnobShift" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Zone technique (réservée au support) : cadre en pointillés -->
+    <Style x:Key="Autoprint.AdminZone" TargetType="ContentControl">
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Grid>
+                        <Rectangle RadiusX="10" RadiusY="10" Fill="{DynamicResource Autoprint.Brush.Background}"
+                                   Stroke="{DynamicResource Autoprint.Brush.BorderStrong}" StrokeThickness="1" StrokeDashArray="4 3" SnapsToDevicePixels="True" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Styles implicites limités : barres de défilement fines partout. Les autres contrôles restent ceux de MaterialDesign,
+         recolorés par la palette (voir LISEZMOI) ; appliquer les styles Autoprint.* au cas par cas. -->
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource Autoprint.ScrollBar}" />
+</ResourceDictionary>

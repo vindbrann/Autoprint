@@ -1,4 +1,4 @@
-<Application x:Class="Autoprint.Client.App"
+﻿<Application x:Class="Autoprint.Client.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:tb="http://www.hardcodet.net/taskbar"
@@ -7,15 +7,15 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Inherit" 
-                                             PrimaryColor="Grey" 
-                                             SecondaryColor="Lime" />
-
+                <!-- Charte graphique (B77) : palette MaterialDesign bleue, puis couleurs et styles Autoprint ; AutoprintTheme.Apply() suit le thème de Windows -->
+                <materialDesign:BundledTheme BaseTheme="Inherit" PrimaryColor="Blue" SecondaryColor="Blue" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
+                <ResourceDictionary Source="Theme/Autoprint.Colors.Light.xaml" />
+                <ResourceDictionary Source="Theme/Autoprint.Theme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <ContextMenu x:Key="TrayMenu" 
-                         Background="{DynamicResource MaterialDesignPaper}"
+                         Background="{DynamicResource Autoprint.Brush.Surface}"
                          TextElement.Foreground="{DynamicResource MaterialDesignBody}">
 
                 <MenuItem Header="Mes Imprimantes" Click="MenuOpen_Click">
