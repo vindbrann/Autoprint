@@ -7,110 +7,96 @@
 @inject NotificationService NotificationService
 @inject CustomAuthStateProvider AuthProvider
 
+@* Maquette « modales » (retour de recette du 11/11) : sections sans cadre, explications courtes sous les champs, action principale nommée *@
 <RadzenTemplateForm TItem="Modele" Data="@modeleEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
-
-        <div>
-            <RadzenLabel Text="Nom du Modèle" Component="Nom" />
-            <RadzenTextBox Name="Nom" @bind-Value="@modeleEdit.Nom" Style="width: 100%;" Placeholder="Ex: LaserJet Pro 400" />
-            <RadzenRequiredValidator Component="Nom" Text="Le nom est obligatoire" Popup="true" />
+    <div class="ap-dlg">
+        <div class="ap-dlg-group" style="padding-top: 0;">
+            <h3>Identification</h3>
+            <div class="ap-dlg-grid">
+                <div class="ap-field">
+                    <RadzenLabel Text="Marque" Component="Marque" />
+                    @if (canReadMarques)
+                    {
+                        <RadzenDropDown Name="Marque" @bind-Value="@modeleEdit.MarqueId"
+                                        Data="@listeMarques" TextProperty="Nom" ValueProperty="Id" Placeholder="Choisir une marque"
+                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                        Style="width: 100%;" />
+                        <RadzenRequiredValidator Component="Marque" Text="Choisissez une marque" Popup="true" DefaultValue="0" />
+                    }
+                    else
+                    {
+                        <span class="ap-help is-warn">Vous n'avez pas accès aux marques</span>
+                    }
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Text="Nom du modèle" Component="Nom" />
+                    <RadzenTextBox Name="Nom" @bind-Value="@modeleEdit.Nom" Style="width: 100%;" Placeholder="IM C3000" />
+                    <RadzenRequiredValidator Component="Nom" Text="Saisissez le nom du modèle" Popup="true" />
+                </div>
+            </div>
         </div>
 
-        <div>
-            <RadzenLabel Text="Marque" Component="Marque" />
-            @if (canReadMarques)
-            {
-                <RadzenDropDown Name="Marque" @bind-Value="@modeleEdit.MarqueId"
-                                Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
-                                AllowClear="true" Placeholder="Sélectionner une marque..."
-                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
-                                Style="width: 100%;" />
-                <RadzenRequiredValidator Component="Marque" Text="La marque est obligatoire" Popup="true" DefaultValue="0" />
-            }
-            else
-            {
-                <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
-                    <RadzenIcon Icon="lock" /> Vous n'avez pas les droits pour voir les marques.
-                </RadzenAlert>
-            }
+        <div class="ap-dlg-group">
+            <h3>Pilote</h3>
+            <div class="ap-field">
+                <RadzenLabel Text="Pilote d'impression" Component="Pilote" />
+                @if (canReadPilotes)
+                {
+                    <RadzenDropDown Name="Pilote" @bind-Value="@modeleEdit.PiloteId"
+                                    Data="@listePilotesFiltrée" TextProperty="Nom" ValueProperty="Id" Placeholder="Choisir un pilote installé"
+                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                    Style="width: 100%;">
+                        <Template Context="p">
+                            @{ var pil = (Pilote)p; }
+                            @pil.Nom
+                            @if (!pil.EstInstalle) { <span class="ap-help is-warn" style="margin-left: 6px;">absent du serveur</span> }
+                        </Template>
+                    </RadzenDropDown>
+                    <RadzenRequiredValidator Component="Pilote" Text="Choisissez un pilote" Popup="true" DefaultValue="0" />
+                    <span class="ap-help">Installé sur les files de ce modèle ; seuls les pilotes présents sur le serveur sont proposés (Pilotes, Scanner le serveur)</span>
+                }
+                else
+                {
+                    <span class="ap-help is-warn">Vous n'avez pas accès aux pilotes</span>
+                }
+            </div>
         </div>
 
-        <div>
-            <RadzenLabel Text="Pilote par défaut" Component="Pilote" />
-            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
-                Indispensable pour l'installation automatique.
-            </RadzenText>
-
-            @if (canReadPilotes)
-            {
-                <RadzenDropDown Name="Pilote" @bind-Value="@modeleEdit.PiloteId"
-                                Data="@listePilotesFiltrée" TextProperty="Nom" ValueProperty="Id"
-                                AllowClear="true" Placeholder="Sélectionner un pilote..."
-                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
-                                Style="width: 100%;">
-                    <Template Context="p">
-                        @((p as Pilote).Nom)
-                        @if (!(p as Pilote).EstInstalle)
-                        {
-                            <span style="color: var(--rz-danger); font-weight: bold; font-size: 0.8em; margin-left: 5px;"> (pilote manquant)</span>
-                        }
-                    </Template>
-                </RadzenDropDown>
-                <RadzenRequiredValidator Component="Pilote" Text="Le pilote est obligatoire" Popup="true" DefaultValue="0" />
-            }
-            else
-            {
-                <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
-                    <RadzenIcon Icon="lock" /> Vous n'avez pas les droits pour voir les pilotes.
-                </RadzenAlert>
-            }
+        <div class="ap-dlg-group">
+            <h3>Supervision SNMP <span class="ap-opt" style="font-size: 13px;">(facultatif)</span></h3>
+            <div class="ap-dlg-grid">
+                <div class="ap-field">
+                    <RadzenLabel Text="Profil de lecture" Component="SnmpProfile" />
+                    <RadzenDropDown Name="SnmpProfile" @bind-Value="@modeleEdit.SnmpProfileId"
+                                    Data="@listeProfiles" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Valeurs standard"
+                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                    Style="width: 100%;" />
+                    <span class="ap-help">OID propres à ce modèle pour les consommables et compteurs</span>
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Text="Identifiants" Component="SnmpCredential" />
+                    <RadzenDropDown Name="SnmpCredential" @bind-Value="@modeleEdit.SnmpCredentialId"
+                                    Data="@listeCredentials" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Ceux de chaque imprimante"
+                                    Style="width: 100%;" />
+                    <span class="ap-help">Utilisés par toutes les imprimantes de ce modèle, sauf exception sur l'une d'elles</span>
+                </div>
+            </div>
         </div>
 
-        <div>
-            <RadzenLabel Text="Profil SNMP (Optionnel)" Component="SnmpProfile" />
-            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
-                Permet d'utiliser des OIDs personnalisés pour les consommables et compteurs.
-            </RadzenText>
-            <RadzenDropDown Name="SnmpProfile" @bind-Value="@modeleEdit.SnmpProfileId"
-                            Data="@listeProfiles" TextProperty="Name" ValueProperty="Id"
-                            AllowClear="true" Placeholder="Sélectionner un profil SNMP..."
-                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
-                            Style="width: 100%;" />
-        </div>
-
-        <div>
-            <RadzenLabel Text="Identifiants SNMP par défaut (Optionnel)" Component="SnmpCredential" />
-            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -5px;">
-                Utilisés par toutes les imprimantes de ce modèle, sauf si une imprimante en choisit d'autres. Vide : paramètres de chaque imprimante.
-            </RadzenText>
-            <RadzenDropDown Name="SnmpCredential" @bind-Value="@modeleEdit.SnmpCredentialId"
-                            Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
-                            AllowClear="true" Placeholder="Aucun (paramètres de chaque imprimante)"
-                            Style="width: 100%;" />
-        </div>
-
-        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-
+        <div class="ap-dlg-footer">
             @if (modeleEdit.Id != 0)
             {
                 <AuthorizeView Policy="MODEL_DELETE">
                     <Authorized Context="authContext">
-                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Text" Text="Supprimer" Click="@OnDelete" />
                     </Authorized>
                 </AuthorizeView>
             }
-            else
-            {
-                <div></div>
-            }
-
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" ButtonStyle="ButtonStyle.Primary" />
-            </RadzenStack>
-
-        </RadzenStack>
-    </RadzenStack>
+            <span class="ap-grow"></span>
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="@(modeleEdit.Id == 0 ? "Créer le modèle" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" />
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {
@@ -197,12 +183,12 @@
         {
             if (modeleEdit.Id == 0)
             {
-                await Http.PostAsJsonAsync("api/Modeles", modeleEdit);
+                if (!await (await Http.PostAsJsonAsync("api/Modeles", modeleEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Modèle créé.");
             }
             else
             {
-                await Http.PutAsJsonAsync($"api/Modeles/{modeleEdit.Id}", modeleEdit);
+                if (!await (await Http.PutAsJsonAsync($"api/Modeles/{modeleEdit.Id}", modeleEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Modèle mis à jour.");
             }
             DialogService.Close(true);
@@ -222,7 +208,7 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/Modeles/{modeleEdit.Id}");
+                if (!await (await Http.DeleteAsync($"api/Modeles/{modeleEdit.Id}")).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "Le modèle a été supprimé.");
                 DialogService.Close(true);
             }
