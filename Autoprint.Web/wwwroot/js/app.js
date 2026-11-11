@@ -54,3 +54,20 @@ window.apInsertAtCursor = function (id, text) {
     el.setSelectionRange(s + text.length, s + text.length);
     return el.value;
 };
+// Dernière activité de l'utilisateur, partagée entre les onglets de la console (déconnexion après inactivité, B35)
+(function () {
+    var KEY = 'ap.lastActivity', last = Date.now(), written = 0;
+    function mark() {
+        last = Date.now();
+        if (last - written > 15000) { written = last; try { localStorage.setItem(KEY, String(last)); } catch (e) { } }
+    }
+    ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (ev) {
+        window.addEventListener(ev, mark, { passive: true, capture: true });
+    });
+    mark();
+    window.apIdleSeconds = function () {
+        var shared = 0;
+        try { shared = parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) { }
+        return (Date.now() - Math.max(last, shared)) / 1000;
+    };
+})();

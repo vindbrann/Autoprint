@@ -14,6 +14,19 @@ namespace Autoprint.Server.Services
 {
     public class SnmpService : ISnmpService
     {
+        // OID standard (RFC 3805 / RFC 2790) présents sur la plupart des imprimantes réseau. Volontairement réduits au
+        // premier toner : en SNMPv1, un seul OID absent fait échouer toute la requête.
+        private static readonly SnmpProfile StandardProfile = new()
+        {
+            Name = "Valeurs standard",
+            Items = new List<SnmpProfileItem>
+            {
+                new() { Name = "Toner", Category = SnmpItemCategory.Toner, Oid = "1.3.6.1.2.1.43.11.1.1.9.1.1", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.1", ValueType = SnmpValueType.RawWithMax, ColorHex = "#212529", SortOrder = 1 },
+                new() { Name = "Compteur total", Category = SnmpItemCategory.PageCounter, Oid = "1.3.6.1.2.1.43.10.2.1.4.1.1", ValueType = SnmpValueType.Counter, SortOrder = 2 },
+                new() { Name = "État", Category = SnmpItemCategory.Status, Oid = "1.3.6.1.2.1.25.3.5.1.1.1", ValueType = SnmpValueType.String, SortOrder = 3 }
+            }
+        };
+
         public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, SnmpCredentials credentials, SnmpProfile? profile = null)
         {
             var result = new PrinterDiagnosticResult();
@@ -73,14 +86,10 @@ namespace Autoprint.Server.Services
             // 3. Traitement SNMP
             try
             {
-                if (profile == null)
-                {
-                    result.HasSnmpProfile = false;
-                    result.Status = pingOk ? "En Ligne (Aucun profil SNMP configuré)" : "Inconnu (Aucun profil SNMP)";
-                    return result;
-                }
-
-                result.HasSnmpProfile = true;
+                // Sans profil d'OID sur le modèle : OID standard de la Printer MIB (B33), pour vérifier les identifiants
+                // et remonter l'essentiel ; HasSnmpProfile reste faux pour que la console le signale
+                result.HasSnmpProfile = profile != null;
+                profile ??= StandardProfile;
 
                 // Préparation du lot de variables à interroger en une seule requête SNMP
                 var requestedVariables = new List<Variable>();

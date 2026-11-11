@@ -185,7 +185,8 @@ namespace Autoprint.Server.Services
                 Username = user.Username,
                 DisplayName = user.DisplayName,
                 Permissions = permissions,
-                PasswordExpired = passwordExpired
+                PasswordExpired = passwordExpired,
+                IdleTimeoutMinutes = await GetIdleTimeoutMinutesAsync()
             };
         }
 
@@ -491,8 +492,16 @@ namespace Autoprint.Server.Services
                 Username = user.Username,
                 DisplayName = user.DisplayName,
                 Permissions = permissions,
-                PasswordExpired = passwordExpired
+                PasswordExpired = passwordExpired,
+                IdleTimeoutMinutes = await GetIdleTimeoutMinutesAsync()
             };
+        }
+
+        // Déconnexion de la console après inactivité (B35) : réglage « Security_IdleTimeoutMinutes », 30 minutes par défaut, 0 = jamais
+        private async Task<int> GetIdleTimeoutMinutesAsync()
+        {
+            var value = (await _context.ServerSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == "Security_IdleTimeoutMinutes"))?.Value;
+            return int.TryParse(value, out int minutes) && minutes >= 0 ? Math.Min(minutes, 1440) : 30;
         }
 
         private async Task<bool> IsPasswordExpiredAsync(User user)

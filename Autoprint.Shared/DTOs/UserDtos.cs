@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Autoprint.Shared.DTOs
 {
@@ -20,6 +20,9 @@ namespace Autoprint.Shared.DTOs
         public List<string> Permissions { get; set; } = new();
 
         public bool PasswordExpired { get; set; }
+
+        /// <summary>Déconnexion de la console après ce nombre de minutes sans activité (0 : jamais) (B35).</summary>
+        public int IdleTimeoutMinutes { get; set; }
     }
 
     public class ForgotPasswordRequest
