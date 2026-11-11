@@ -268,3 +268,12 @@ code {
 @media (max-width: 640px) { .ap-name-result { grid-template-columns: minmax(0, 1fr); } .ap-name-out { text-align: left; } }
 /* Modales : pas de carte dans une section (cadre dans le cadre) */
 .rz-dialog .rz-fieldset .rz-card { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+
+/* Paramètres : choix d'un groupe AD, jours de l'analyse réseau */
+.ap-pick-list { display: flex; flex-direction: column; border: 1px solid var(--ap-border); border-radius: var(--ap-r-lg); overflow: hidden; }
+.ap-pick-row { display: flex; align-items: center; gap: var(--ap-s3); padding: var(--ap-s2) var(--ap-s3); }
+.ap-pick-row + .ap-pick-row { border-top: 1px solid var(--ap-divider); }
+.ap-pick-row .txt { flex: 1; min-width: 0; }
+.ap-pick-row .t { font-weight: 500; }
+.ap-pick-row .d { font-size: 12px; color: var(--ap-text-muted); overflow-wrap: anywhere; }
+.ap-chip.is-on { background: var(--ap-primary-subtle); border-color: var(--ap-primary); color: var(--ap-primary); }.ap-chip.is-on:disabled { opacity: .55; }
