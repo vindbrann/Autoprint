@@ -20,11 +20,13 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly SecretProtector _secrets;
+        private readonly AllowedHostsService _allowedHosts;
 
-        public BackupController(ApplicationDbContext context, SecretProtector secrets)
+        public BackupController(ApplicationDbContext context, SecretProtector secrets, AllowedHostsService allowedHosts)
         {
             _context = context;
             _secrets = secrets;
+            _allowedHosts = allowedHosts;
         }
 
         // POST : le mot de passe de protection ne doit jamais apparaître dans une URL
@@ -498,7 +500,11 @@ namespace Autoprint.Server.Controllers
                     foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid, IsFromAd = u.AdRoleIds.Contains(rid) });
                 }
 
-                foreach (var s in backup.Settings)
+                // Noms d'hôte acceptés : propres à ce serveur, jamais repris d'une sauvegarde (B82 : une sauvegarde d'un autre
+                // serveur ou d'avant un changement de nom bloquerait l'accès à la console et aux postes)
+                _context.ServerSettings.Add(new ServerSetting { Key = AllowedHostsService.SettingKey, Value = string.Join(";", _allowedHosts.Hosts), Type = "STRING", Description = "Noms d'hôte acceptés par le serveur (séparés par ;)" });
+
+                foreach (var s in backup.Settings.Where(s => !string.Equals(s.Key, AllowedHostsService.SettingKey, StringComparison.OrdinalIgnoreCase)))
                 {
                     var value = SecretProtector.IsSecret(s.Key) ? restoredSecrets.GetValueOrDefault(s.Key, "") : s.Value;
                     _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = value, Type = s.Type });

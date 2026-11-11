@@ -75,9 +75,8 @@ namespace Autoprint.Client
                 _mainViewModel = new MainWindowViewModel(_prefService, _configService);
                 _mainWindow = new MainWindow { DataContext = _mainViewModel };
 
-                string serverInput = _configService.PrintServerName;
-                if (string.IsNullOrWhiteSpace(serverInput)) serverInput = "localhost";
-                string baseUrl = serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? serverInput : $"https://{serverInput}";
+                // Console / API : SERVERURL (à défaut le serveur d'impression) ; les partages restent sur PRINTSERVER
+                string baseUrl = _configService.WebBaseUrl;
 
                 _apiService = new ApiService(baseUrl, _configService.ApiKey);
 

@@ -216,7 +216,7 @@
 
                 <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5"/>
                 <TextBox x:Name="TxtPublicHost" Padding="5" Width="350" HorizontalAlignment="Left"/>
-                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé)." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé). Changement de nom en cours : saisissez les deux, séparés par « ; » (nouveau;ancien), et retirez l'ancien plus tard dans la console (Paramètres > Sécurité)." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel x:Name="View6_Install" Visibility="Collapsed" VerticalAlignment="Center">

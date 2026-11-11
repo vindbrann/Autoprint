@@ -600,8 +600,10 @@
                                     <TextBlock Text="Zone informatique" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Autoprint.Brush.Text}" VerticalAlignment="Center" />
                                     <Button Style="{StaticResource Link}" HorizontalAlignment="Right" Content="Fermer" Command="{Binding CloseAdminPanelCommand}" />
                                 </Grid>
-                                <TextBlock Text="Serveur" Style="{StaticResource Sub}" Margin="0,8,0,0" />
-                                <TextBlock Text="{Binding AdminServerUrl}" Style="{StaticResource Autoprint.Text.Mono}" Foreground="{DynamicResource Autoprint.Brush.Text}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="Console et API" Style="{StaticResource Sub}" Margin="0,8,0,0" />
+                                <TextBlock Text="{Binding AdminServerUrl}" Style="{StaticResource Autoprint.Text.Mono}" Foreground="{DynamicResource Autoprint.Brush.Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding AdminServerUrl}" />
+                                <TextBlock Text="Partages d'impression" Style="{StaticResource Sub}" Margin="0,8,0,0" />
+                                <TextBlock Text="{Binding AdminPrintServer}" Style="{StaticResource Autoprint.Text.Mono}" Foreground="{DynamicResource Autoprint.Brush.Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding AdminPrintServer}" />
                                 <TextBlock Text="Clé d'API (4 derniers caractères)" Style="{StaticResource Sub}" Margin="0,8,0,0" />
                                 <TextBlock Text="{Binding AdminApiKey}" Style="{StaticResource Autoprint.Text.Mono}" Foreground="{DynamicResource Autoprint.Brush.Text}" />
                                 <Button Style="{StaticResource Autoprint.Button.Outline}" Content="Tester la connexion" Margin="0,12,0,0" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding IsNotTesting}" />

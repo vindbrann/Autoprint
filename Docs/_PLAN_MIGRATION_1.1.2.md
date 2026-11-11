@@ -1,117 +1,109 @@
 # Plan de migration : production 1.1.2 vers la version 26.11 (B82)
 
-Objectif : passer le serveur et les postes de la 1.1.2 à la version 26.11 sans couper la liaison entre les postes et le serveur.
+## Situation
+- Serveur unique, **SQLite**, environ **600 postes** gérés par Intune.
+- Le serveur ne change ni de machine ni de domaine AD :
+  - les partages d'impression restent `\\anciennom\imprimante` ;
+  - seule l'adresse **web** change.
+- Aujourd'hui, l'adresse web est `https://autoprint.monanciendomaine.fr`, avec un certificat auto-signé. Le client 1.1.x accepte n'importe quel certificat.
+- Demain, ce sera `https://autoprint.nouveaunom.fr`, avec le certificat wildcard acheté. Il est approuvé d'office par Windows.
 
 Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveur 1.1.2.0, MSI client 1.1.3.0). Analyse du code faite le 11/11/2026.
 
----
+## Ce qui rend la migration possible (26.11)
+- **La clé agent est conservée** par la mise à jour : même valeur, seulement chiffrée en base. Les 600 postes n'ont rien à changer.
+- **Le serveur accepte plusieurs noms.** L'installeur prend `nouveau;ancien`, puis la liste se gère dans la console (Paramètres > Sécurité > « Noms acceptés par le serveur »). Elle est prise en compte immédiatement, sans redémarrage.
+- **Le client sépare deux adresses** :
+  - `SERVERURL` : console, API et temps réel. Ce sera le nouveau nom ;
+  - `PRINTSERVER` : partages d'impression. Il reste l'ancien nom ;
+  - sans `SERVERURL`, le client se comporte comme avant (`https://PRINTSERVER`).
+- **Le MSI client applique les valeurs passées par Intune**, même lors d'une mise à jour. Avant, la valeur trouvée dans le registre l'emportait, ce qui aurait gêné aussi la rotation de la clé.
+- **Ce qui ne change pas pour un client 1.1.x** (vérifié dans le code) :
+  - l'en-tête `X-Agent-Secret` ;
+  - les routes `api/emplacements` et `api/imprimantes`, et le hub `/hubs/events`, sans authentification ;
+  - les champs utilisés, les énumérations envoyées en nombres, aucune limite de requêtes pour les postes.
 
-## 1. Compatibilité
-
-| Client | Serveur | Résultat |
-|---|---|---|
-| 1.1.x | 1.1.2 | situation actuelle |
-| **1.1.x** | **26.11** | **compatible**, à une condition : le nom utilisé par les postes doit être autorisé par le serveur (voir 2.1) |
-| 26.11 | 26.11 | compatible si le certificat HTTPS du serveur est approuvé par les postes (voir 2.2) |
-| 26.11 | 1.1.2 | fonctionne aussi (mêmes routes), mais inutile : on ne le fait pas |
-
-Ce qui ne change pas entre la 1.1.2 et la 26.11 (vérifié dans le code) :
-- l'en-tête d'authentification `X-Agent-Secret` et la clé agent. Elle est chiffrée en base à la mise à jour, mais sa valeur reste la même. Le serveur lit encore une clé en clair héritée ;
-- les routes `GET api/emplacements` et `GET api/imprimantes`, et le hub SignalR `/hubs/events`, sans authentification ;
-- les champs utilisés par le client 1.1.x : lieux avec réseaux, codes et statut ; imprimantes avec nom, lieu, statut, modèle et pilote. Les énumérations sont toujours envoyées en nombres. Les nouveaux champs sont ignorés par l'ancien client ;
-- la limite de requêtes, qui ne concerne que la connexion à la console : des centaines de postes derrière la même adresse ne sont pas bloqués ;
-- le partage d'impression `\\serveur\imprimante` utilisé pour l'installation (même nom que `PRINTSERVER`) ;
-- les préférences des utilisateurs (`Documents\Autoprint\user-settings.json`) : même format, les imprimantes par défaut par site sont conservées par le nouveau client.
-
-**Conclusion : le serveur d'abord, puis les postes par vagues.** Pendant toute la transition, les deux clients cohabitent sans problème.
+**Les clients 1.1.x et 26.11 cohabitent pendant toute la transition.**
 
 ---
 
-## 2. Points bloquants à vérifier avant de commencer
+## Étape 0 : répétition en labo (obligatoire)
+- Instantané « Serveur en 1.1.2 », plus un client 1.1.x sur CLT-TEST.
+- Deux noms web pour le serveur du labo :
+  - un « ancien » nom avec un certificat auto-signé ;
+  - un « nouveau » nom avec un certificat approuvé par le poste.
+- Dérouler les étapes 1 à 5 et cocher la section « Migration 1.1.2 » de la checklist de fin de campagne.
 
-### 2.1 Nom du serveur utilisé par les postes (le plus important)
-- En 1.1.2, le serveur accepte n'importe quel nom (`AllowedHosts = *`).
-- À la mise à jour, l'installeur 26.11 demande le **nom public** et n'autorise plus que ce nom et `localhost`.
-- Une requête adressée à un autre nom reçoit une **erreur 400**, ce qui coupe **tous** les postes d'un coup, anciens comme nouveaux.
-- À vérifier : la valeur de `PRINTSERVER` dans `HKLM\SOFTWARE\Autoprint` sur les postes (paramètre de l'application Intune). Elle doit être **exactement** le nom saisi dans l'installeur, sans `https://`. Pas de nom court ni d'alias à la place du nom complet, pas d'adresse IP.
-- Si les postes utilisent plusieurs noms (nom court et nom complet, ancien alias), l'installeur ne permet aujourd'hui d'en saisir qu'un seul. Deux options :
-  - ajouter les autres noms à la main dans `C:\Program Files\Autoprint Server\appsettings.json` (`"AllowedHosts": "nom1;nom2;localhost"`), puis redémarrer le site ;
-  - **ou** améliorer l'installeur pour accepter plusieurs noms séparés par `;` (petit changement, à décider).
+## Étape 1 : préparer le nouveau nom (sans rien couper)
+1. **DNS** : `autoprint.nouveaunom.fr` vers l'adresse du serveur. Les deux noms pointent alors vers la même machine.
+2. **Certificat** : importer le wildcard (`.pfx`) dans le magasin « Ordinateur local > Personnel » du serveur.
+3. **IIS**, site « Autoprint », deux liaisons HTTPS sur le même port :
 
-### 2.2 Certificat HTTPS
-- Le client 1.1.x **accepte tout certificat**, même auto-signé ou expiré. Le client 26.11 le **vérifie**, comme un navigateur.
-- Avant de déployer le nouveau client, il faut donc que le certificat du site :
-  - soit émis pour le nom de `PRINTSERVER` ;
-  - soit valide (non expiré) ;
-  - soit émis par une autorité approuvée par les postes : autorité publique, ou autorité interne déployée par Intune (profil de certificat approuvé).
-- Test simple sur un poste, sans rien installer : ouvrir `https://<PRINTSERVER>/` dans Edge, sans alerte de sécurité. Le nouveau client affiche aussi « Certificat du serveur refusé » dans sa zone informatique (5 clics sur la version, puis « Tester la connexion »).
-- Ce point ne concerne **pas** la mise à jour du serveur : les anciens postes continuent de fonctionner même avec un certificat non approuvé.
+   | Nom d'hôte | Certificat | SNI |
+   |---|---|---|
+   | `autoprint.monanciendomaine.fr` | auto-signé actuel (inchangé) | coché |
+   | `autoprint.nouveaunom.fr` | wildcard | coché |
 
-### 2.3 Adresse et port
-- Si `PRINTSERVER` contient `http://` ou un port, le serveur 26.11 redirige vers HTTPS. Le client suit la redirection.
-- À vérifier tout de même en labo avec la valeur réelle de production.
+   Si la liaison actuelle n'a pas de nom d'hôte, lui donner l'ancien nom et cocher SNI, ou la laisser comme liaison par défaut.
+4. **Test** : depuis un poste, `https://autoprint.nouveaunom.fr/` s'ouvre dans Edge sans alerte. Le serveur 1.1.2 répond déjà, puisqu'il accepte encore tous les noms.
 
----
+## Étape 2 : sauvegarde
+- Instantané de la VM.
+- Copie de la base SQLite, serveur arrêté ou après « Arrêter » le site dans IIS :
+  - `C:\ProgramData\Autoprint\Data\Autoprint.db`, ou l'ancien emplacement dans `C:\Program Files\Autoprint Server`.
+- **On ne revient pas en arrière sans elle** : la mise à jour fait évoluer la base.
 
-## 3. Déroulé
-
-### Étape 0 : répétition en labo (obligatoire)
-1. Instantané « Serveur en 1.1.2 » et client 1.1.x sur CLT-TEST, avec le **même** nom de serveur, le même type de certificat et la même valeur de `PRINTSERVER` qu'en production.
-2. Dérouler les étapes 1 à 4 ci-dessous et cocher la section « Migration 1.1.2 » de la checklist de fin de campagne.
-
-### Étape 1 : préparation (production)
-- Relever : la valeur de `PRINTSERVER` sur les postes, le certificat du site (émetteur, nom, date d'expiration), le type de base (SQLite ou SQL Server) et le nombre de postes.
-- Sauvegarde **complète** avant la mise à jour : instantané de la VM, plus une copie de la base. Pour SQLite : `C:\ProgramData\Autoprint\Data\Autoprint.db` ou l'ancien emplacement dans Program Files. Pour SQL Server : une sauvegarde `.bak`.
-  - La mise à jour fait évoluer la base : **on ne revient pas en arrière sans cette sauvegarde**.
-- Choisir un créneau calme : pendant la mise à jour, les postes gardent leurs imprimantes, mais ne peuvent pas en ajouter.
-
-### Étape 2 : mise à jour du serveur
-1. Lancer l'installeur 26.11. Au champ « Nom public », saisir **le nom utilisé par les postes** (2.1).
+## Étape 3 : mise à jour du serveur en 26.11
+1. Lancer l'installeur 26.11. Au champ « Nom public », saisir **les deux noms, le nouveau en premier** :
+   `autoprint.nouveaunom.fr;autoprint.monanciendomaine.fr`
+   Le premier nom sert aux liens envoyés par courriel (mot de passe oublié).
 2. Après l'installation :
-   - sauvegarder les clés de chiffrement (manuel serveur : clés DPAPI propres au serveur) ;
-   - faire une sauvegarde protégée par mot de passe depuis la console.
+   - sauvegarder les clés de chiffrement (manuel serveur) ;
+   - faire une sauvegarde protégée depuis la console.
 3. Contrôles :
-   - la console s'ouvre et les lieux et imprimantes sont là ;
-   - sur un poste **1.1.x** : le badge « hors ligne » disparaît dans la minute (reconnexion automatique toutes les 30 s) ;
-   - le lieu est détecté et une imprimante s'ajoute ;
-   - une modification dans la console (renommer une imprimante, par exemple) arrive sur le poste.
-4. Si les postes reçoivent une erreur 400 : le nom n'est pas autorisé. Corriger `AllowedHosts` (2.1) : c'est immédiat, sans réinstallation.
+   - la console s'ouvre par **les deux** adresses ;
+   - Paramètres > Sécurité affiche les deux noms ;
+   - sur un poste **1.1.x**, le badge « hors ligne » disparaît dans la minute, le lieu est détecté et une imprimante s'ajoute ;
+   - une modification faite dans la console arrive sur le poste.
+4. Si les postes reçoivent une erreur 400, un nom manque : l'ajouter dans la console (Paramètres > Sécurité), en l'ouvrant par un nom accepté ou par `https://localhost` sur le serveur.
 
-### Étape 3 : nouveau client par vagues Intune
-1. **Prérequis :** certificat approuvé par les postes (2.2).
-2. Nouvelle application Intune : MSI client 26.11, **remplaçant** (supersedence) l'application 1.1.x.
-   - Le MSI a le même `UpgradeCode`, et Windows Installer remplace l'ancienne version (mise à jour majeure).
-   - Même ligne de commande : `PRINTSERVER="<nom>" APIKEY="<clé>"`.
-   - Si `APIKEY` n'est pas passée, la clé déjà présente dans le registre est relue et conservée.
-3. Le MSI ferme le client en cours. Le nouveau client démarre à la prochaine ouverture de session (Active Setup), ou en le lançant depuis le menu Démarrer.
+## Étape 4 : nouveau client par vagues Intune
+1. Nouvelle application Intune : MSI client 26.11, qui **remplace** (supersedence) l'application 1.1.x. Même `UpgradeCode` : Windows Installer remplace l'ancienne version.
+2. Ligne de commande :
+   ```
+   msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="anciennom" SERVERURL="https://autoprint.nouveaunom.fr" APIKEY="<clé actuelle>" /qn
+   ```
+   - `PRINTSERVER` ne change pas : les imprimantes déjà installées sur les postes (`\\anciennom\...`) ne bougent pas.
+   - Le client appelle la console par le nouveau nom, avec un certificat valide.
+3. Le MSI ferme le client en cours. Le nouveau démarre à la prochaine ouverture de session (Active Setup), ou depuis le menu Démarrer.
 4. Vagues :
-   - **pilote** : 5 à 10 postes, dont un en télétravail (VPN) et un sur un site avec plusieurs imprimantes ;
-   - puis un groupe par site ou par service ;
+   - **pilote** : 5 à 10 postes, dont un en télétravail (VPN) et un sur un grand site ;
+   - puis par site ou par service ;
    - puis le reste.
 5. Contrôles sur le pilote :
-   - le panneau s'ouvre ;
-   - le site est détecté et l'imprimante par défaut de chaque site est retrouvée ;
+   - le panneau s'ouvre et le site est détecté ;
+   - l'imprimante par défaut de chaque site est retrouvée ;
    - ajout et retrait d'une imprimante fonctionnent ;
-   - la zone informatique affiche « Connexion réussie » au test.
+   - zone informatique (5 clics sur la version) : « Console et API » affiche le nouveau nom, « Partages d'impression » `\\anciennom`, et « Tester la connexion » répond « Connexion réussie ».
 
-### Étape 4 : rotation de la clé agent (quand tous les postes sont en 26.11)
-- La clé actuelle a été lisible en clair sur les postes et dans les journaux d'installation de la 1.1.x. On la change une fois la migration terminée.
-- Console > Paramètres > Sécurité > zone sensible « Nouvelle clé d'API » : régler « Ancienne clé encore acceptée pendant » (30 jours par défaut), puis « Générer une nouvelle clé ». L'ancienne clé reste acceptée pendant cette période.
-- Redéployer l'application Intune avec la nouvelle `APIKEY` (nouvelle révision, ou script qui met à jour la valeur dans le registre).
-- À la fin de la transition, l'ancienne clé est refusée. Le serveur ne journalise pas les postes qui utilisent encore l'ancienne clé : s'appuyer sur l'état de déploiement Intune et choisir dès le départ une période assez longue (une nouvelle rotation ne prolonge pas l'ancienne clé : elle la remplace par la clé actuelle).
+## Étape 5 : fin de transition (tous les postes en 26.11)
+1. **Retirer l'ancien nom** dans la console : Paramètres > Sécurité > « Noms acceptés par le serveur ».
+   - Le nom par lequel on est connecté ne peut pas être retiré : ouvrir la console par le nouveau nom.
+2. Supprimer la liaison IIS de l'ancien nom et son certificat auto-signé. Supprimer l'enregistrement DNS si l'ancien domaine disparaît.
+3. **Changer la clé agent** : l'ancienne a été lisible sur les postes 1.1.x et dans leurs journaux d'installation.
+   - Paramètres > Sécurité > « Nouvelle clé d'API » : choisir la transition (30 ou 90 jours), puis « Générer une nouvelle clé ».
+   - Redéployer l'application Intune avec la nouvelle `APIKEY` (nouvelle révision). Le MSI applique la nouvelle valeur.
+   - Le serveur ne journalise pas les postes qui utilisent encore l'ancienne clé : suivre l'état de déploiement Intune et choisir dès le départ une transition assez longue. Une nouvelle rotation ne prolonge pas l'ancienne clé.
 
 ---
 
-## 4. Retour arrière
-- **Serveur** : restaurer l'instantané ou la sauvegarde de l'étape 1. Les postes 1.1.x n'ont rien à faire.
-- **Postes** : en général inutile, le client 1.1.x fonctionnant avec le serveur 26.11. Si nécessaire : désinstaller le 26.11, puis réinstaller la 1.1.x (le MSI refuse le retour à une version plus ancienne par simple mise à jour).
+## Retour arrière
+- **Serveur** : restaurer l'instantané ou la copie de la base de l'étape 2. Les postes 1.1.x n'ont rien à faire.
+- **Postes** : en général inutile, car le client 1.1.x fonctionne avec le serveur 26.11. Si nécessaire : désinstaller le 26.11, puis réinstaller la 1.1.x (le MSI refuse le retour en arrière par simple mise à jour).
 - Les préférences des utilisateurs sont conservées dans les deux sens.
 
----
-
-## 5. Points de vigilance mineurs
+## Points de vigilance
+- **Ne pas retirer l'ancien nom trop tôt.** Tant qu'un poste 1.1.x existe, il appelle l'ancien nom. Le retirer coupe ces postes (erreur 400), mais cela se rattrape en le remettant dans la console.
+- **Restauration d'une sauvegarde** : la liste des noms acceptés n'est jamais reprise d'une sauvegarde. Elle reste celle du serveur, pour ne pas se couper de la console.
 - **Pendant la mise à jour du serveur**, les postes 1.1.x affichent « Mode hors ligne » quelques minutes, puis se reconnectent seuls (contrôle toutes les 30 s).
-- **Nettoyage de l'ancien client** :
-  - l'onglet « Mes installations » du 1.1.x permettait de supprimer des imprimantes **locales** ;
-  - le nouveau client ne gère plus que les imprimantes réseau et renvoie vers Windows pour le reste ;
-  - à signaler aux équipes de support.
+- **Support** : le nouveau client ne gère plus les imprimantes locales. Il renvoie vers « Imprimantes et scanners » de Windows.

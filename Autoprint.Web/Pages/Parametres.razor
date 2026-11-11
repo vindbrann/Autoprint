@@ -594,6 +594,42 @@ else
                             </div>
                         </div>
                     </section>
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div>
+                                <h3>Noms acceptés par le serveur</h3>
+                                <p>Le serveur ne répond qu'aux adresses de cette liste (console et postes clients), plus localhost. Pendant un changement de nom, gardez l'ancien et le nouveau, puis retirez l'ancien quand tous les postes utilisent le nouveau.</p>
+                            </div>
+                            <div class="ap-ctrl">
+                                <div class="ap-chips" role="list" aria-label="Noms acceptés">
+                                    @foreach (var h in allowedHosts)
+                                    {
+                                        bool isCurrent = string.Equals(h, allowedHostsCurrent, StringComparison.OrdinalIgnoreCase);
+                                        <span class="ap-chip" role="listitem" style="cursor: default;">
+                                            @h
+                                            @if (isCurrent)
+                                            {
+                                                <RadzenIcon Icon="lock" title="Nom de la console ouverte : ne peut pas être retiré" Style="color: var(--ap-text-muted);" />
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="ap-chip-x" title="Retirer @h" aria-label="Retirer @h" disabled="@allowedHostsBusy" @onclick="@(() => RetirerNomAccepte(h))"><RadzenIcon Icon="close" /></button>
+                                            }
+                                        </span>
+                                    }
+                                    @if (allowedHosts.Count == 0)
+                                    {
+                                        <span class="ap-help is-warn">Tous les noms sont acceptés (serveur mis à jour sans nom public) : ajoutez le nom de la console.</span>
+                                    }
+                                </div>
+                                <div style="display: flex; gap: var(--ap-s2); margin-top: var(--ap-s2);">
+                                    <RadzenTextBox @bind-Value="@nouveauNomAccepte" Placeholder="autoprint.mondomaine.fr" Style="flex: 1;" Class="ap-mono" aria-label="Nom à ajouter" />
+                                    <RadzenButton Icon="add" Text="Ajouter" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AjouterNomAccepte" IsBusy="@allowedHostsBusy" Disabled="@string.IsNullOrWhiteSpace(nouveauNomAccepte)" />
+                                </div>
+                                <span class="ap-help">Pris en compte immédiatement, sans redémarrage ; chaque modification est inscrite au journal d'audit. Le nom doit aussi avoir sa liaison HTTPS (certificat) dans IIS.</span>
+                            </div>
+                        </div>
+                    </section>
                     <section class="ap-card ap-zone-sensible">
                         <div class="ap-set-row">
                             <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Nouvelle clé d'API</h3><p>Remplace la clé des postes clients. Ils devront recevoir la nouvelle clé avant la fin de la transition.</p></div>
@@ -671,6 +707,68 @@ else
     }
 
     private class AgentKeyRotationResult { public string Key { get; set; } = ""; public DateTime? PreviousValidUntil { get; set; } }
+
+    // ---------- Noms acceptés par le serveur (B82) ----------
+    private List<string> allowedHosts = new();
+    private string? allowedHostsCurrent;
+    private string? nouveauNomAccepte;
+    private bool allowedHostsBusy;
+
+    private class AllowedHostsDto { public List<string> Hosts { get; set; } = new(); public string? CurrentHost { get; set; } }
+
+    private async Task ChargerNomsAcceptes()
+    {
+        try
+        {
+            var dto = await Http.GetFromJsonAsync<AllowedHostsDto>("api/Settings/allowed-hosts");
+            allowedHosts = dto?.Hosts ?? new();
+            allowedHostsCurrent = dto?.CurrentHost;
+        }
+        catch { }
+    }
+
+    private async Task AjouterNomAccepte()
+    {
+        var nom = (nouveauNomAccepte ?? "").Trim().Replace("https://", "", StringComparison.OrdinalIgnoreCase).Replace("http://", "", StringComparison.OrdinalIgnoreCase).TrimEnd('/');
+        if (nom.Length == 0) return;
+        if (allowedHosts.Any(h => string.Equals(h, nom, StringComparison.OrdinalIgnoreCase))) { nouveauNomAccepte = ""; return; }
+        // Liste vide (tout accepté) : on y met aussi le nom de la console ouverte, pour ne pas s'en couper
+        var liste = new List<string>(allowedHosts);
+        if (liste.Count == 0 && !string.IsNullOrEmpty(allowedHostsCurrent) && !IsLocalHost(allowedHostsCurrent)) liste.Add(allowedHostsCurrent);
+        liste.Add(nom);
+        if (await EnregistrerNomsAcceptes(liste)) nouveauNomAccepte = "";
+    }
+
+    private async Task RetirerNomAccepte(string nom)
+    {
+        var ok = await DialogService.Confirm(
+            $"Retirer « {nom} » ? Les postes clients et les navigateurs qui utilisent encore ce nom ne pourront plus joindre le serveur.",
+            "Noms acceptés par le serveur", new ConfirmOptions { OkButtonText = "Retirer", CancelButtonText = "Annuler" });
+        if (ok != true) return;
+        await EnregistrerNomsAcceptes(allowedHosts.Where(h => !string.Equals(h, nom, StringComparison.OrdinalIgnoreCase)).ToList());
+    }
+
+    private async Task<bool> EnregistrerNomsAcceptes(List<string> liste)
+    {
+        allowedHostsBusy = true;
+        try
+        {
+            var response = await Http.PutAsJsonAsync("api/Settings/allowed-hosts", new AllowedHostsDto { Hosts = liste });
+            if (!response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Noms acceptés", await response.Content.ReadAsStringAsync());
+                return false;
+            }
+            var dto = await response.Content.ReadFromJsonAsync<AllowedHostsDto>();
+            allowedHosts = dto?.Hosts ?? liste;
+            NotificationService.Notify(NotificationSeverity.Success, "Noms acceptés", "Liste enregistrée.");
+            return true;
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Noms acceptés", ex.Message); return false; }
+        finally { allowedHostsBusy = false; }
+    }
+
+    private static bool IsLocalHost(string h) => h.Equals("localhost", StringComparison.OrdinalIgnoreCase) || h == "127.0.0.1" || h == "::1" || h == "[::1]";
 
     private async Task CopyAgentKey()
     {
@@ -804,6 +902,7 @@ else
             await LoadScanProfile();
             savedScanSnapshot = ScanSnapshot();
             await LoadTokens();
+            await ChargerNomsAcceptes();
             savedSnapshot = Snapshot();
             if (section == "Nommage") await ChargerNommage();
         }
