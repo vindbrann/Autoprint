@@ -170,7 +170,9 @@
                 </RadzenColumn>
                 <RadzenColumn Size="4" Visible="@UsesLegacyFields">
                     <RadzenLabel Text="Communauté SNMP" Component="SnmpCommunity" />
-                    <RadzenTextBox Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" />
+                    @* Chiffrée en base et jamais réaffichée (B32) : vide = communauté actuelle conservée *@
+                    <RadzenPassword Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" AutoComplete="false"
+                                    Placeholder="@(imprimanteEdit.Id != 0 ? "Laisser vide pour conserver" : "public")" />
                 </RadzenColumn>
                 <RadzenColumn Size="4" Visible="@UsesLegacyFields">
                     <RadzenLabel Text="Version SNMP" Component="SnmpVersion" />
@@ -259,7 +261,7 @@
             EmplacementId = ImprimanteToEdit.EmplacementId,
             Status = ImprimanteToEdit.Status,
             SnmpPort = ImprimanteToEdit.SnmpPort,
-            SnmpCommunity = ImprimanteToEdit.SnmpCommunity ?? "public",
+            SnmpCommunity = ImprimanteToEdit.Id != 0 ? "" : (string.IsNullOrEmpty(ImprimanteToEdit.SnmpCommunity) ? "public" : ImprimanteToEdit.SnmpCommunity),
             SnmpVersion = ImprimanteToEdit.SnmpVersion == 0 ? 2 : ImprimanteToEdit.SnmpVersion,
             SnmpCredentialId = ImprimanteToEdit.SnmpCredentialId
         };

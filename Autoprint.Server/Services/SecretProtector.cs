@@ -66,9 +66,27 @@ namespace Autoprint.Server.Services
                     count++;
                 }
             }
+            // Communautés SNMP « ancien mode » des imprimantes (B32) : chiffrées comme les autres secrets
+            foreach (var printer in context.Imprimantes.Where(i => i.SnmpCommunity != null && i.SnmpCommunity != "" && !i.SnmpCommunity.StartsWith(DbPrefix)).ToList())
+            {
+                printer.SnmpCommunity = Protect(printer.SnmpCommunity);
+                count++;
+            }
+            // Historique du journal d'audit : communautés enregistrées en clair dans les fiches d'imprimantes avant B32
+            foreach (var log in context.AuditLogs.Where(a => (a.OldValues != null && a.OldValues.Contains("snmpCommunity")) || (a.NewValues != null && a.NewValues.Contains("snmpCommunity"))).ToList())
+            {
+                string oldMasked = AuditService.MaskSecrets(log.OldValues), newMasked = AuditService.MaskSecrets(log.NewValues);
+                if (oldMasked == (log.OldValues ?? "") && newMasked == (log.NewValues ?? "")) continue;
+                log.OldValues = oldMasked;
+                log.NewValues = newMasked;
+                count++;
+            }
             if (count > 0) context.SaveChanges();
             return count;
         }
+
+        /// <summary>Communauté SNMP d'une imprimante telle qu'enregistrée en base : chiffrée, « public » par défaut (B32).</summary>
+        public string ProtectCommunity(string? plain) => Protect(string.IsNullOrWhiteSpace(plain) ? "public" : plain.Trim());
 
         // --- Sauvegardes ---
 
