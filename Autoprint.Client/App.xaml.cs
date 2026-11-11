@@ -227,8 +227,6 @@ namespace Autoprint.Client
 
         protected override void OnExit(ExitEventArgs e)
         {
-            // Retraits demandés juste avant de quitter : on les termine (délai borné)
-            try { _mainViewModel?.CommitPendingRemovalsBlocking(TimeSpan.FromSeconds(20)); } catch { }
             _notifyIcon?.Dispose();
             base.OnExit(e);
         }

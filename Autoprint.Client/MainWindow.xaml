@@ -136,26 +136,22 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Ligne « Retirée · Annuler » (retrait effectué à la fermeture du panneau) -->
-        <DataTemplate x:Key="GoneRow">
-            <Grid Margin="8,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Opacity="0.6">
-                    <TextBlock Text="{Binding Name}" Style="{StaticResource Name}" TextDecorations="Strikethrough" />
-                    <TextBlock Text="Retirée" Style="{StaticResource Sub}" />
-                </StackPanel>
-                <Button Grid.Column="1" Style="{StaticResource AddButton}" Content="Annuler" Command="{Binding UndoCommand}" VerticalAlignment="Center" />
+        <!-- Corbeille (retrait immédiat) ou roue pendant le retrait -->
+        <DataTemplate x:Key="RemoveAction">
+            <Grid>
+                <Button Style="{StaticResource SmallIcon}" Command="{Binding RemoveCommand}" Visibility="{Binding IsBusy, Converter={StaticResource NotVis}}"
+                        ToolTip="{Binding Name, StringFormat=Retirer {0}}" AutomationProperties.Name="{Binding Name, StringFormat=Retirer {0}}">
+                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="17" Height="17" />
+                </Button>
+                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" IsIndeterminate="True" Value="0" Width="16" Height="16" Margin="7,0"
+                             Visibility="{Binding IsBusy, Converter={StaticResource Vis}}" ToolTip="Retrait en cours" />
             </Grid>
         </DataTemplate>
 
         <!-- Vos imprimantes : bouton radio = imprimante par défaut -->
         <DataTemplate x:Key="MyRow">
             <Grid>
-                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource GoneRow}" Visibility="{Binding IsPendingRemoval, Converter={StaticResource Vis}}" Focusable="False" />
-                <Button Command="{Binding PickCommand}" Visibility="{Binding IsPendingRemoval, Converter={StaticResource NotVis}}"
+                <Button Command="{Binding PickCommand}"
                         AutomationProperties.Name="{Binding Name, StringFormat=Imprimer sur {0}}">
                     <Button.Resources>
                         <Style TargetType="Border" x:Key="FlashStyle">
@@ -200,15 +196,13 @@
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Name}" Style="{StaticResource Name}" />
                                 <TextBlock Text="{Binding Sub}" Style="{StaticResource Sub}" Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding ErrorText}" FontSize="12" Foreground="{DynamicResource Autoprint.Brush.Danger}" TextWrapping="Wrap" Visibility="{Binding HasError, Converter={StaticResource Vis}}" />
                             </StackPanel>
                             <Border Grid.Column="2" Margin="6,0,2,0" VerticalAlignment="Center" Padding="6,1" CornerRadius="4" Background="{DynamicResource Autoprint.Brush.Surface}"
                                     Visibility="{Binding IsDefault, Converter={StaticResource Vis}}">
                                 <TextBlock Text="Par défaut" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Autoprint.Brush.Primary}" />
                             </Border>
-                            <Button Grid.Column="3" Style="{StaticResource SmallIcon}" Command="{Binding RemoveCommand}"
-                                    ToolTip="{Binding Name, StringFormat=Retirer {0}}" AutomationProperties.Name="{Binding Name, StringFormat=Retirer {0}}">
-                                <materialDesign:PackIcon Kind="TrashCanOutline" Width="17" Height="17" />
-                            </Button>
+                            <ContentControl Grid.Column="3" Content="{Binding}" ContentTemplate="{StaticResource RemoveAction}" VerticalAlignment="Center" Focusable="False" />
                         </Grid>
                     </Grid>
                 </Button>
@@ -258,22 +252,17 @@
 
         <!-- Imprimante installée sur un autre site -->
         <DataTemplate x:Key="OtherRow">
-            <Grid>
-                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource GoneRow}" Visibility="{Binding IsPendingRemoval, Converter={StaticResource Vis}}" Focusable="False" />
-                <Grid Margin="8,5" Visibility="{Binding IsPendingRemoval, Converter={StaticResource NotVis}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" Style="{StaticResource Name}" />
-                        <TextBlock Text="{Binding Sub}" Style="{StaticResource Sub}" />
-                    </StackPanel>
-                    <Button Grid.Column="1" Style="{StaticResource SmallIcon}" Command="{Binding RemoveCommand}"
-                            ToolTip="{Binding Name, StringFormat=Retirer {0}}" AutomationProperties.Name="{Binding Name, StringFormat=Retirer {0}}">
-                        <materialDesign:PackIcon Kind="TrashCanOutline" Width="17" Height="17" />
-                    </Button>
-                </Grid>
+            <Grid Margin="8,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Name}" />
+                    <TextBlock Text="{Binding Sub}" Style="{StaticResource Sub}" />
+                    <TextBlock Text="{Binding ErrorText}" FontSize="12" Foreground="{DynamicResource Autoprint.Brush.Danger}" TextWrapping="Wrap" Visibility="{Binding HasError, Converter={StaticResource Vis}}" />
+                </StackPanel>
+                <ContentControl Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource RemoveAction}" VerticalAlignment="Center" Focusable="False" />
             </Grid>
         </DataTemplate>
 
@@ -429,7 +418,8 @@
                         <StackPanel Visibility="{Binding ShowTeleworkHint, Converter={StaticResource Vis}}">
                             <TextBlock Style="{StaticResource Hint}" Margin="6,8,6,6"
                                        Text="Vous n'êtes sur le réseau d'aucun site. Vos imprimantes reviennent quand vous y retournez. Depuis chez vous, connectez le VPN puis choisissez une imprimante." />
-                            <Button Margin="4,4,4,2" Command="{Binding OpenElsewhereCommand}" Style="{StaticResource Autoprint.Button.Outline}" HorizontalContentAlignment="Left" Height="40">
+                            <Button Margin="4,4,4,2" Command="{Binding OpenElsewhereCommand}" Style="{StaticResource Autoprint.Button.Outline}" HorizontalContentAlignment="Left" Height="40"
+                                    Visibility="{Binding ShowTeleworkChoose, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="Choisir un site et une imprimante" VerticalAlignment="Center" />
