@@ -23,6 +23,7 @@ Résultats déjà acquis le 11/11 (détail dans `_RESULTATS_RECETTE_LABO.md`) : 
    - [ ] Message « trop ancienne » du runtime sur plusieurs lignes, non coupé (installer un runtime plus ancien avant, ou sur un instantané)
    - [ ] **SqlClient 7** : installation **neuve** SQL Server (test de connexion de l'étape Base de données) et S8-10 (SQL distant sur SRV-AD) ; non exercé par une mise à jour
    - [ ] Mise à jour d'un serveur existant (SQL Server) : « Mise à jour terminée »
+   - [ ] **WiX 7** : MSI serveur (dans l'installeur) et MSI client (Intune, en SYSTEM) construits avec WiX 7.0.1 : installation neuve, mise à jour depuis une version WiX 6, désinstallation ; écran de configuration du client (APIKEY, serveur) toujours affiché
    - [ ] **B45 (MSI allégé)** : installation neuve et mise à jour avec le MSI de 39 Mo ; après la mise à jour, plus de dossier `runtimes` ni `BlazorDebugProxy` dans `C:\Program Files\Autoprint Server` ; site, SQL Server, SQLite, connexion AD et rapport PDF (SE-09, `libSkiaSharp.dll` à la racine) fonctionnent
 2. **Console : recette visuelle** (clair et sombre, Ctrl+F5)
    - [ ] Connexion : grand logo centré, sous-titre sur une ligne
@@ -66,7 +67,7 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | 5 | (sur `feature/charte-graphique`) | B45 : MSI serveur allégé | même campagne de recette que l'étape 4 ; **fait** le 11/11 (MSI 72 → 39 Mo), test en labo à faire |
 | 6 | (sur `feature/charte-graphique`) | B35 (déconnexion après inactivité), B33 (diagnostic SNMP sans profil) | **faits** le 11/11, tests en labo à faire |
 | 7 | `chore/dotnet-12` | **.NET 12 LTS** (sortie prévue en nov. 2027, migration quand il sera stable, au plus tard mai 2028) : débloque Microsoft.OpenApi 3 et SQLitePCLRaw 3 (PR Dependabot n° 9 et 12, laissées ouvertes) | **décidé le 11/11/2026 : LTS seulement**, .NET 11 (STS) non retenu (même fin de support que .NET 10, projet maintenu sur le temps libre) ; voir `_POLITIQUE_VERSIONS.md` |
-| 7 bis | `chore/wix-7` | Décision WiX 7 (B12 / B37) : vérifier d'abord la licence | indépendant de .NET |
+| 7 bis | (sur `feature/charte-graphique`) | WiX 7.0.1 (B12 / B37) | **fait** le 11/11 : contrat OSMF accepté (redevance seulement au-delà de 10 000 $/an), Heat retiré, deux MSI compilés ; test des installations en fin de campagne |
 | — | à tout moment | B23 (documenter la sauvegarde des clés), B55 (vérification sur poste Entra ID hybride) | documentation, vérification |
 
 Règles :
