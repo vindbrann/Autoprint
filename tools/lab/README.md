@@ -1,4 +1,4 @@
-# Labo de test Autoprint (Hyper-V, Windows en français)
+﻿# Labo de test Autoprint (Hyper-V, Windows en français)
 
 Labo local pour dérouler `Docs/_PROCEDURE_TESTS_SECURITE.md` dans des conditions proches de la production : serveur Windows **français** membre d'un domaine, poste client **hors domaine** (comme un poste géré par Intune).
 
@@ -24,7 +24,7 @@ Objets AD : OU `Autoprint` (`Utilisateurs`, `Groupes`, `Comptes de service`), gr
    New-Item -ItemType Directory -Force "$env:USERPROFILE\.autoprint-lab" | Out-Null
    Get-Credential -UserName 'LAB\LabAdmin' -Message 'Mot de passe du labo' | Export-Clixml "$env:USERPROFILE\.autoprint-lab\labadmin.cred"
    ```
-3. **VM** : génération 2, Secure Boot (modèle Microsoft Windows), TPM pour `CLT-TEST`, commutateur `AutoprintNet`, disques dans `C:\AutomatedLab-VMs`. ISO : `SERVER_2022_EVAL_x64FRE_fr-fr.iso` et Windows 11 FR (édition grand public : choisir **Professionnel**).
+3. **VM** : génération 2, Secure Boot (modèle Microsoft Windows), TPM pour `CLT-TEST`, commutateur `AutoprintNet`, disques dans `D:\AutomatedLab-VMs` (déplacés de C le 11/11/2026 : place sur le disque système). ISO : `SERVER_2022_EVAL_x64FRE_fr-fr.iso` et Windows 11 FR (édition grand public : choisir **Professionnel**).
 4. **Installation de Windows à la main** :
    - serveurs : « Datacenter Evaluation (expérience de bureau) », mot de passe Administrateur = mot de passe du labo ;
    - Windows 11 : à l'écran « il est temps de vous connecter à un réseau », Maj+F10 puis `start ms-cxh:localonly`, compte local `LabAdmin` avec le mot de passe du labo.
