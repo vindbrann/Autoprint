@@ -177,3 +177,16 @@ code {
 .ap-login-brand img { width: 32px; height: 32px; }
 .ap-login-title { margin: 0; font-size: var(--ap-fs-h2); font-weight: 500; }
 .ap-login-lead { margin: 2px 0 0; color: var(--ap-text-secondary); }
+/* Paramètres : sections encore en blocs Radzen, harmonisées avec la charte (cartes neutres, plus de filets colorés,
+   titres de bloc au format « h3 » de la maquette). La section Maintenance suit exactement la maquette (ap-set-row). */
+.ap-subnav-content .rz-fieldset { background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); padding: var(--ap-s4) 20px 20px; margin: 0 0 var(--ap-s4); }
+.ap-subnav-content .rz-fieldset-legend { float: left; width: 100%; background: transparent; border: 0; padding: 0; margin: 0 0 var(--ap-s3); font-size: 14px; font-weight: 500; color: var(--ap-text); }
+.ap-subnav-content .rz-fieldset-legend + * { clear: both; }
+.ap-subnav-content .rz-fieldset-content-wrapper { clear: both; }
+.ap-subnav-content .rz-fieldset-legend .rzi { color: var(--ap-text-muted); font-size: 18px; }
+.ap-subnav-content .rz-card { border: 1px solid var(--ap-border) !important; border-radius: var(--ap-r-xl) !important; box-shadow: none; background: var(--ap-surface); }
+.ap-subnav-content .rz-card.rz-variant-flat { background: var(--ap-surface-raised); border-color: transparent !important; }
+.ap-subnav-content > .rz-row.rz-p-2, .ap-subnav-content > .rz-stack.rz-p-2 { padding: 0 !important; }
+.ap-subnav-content hr { border: 0; border-top: 1px solid var(--ap-divider); opacity: 1; }
+.ap-set-row h3 .rzi { vertical-align: middle; }
+@media (max-width: 900px) { .ap-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); } }

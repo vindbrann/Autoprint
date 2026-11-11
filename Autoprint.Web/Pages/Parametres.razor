@@ -57,103 +57,74 @@ else
             @* --- MAINTENANCE --- *@
             @if (section == "Maintenance")
             {
-                    <RadzenStack Gap="2rem" Class="rz-p-2">
-                        <RadzenFieldset Text="Rétention & Audit" Icon="history">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                                <RadzenIcon Icon="auto_delete" Style="font-size: 2rem; color: var(--rz-text-tertiary-color);" />
-                                <RadzenStack Gap="0" Style="flex: 1;">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Purge automatique</RadzenText>
-                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                        Les logs d'audit plus anciens que la durée définie seront supprimés.
-                                    </RadzenText>
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-mt-1">
-                                        <RadzenIcon Icon="info" Style="font-size: 1rem; color: var(--rz-secondary);" />
-                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-secondary); margin: 0;">
-                                            Mettre <strong>0</strong> pour désactiver (Illimité).
-                                        </RadzenText>
-                                    </RadzenStack>
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Rétention du journal d'audit</h3><p>Les entrées plus anciennes que cette durée sont supprimées automatiquement.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenLabel Text="Purge automatique" Component="LogRetention" />
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenNumeric Name="LogRetention" @bind-Value="@model.LogRetentionDays" Min="0" Max="3650" Style="width: 140px;" />
+                                    <span class="ap-muted">jours</span>
                                 </RadzenStack>
-                                <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="0" Max="3650" Style="width: 120px;" />
-                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">jours</RadzenText>
-                            </RadzenStack>
-                        </RadzenFieldset>
+                                <span class="ap-help">0 pour conserver sans limite.</span>
+                            </div>
+                        </div>
+                    </section>
 
-                        <RadzenRow Gap="1.5rem">
-                            <RadzenColumn Size="12" SizeMD="6">
-                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-primary);">
-                                    <RadzenStack Gap="1rem">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                            <RadzenIcon Icon="cloud_download" Style="color: var(--rz-primary);" />
-                                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sauvegarde</RadzenText>
-                                        </RadzenStack>
-                                        <RadzenText TextStyle="TextStyle.Body2">Exportez la configuration complète au format JSON.</RadzenText>
-                                        <RadzenStack Gap="0.25rem">
-                                            <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" Style="font-size: 0.85rem; font-weight: 600;" />
-                                            <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
-                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                                Avec un mot de passe, les mots de passe AD / SMTP et la clé agent sont inclus chiffrés. Sans mot de passe, ils sont exclus du fichier.
-                                            </RadzenText>
-                                        </RadzenStack>
-                                        <RadzenButton Text="Télécharger le fichier" Icon="download" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Click="@DownloadBackup" Class="rz-mt-auto" />
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Sauvegarde</h3><p>Exporte toute la configuration dans un fichier JSON.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" />
+                                <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
+                                <span class="ap-help">Avec un mot de passe, les mots de passe Active Directory et SMTP et la clé agent sont inclus, chiffrés. Sans mot de passe, ils sont exclus du fichier.</span>
+                                <div><RadzenButton Text="Télécharger la sauvegarde" Icon="download" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@DownloadBackup" /></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="ap-card ap-zone-sensible">
+                        <div class="ap-set-row">
+                            <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Restauration</h3><p>Remplace la configuration actuelle par celle d'un fichier de sauvegarde.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
+                                    <strong>Les données actuelles seront écrasées.</strong> Faites une sauvegarde avant de restaurer.
+                                </RadzenAlert>
+                                @if (uploadedBackup == null)
+                                {
+                                    <InputFile OnChange="LoadFile" accept=".json" />
+                                }
+                                else
+                                {
+                                    <div><strong>Fichier prêt :</strong> @uploadedBackup.CreatedBy, le @uploadedBackup.CreatedAt.ToShortDateString()</div>
+                                    @if (uploadedBackup.SecretsProtected)
+                                    {
+                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
+                                    }
+                                    else
+                                    {
+                                        <span class="ap-help">
+                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
+                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
+                                        </span>
+                                    }
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                        <RadzenButton Text="Restaurer" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
+                                        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => uploadedBackup = null)" />
                                     </RadzenStack>
-                                </RadzenCard>
-                            </RadzenColumn>
-
-                            <RadzenColumn Size="12" SizeMD="6">
-                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-danger);">
-                                    <RadzenStack Gap="1rem">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                                <RadzenIcon Icon="cloud_upload" Style="color: var(--rz-danger);" />
-                                                <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Restauration</RadzenText>
-                                            </RadzenStack>
-                                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ZONE DANGER" />
-                                        </RadzenStack>
-
-                                        <RadzenText TextStyle="TextStyle.Body2">Restaurez une configuration. <strong>Attention : Écrase les données.</strong></RadzenText>
-
-                                        @if (uploadedBackup == null)
-                                        {
-                                            <div class="custom-file-upload">
-                                                <InputFile OnChange="LoadFile" class="form-control" accept=".json" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
-                                                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
-                                                    <div><strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())</div>
-                                                    @if (uploadedBackup.SecretsProtected)
-                                                    {
-                                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <div style="font-size: 0.8rem;">
-                                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
-                                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
-                                                        </div>
-                                                    }
-                                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                        <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
-                                                        <RadzenButton Text="Ecraser" Size="ButtonSize.ExtraSmall" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
-                                                    </RadzenStack>
-                                                </RadzenStack>
-                                            </RadzenAlert>
-                                        }
-                                    </RadzenStack>
-                                </RadzenCard>
-                            </RadzenColumn>
-                        </RadzenRow>
-                    </RadzenStack>
-                }
-
+                                }
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
             @* --- SMTP --- *@
             @if (section == "SMTP")
             {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Serveur de Messagerie" Icon="mail_outline">
+                            <RadzenFieldset Text="Serveur de messagerie" Icon="mail_outline">
                                 <RadzenRow RowGap="1rem">
                                     <RadzenColumn Size="8">
                                         <RadzenLabel Text="Hôte SMTP" />
@@ -172,7 +143,7 @@ else
                                         <RadzenPassword @bind-Value="@model.SmtpPass" Style="width: 100%;" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6">
-                                        <RadzenLabel Text="Adresse Expéditeur (From)" />
+                                        <RadzenLabel Text="Adresse de l'expéditeur" />
                                         <RadzenTextBox @bind-Value="@model.SmtpFromAddress" Style="width: 100%;" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" Class="rz-display-flex rz-align-items-center">
@@ -213,7 +184,7 @@ else
             {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         <RadzenColumn Size="12" SizeLG="7">
-                            <RadzenFieldset Text="Règles & Automatisation" Icon="settings_suggest">
+                            <RadzenFieldset Text="Règles et automatisation" Icon="settings_suggest">
                                 <RadzenStack Gap="1.5rem">
                                     <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
                                         <RadzenStack Gap="1rem">
@@ -222,31 +193,31 @@ else
                                                     <RadzenSwitch @bind-Value="@model.NamingEnabled" />
                                                     <RadzenLabel Text="Activer le nommage automatique" Style="font-weight: bold;" />
                                                 </RadzenStack>
-                                                <RadzenButton Text="Appliquer (Imprimantes)" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Click="@RenommerToutesImprimantes" Disabled="@(!model.NamingEnabled)" />
+                                                <RadzenButton Text="Appliquer aux imprimantes" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@RenommerToutesImprimantes" Disabled="@(!model.NamingEnabled)" />
                                             </RadzenStack>
                                             <hr class="rz-my-4" />
                                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
                                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                                                     <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" />
-                                                    <RadzenLabel Text="Appliquer aussi au Partage Windows" />
+                                                    <RadzenLabel Text="Appliquer aussi au partage Windows" />
                                                 </RadzenStack>
-                                                <RadzenButton Text="Appliquer (Partages)" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
+                                                <RadzenButton Text="Appliquer aux partages" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
                                             </RadzenStack>
                                             <hr class="rz-my-4" />
                                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
                                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                                                     <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" />
                                                     <RadzenStack Gap="0">
-                                                        <RadzenLabel Text="Mode Direct par défaut" Style="font-weight: bold;" />
+                                                        <RadzenLabel Text="Impression directe par défaut" Style="font-weight: bold;" />
                                                         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Pour les nouvelles créations</RadzenText>
                                                     </RadzenStack>
                                                 </RadzenStack>
-                                                <RadzenButton Text="Forcer le Mode Direct (Masse)" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Info" Click="@ForcerModeDirect" />
+                                                <RadzenButton Text="Passer tout le parc en impression directe" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@ForcerModeDirect" />
                                             </RadzenStack>
                                         </RadzenStack>
                                     </RadzenCard>
                                     <RadzenStack Gap="0.5rem">
-                                        <RadzenLabel Text="Modèle de nom (Template)" />
+                                        <RadzenLabel Text="Modèle de nom" />
                                         <RadzenTextBox @bind-Value="@model.NamingTemplate" Disabled="@(!model.NamingEnabled)" Style="width: 100%; font-family: monospace; font-size: 1.1rem;" Placeholder="IMP_{LIEU}_{IP_LAST}" />
                                         <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1" Style="color: var(--rz-text-tertiary-color);">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
                                     </RadzenStack>
@@ -291,7 +262,7 @@ else
                                             <RadzenTextBox Name="TIP" @bind-Value="testIp" Style="width: 100%;" />
                                         </RadzenColumn>
                                         <RadzenColumn Size="4">
-                                            <RadzenLabel Text="Code Imp" Component="TCode" Style="font-size: 0.8rem; font-weight: bold;" />
+                                            <RadzenLabel Text="Code imprimante" Component="TCode" Style="font-size: 0.8rem; font-weight: bold;" />
                                             <RadzenTextBox Name="TCode" @bind-Value="testImpCode" Style="width: 100%;" />
                                         </RadzenColumn>
                                     </RadzenRow>
@@ -607,7 +578,7 @@ else
                                             <RadzenLabel Text="Activer la planification" Style="@(scanConfig.IsEnabled ? "color: var(--rz-success); font-weight:bold" : null)" />
                                         </RadzenStack>
 
-                                        <RadzenButton Text="Enregistrer la Configuration" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveScanConfig" />
+                                        <RadzenButton Text="Enregistrer la configuration du scanner" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveScanConfig" />
                                     </RadzenStack>
 
                                 </RadzenStack>
