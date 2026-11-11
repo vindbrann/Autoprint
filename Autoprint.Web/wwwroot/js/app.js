@@ -43,3 +43,14 @@ window.downloadFileFromStream = async (fileName, contentStreamReference) => {
     anchorElement.remove();
     URL.revokeObjectURL(url);
 };
+
+// Insère un texte à l'emplacement du curseur d'un champ et renvoie la nouvelle valeur (règle de nommage, Paramètres)
+window.apInsertAtCursor = function (id, text) {
+    var el = document.getElementById(id);
+    if (!el) return text;
+    var s = el.selectionStart ?? el.value.length, e = el.selectionEnd ?? s;
+    el.value = el.value.slice(0, s) + text + el.value.slice(e);
+    el.focus();
+    el.setSelectionRange(s + text.length, s + text.length);
+    return el.value;
+};

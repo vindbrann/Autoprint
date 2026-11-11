@@ -162,7 +162,7 @@ else
     private async Task OuvrirModal(Emplacement lieu)
     {
         var resultat = await DialogService.OpenAsync<LieuModal>(
-            lieu.Id == 0 ? "Nouveau Lieu" : "Modifier le Lieu",
+            lieu.Id == 0 ? "Nouveau lieu" : "Modifier le lieu",
             new Dictionary<string, object?> { { "LieuToEdit", lieu } },
             new DialogOptions() { Width = "550px", CloseDialogOnOverlayClick = true }
         );

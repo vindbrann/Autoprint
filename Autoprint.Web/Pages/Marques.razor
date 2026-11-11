@@ -38,7 +38,7 @@ else
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="300px">
         <Columns>
-            <RadzenDataGridColumn TItem="Marque" Property="Nom" Title="Nom de la Marque" Sortable="true" Filterable="true" />
+            <RadzenDataGridColumn TItem="Marque" Property="Nom" Title="Nom de la marque" Sortable="true" Filterable="true" />
 
             <RadzenDataGridColumn TItem="Marque" Property="PrinterCount" Title="Imprimantes" Width="120px" TextAlign="TextAlign.Center">
                 <Template Context="m">
@@ -98,7 +98,7 @@ else
     private async Task OuvrirModal(Marque marque)
     {
         var resultat = await DialogService.OpenAsync<MarqueModal>(
-            marque.Id == 0 ? "Ajouter une Marque" : "Modifier la Marque",
+            marque.Id == 0 ? "Nouvelle marque" : "Modifier la marque",
             new Dictionary<string, object?> { { "MarqueToEdit", marque } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
         );

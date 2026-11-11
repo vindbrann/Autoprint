@@ -88,9 +88,9 @@
     }
 
     <!-- ACTIONS -->
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-2">
-        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
-        <RadzenButton Text="Valider le Champ" ButtonStyle="ButtonStyle.Primary" Icon="check" Click="@OnValider" />
+    <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Valider le Champ" ButtonStyle="ButtonStyle.Primary" Click="@OnValider" />
     </RadzenStack>
 </RadzenStack>
 

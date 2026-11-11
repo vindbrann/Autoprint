@@ -521,7 +521,7 @@ else
 
     private async Task OuvrirScanModal()
     {
-        await DialogService.OpenAsync<ScanPrintersModal>("Scanner Réseau",
+        await DialogService.OpenAsync<ScanPrintersModal>("Scanner le réseau",
              null,
              new DialogOptions() { Width = "90%", Height = "85%", CloseDialogOnOverlayClick = false }
         );
@@ -555,7 +555,7 @@ else
         var title = imp.Id == 0 ? "Nouvelle imprimante" : "Modifier l'imprimante";
         var result = await DialogService.OpenAsync<ImprimanteModal>(title,
             new Dictionary<string, object?> { { "ImprimanteToEdit", impClone } },
-            new DialogOptions() { Width = "900px", CloseDialogOnOverlayClick = true }
+            new DialogOptions() { Width = "680px", CloseDialogOnOverlayClick = true }
         );
         if (result == true)
         {

@@ -37,6 +37,39 @@ namespace Autoprint.Server.Controllers
             return Ok(new { GeneratedName = resultat });
         }
 
+        /// <summary>
+        /// Renommages qu'entraînerait une règle (enregistrée ou non), sans rien modifier : la console les affiche
+        /// avant l'application au parc (maquette « nommage », retour de recette du 11/11).
+        /// </summary>
+        [HttpPost("PreviewChanges")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<ActionResult<List<NamingChangeDto>>> PreviewChanges([FromBody] NamingChangesRequestDto dto)
+        {
+            var imprimantes = await _context.Imprimantes.AsNoTracking()
+                .Include(i => i.Emplacement)
+                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .OrderBy(i => i.NomAffiche)
+                .ToListAsync();
+
+            var changes = new List<NamingChangeDto>();
+            foreach (var imp in imprimantes)
+            {
+                string nouveauNom = _namingService.GenererNom(imp, dto.Template);
+                bool nameChanges = !string.IsNullOrEmpty(nouveauNom) && imp.NomAffiche != nouveauNom;
+                bool shareChanges = dto.SameShare && imp.EstPartagee && !string.IsNullOrEmpty(nouveauNom) && imp.NomPartage != nouveauNom;
+                if (!nameChanges && !shareChanges) continue;
+                changes.Add(new NamingChangeDto
+                {
+                    Id = imp.Id,
+                    CurrentName = imp.NomAffiche,
+                    NewName = nouveauNom,
+                    CurrentShare = imp.EstPartagee ? imp.NomPartage : null,
+                    NewShare = shareChanges ? nouveauNom : null,
+                    IsArchived = imp.IsArchived
+                });
+            }
+            return Ok(changes);
+        }
         [HttpPost("ApplyToNames")]
         [Authorize(Policy = "SETTINGS_MANAGE")]
         public async Task<ActionResult> ApplyToNames()
@@ -86,6 +119,22 @@ namespace Autoprint.Server.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { Message = $"{count} noms de partages mis à jour." });
         }
+    }
+
+    public class NamingChangesRequestDto
+    {
+        public string Template { get; set; } = "";
+        public bool SameShare { get; set; }
+    }
+
+    public class NamingChangeDto
+    {
+        public int Id { get; set; }
+        public string CurrentName { get; set; } = "";
+        public string NewName { get; set; } = "";
+        public string? CurrentShare { get; set; }
+        public string? NewShare { get; set; }
+        public bool IsArchived { get; set; }
     }
 
     public class NamingPreviewDto
