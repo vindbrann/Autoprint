@@ -1,0 +1,445 @@
+<title>Prototype client Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Prototype du client Autoprint, version « page unique ».
+   Tout sur un seul écran compact : choisir, ajouter, retirer et annuler se font sur la ligne de l'imprimante.
+   Aucune bulle pour les actions faites dans le panneau ; seule la notification Windows de changement de site reste. */
+:root {
+  --primary: #1d5fcf; --on-primary: #fff; --primary-hover: #174ea9; --primary-subtle: #e8f0fc;
+  --bg: #dfe4ec; --surface: #fff; --raised: #f3f5f8; --border: #e1e4e9; --border-strong: #858d9b; --divider: #eceef1;
+  --text: #161a21; --text-2: #4a5262; --muted: #646c7c;
+  --success: #1b7a43; --warning: #9a5200; --warning-subtle: #fbf0dd; --danger: #c0302b; --hover: rgba(22,26,33,.05);
+  --desk: linear-gradient(160deg, #c9d6e8, #e6ebf2); --taskbar: rgba(243,245,248,.92);
+  --shadow: 0 16px 48px rgba(16,20,28,.22); --font: 'IBM Plex Sans','Segoe UI',system-ui,sans-serif; --mono: 'IBM Plex Mono',Consolas,monospace;
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --primary: #5b9bf5; --on-primary: #0a1322; --primary-hover: #7cb0f8; --primary-subtle: #16253d;
+  --bg: #0b0d10; --surface: #1b1e24; --raised: #22262d; --border: #2b3038; --border-strong: #6b7381; --divider: #252930;
+  --text: #e8eaee; --text-2: #a9afbb; --muted: #8a919e;
+  --success: #4cc38a; --warning: #f0a33a; --warning-subtle: #2d2210; --danger: #f2726c; --hover: rgba(232,234,238,.06);
+  --desk: linear-gradient(160deg, #10141b, #1a2030); --taskbar: rgba(28,31,37,.94); --shadow: 0 16px 48px rgba(0,0,0,.55); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --primary: #5b9bf5; --on-primary: #0a1322; --primary-hover: #7cb0f8; --primary-subtle: #16253d;
+  --bg: #0b0d10; --surface: #1b1e24; --raised: #22262d; --border: #2b3038; --border-strong: #6b7381; --divider: #252930;
+  --text: #e8eaee; --text-2: #a9afbb; --muted: #8a919e;
+  --success: #4cc38a; --warning: #f0a33a; --warning-subtle: #2d2210; --danger: #f2726c; --hover: rgba(232,234,238,.06);
+  --desk: linear-gradient(160deg, #10141b, #1a2030); --taskbar: rgba(28,31,37,.94); --shadow: 0 16px 48px rgba(0,0,0,.55); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Bandeau du prototype (hors produit) */
+.demo { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--surface); border-bottom: 1px solid var(--border); }
+.demo strong { font-weight: 600; }
+.demo .grow { flex: 1; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.seg button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--primary-subtle); border-color: var(--primary); color: var(--primary); font-weight: 500; }
+.small-btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 13px; }
+
+/* Faux bureau Windows */
+.desk { position: relative; min-height: calc(100vh - 54px); background: var(--desk); padding: 24px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px)); display: flex; justify-content: flex-end; align-items: flex-end; gap: 32px; }
+.notes { flex: 1; max-width: 500px; align-self: flex-start; background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; font-size: 13px; color: var(--text-2); }
+.notes h2 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text); }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.notes b { color: var(--text); font-weight: 500; }
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: var(--taskbar); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.tray-btn { width: 40px; height: 40px; border-radius: 8px; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; position: relative; }
+.tray-btn:hover, .tray-btn[aria-expanded="true"] { background: var(--hover); }
+.tray-btn svg { width: 22px; height: 22px; }
+.tray-btn .dot { position: absolute; right: 7px; bottom: 7px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--taskbar); }
+.clock { font-size: 12px; text-align: right; line-height: 1.25; padding: 0 6px; }
+
+/* Panneau Autoprint : page unique */
+.panel { position: relative; width: 360px; max-width: 100%; max-height: calc(100vh - 130px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; animation: rise 160ms var(--ease); }
+.panel[hidden] { display: none; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.head { display: flex; align-items: center; gap: 8px; padding: 12px 8px 10px 14px; border-bottom: 1px solid var(--divider); }
+.head .pin { width: 28px; height: 28px; border-radius: 8px; background: var(--primary-subtle); color: var(--primary); display: grid; place-items: center; flex: none; }
+.head .pin svg { width: 16px; height: 16px; }
+.head .site { flex: 1; min-width: 0; }
+.head .site .k { font-size: 11px; color: var(--muted); }
+.head .site .v { font-size: 15px; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 4px; vertical-align: 1px; }
+.state.off { background: var(--warning); }
+.icon-btn { width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; display: grid; place-items: center; color: var(--text-2); cursor: pointer; flex: none; }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; }
+.body { overflow: auto; padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.note { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; font-size: 12px; background: var(--warning-subtle); color: var(--warning); margin: 2px 4px 4px; }
+.note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.note span { color: var(--text-2); }
+.grp { display: flex; align-items: center; gap: 6px; padding: 8px 6px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.grp .n { font-weight: 400; }
+.grp .grow { flex: 1; }
+.icon-btn.sm { width: 26px; height: 26px; }
+.site-row { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.site-row:hover { background: var(--hover); }
+.site-row .chev { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.icon-btn.sm svg { width: 15px; height: 15px; }
+.hint { font-size: 12px; color: var(--muted); padding: 0 6px 2px; }
+.hint.warn { color: var(--warning); }
+
+/* Une ligne = une imprimante, toutes les actions sur la ligne */
+.row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 6px 6px 8px; border-radius: 10px; }
+.row:hover { background: var(--hover); }
+.row .txt { flex: 1; min-width: 0; }
+.row .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.row .sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Tag « Couleur » : seulement sur les imprimantes couleur, discret, dans la ligne d'emplacement */
+/* Recherche dans l'en-tête (loupe) : prend la place du titre seulement quand on l'ouvre */
+.more { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 6px 8px; border: 1px dashed var(--border-strong); border-radius: 10px; background: transparent; color: var(--primary); font-weight: 500; font-size: 13px; cursor: pointer; text-align: left; }
+.more:hover { background: var(--hover); }
+.more svg { width: 16px; height: 16px; }
+.more .n { margin-left: auto; color: var(--muted); font-weight: 400; }
+.row.def { background: var(--primary-subtle); box-shadow: inset 3px 0 0 var(--primary); }
+.row.def .nm { font-weight: 600; }
+.row.flash { animation: rowflash 1.2s var(--ease); }
+@keyframes rowflash { 0% { background: color-mix(in srgb, var(--primary) 30%, var(--surface)); } 100% { background: var(--primary-subtle); } }
+.tag-def { font-size: 11px; font-weight: 600; color: var(--on-primary); background: var(--primary); border-radius: 999px; padding: 1px 7px; flex: none; }
+.radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); flex: none; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.radio:hover { border-color: var(--primary); }
+.radio.on { border-color: var(--primary); }
+.radio.on::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.rm { width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; flex: none; }
+.rm:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.rm svg { width: 16px; height: 16px; }
+.add { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--primary); background: var(--surface); color: var(--primary); font-weight: 500; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.add:hover { background: var(--primary-subtle); }
+.add svg { width: 14px; height: 14px; }
+.add:disabled { opacity: .5; cursor: not-allowed; }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.row.gone { color: var(--muted); }
+.row.gone .nm { font-weight: 400; text-decoration: line-through; text-decoration-color: var(--border-strong); }
+.undo { height: 30px; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: var(--primary); font-weight: 500; font-size: 13px; cursor: pointer; flex: none; }
+.undo:hover { background: var(--hover); }
+.fold { border: 0; background: transparent; padding: 8px 6px 2px; display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fold svg { width: 14px; height: 14px; transition: transform 120ms var(--ease); }
+.fold[aria-expanded="true"] svg { transform: rotate(90deg); }
+.link { border: 0; background: transparent; color: var(--primary); font-size: 12px; font-weight: 500; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.link:hover { background: var(--hover); }
+
+.search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; margin: 4px 4px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); }
+.search svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.search input { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; font-size: 13px; }
+.search:focus-within { outline: 2px solid var(--primary); outline-offset: -1px; background: var(--surface); }
+.search .clear { border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; }
+.search .clear:hover { background: var(--hover); }
+.search .clear svg { width: 14px; height: 14px; }
+
+/* Volet des réglages, par-dessus la page */
+.sheet { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; animation: slide 160ms var(--ease); }
+.sheet[hidden] { display: none; }
+@keyframes slide { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet .body { gap: 0; }
+.set { display: flex; align-items: center; gap: 12px; padding: 10px 6px; }
+.set + .set { border-top: 1px solid var(--divider); }
+.set .txt { flex: 1; }
+.set .t { font-weight: 500; }
+.set .d { font-size: 12px; color: var(--muted); }
+.switch { position: relative; width: 38px; height: 22px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--border-strong); transition: background-color 120ms; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 120ms var(--ease); }
+.switch input:checked + span { background: var(--primary); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+.win { margin: 10px 6px 0; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; }
+.win:hover { background: var(--hover); }
+.win svg { width: 14px; height: 14px; }
+.ver { font-size: 11px; color: var(--muted); text-align: center; margin-top: 12px; user-select: none; }
+.it { margin: 10px 6px 0; border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px; display: grid; gap: 6px; font-size: 12px; }
+.it .k { color: var(--muted); }
+.it .v { font-family: var(--mono); }
+
+/* Notification Windows (changement de site seulement, panneau fermé) */
+.wnotif { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 60px; width: 340px; max-width: calc(100% - 32px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 12px 12px 14px; display: flex; gap: 10px; animation: rise 200ms var(--ease); cursor: pointer; }
+.wnotif[hidden] { display: none; }
+.wnotif .app { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.wnotif .app svg { width: 13px; height: 13px; }
+.wnotif .t { font-weight: 600; }
+.wnotif .d { font-size: 13px; color: var(--text-2); }
+
+@media (max-width: 860px) { .desk { flex-direction: column; align-items: stretch; } .notes { max-width: none; } .panel { align-self: flex-end; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 64 64"><path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/><circle cx="32" cy="26" r="17" fill="#2f6fd8"/><rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/><path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/><rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/></symbol>
+</svg>
+
+<div class="demo">
+  <strong>Prototype client</strong>
+  <span class="seg" role="group" aria-label="Situation">
+    <button type="button" data-sc="retour" aria-pressed="true">Bureau habituel</button>
+    <button type="button" data-sc="grand">Grand siège (24 imprimantes)</button>
+    <button type="button" data-sc="nouveau">Nouveau site</button>
+    <button type="button" data-sc="inconnu">Télétravail</button>
+    <button type="button" data-sc="horsligne">Serveur injoignable</button>
+  </span>
+  <span class="grow"></span>
+  <button type="button" class="small-btn" id="theme">Thème sombre</button>
+</div>
+
+<div class="desk">
+  <aside class="notes" aria-label="Notes de conception">
+    <h2>Page unique</h2>
+    <ul>
+      <li><b>Tout sur un écran</b> : vos imprimantes en haut, celles à ajouter en dessous, triées par ordre alphabétique. « Imprimer sur un autre site » est un simple lien tout en bas : il ouvre un volet par-dessus : on choisit le site, puis l'imprimante dans la liste de ce site. Les recherches ignorent les accents (« siege » trouve « Siège »). « Vos imprimantes sur d'autres sites » (replié) liste celles déjà ajoutées ailleurs, pour faire le ménage.</li>
+      <li><b>Grand site</b> (situation « Grand siège ») : au-delà de 6 imprimantes, « Ajouter une imprimante » est replié ; déplié, un champ filtre la liste alphabétique par nom, bureau ou n° d'étiquette (code inventaire, déjà envoyé par le serveur). Aucune modification du serveur.</li>
+      
+      <li><b>Chaque action se fait sur la ligne</b> : cocher (imprimante par défaut), « Ajouter », corbeille (retirer). Retirer laisse la ligne barrée avec « Annuler » : une erreur se corrige sans changer d'écran.</li>
+      <li><b>Aucune bulle</b> pour ce qu'on vient de faire : le résultat se voit sur la ligne. Seul le changement de site est annoncé par Windows, panneau fermé.</li>
+      <li><b>Les autres sites</b> sont repliés en bas, avec « Tout retirer » : le ménage est là, sans interrompre.</li>
+      <li><b>Réglages</b> : la roue en haut ouvre un petit volet par-dessus, retour par la flèche.</li>
+      <li>Cliquez sur l'icône près de l'horloge pour ouvrir ou fermer le panneau.</li>
+    </ul>
+  </aside>
+
+  <section class="panel" id="panel" role="dialog" aria-label="Autoprint" hidden>
+    <header class="head" id="head"></header>
+    <div class="body" id="body"></div>
+    <div class="sheet" id="sheet" hidden></div>
+  </section>
+
+  <div class="wnotif" id="wnotif" role="status" hidden></div>
+
+  <div class="taskbar">
+    <button class="tray-btn" type="button" id="tray" aria-expanded="false" aria-controls="panel" aria-label="Autoprint"><svg><use href="#i-logo"/></svg><span class="dot" id="traydot"></span></button>
+    <div class="clock"><div>14:32</div><div>11/11/2026</div></div>
+  </div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var root = document.documentElement;
+  function isDark() { var t = root.getAttribute('data-theme'); return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+  function syncTheme() { $('theme').textContent = isDark() ? 'Thème clair' : 'Thème sombre'; }
+  $('theme').onclick = function () { root.setAttribute('data-theme', isDark() ? 'light' : 'dark'); syncTheme(); };
+  syncTheme();
+
+  // ---------- Données d'exemple (seulement ce que le serveur envoie déjà : nom, emplacement, code inventaire) ----------
+  var SITES = {
+    siege: { nom: 'Siège', printers: [
+      { id: 1, nom: 'Accueil', ou: 'Rez-de-chaussée, accueil', code: 'P0001' },
+      { id: 2, nom: 'Compta', ou: '1er étage, bureau 112', code: 'P0002' },
+      { id: 3, nom: 'Direction', ou: '2e étage, près de l\'ascenseur', code: 'P0003' },
+      { id: 4, nom: 'Salle de repro', ou: 'Sous-sol, repro', code: 'P0004' }
+    ] },
+    lyon: { nom: 'Lyon, Part-Dieu', printers: [
+      { id: 11, nom: 'Open space', ou: '3e étage, open space nord', code: 'P0011' },
+      { id: 12, nom: 'Salle de réunion', ou: '3e étage, salle Rhône', code: 'P0012' }
+    ] },
+    grand: { nom: 'Siège, tour B', printers: [] }
+  };
+  // Grand site : 24 imprimantes (une par bureau)
+  ['Accueil', 'Compta', 'RH', 'Juridique', 'Achats', 'Direction', 'Informatique', 'Marketing', 'Communication', 'Paie', 'Logistique', 'Qualité',
+   'Commercial', 'Contrôle de gestion', 'Archives', 'Salle de repro', 'Formation', 'Standard', 'Sécurité', 'Facturation', 'Recouvrement', 'Relation client', 'Études', 'Projets']
+    .forEach(function (n, i) { SITES.grand.printers.push({ id: 100 + i, nom: n, ou: (Math.floor(i / 6) + 1) + 'e étage, bureau ' + (Math.floor(i / 6) + 1) + String(10 + i % 6), code: 'P' + String(200 + i).padStart(4, '0') }); });
+  // Quelques autres lieux, pour la liste des sites
+  [['bordeaux', 'Bordeaux, Mériadeck'], ['lille', 'Lille, Euralille'], ['marseille', 'Marseille, Joliette'], ['nantes', 'Nantes, île de Nantes'], ['rennes', 'Rennes, Cesson'], ['toulouse', 'Toulouse, Blagnac']]
+    .forEach(function (x, j) { SITES[x[0]] = { nom: x[1], printers: ['Accueil', 'Direction', 'Open space'].slice(0, 2 + j % 2).map(function (n, i) { return { id: 300 + j * 10 + i, nom: n, ou: (i ? '1er étage' : 'Rez-de-chaussée') + ', ' + n.toLowerCase(), code: 'P' + String(300 + j * 10 + i).padStart(4, '0') }; }) }; });
+  for (var k0 in SITES) SITES[k0].printers.sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); });
+
+  function find(id) { for (var k in SITES) { var p = SITES[k].printers.find(function (x) { return x.id === id; }); if (p) return { p: p, site: k }; } return null; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var SHORT = 6; // au-delà, la liste à ajouter est repliée et se filtre
+
+  var st;
+  function reset(sc) {
+    st = { sc: sc, busy: null, gone: [], flash: null, q: '', q2: '', q3: '', pickSite: null, addOpen: false, elsewhere: false, others: false, settings: false, it: false, clicks: 0,
+      installed: [1, 2, 11, 12], defaults: { siege: 1, lyon: 11 }, opts: { auto: true, notif: true, start: true } };
+    if (sc === 'nouveau') { st.installed = [1, 2]; st.defaults = { siege: 1 }; }
+    if (sc === 'grand') { st.installed = [1, 105, 109]; st.defaults = { siege: 1, grand: 105 }; }
+    $('panel').hidden = true; $('tray').setAttribute('aria-expanded', 'false');
+    if (sc === 'retour') notif('Vous êtes au Siège', 'Vos documents partent sur Accueil');
+    else if (sc === 'grand') notif('Vous êtes au Siège, tour B', 'Vos documents partent sur Direction');
+    else if (sc === 'nouveau') notif('Vous êtes à Lyon, Part-Dieu', 'Cliquez pour choisir une imprimante sur ce site');
+    else $('wnotif').hidden = true;
+    render();
+  }
+  function site() { return { retour: 'siege', horsligne: 'siege', nouveau: 'lyon', grand: 'grand' }[st.sc] || null; }
+  function offline() { return st.sc === 'horsligne'; }
+  function isMine(id) { return st.installed.indexOf(id) >= 0 || st.gone.indexOf(id) >= 0; }
+  function sub(p, s, showSite) { return esc(p.ou) + (showSite ? ' · ' + esc(SITES[s].nom) : ''); }
+
+  function rowMine(p, s) {
+    if (st.gone.indexOf(p.id) >= 0) return '<div class="row gone"><div class="txt"><div class="nm">' + esc(p.nom) + '</div><div class="sub">Retirée</div></div><button class="undo" data-undo="' + p.id + '">Annuler</button></div>';
+    var on = st.defaults[s] === p.id;
+    return '<div class="row pick' + (on ? ' def' : '') + (on && st.flash === p.id ? ' flash' : '') + '" data-pick="' + p.id + '">' +
+      '<button type="button" class="radio' + (on ? ' on' : '') + '" role="radio" aria-checked="' + on + '" aria-label="Imprimer sur ' + esc(p.nom) + '" data-pick="' + p.id + '"></button>' +
+      '<div class="txt"><div class="nm">' + esc(p.nom) + '</div><div class="sub">' + sub(p, s) + '</div></div>' +
+      (on ? '<span class="tag-def">Par défaut</span>' : '') +
+      '<button type="button" class="rm" data-rm="' + p.id + '" title="Retirer ' + esc(p.nom) + '" aria-label="Retirer ' + esc(p.nom) + '"><svg><use href="#i-trash"/></svg></button></div>';
+  }
+  function rowAdd(p, s, showSite) {
+    var b = st.busy === p.id ? '<button class="add" disabled><span class="spinner"></span>Ajout</button>'
+      : '<button class="add" data-add="' + p.id + '"' + (offline() ? ' disabled title="Serveur injoignable"' : '') + '><svg><use href="#i-plus"/></svg>Ajouter</button>';
+    return '<div class="row"><div class="txt"><div class="nm">' + esc(p.nom) + '</div><div class="sub">' + sub(p, s, showSite) + '</div></div>' + b + '</div>';
+  }
+  function rowAlready(p, s) { return '<div class="row"><div class="txt"><div class="nm">' + esc(p.nom) + '</div><div class="sub">' + sub(p, s, true) + '</div></div><span style="font-size:12px;color:var(--success)">Déjà ajoutée</span></div>'; }
+  // « siege » trouve « Siège » : comparaison sans accents ni majuscules
+  function norm(x) { return String(x).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function match(p, s, q) { return norm(p.nom + ' ' + p.ou + ' ' + p.code).indexOf(q) >= 0; }
+
+  // Un seul champ : filtre la liste du site et cherche aussi sur les autres sites (« imprimer ailleurs »)
+  function searchField(ph, k) {
+    var v = st[k];
+    return '<label class="search"><svg><use href="#i-search"/></svg><input id="' + k + '" placeholder="' + ph + '" value="' + esc(v) + '" aria-label="' + ph + '">' + (v ? '<button class="clear" data-clearq="' + k + '" aria-label="Effacer"><svg><use href="#i-x"/></svg></button>' : '') + '</label>';
+  }
+  function closeBtn(k, l) { return '<button class="icon-btn sm" data-' + k + '="1" title="' + l + '" aria-label="' + l + '"><svg><use href="#i-x"/></svg></button>'; }
+  function resultsHere(s) {
+    var q = norm(st.q.trim());
+    var here = SITES[s].printers.filter(function (p) { return !isMine(p.id) && (!q || match(p, s, q)); });
+    return here.length ? here.map(function (p) { return rowAdd(p, s, false); }).join('') : '<div class="hint">Aucune imprimante de ce site ne correspond.</div>';
+  }
+  function bindInputs() {
+    ['q', 'q2', 'q3'].forEach(function (k) { var qi = $(k); if (qi && !qi._b) { qi._b = 1; qi.oninput = function () { st[k] = qi.value; var pos = qi.selectionStart; render(); var n = $(k); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; } });
+  }
+  function sheetHead(title, back, close) {
+    return '<header class="head"><button class="icon-btn" data-' + back + '="1" aria-label="Retour"><svg><use href="#i-back"/></svg></button><div class="site"><div class="v">' + esc(title) + '</div></div>' +
+      (close ? '<button class="icon-btn" data-' + close + '="1" aria-label="Fermer"><svg><use href="#i-x"/></svg></button>' : '') + '</header>';
+  }
+  // Volet « imprimer sur un autre site » : 1) choisir le site  2) choisir l'imprimante
+  function renderElsewhere(el) {
+    var cur = site(), ps = st.pickSite, h;
+    if (!ps) {
+      var q = norm(st.q2.trim());
+      var list = Object.keys(SITES).filter(function (k) { return k !== cur && (!q || norm(SITES[k].nom).indexOf(q) >= 0); })
+        .sort(function (a, b) { return SITES[a].nom.localeCompare(SITES[b].nom, 'fr'); });
+      h = sheetHead('Choisir un site', 'elseclose', null) + '<div class="body">' + searchField('Nom du site', 'q2') +
+        (list.length ? list.map(function (k) { var n = SITES[k].printers.length; return '<button type="button" class="row site-row" data-site="' + k + '"><div class="txt"><div class="nm">' + esc(SITES[k].nom) + '</div><div class="sub">' + n + ' imprimante' + (n > 1 ? 's' : '') + '</div></div><svg class="chev"><use href="#i-chev"/></svg></button>'; }).join('')
+          : '<div class="hint">Aucun site ne correspond.</div>') + '</div>';
+    } else {
+      var q3 = norm(st.q3.trim());
+      var pr = SITES[ps].printers.filter(function (p) { return !q3 || match(p, ps, q3); });
+      h = sheetHead(SITES[ps].nom, 'sback', 'elseclose') + '<div class="body">' + (SITES[ps].printers.length > SHORT ? searchField('Nom, bureau ou n° d\'étiquette', 'q3') : '') +
+        (pr.length ? pr.map(function (p) { return isMine(p.id) ? '<div class="row"><div class="txt"><div class="nm">' + esc(p.nom) + '</div><div class="sub">' + esc(p.ou) + '</div></div><span style="font-size:12px;color:var(--success)">Déjà ajoutée</span></div>' : rowAdd(p, ps, false); }).join('')
+          : '<div class="hint">Aucune imprimante ne correspond.</div>') + '</div>';
+    }
+    el.innerHTML = h;
+  }
+
+  function render() {
+    var s = site();
+    $('head').innerHTML = '<span class="pin"><svg><use href="#i-pin"/></svg></span><div class="site"><div class="k"><span class="state' + (offline() ? ' off' : '') + '"></span>' + (offline() ? 'Serveur injoignable' : s ? 'Vous êtes à' : 'Hors des sites') + '</div><div class="v">' + (s ? esc(SITES[s].nom) : 'Télétravail ou réseau inconnu') + '</div></div>' +
+      '<button class="icon-btn" data-settings="1" title="Réglages" aria-label="Réglages"><svg><use href="#i-gear"/></svg></button>' +
+      '<button class="icon-btn" data-close="1" title="Fermer" aria-label="Fermer"><svg><use href="#i-x"/></svg></button>';
+    var h = '';
+    if (offline()) h += '<div class="note"><svg><use href="#i-warn"/></svg><div>Vos imprimantes fonctionnent. <span>Pour en ajouter, connectez-vous au réseau de l\'entreprise ou au VPN.</span></div></div>';
+
+    if (s) {
+      var mine = SITES[s].printers.filter(function (p) { return isMine(p.id); });
+      var rest = SITES[s].printers.filter(function (p) { return !isMine(p.id); });
+      h += '<div class="grp">Vos imprimantes</div>';
+      if (mine.length) {
+        if (!st.defaults[s] || st.gone.indexOf(st.defaults[s]) >= 0) h += '<div class="hint warn">Cochez celle qui imprime vos documents</div>';
+        h += '<div role="radiogroup" aria-label="Imprimante par défaut">' + mine.map(function (p) { return rowMine(p, s); }).join('') + '</div>';
+      } else h += '<div class="hint">Ajoutez la plus proche de vous : elle imprimera vos documents à chaque passage.</div>';
+
+      if (rest.length > SHORT) {
+        // Grand site : repliée par défaut ; dépliée, filtre en haut puis liste alphabétique
+        if (!st.addOpen) h += '<button class="more" data-addopen="1"><svg><use href="#i-plus"/></svg>Ajouter une imprimante<span class="n">' + rest.length + '</span></button>';
+        else h += '<div class="grp">Ajouter une imprimante <span class="n">' + rest.length + '</span><span class="grow"></span>' + closeBtn('addclose', 'Replier') + '</div>' + searchField('Nom, bureau ou n° sur l\'étiquette', 'q') + resultsHere(s);
+      } else if (rest.length) {
+        h += '<div class="grp">Ajouter sur ce site</div>' + rest.map(function (p) { return rowAdd(p, s, false); }).join('');
+      }
+    } else {
+      h += '<div class="hint" style="padding-top:8px">Vous n\'êtes sur le réseau d\'aucun site. Vos imprimantes reviennent quand vous y retournez. Depuis chez vous, connectez le VPN puis cherchez une imprimante.</div>';
+      h += '<button class="more" data-elsewhere="1"><svg><use href="#i-plus"/></svg>Choisir un site et une imprimante</button>';
+    }
+
+    // Imprimantes ajoutées sur d'autres sites : repliées, avec le ménage à portée de main
+    var other = st.installed.filter(function (id) { var f = find(id); return f && f.site !== s; });
+    if (other.length) {
+      h += '<div style="display:flex;align-items:center"><button class="fold" data-fold="1" aria-expanded="' + st.others + '"><svg><use href="#i-chev"/></svg>Vos imprimantes sur d\'autres sites <span style="font-weight:400">' + other.length + '</span></button>' + (st.others ? '<button class="link" data-cleanall="1" style="flex:none;margin-top:6px">Tout retirer</button>' : '') + '</div>';
+      if (st.others) h += other.map(function (id) { var f = find(id); return '<div class="row"><div class="txt"><div class="nm">' + esc(f.p.nom) + '</div><div class="sub">' + esc(SITES[f.site].nom) + (st.defaults[f.site] === id ? ' · par défaut sur ce site' : '') + '</div></div><button type="button" class="rm" data-rm="' + id + '" aria-label="Retirer ' + esc(f.p.nom) + '"><svg><use href="#i-trash"/></svg></button></div>'; }).join('');
+    }
+    // Tout en bas : ouvre le volet « autre site »
+    if (s) h += '<button class="link" data-elsewhere="1" style="align-self:flex-start;margin:6px 2px 0">Imprimer sur un autre site</button>';
+    $('body').innerHTML = h;
+    bindInputs();
+    renderSheet();
+    document.querySelectorAll('.seg button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.sc === st.sc ? 'true' : 'false'); });
+    $('traydot').style.background = offline() ? 'var(--warning)' : 'transparent';
+  }
+
+  function renderSheet() {
+    var el = $('sheet'); el.hidden = !st.settings && !st.elsewhere;
+    if (!st.settings) { if (st.elsewhere) { renderElsewhere(el); bindInputs(); } return; }
+    function sw(k, t, d) { return '<div class="set"><div class="txt"><div class="t">' + t + '</div><div class="d">' + d + '</div></div><label class="switch"><input type="checkbox" data-opt="' + k + '"' + (st.opts[k] ? ' checked' : '') + ' aria-label="' + t + '"><span></span></label></div>'; }
+    el.innerHTML = '<header class="head"><button class="icon-btn" data-back="1" aria-label="Retour"><svg><use href="#i-back"/></svg></button><div class="site"><div class="v">Réglages</div></div></header><div class="body">' +
+      sw('auto', 'Imprimante selon le site', 'L\'imprimante cochée suit le site où vous êtes') +
+      sw('notif', 'Annoncer le changement de site', 'Une notification Windows, panneau fermé') +
+      sw('start', 'Démarrer avec Windows', 'Autoprint reste près de l\'horloge') +
+      '<button class="win" data-win="1"><svg><use href="#i-ext"/></svg>Imprimantes et scanners de Windows</button>' +
+      '<div class="ver" id="ver">Autoprint 26.11</div>' +
+      (st.it ? '<div class="it"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-weight:600">Zone informatique</strong><button class="link" data-itclose="1">Fermer</button></div><div><div class="k">Serveur</div><div class="v">https://impression.mondomaine.fr</div></div><div><div class="k">Clé d\'API</div><div class="v">●●●●●●●●●●●●</div></div></div>' : '') + '</div>';
+    $('ver').onclick = function () { if (++st.clicks >= 5) { st.it = true; st.clicks = 0; renderSheet(); } };
+  }
+
+  function notif(t, d) {
+    var el = $('wnotif');
+    el.innerHTML = '<div style="flex:1;min-width:0"><div class="app"><svg><use href="#i-logo"/></svg>Autoprint</div><div class="t">' + esc(t) + '</div><div class="d">' + esc(d) + '</div></div><button class="icon-btn" data-nx="1" aria-label="Fermer la notification"><svg><use href="#i-x"/></svg></button>';
+    el.hidden = false; clearTimeout(el._t); el._t = setTimeout(function () { el.hidden = true; }, 7000);
+  }
+  function openPanel(open) {
+    $('panel').hidden = !open; $('tray').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { $('wnotif').hidden = true; return; }
+    st.gone.forEach(function (id) { var f = find(id); if (st.defaults[f.site] === id) delete st.defaults[f.site]; });
+    st.gone = []; st.settings = false; st.q = ''; st.q2 = ''; st.q3 = ''; st.pickSite = null; st.addOpen = false; st.elsewhere = false; render();
+  }
+  function setDefault(id) { var f = find(id); if (st.defaults[f.site] === id) return; st.defaults[f.site] = id; st.flash = id; render(); st.flash = null; }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-pick],[data-add],[data-rm],[data-undo],[data-fold],[data-cleanall],[data-clearq],[data-settings],[data-back],[data-close],[data-win],[data-itclose],[data-nx],[data-sc],[data-addopen],[data-addclose],[data-elsewhere],[data-elseclose],[data-site],[data-sback],#wnotif');
+    if (!t) return;
+    var d = t.dataset;
+    if (d.sc) return reset(d.sc);
+    if (d.nx) { e.stopPropagation(); $('wnotif').hidden = true; return; }
+    if (t.id === 'wnotif') return openPanel(true);
+    if (d.cleanall) { var s0 = site(); var gone = st.installed.filter(function (id) { return find(id).site !== s0; }); st.installed = st.installed.filter(function (id) { return find(id).site === s0; }); gone.forEach(function (id) { delete st.defaults[find(id).site]; }); st.others = false; return render(); }
+    if (d.rm) { var id = +d.rm, f = find(id); st.installed = st.installed.filter(function (x) { return x !== id; }); if (f.site === site()) st.gone.push(id); else if (st.defaults[f.site] === id) delete st.defaults[f.site]; return render(); }
+    if (d.undo) { var u = +d.undo; st.gone = st.gone.filter(function (x) { return x !== u; }); st.installed.push(u); return render(); }
+    if (d.pick) return setDefault(+d.pick);
+    if (d.add) {
+      var a = +d.add; st.busy = a; render();
+      setTimeout(function () { st.busy = null; st.installed.push(a); var fa = find(a); if (!st.defaults[fa.site]) { st.defaults[fa.site] = a; st.flash = a; } render(); st.flash = null; }, 1300);
+      return;
+    }
+    if (d.addopen) { st.addOpen = true; render(); var q1 = $('q'); if (q1) q1.focus(); return; }
+    if (d.addclose) { st.addOpen = false; st.q = ''; return render(); }
+    if (d.elsewhere) { st.elsewhere = true; render(); var q2 = $('q2'); if (q2) q2.focus(); return; }
+    if (d.elseclose) { st.elsewhere = false; st.q2 = ''; st.q3 = ''; st.pickSite = null; return render(); }
+    if (d.site) { st.pickSite = d.site; st.q3 = ''; render(); var q4 = $('q3'); if (q4) q4.focus(); return; }
+    if (d.sback) { st.pickSite = null; st.q3 = ''; render(); var q5 = $('q2'); if (q5) q5.focus(); return; }
+    if (d.fold) { st.others = !st.others; return render(); }
+    if (d.clearq) { st[d.clearq] = ''; render(); var q3 = $(d.clearq); if (q3) q3.focus(); return; }
+    if (d.settings) { st.settings = true; return renderSheet(); }
+    if (d.back) { st.settings = false; return renderSheet(); }
+    if (d.itclose) { st.it = false; return renderSheet(); }
+    if (d.close) return openPanel(false);
+  });
+  document.addEventListener('change', function (e) { var i = e.target; if (i.dataset && i.dataset.opt) st.opts[i.dataset.opt] = i.checked; });
+  $('tray').onclick = function () { openPanel($('panel').hidden); };
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('panel').hidden) { if (st.settings) { st.settings = false; renderSheet(); } else if (st.elsewhere) { if (st.pickSite) st.pickSite = null; else st.elsewhere = false; render(); } else openPanel(false); } });
+
+  reset('retour');
+})();
+</script>
