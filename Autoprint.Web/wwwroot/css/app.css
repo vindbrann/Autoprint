@@ -135,6 +135,20 @@ code {
 .ap-shell.is-collapsed .ap-side-foot { flex-direction: column; padding-inline: 0; }
 .ap-shell.is-collapsed .ap-who { flex: none; }
 
-/* Contenu de page : marges de la charte */
-.ap-page { padding: var(--ap-s5) var(--ap-s6) var(--ap-s6); }
-@media (max-width: 1024px) { .ap-page { padding: var(--ap-s4); } }
+
+/* ---------- Compléments à la charte : classes de la feuille des maquettes absentes de autoprint-theme.css ---------- */
+.ap-card { background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); }
+.ap-card-head { display: flex; align-items: center; gap: var(--ap-s3); padding: var(--ap-s4) 20px 0; }
+.ap-card-head h2 { margin: 0; font-size: 15px; font-weight: 500; }
+.ap-card-body { padding: var(--ap-s4) 20px 20px; }
+.ap-link { color: var(--ap-link); text-decoration: none; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.ap-link:hover { text-decoration: underline; }
+.ap-link .rzi { font-size: 16px; }
+.ap-dash-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--ap-s4); margin-top: var(--ap-s4); }
+.ap-total { display: flex; align-items: baseline; gap: var(--ap-s2); margin-bottom: var(--ap-s3); }
+.ap-total b { font-size: var(--ap-fs-h1); font-weight: 500; line-height: 1; }
+.ap-total span { color: var(--ap-text-muted); font-size: 13px; }
+.ap-kpi-card.is-link { cursor: pointer; transition: border-color var(--ap-fast) var(--ap-ease); }
+.ap-kpi-card.is-link:hover { border-color: var(--ap-border-strong); }
+@media (max-width: 1100px) { .ap-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ap-dash-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .ap-kpis { grid-template-columns: minmax(0, 1fr); } }
