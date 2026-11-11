@@ -565,7 +565,7 @@ else
             SnmpCredentialId = imp.SnmpCredentialId
         };
 
-        var title = imp.Id == 0 ? "➕ Nouvelle Imprimante" : "✏️ Modifier Imprimante";
+        var title = imp.Id == 0 ? "Nouvelle imprimante" : "Modifier l'imprimante";
         var result = await DialogService.OpenAsync<ImprimanteModal>(title,
             new Dictionary<string, object?> { { "ImprimanteToEdit", impClone } },
             new DialogOptions() { Width = "900px", CloseDialogOnOverlayClick = true }
@@ -578,7 +578,7 @@ else
 
     private async Task OuvrirDiagnosticModal(Imprimante imp)
     {
-        await DialogService.OpenAsync<PrinterDiagnosticModal>($"🩺 Diagnostic en Temps Réel : {imp.NomAffiche}",
+        await DialogService.OpenAsync<PrinterDiagnosticModal>($"Diagnostic : {imp.NomAffiche}",
             new Dictionary<string, object?> { { "Imprimante", imp } },
             new DialogOptions() { Width = "750px", CloseDialogOnOverlayClick = true }
         );

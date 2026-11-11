@@ -11,23 +11,22 @@
 @inject CustomAuthStateProvider AuthProvider
 @inject IJSRuntime JS
 
-<PageTitle>Gestion des Modèles</PageTitle>
+<PageTitle>Modèles</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        📄 Gestion des Modèles
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Modèles</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(modeles == null || !modeles.Any())" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(modeles == null || !modeles.Any())" />
 
         <AuthorizeView Policy="MODEL_WRITE">
             <Authorized>
-                <RadzenButton Icon="add_circle" Text="Nouveau Modèle" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Modele()))" />
+                <RadzenButton Icon="add" Text="Nouveau modèle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new Modele()))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (messageErreur != null)
 {
@@ -41,7 +40,7 @@ else if (isLoading)
 }
 else
 {
-    <RadzenDataGrid Data="@modeles" TItem="Modele"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@modeles" TItem="Modele"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="300px"
@@ -115,7 +114,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {

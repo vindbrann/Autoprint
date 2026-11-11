@@ -1,4 +1,4 @@
-@page "/reports"
+﻿@page "/reports"
 @using Autoprint.Shared
 @using Autoprint.Web.Services
 @using Radzen
@@ -8,14 +8,13 @@
 @inject NotificationService NotificationService
 @inject CustomAuthStateProvider AuthProvider
 
-<PageTitle>Rapports d'Activité</PageTitle>
+<PageTitle>Rapports et planification</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        📊 Rapports & Planification
-    </RadzenText>
-    <RadzenButton Icon="add_circle" Text="Planifier un Rapport" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new ReportSchedule()))" title="Planifier un nouveau rapport" />
-</RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Rapports et planification</h1></div>
+    <span class="ap-grow"></span>
+    <RadzenButton Icon="add" Text="Planifier un rapport" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new ReportSchedule()))" title="Planifier un nouveau rapport" />
+</div>
 
 <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);" Class="rz-mb-4">
     Configurez des rapports réguliers contenant les métriques de votre choix (compteur de pages, niveaux de toner, taux de disponibilité, etc.) envoyés automatiquement par courriel à vos équipes au format PDF ou CSV.
@@ -28,12 +27,12 @@
 else if (!schedules.Any())
 {
     <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
-        Aucun rapport planifié. Cliquez sur "Planifier un Rapport" ci-dessus pour démarrer.
+        Aucun rapport planifié. Cliquez sur « Planifier un rapport » ci-dessus pour démarrer.
     </RadzenAlert>
 }
 else
 {
-    <RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
         <Columns>
             <RadzenDataGridColumn TItem="ReportSchedule" Property="ReportName" Title="Nom du Rapport" />
             <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px">
@@ -87,7 +86,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {

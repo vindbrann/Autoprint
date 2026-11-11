@@ -1,4 +1,4 @@
-@page "/login"
+﻿@page "/login"
 @layout Autoprint.Web.Layout.EmptyLayout
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
@@ -14,14 +14,16 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--rz-base-background-color);">
+@* Charte B77, maquette « Connexion » : carte centrée sur le fond de page *@
+<main class="ap-login">
 
-    <RadzenCard Style="width: 100%; max-width: 450px; padding: 2rem; border-radius: var(--rz-border-radius);" Variant="Variant.Outlined">
+    <div class="ap-login-card">
 
-        <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-4">
-            <RadzenImage Path="images/autoprint-symbole.svg" Style="height: 56px; width: auto; margin-bottom: 0.5rem;" AlternateText="Logo Autoprint" />
-            <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" Style="margin: 0; color: var(--rz-text-title-color);">Autoprint Serveur</RadzenText>
-        </RadzenStack>
+        <div class="ap-login-brand"><img src="images/autoprint-symbole.svg" alt="" />Autoprint</div>
+        <div>
+            <h1 class="ap-login-title">@(forgotPasswordMode ? "Mot de passe oublié" : "Connexion")</h1>
+            <p class="ap-login-lead">Console d'administration du serveur d'impression</p>
+        </div>
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
         {
@@ -48,39 +50,29 @@
                         <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="true" />
                     </div>
 
-                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" AlignItems="AlignItems.Center">
-                        <RadzenButton Text="Mot de passe oublié"
-                                      ButtonStyle="ButtonStyle.Base"
-                                      Variant="Variant.Text"
-                                      Size="ButtonSize.Small"
-                                      Style="color: var(--rz-primary); font-weight: bold;"
-                                      Click="@(() => forgotPasswordMode = true)" />
-                    </RadzenStack>
+                    <a class="ap-link" style="align-self: flex-end;" href="javascript:void(0)" @onclick="@(() => forgotPasswordMode = true)" @onclick:preventDefault>Mot de passe oublié</a>
 
-                    <RadzenButton ButtonType="ButtonType.Submit" Text="SE CONNECTER" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" IsBusy="@isBusy" Class="rz-mt-2" />
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="Se connecter" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" IsBusy="@isBusy" Style="width: 100%;" />
 
                 </RadzenStack>
             </RadzenTemplateForm>
         }
         else
         {
-            <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-4">
-                <RadzenText TextStyle="TextStyle.H6" TextAlign="TextAlign.Center" Style="color: var(--rz-text-title-color);">Récupération de compte</RadzenText>
-                <RadzenText TextStyle="TextStyle.Body2" TextAlign="TextAlign.Center" Style="color: var(--rz-text-secondary-color);">
-                    Entrez votre identifiant ou email. Si le compte existe, vous recevrez un lien temporaire.
-                </RadzenText>
-            </RadzenStack>
+            <p class="ap-help" style="margin: 0;">Entrez votre identifiant ou votre adresse e-mail. Si le compte existe, vous recevrez un lien temporaire.</p>
 
-            <RadzenTextBox @bind-Value="forgotEmailOrUser" Placeholder="Email ou Identifiant" Style="width: 100%; margin-bottom: 1rem;" />
+            <RadzenTextBox @bind-Value="forgotEmailOrUser" Placeholder="Identifiant ou adresse e-mail" Style="width: 100%; margin-bottom: 1rem;" />
 
             <RadzenStack Gap="0.5rem">
                 <RadzenButton Text="Envoyer la demande" ButtonStyle="ButtonStyle.Primary" Click="@HandleForgotPassword" IsBusy="@isBusy" />
-                <RadzenButton Text="Retour à la connexion" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Click="@(() => forgotPasswordMode = false)" />
+                <RadzenButton Text="Retour à la connexion" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => forgotPasswordMode = false)" />
             </RadzenStack>
         }
 
-    </RadzenCard>
-</div>
+    </div>
+
+    <div class="ap-login-foot"><RadzenIcon Icon="lock" Style="font-size: 16px;" />Compte local ou Active Directory</div>
+</main>
 
 @code {
     private LoginRequest loginRequest = new LoginRequest();

@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Radzen
 @using Radzen.Blazor
@@ -126,13 +126,13 @@
                                     @if (testRes.Success)
                                     {
                                         <span style="font-weight: 600; color: var(--rz-success); font-family: monospace; font-size: 0.9rem;">
-                                            ✓ @testRes.Value
+                                            <RadzenIcon Icon="check_circle" Style="font-size: 16px; vertical-align: middle;" /> @testRes.Value
                                         </span>
                                     }
                                     else
                                     {
                                         <span style="font-weight: 600; color: var(--rz-danger); font-family: monospace; font-size: 0.85rem;">
-                                            ⚠️ @testRes.Value
+                                            <RadzenIcon Icon="warning" Style="font-size: 16px; vertical-align: middle;" /> @testRes.Value
                                         </span>
                                     }
                                 }
@@ -550,7 +550,7 @@
             SortOrder = profileEdit.Items.Count + 1
         };
 
-        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Ajouter un Champ OID",
+        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("Ajouter un champ OID",
             new Dictionary<string, object?>
             {
                 { "ItemToEdit", item },
@@ -583,7 +583,7 @@
             SortOrder = item.SortOrder
         };
 
-        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("⚙️ Modifier le Champ OID",
+        var result = await DialogService.OpenAsync<SnmpProfileItemModal>("Modifier le champ OID",
             new Dictionary<string, object?>
             {
                 { "ItemToEdit", itemCopy },

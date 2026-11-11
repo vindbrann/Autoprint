@@ -1,4 +1,4 @@
-@page "/snmp-profiles"
+﻿@page "/snmp-profiles"
 @using Autoprint.Shared
 @using Autoprint.Web.Services
 @using Radzen
@@ -12,22 +12,19 @@
 
 <PageTitle>Profils SNMP</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-            🔌 Profils SNMP
-        </RadzenText>
-    </RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Profils SNMP</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
         <InputFile id="fileImport" OnChange="@ImporterFichierJson" style="display: none;" accept=".json" />
         @if (canWrite)
         {
-            <RadzenButton Icon="file_upload" Text="Importer Profil" ButtonStyle="ButtonStyle.Secondary" Click="@TriggerFileInput" />
-            <RadzenButton Icon="add_circle" Text="Nouveau Profil" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new SnmpProfile()))" />
+            <RadzenButton Icon="file_upload" Text="Importer un profil" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@TriggerFileInput" />
+            <RadzenButton Icon="add" Text="Nouveau profil" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new SnmpProfile()))" />
         }
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (messageErreur != null)
 {
@@ -45,7 +42,7 @@ else
         Gérez les profils d'OIDs SNMP spécifiques pour les modèles d'imprimantes particuliers qui ne répondent pas aux OIDs standards.
     </RadzenText>
 
-    <RadzenDataGrid Data="@profiles" TItem="SnmpProfile"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@profiles" TItem="SnmpProfile"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="250px">
@@ -82,7 +79,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {

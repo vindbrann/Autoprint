@@ -22,9 +22,9 @@
 
         <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="width: 100%;">
             <RadzenStack Gap="0.5rem">
-                <div>➕ <strong>@result.Added</strong> ajoutés</div>
-                <div>🔄 <strong>@result.Updated</strong> mis à jour</div>
-                <div>❌ <strong>@result.Deleted</strong> nettoyés</div>
+                <div><RadzenIcon Icon="add" Style="font-size: 16px; vertical-align: middle; color: var(--ap-success);" /> <strong>@result.Added</strong> ajoutés</div>
+                <div><RadzenIcon Icon="sync" Style="font-size: 16px; vertical-align: middle; color: var(--ap-info);" /> <strong>@result.Updated</strong> mis à jour</div>
+                <div><RadzenIcon Icon="delete" Style="font-size: 16px; vertical-align: middle; color: var(--ap-danger);" /> <strong>@result.Deleted</strong> nettoyés</div>
             </RadzenStack>
         </RadzenCard>
 

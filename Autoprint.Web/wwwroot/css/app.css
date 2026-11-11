@@ -171,3 +171,9 @@ code {
 .ap-row-actions { display: inline-flex; align-items: center; gap: 2px; }
 .ap-busy-overlay { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ap-s2); background: color-mix(in srgb, var(--ap-surface) 88%, transparent); }
 .ap-selection { display: inline-flex; align-items: center; gap: var(--ap-s2); white-space: nowrap; }
+
+/* Connexion (maquette) : marque, titre, accroche */
+.ap-login-brand { display: flex; align-items: center; gap: var(--ap-s2); font-size: 17px; font-weight: 600; }
+.ap-login-brand img { width: 32px; height: 32px; }
+.ap-login-title { margin: 0; font-size: var(--ap-fs-h2); font-weight: 500; }
+.ap-login-lead { margin: 2px 0 0; color: var(--ap-text-secondary); }
