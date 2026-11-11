@@ -188,7 +188,7 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | P2-36 | ✅ | Clé agent depuis CLT-TEST : ni adresse IP, ni communauté SNMP, ni commentaire, ni numéro de série. |
 | Client (Intune simulé) | ✅ | MSI silencieux sous SYSTEM avec `PRINTSERVER` et `APIKEY` : code 0, registre renseigné, HTTPS vers le serveur OK. |
 | Journal MSI client | ⚠️ | Clé agent en clair dans `msiexec /l*v` (B54, partiellement corrigé). |
-| `\\srv-print\print$` depuis CLT-TEST | ✅ / à finir | Refusé sans identifiants, accessible avec un compte AD (cas Entra ID hybride, B55). Connexion à l'imprimante à valider sur un vrai poste Intune (impossible depuis une session à distance). |
+| `\\srv-print\print$` depuis CLT-TEST | ✅ / à finir | Refusé sans identifiants, accessible avec un compte AD. Connexion à l'imprimante à valider sur un vrai poste Intune (impossible depuis une session à distance). |
 
 | SC-05 à SC-07, P2-35 | ✅ | Rotation avec transition (ancienne et nouvelle clés acceptées), révocation immédiate (anciennes clés refusées), 91 jours refusé, audit `AGENT_KEY_ROTATE` et `AGENT_KEY_REVEAL`. **La clé affichée par erreur le 08/11 est révoquée** ; CLT-TEST a reçu une clé neuve jamais affichée. |
 | P3-08 à P3-13, NR-08, P2-40 | ✅ | Export sans secrets / protégé (`bkp:v1:`), mot de passe < 12 refusé, restauration refusée sans ou avec mauvais mot de passe sans rien modifier, restauration correcte : données, comptes locaux, rôle manuel AD, clé agent et mot de passe AD conservés. |
@@ -249,4 +249,3 @@ SRV-PRINT repartie de l'instantané « Labo configuré » ; SQL Server 2025 Expr
 | B72 | Corrigé en 26.11.8.2 | Clés de chiffrement perdues : restauration refusée (« mot de passe incorrect »), postes en erreur 500. |
 | B73 | Corrigé en 26.11.8.2 | Mise à jour sans droit SQL : script non copiable, échec de la mise à jour. |
 | B74 | Corrigé en 26.11.8.2 | Désinstallation : site IIS, pool et règle de pare-feu laissés en place. |
-| B55 | Pas un bug | Accès à `print$` par Kerberos en Entra ID hybride ; installation d'imprimante à valider sur un poste réel. |
