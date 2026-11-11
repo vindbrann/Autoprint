@@ -191,7 +191,12 @@ code {
 .ap-subnav-content > .rz-row.rz-p-2, .ap-subnav-content > .rz-stack.rz-p-2 { padding: 0 !important; }
 .ap-subnav-content hr { border: 0; border-top: 1px solid var(--ap-divider); opacity: 1; }
 .ap-set-row h3 .rzi { vertical-align: middle; }
-@media (max-width: 900px) { .ap-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); } }
+/* Menu latéral + menu des sections : sous 1280 px la colonne des réglages devenait trop étroite (boutons coupés, recette du 12/11) */
+@media (max-width: 1280px) { .ap-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); } }
+/* Réglage en pleine largeur (liste des noms acceptés) */
+.ap-set-row.is-stack { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); }
+.ap-set-row.is-stack .ap-ctrl { max-width: none; }
+.ap-chip.is-host { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 /* ---------- Modales (maquette « modales et nommage », retour de recette du 11/11) ----------
    Sections sans cadre (titre + filet), options en lignes de réglage, barre d'actions toujours visible. */
 .rz-dialog .rz-fieldset { border: 0; border-top: 1px solid var(--ap-divider); border-radius: 0; background: transparent; padding: var(--ap-s4) 0 var(--ap-s2); margin: 0; }

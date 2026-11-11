@@ -41,11 +41,21 @@ namespace Autoprint.Shared.DTOs
     {
         public string Cidr { get; set; } = string.Empty;
         public string? Description { get; set; }
+        // Absent des sauvegardes antérieures à 26.11.11 : le premier réseau du lieu redevient alors le réseau principal
+        public bool? IsPrimary { get; set; }
     }
 
     public class BackupMarqueDto { public int Id { get; set; } public string Nom { get; set; } = ""; }
     public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } public int? SnmpCredentialId { get; set; } }
-    public class BackupLieuDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string? Code { get; set; } public List<BackupNetworkDto> Networks { get; set; } = new(); }
+    public class BackupLieuDto
+    {
+        public int Id { get; set; }
+        public string Nom { get; set; } = "";
+        public string? Code { get; set; }
+        public List<BackupNetworkDto> Networks { get; set; } = new();
+        // Absent des sauvegardes antérieures à 26.11.11 : lieu restauré actif
+        public LieuStatus? Status { get; set; }
+    }
     public class BackupPiloteDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Version { get; set; } = ""; public bool EstInstalle { get; set; } }
 
     public class BackupSnmpProfileDto
