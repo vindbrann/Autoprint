@@ -1,41 +1,35 @@
-﻿@using Autoprint.Shared
+﻿@using Autoprint.Web.Services
+@using Autoprint.Shared
 @using Radzen
 @using Radzen.Blazor
 @inject HttpClient Http
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@* Maquette « modales » (retour de recette du 11/11) : champ unique, action principale nommée, barre d'actions fixe *@
 <RadzenTemplateForm TItem="Marque" Data="@marqueEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
-
-        <div>
-            <RadzenLabel Text="Nom de la marque" Component="Nom" Style="margin-bottom: 0.5rem;" />
-            <RadzenTextBox Name="Nom" @bind-Value="@marqueEdit.Nom" Style="width: 100%;" />
-            <RadzenRequiredValidator Component="Nom" Text="Le nom est obligatoire" Popup="true" />
+    <div class="ap-dlg">
+        <p class="ap-dlg-lead">Les modèles d'imprimantes sont rangés par marque.</p>
+        <div class="ap-field">
+            <RadzenLabel Text="Nom de la marque" Component="Nom" />
+            <RadzenTextBox Name="Nom" @bind-Value="@marqueEdit.Nom" Style="width: 100%;" Placeholder="Ricoh" />
+            <RadzenRequiredValidator Component="Nom" Text="Saisissez le nom de la marque" Popup="true" />
         </div>
 
-        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-
+        <div class="ap-dlg-footer">
             @if (marqueEdit.Id != 0)
             {
                 <AuthorizeView Policy="BRAND_DELETE">
                     <Authorized Context="authContext">
-                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Text" Text="Supprimer" Click="@OnDelete" />
                     </Authorized>
                 </AuthorizeView>
             }
-            else
-            {
-                <div></div>
-            }
-
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" ButtonStyle="ButtonStyle.Primary" />
-            </RadzenStack>
-
-        </RadzenStack>
-    </RadzenStack>
+            <span class="ap-grow"></span>
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="@(marqueEdit.Id == 0 ? "Créer la marque" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" />
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {
@@ -58,12 +52,12 @@
         {
             if (marqueEdit.Id == 0)
             {
-                await Http.PostAsJsonAsync("api/Marques", marqueEdit);
+                if (!await (await Http.PostAsJsonAsync("api/Marques", marqueEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque créée avec succès.");
             }
             else
             {
-                await Http.PutAsJsonAsync($"api/Marques/{marqueEdit.Id}", marqueEdit);
+                if (!await (await Http.PutAsJsonAsync($"api/Marques/{marqueEdit.Id}", marqueEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Marque mise à jour.");
             }
 
@@ -84,7 +78,7 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/Marques/{marqueEdit.Id}");
+                if (!await (await Http.DeleteAsync($"api/Marques/{marqueEdit.Id}")).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "La marque a été supprimée.");
                 DialogService.Close(true);
             }

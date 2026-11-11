@@ -7,111 +7,83 @@
 @inject NotificationService NotificationService
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
+@* Maquette « modales » (retour de recette du 11/11) : en-tête sans cadre, matrice des droits sans bandeaux superflus,
+   conséquence de l'enregistrement rappelée près du bouton *@
 <RadzenTemplateForm TItem="RoleEditDto" Data="@roleEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem" Style="height: 100%;">
-        @* Backlog B21 : conséquence de l'enregistrement sur les sessions *@
-        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
-            Enregistrer ce rôle ferme les sessions ouvertes de tous ses membres : ils devront se reconnecter pour obtenir leurs nouveaux droits.
-            Si vous êtes vous-même membre de ce rôle, vous serez déconnecté.
-        </RadzenAlert>
+    <div class="ap-dlg">
+        <div class="ap-dlg-group" style="padding-top: 0;">
+            <h3>Rôle</h3>
+            <div class="ap-dlg-grid" style="grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);">
+                <div class="ap-field">
+                    <RadzenLabel Text="Nom" Component="Name" />
+                    <RadzenTextBox Name="Name" @bind-Value="@roleEdit.Name" Style="width: 100%;" Disabled="@isSuperAdmin" Placeholder="Helpdesk" />
+                    <RadzenRequiredValidator Component="Name" Text="Saisissez le nom du rôle" Popup="true" />
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Component="Desc"><ChildContent>Description <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                    <RadzenTextBox Name="Desc" @bind-Value="@roleEdit.Description" Style="width: 100%;" Placeholder="Support de proximité : imprimantes et comptes" />
+                </div>
+            </div>
+        </div>
 
-        <RadzenCard Variant="Variant.Outlined" Class="rz-p-3">
-            <RadzenRow AlignItems="AlignItems.Center">
-                <RadzenColumn Size="4">
-                    <RadzenLabel Text="Nom du Rôle" Component="Name" />
-                    <RadzenTextBox Name="Name" @bind-Value="@roleEdit.Name" Style="width: 100%;"
-                                   Disabled="@isSuperAdmin" />
-                    <RadzenRequiredValidator Component="Name" Text="Nom requis" Popup="true" />
-                </RadzenColumn>
-                <RadzenColumn Size="8">
-                    <RadzenLabel Text="Description" Component="Desc" />
-                    <RadzenTextBox Name="Desc" @bind-Value="@roleEdit.Description" Style="width: 100%;" />
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenCard>
-
-        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small">
-            Cochez les cases pour accorder les permissions. « Administration » donne tous les droits et ne peut être accordée que par un administrateur ;
-            « Système » (paramètres du serveur, dont l'Active Directory) ne peut être accordé que par un compte qui l'a déjà.
-            « Rôles - écriture » permet de créer, modifier et supprimer des rôles.
-        </RadzenAlert>
-
-        <RadzenDataGrid Data="@ModuleRows" TItem="ModulePermissionRow" AllowSorting="false" Density="Density.Compact"
-                        Style="height: 400px; border: 1px solid var(--rz-border-color);">
-            <Columns>
-
-                <RadzenDataGridColumn TItem="ModulePermissionRow" Property="Title" Title="Module" Width="150px">
-                    <Template Context="m">
-                        <span style="font-weight: bold; color: var(--rz-primary);">@m.Title</span>
-                    </Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Lecture" Width="80px" TextAlign="TextAlign.Center">
-                    <Template Context="m">
-                        @if (m.ReadId > 0)
-                        {
-                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.ReadId)"
-                                            Change="@(args => TogglePermission(m.ReadId, args))" TriState="false" Disabled="@IsLocked(m.ReadId)" />
-                        }
-                        else
-                        {
-                            <span style="color: var(--rz-text-disabled-color);">-</span>
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Écriture" Width="80px" TextAlign="TextAlign.Center">
-                    <Template Context="m">
-                        @if (m.WriteId > 0)
-                        {
-                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.WriteId)"
-                                            Change="@(args => TogglePermission(m.WriteId, args))" TriState="false" Disabled="@IsLocked(m.WriteId)" />
-                        }
-                        else
-                        {
-                            <span style="color: var(--rz-text-disabled-color);">-</span>
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Suppr." Width="80px" TextAlign="TextAlign.Center">
-                    <Template Context="m">
-                        @if (m.DeleteId > 0)
-                        {
-                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.DeleteId)"
-                                            Change="@(args => TogglePermission(m.DeleteId, args))" TriState="false" Disabled="@IsLocked(m.DeleteId)" />
-                        }
-                        else
-                        {
-                            <span style="color: var(--rz-text-disabled-color);">-</span>
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Options Avancées">
-                    <Template Context="m">
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            @foreach (var perm in m.Others)
-                            {
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(perm.Id)"
-                                                    Change="@(args => TogglePermission(perm.Id, args))" TriState="false" Disabled="@IsLocked(perm.Id)" />
-                                    <span style="font-size: 0.85em;">@perm.Description.Replace(m.Title, "").Trim()</span>
+        <div class="ap-dlg-group">
+            <h3>Droits</h3>
+            <p class="ap-dlg-lead" style="margin: 0;">« Administration » donne tous les droits et ne peut être accordée que par un administrateur ; « Système » (paramètres du serveur, dont l'Active Directory) ne peut être accordé que par un compte qui l'a déjà.</p>
+            <div class="ap-grid-wrap">
+                <RadzenDataGrid Data="@ModuleRows" TItem="ModulePermissionRow" AllowSorting="false" Density="Density.Compact" Style="max-height: 420px;">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="ModulePermissionRow" Property="Title" Title="Module" Width="160px">
+                            <Template Context="m"><span style="font-weight: 500;">@m.Title</span></Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Lecture" Width="84px" TextAlign="TextAlign.Center">
+                            <Template Context="m">
+                                @if (m.ReadId > 0)
+                                {
+                                    <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.ReadId)" Change="@(args => TogglePermission(m.ReadId, args))" TriState="false" Disabled="@IsLocked(m.ReadId)" InputAttributes="@(new Dictionary<string, object> { { "aria-label", $"{m.Title} : lecture" } })" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Écriture" Width="84px" TextAlign="TextAlign.Center">
+                            <Template Context="m">
+                                @if (m.WriteId > 0)
+                                {
+                                    <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.WriteId)" Change="@(args => TogglePermission(m.WriteId, args))" TriState="false" Disabled="@IsLocked(m.WriteId)" InputAttributes="@(new Dictionary<string, object> { { "aria-label", $"{m.Title} : écriture" } })" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Suppression" Width="104px" TextAlign="TextAlign.Center">
+                            <Template Context="m">
+                                @if (m.DeleteId > 0)
+                                {
+                                    <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(m.DeleteId)" Change="@(args => TogglePermission(m.DeleteId, args))" TriState="false" Disabled="@IsLocked(m.DeleteId)" InputAttributes="@(new Dictionary<string, object> { { "aria-label", $"{m.Title} : suppression" } })" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="ModulePermissionRow" Title="Autres droits">
+                            <Template Context="m">
+                                <div style="display: flex; gap: 6px 14px; flex-wrap: wrap;">
+                                    @foreach (var perm in m.Others)
+                                    {
+                                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                                            <RadzenCheckBox TValue="bool" Value="@roleEdit.PermissionIds.Contains(perm.Id)" Change="@(args => TogglePermission(perm.Id, args))" TriState="false" Disabled="@IsLocked(perm.Id)" />
+                                            <span style="font-size: 13px;">@perm.Description.Replace(m.Title, "").Trim()</span>
+                                        </label>
+                                    }
                                 </div>
-                            }
-                        </div>
-                    </Template>
-                </RadzenDataGridColumn>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        </div>
 
-            </Columns>
-        </RadzenDataGrid>
-
-        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+        <div class="ap-dlg-footer">
+            @* Backlog B21 : conséquence de l'enregistrement sur les sessions, rappelée au moment d'enregistrer *@
+            <span class="ap-help">Les membres de ce rôle seront déconnectés pour recevoir leurs nouveaux droits (vous aussi si vous en faites partie)</span>
             <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" ButtonStyle="ButtonStyle.Primary" />
-        </RadzenStack>
-
-    </RadzenStack>
+            <RadzenButton ButtonType="ButtonType.Submit" Text="@(RoleId == 0 ? "Créer le rôle" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" />
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {

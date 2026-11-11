@@ -1,28 +1,32 @@
-﻿@using Autoprint.Shared
+﻿@using Autoprint.Web.Services
+@using Autoprint.Shared
 @using Radzen
 @using Radzen.Blazor
 @inject HttpClient Http
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@* Maquette « modales » (retour de recette du 11/11) *@
 <RadzenTemplateForm TItem="IntegrationTokenCreationDto" Data="@dto" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
-        <div>
-            <RadzenLabel Text="Description / Usage" Component="Description" />
-            <RadzenTextBox Name="Description" @bind-Value="@dto.Description" Style="width: 100%;" Placeholder="Ex: Serveur de supervision Zabbix" />
-            <RadzenRequiredValidator Component="Description" Text="La description est obligatoire" Popup="true" />
+    <div class="ap-dlg">
+        <p class="ap-dlg-lead">Le jeton n'est affiché qu'une seule fois, juste après sa création : copiez-le dans l'outil de supervision.</p>
+        <div class="ap-field" style="margin-bottom: var(--ap-s3);">
+            <RadzenLabel Text="Outil ou usage" Component="Description" />
+            <RadzenTextBox Name="Description" @bind-Value="@dto.Description" Style="width: 100%;" Placeholder="Zabbix, serveur de supervision" />
+            <RadzenRequiredValidator Component="Description" Text="Indiquez l'outil qui utilisera ce jeton" Popup="true" />
+        </div>
+        <div class="ap-field">
+            <RadzenLabel Component="ExpiresAt"><ChildContent>Expiration <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+            <RadzenDatePicker Name="ExpiresAt" @bind-Value="@dto.ExpiresAt" ShowTime="true" HourFormat="24" DateFormat="dd/MM/yyyy HH:mm" Placeholder="Jamais" Style="width: 100%;" />
+            <span class="ap-help">Sans date, le jeton reste valable jusqu'à sa révocation</span>
         </div>
 
-        <div>
-            <RadzenLabel Text="Date d'expiration (Optionnel)" Component="ExpiresAt" />
-            <RadzenDatePicker Name="ExpiresAt" @bind-Value="@dto.ExpiresAt" ShowTime="true" HourFormat="24" DateFormat="dd/MM/yyyy HH:mm" Placeholder="Aucune expiration" Style="width: 100%;" />
-        </div>
-
-        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <div class="ap-dlg-footer">
+            <span class="ap-grow"></span>
             <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Générer" Icon="vpn_key" ButtonStyle="ButtonStyle.Primary" />
-        </RadzenStack>
-    </RadzenStack>
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Générer le jeton" ButtonStyle="ButtonStyle.Primary" />
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {
