@@ -120,12 +120,8 @@ else
         <div class="ap-toolbar">
             <RadzenTextBox class="ap-search" Placeholder="Rechercher" @bind-Value="@searchText" @oninput="@(e => { searchText = e.Value?.ToString() ?? ""; AppliquerFiltres(); })" aria-label="Rechercher une imprimante" />
             <div class="ap-filters">
-                <RadzenDropDown TValue="int?" class="@(filterLieu != null ? "ap-chip-dd is-set" : "ap-chip-dd")" Data="@lieuxOptions" TextProperty="Text" ValueProperty="Value"
-                                @bind-Value="@filterLieu" Change="@(_ => AppliquerFiltres())" AllowClear="true" Placeholder="Lieu" AllowFiltering="true" aria-label="Filtrer par lieu" />
                 <RadzenDropDown TValue="string" class="@(filterStatut != null ? "ap-chip-dd is-set" : "ap-chip-dd")" Data="@statutOptions" TextProperty="Text" ValueProperty="Value"
                                 @bind-Value="@filterStatut" Change="@(_ => AppliquerFiltres())" AllowClear="true" Placeholder="Statut" aria-label="Filtrer par statut" />
-                <RadzenDropDown TValue="int?" class="@(filterModele != null ? "ap-chip-dd is-set" : "ap-chip-dd")" Data="@modelesOptions" TextProperty="Text" ValueProperty="Value"
-                                @bind-Value="@filterModele" Change="@(_ => AppliquerFiltres())" AllowClear="true" Placeholder="Modèle" AllowFiltering="true" aria-label="Filtrer par modèle" />
             </div>
             <span class="ap-grow"></span>
             @if (selected?.Any() == true)
@@ -143,10 +139,11 @@ else
         <RadzenDataGrid @ref="grid" Data="@imprimantesFiltrees" TItem="Imprimante"
                         AllowPaging="true" PageSize="25" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
                         AllowSorting="true" AllowColumnResize="true" AllowColumnPicking="true"
+                        AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                         SelectionMode="DataGridSelectionMode.Multiple" @bind-Value="@selected" AllowRowSelectOnRowClick="false"
                         @bind-Settings="gridSettings" EmptyText="Aucune imprimante" Style="width: 100%;">
             <Columns>
-                <RadzenDataGridColumn TItem="Imprimante" Width="44px" Sortable="false" Pickable="false" Resizable="false" TextAlign="TextAlign.Center">
+                <RadzenDataGridColumn TItem="Imprimante" Width="44px" Sortable="false" Filterable="false" Pickable="false" Resizable="false" TextAlign="TextAlign.Center">
                     <HeaderTemplate>
                         <RadzenCheckBox TriState="false" TValue="bool" Value="@AllVisibleSelected" Change="@(v => ToggleAll(v))" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Tout sélectionner" } })" />
                     </HeaderTemplate>
@@ -165,14 +162,15 @@ else
                     </Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Title="Statut" Width="170px" SortProperty="Status">
+                @* Statut calculé (synchronisation + supervision) : filtré par la pastille « Statut » de la barre d'outils *@
+                <RadzenDataGridColumn TItem="Imprimante" Title="Statut" Width="170px" SortProperty="Status" Filterable="false">
                     <Template Context="imp">
                         @{ var st = Statut(imp); }
                         <span class="@($"ap-status-badge ap-status-badge--{st.Css}")" title="@st.Detail"><RadzenIcon Icon="@st.Icon" />@st.Text</span>
                     </Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Property="Emplacement.Nom" Title="Lieu" MinWidth="140px" Width="230px">
+                <RadzenDataGridColumn TItem="Imprimante" Property="Emplacement.Nom" Title="Lieu" MinWidth="140px" Width="230px" FilterMode="FilterMode.CheckBoxList">
                     <Template Context="imp">
                         <span class="ap-place"><RadzenIcon Icon="location_on" />@(imp.Emplacement?.Nom ?? "—")</span>
                         @if (!string.IsNullOrEmpty(imp.Localisation))
@@ -182,7 +180,7 @@ else
                     </Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Property="Modele.Nom" Title="Modèle" MinWidth="120px" Width="200px">
+                <RadzenDataGridColumn TItem="Imprimante" Property="Modele.Nom" Title="Modèle" MinWidth="120px" Width="200px" FilterMode="FilterMode.CheckBoxList">
                     <Template Context="imp">@NomModele(imp)</Template>
                 </RadzenDataGridColumn>
 
@@ -211,7 +209,7 @@ else
                     <Template Context="imp">@(imp.LastSeen?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="120px" Sortable="false" Pickable="false" TextAlign="TextAlign.Right"
+                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="120px" Sortable="false" Filterable="false" Pickable="false" TextAlign="TextAlign.Right"
                                       Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
                     <Template Context="imp">
                         <span class="ap-row-actions">
@@ -255,12 +253,8 @@ else
     private int selectedTab = 0;
     private const string GridSettingsKey = "PrintersGridSettings.v2"; // colonnes changées par la charte (B77) : anciens réglages ignorés
     private string searchText = "";
-    private int? filterLieu;
-    private int? filterModele;
     private string? filterStatut;
     private IList<Imprimante>? selected;
-    private List<FilterOption<int?>> lieuxOptions = new();
-    private List<FilterOption<int?>> modelesOptions = new();
     private bool isLoading = true;
     private bool isSyncing = false;
     private bool isAuditing = false;
@@ -351,20 +345,13 @@ else
 
     private void MettreAJourFiltre()
     {
-        var source = imprimantes ?? new List<Imprimante>();
-        lieuxOptions = source.Where(i => i.Emplacement != null).Select(i => i.Emplacement!).GroupBy(e => e.Id)
-            .Select(g => new FilterOption<int?>(g.Key, g.First().Nom)).OrderBy(o => o.Text).ToList();
-        modelesOptions = source.Where(i => i.Modele != null).GroupBy(i => i.ModeleId)
-            .Select(g => new FilterOption<int?>(g.Key, NomModele(g.First()))).OrderBy(o => o.Text).ToList();
         AppliquerFiltres();
     }
 
-    // Recherche + filtres en pastilles (lieu, statut, modèle), dans l'onglet courant (charte B77)
+    // Recherche + pastille « Statut » (valeur calculée), dans l'onglet courant ; les autres colonnes se filtrent dans leur en-tête
     private void AppliquerFiltres()
     {
         IEnumerable<Imprimante> q = (imprimantes ?? new List<Imprimante>()).Where(i => i.IsArchived == (selectedTab == 1));
-        if (filterLieu != null) q = q.Where(i => i.EmplacementId == filterLieu);
-        if (filterModele != null) q = q.Where(i => i.ModeleId == filterModele);
         if (filterStatut != null) q = q.Where(i => Statut(i).Key == filterStatut);
         if (!string.IsNullOrWhiteSpace(searchText))
         {

@@ -35,7 +35,8 @@
 }
 else
 {
-    <div class="ap-grid-wrap"><RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px">
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px"
+                        AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
         <Columns>
 
             <RadzenDataGridColumn TItem="RoleViewDto" Property="Name" SortProperty="Name" Title="Rôle" Width="200px">
@@ -50,13 +51,13 @@ else
 
             <RadzenDataGridColumn TItem="RoleViewDto" Property="Description" Title="Description" />
 
-            <RadzenDataGridColumn TItem="RoleViewDto" Title="Droits" Width="100px" TextAlign="TextAlign.Center" Sortable="false">
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Droits" Width="100px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
                 <Template Context="role">
                     <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@(role.PermissionCodes.Count + " perms")" />
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="220px" Sortable="false" TextAlign="TextAlign.Right">
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="220px" Sortable="false" Filterable="false" TextAlign="TextAlign.Right">
                 <Template Context="role">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
 

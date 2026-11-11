@@ -49,7 +49,7 @@ else
 
             <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du Modèle" Sortable="true" Filterable="true" />
 
-            <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px">
+            <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="m">
                     @if (m.Marque != null)
                     {
@@ -62,7 +62,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Modele" Title="Pilote" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="Modele" Property="Pilote.Nom" Title="Pilote" Sortable="true" Filterable="true">
                 <Template Context="m">
                     @if (m.Pilote != null)
                     {

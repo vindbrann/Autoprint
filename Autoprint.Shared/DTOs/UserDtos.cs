@@ -40,6 +40,10 @@ namespace Autoprint.Shared.DTOs
         public bool ForceChangePassword { get; set; }
         public DateTime LastLogin { get; set; }
         public List<string> Roles { get; set; } = new();
+
+        /// <summary>Rôles en texte, pour filtrer et trier la colonne « Rôle » de la console (non transmis par l'API).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string RolesText => string.Join(", ", Roles);
     }
 
     public class CreateUserDto
