@@ -10,7 +10,7 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Restent ouvertes, volontairement** : PR Dependabot n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 (étape .NET 11) ; n° 10 (Radzen 12) remplacée par `chore/radzen-12`, à fermer après sa fusion.
 
-**Tests en labo à faire** (prochaine session de labo, une seule campagne) : B79 (mise à jour d'un serveur 10.0.14, SE-01 / SE-02), SqlClient 7 (connexion SQL Server de l'installeur), B32 (migration SQL Server, supervision SNMP en communauté propre, sauvegarde / restauration), Radzen 12 (recette de la console).
+**Tests en labo** (campagne du 11/11, détail dans `_RESULTATS_RECETTE_LABO.md`) : ✅ B79 (SE-01 / SE-02), ✅ B32 (migration SQL Server, SV3-11, sauvegarde / restauration), ✅ installeur à la charte (après correction d'un plantage au démarrage), ✅ 148 tests API sans échec. **Restent** : SqlClient 7 (non exercé par une mise à jour : installation neuve SQL Server), recette visuelle de la console (charte, Radzen 12), client sur CLT-TEST, lots Clé et Serveur (CLT-TEST), icônes de l'installeur à revoir.
 
 **Prochaines actions** : PR de `chore/radzen-12` ; puis étape 4, intégration de la charte (B77) sur `feature/charte-graphique`.
 
