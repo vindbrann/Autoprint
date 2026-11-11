@@ -1,4 +1,4 @@
-@page "/parametres"
+﻿@page "/parametres"
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
@@ -13,20 +13,14 @@
 @inject DialogService DialogService
 @inject NetworkScannerService ScannerService
 
-<PageTitle>Configuration</PageTitle>
+<PageTitle>Paramètres</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenStack Gap="0">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
-            ⚙️ Configuration Système
-        </RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-            Gérez les paramètres globaux du serveur Autoprint.
-        </RadzenText>
-    </RadzenStack>
-
-    <RadzenButton Text="Enregistrer la configuration" Icon="save" ButtonStyle="ButtonStyle.Success" Click="@Sauvegarder" IsBusy="@sauvegardeEnCours" />
-</RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles">
+        <h1>Paramètres</h1>
+        <span class="ap-sub">Réglages globaux du serveur Autoprint</span>
+    </div>
+</div>
 
 @if (isLoading)
 {
@@ -37,13 +31,32 @@
 }
 else
 {
-    <RadzenTabs RenderMode="TabRenderMode.Client" TabPosition="TabPosition.Top" Style="min-height: 600px;">
-        <Tabs>
+    @* Charte B77, maquette « Paramètres » : menu des sections à gauche (réductible), titre et description de la section,
+       barre d'enregistrement dès qu'une modification est en attente *@
+    <div class="@(subnavCollapsed ? "ap-subnav-layout is-collapsed" : "ap-subnav-layout")">
+        <nav class="ap-subnav" aria-label="Sections des paramètres">
+            @foreach (var s in Sections)
+            {
+                <a href="javascript:void(0)" class="@(section == s.Key ? "active" : null)" aria-current="@(section == s.Key ? "page" : null)" @onclick="@(() => section = s.Key)" @onclick:preventDefault>
+                    <RadzenIcon Icon="@s.Icon" />
+                    @if (subnavCollapsed) { <span class="ap-rail-tip" role="tooltip">@s.Title</span> } else { <span>@s.Title</span> }
+                </a>
+            }
+            <a href="javascript:void(0)" @onclick="@(() => subnavCollapsed = !subnavCollapsed)" @onclick:preventDefault title="@(subnavCollapsed ? "Agrandir le menu des sections" : "Réduire le menu des sections")">
+                <RadzenIcon Icon="@(subnavCollapsed ? "left_panel_open" : "left_panel_close")" />
+                @if (!subnavCollapsed) { <span class="ap-muted">Réduire</span> }
+            </a>
+        </nav>
+        <div class="ap-subnav-content">
+            @{ var cur = Sections.First(x => x.Key == section); }
+            <div class="ap-section-head">
+                <h2>@cur.Title</h2>
+                <p>@cur.Description</p>
+            </div>
 
             @* --- MAINTENANCE --- *@
-            <RadzenTabsItem Text="Maintenance">
-                <Template><RadzenIcon Icon="build_circle" /> Maintenance</Template>
-                <ChildContent>
+            @if (section == "Maintenance")
+            {
                     <RadzenStack Gap="2rem" Class="rz-p-2">
                         <RadzenFieldset Text="Rétention & Audit" Icon="history">
                             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
@@ -133,13 +146,11 @@ else
                             </RadzenColumn>
                         </RadzenRow>
                     </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- SMTP --- *@
-            <RadzenTabsItem Text="SMTP">
-                <Template><RadzenIcon Icon="email" /> SMTP</Template>
-                <ChildContent>
+            @if (section == "SMTP")
+            {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         <RadzenColumn Size="12" SizeLG="8">
                             <RadzenFieldset Text="Serveur de Messagerie" Icon="mail_outline">
@@ -195,13 +206,11 @@ else
                             </RadzenCard>
                         </RadzenColumn>
                     </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- NOMMAGE --- *@
-            <RadzenTabsItem Text="Nommage">
-                <Template><RadzenIcon Icon="edit_note" /> Nommage</Template>
-                <ChildContent>
+            @if (section == "Nommage")
+            {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         <RadzenColumn Size="12" SizeLG="7">
                             <RadzenFieldset Text="Règles & Automatisation" Icon="settings_suggest">
@@ -299,13 +308,11 @@ else
                             </RadzenCard>
                         </RadzenColumn>
                     </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- ACTIVE DIRECTORY --- *@
-            <RadzenTabsItem Text="Active Directory">
-                <Template><RadzenIcon Icon="domain" /> Active Directory</Template>
-                <ChildContent>
+            @if (section == "Active Directory")
+            {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
 
                         <RadzenColumn Size="12" SizeLG="8">
@@ -378,13 +385,11 @@ else
                         </RadzenColumn>
 
                     </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- SUPERVISION --- *@
-            <RadzenTabsItem Text="Supervision">
-                <Template><RadzenIcon Icon="monitor_heart" /> Supervision</Template>
-                <ChildContent>
+            @if (section == "Supervision")
+            {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
                         <RadzenColumn Size="12" SizeLG="8">
                             <RadzenFieldset Text="Supervision d'Arrière-plan" Icon="settings_suggest">
@@ -431,13 +436,11 @@ else
                             </RadzenFieldset>
                         </RadzenColumn>
                     </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- MONITORING --- *@
-            <RadzenTabsItem Text="Monitoring">
-                <Template><RadzenIcon Icon="analytics" /> Monitoring</Template>
-                <ChildContent>
+            @if (section == "Monitoring")
+            {
                     <RadzenStack Gap="2rem" Class="rz-p-2">
                         <RadzenFieldset Text="Alertes à exporter (Filtres d'exportation)" Icon="filter_alt">
                             <RadzenStack Gap="1.25rem">
@@ -523,13 +526,11 @@ else
                             </RadzenStack>
                         </RadzenFieldset>
                     </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- SCANNER RÉSEAU --- *@
-            <RadzenTabsItem Text="Scanner Réseau">
-                <Template><RadzenIcon Icon="radar" /> Scanner Réseau</Template>
-                <ChildContent>
+            @if (section == "Scanner Réseau")
+            {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
 
                         <RadzenColumn Size="12" SizeLG="8">
@@ -642,13 +643,11 @@ else
                             </RadzenCard>
                         </RadzenColumn>
                     </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
             @* --- SECURITE --- *@
-            <RadzenTabsItem Text="Sécurité">
-                <Template><RadzenIcon Icon="security" /> Sécurité</Template>
-                <ChildContent>
+            @if (section == "Sécurité")
+            {
                     <RadzenStack Gap="2rem" Class="rz-p-2">
                         <RadzenCard Variant="Variant.Outlined" Style="border-color: var(--rz-warning);">
                             <RadzenStack Gap="1rem">
@@ -708,11 +707,20 @@ else
 
 
                     </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
+                }
 
-        </Tabs>
-    </RadzenTabs>
+            @if (IsDirty)
+            {
+                <div class="ap-savebar" role="region" aria-label="Modifications en attente">
+                    <RadzenIcon Icon="edit_note" />
+                    <span>Modifications non enregistrées</span>
+                    <span class="ap-grow"></span>
+                    <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AnnulerModifications" />
+                    <RadzenButton Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@Sauvegarder" IsBusy="@sauvegardeEnCours" />
+                </div>
+            }
+        </div>
+    </div>
 }
 
 @code {
@@ -829,8 +837,11 @@ else
         public bool Monitoring_IncludeArchived { get; set; } = false;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => ChargerParametres();
+
+    private async Task ChargerParametres()
     {
+        isLoading = true;
         try
         {
             var s = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
@@ -866,9 +877,36 @@ else
 
             await LoadScanProfile();
             await LoadTokens();
+            savedSnapshot = Snapshot();
         }
         catch { }
         finally { isLoading = false; }
+    }
+
+    // --- Menu des sections et barre d'enregistrement (charte B77) ---
+    private string section = "Maintenance";
+    private bool subnavCollapsed;
+    private sealed record SettingsSection(string Key, string Title, string Icon, string Description);
+    private static readonly SettingsSection[] Sections =
+    {
+        new("Maintenance", "Maintenance", "build", "Rétention du journal d'audit, sauvegarde et restauration de la configuration."),
+        new("SMTP", "Messagerie (SMTP)", "mail", "Serveur d'envoi des alertes et des rapports par e-mail."),
+        new("Nommage", "Nommage", "badge", "Modèle de nom des imprimantes et partages Windows."),
+        new("Active Directory", "Active Directory", "domain", "Connexion des comptes AD et rôles attribués par groupe."),
+        new("Supervision", "Supervision", "monitor_heart", "Fréquence et plages horaires de la supervision SNMP."),
+        new("Monitoring", "Intégration monitoring", "hub", "Jetons d'accès pour Zabbix, PRTG, Centreon… et alertes exportées."),
+        new("Scanner Réseau", "Scanner réseau", "radar", "Découverte automatique des imprimantes sur le réseau."),
+        new("Sécurité", "Sécurité", "shield", "Mots de passe, clé d'API des postes clients.")
+    };
+
+    private string? savedSnapshot;
+    private string Snapshot() => System.Text.Json.JsonSerializer.Serialize(model);
+    private bool IsDirty => !isLoading && savedSnapshot != null && Snapshot() != savedSnapshot;
+
+    private void AnnulerModifications()
+    {
+        if (savedSnapshot == null) return;
+        model = System.Text.Json.JsonSerializer.Deserialize<SettingsModel>(savedSnapshot) ?? model;
     }
 
     private string GV(List<Autoprint.Shared.ServerSetting>? l, string k, string d = "") => l?.FirstOrDefault(s => s.Key == k)?.Value ?? d;
@@ -880,7 +918,7 @@ else
         try
         {
             var r = await Http.PostAsJsonAsync("api/Settings/Save", model);
-            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Sauvegardé", "Configuration mise à jour.");
+            if (r.IsSuccessStatusCode) { savedSnapshot = Snapshot(); NotificationService.Notify(NotificationSeverity.Success, "Enregistré", "Configuration mise à jour."); }
             else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
