@@ -42,6 +42,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Charte graphique (B77) : polices (licence OFL) et logo -->
+    <Resource Include="Fonts\*.ttf" />
+    <Resource Include="Assets\autoprint-symbole.png" />
     <EmbeddedResource Include="Resources\dotnet-hosting-10.exe" />
     <EmbeddedResource Include="Resources\License.rtf" />
   </ItemGroup>
