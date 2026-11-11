@@ -1,4 +1,4 @@
-# 📌 Backlog — Anomalies & Améliorations à étudier
+﻿# 📌 Backlog — Anomalies & Améliorations à étudier
 
 Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (`_AUDIT_SECURITE_2026-11.md`) : anomalies, dette technique, améliorations possibles. Rien ici n'est planifié ; chaque point est à étudier puis à décider.
 
@@ -10,13 +10,40 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Restent ouvertes, volontairement** : PR Dependabot n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 (étape .NET 11) ; n° 10 (Radzen 12) remplacée par `chore/radzen-12`, à fermer après sa fusion.
 
-**Tests en labo** (campagne du 11/11, détail dans `_RESULTATS_RECETTE_LABO.md`) : ✅ B79 (SE-01 / SE-02), ✅ B32 (migration SQL Server, SV3-11, sauvegarde / restauration), ✅ installeur à la charte (après correction d'un plantage au démarrage), ✅ 148 tests API sans échec. **Restent** : SqlClient 7 (non exercé par une mise à jour : installation neuve SQL Server), recette visuelle de la console (charte, Radzen 12), client sur CLT-TEST, lots Clé et Serveur (CLT-TEST), icônes de l'installeur à revoir.
+**Méthode décidée le 11/11** : on termine d'abord toutes les modifications et corrections, puis **une seule campagne de tests à la fin**, avec la liste ci-dessous (ne rien retirer de la liste sans l'avoir joué).
 
-**Prochaines actions** : PR de `chore/radzen-12` ; puis étape 4, intégration de la charte (B77) sur `feature/charte-graphique`.
+**Fait sur `feature/charte-graphique` depuis la campagne du 11/11** (non commité dans `master`, non testé en labo) : installeur (plantage au démarrage, icônes, messages sur plusieurs lignes), page de connexion (en-tête centré), filtre et tri sur toutes les colonnes de tous les tableaux (audit côté serveur), modale imprimante refaite et barre d'actions harmonisée dans les autres modales, Paramètres (menu groupé, Nommage avec aperçu en direct et liste des renommages, section Valeurs par défaut), nommage (lettres accentuées conservées sans accent), skill `critique-affordance`. Maquette de référence : https://claude.ai/artifact/V5gws3szzZJA9bovPjgJvm.
+
+### ✅ Tests à faire en fin de campagne
+
+Résultats déjà acquis le 11/11 (détail dans `_RESULTATS_RECETTE_LABO.md`) : B79 (SE-01 / SE-02), B32 (migration SQL Server, SV3-11, sauvegarde / restauration), 148 tests API sans échec. À rejouer seulement si le code concerné change.
+
+1. **Installeur serveur** (nouvel installeur de test construit depuis la branche)
+   - [ ] Démarrage sans plantage ; icône de la fenêtre (logo Autoprint) et icône de l'exe (installeur) dans l'Explorateur et la barre des tâches
+   - [ ] Message « trop ancienne » du runtime sur plusieurs lignes, non coupé (installer un runtime plus ancien avant, ou sur un instantané)
+   - [ ] **SqlClient 7** : installation **neuve** SQL Server (test de connexion de l'étape Base de données) et S8-10 (SQL distant sur SRV-AD) ; non exercé par une mise à jour
+   - [ ] Mise à jour d'un serveur existant (SQL Server) : « Mise à jour terminée »
+2. **Console : recette visuelle** (clair et sombre, Ctrl+F5)
+   - [ ] Connexion : grand logo centré, sous-titre sur une ligne
+   - [ ] Menu latéral réductible, bascule de thème, tableau de bord
+   - [ ] Tous les tableaux (Imprimantes, Lieux, Marques, Modèles, Pilotes, Profils et identifiants SNMP, Rapports, Utilisateurs, Rôles, Journal d'audit) : filtre et tri sur chaque colonne, cases à cocher sur Lieu / Modèle / Marque / État / Niveau / Format / Version, réglages de la grille Imprimantes conservés
+   - [ ] Journal d'audit : filtres par utilisateur, détail, niveau et date, tri par colonne, export CSV qui suit les filtres
+   - [ ] Modale « Nouvelle imprimante » / « Modifier » : aperçu du nom et du partage, préfixe IP du lieu, « Modèle » grisé avec explication, SNMP avancé, barre d'actions fixe, bouton grisé tant que lieu + modèle manquent ; création, modification, suppression
+   - [ ] Autres modales (lieu, marque, modèle, utilisateur, rapports, profil et identifiants SNMP, rôles, jetons) : barre d'actions visible pendant le défilement, enregistrement OK
+   - [ ] Paramètres : menu groupé, chaque section s'ouvre ; Nommage (variables cliquables, aperçu, contrôle de la règle, liste des renommages, « Renommer N imprimantes » puis synchronisation) ; Valeurs par défaut (impression directe par défaut, passage de tout le parc) ; barre « Modifications non enregistrées »
+   - [ ] Nommage : un lieu accentué (« Siège ») donne « SIEGE », plus « SIGE »
+3. **Tests API** (`tools/lab/Recette-Api.ps1 -Profil sql`, en **HTTPS** : le port 8080 redirige et fait perdre le jeton)
+   - [ ] Tous les lots après la dernière livraison de test, dont **Clé** et **Serveur** (ont besoin de CLT-TEST allumé)
+   - [ ] Laisser une minute entre deux lancements (limite de 10 connexions par minute)
+4. **Client (CLT-TEST)**
+   - [ ] Recette visuelle du client à la charte (thèmes clair et sombre, icône, badge hors ligne)
+   - [ ] Installation / mise à jour du client par l'installeur MSI (bannières à la charte)
+5. **Clôture**
+   - [ ] Résultats dans `_RESULTATS_RECETTE_LABO.md`, puis PR de `feature/charte-graphique` vers `master`
 
 **Test local sans labo** : la console peut être lancée sur le poste de développement avec une base SQLite et des clés jetables (variables `Database__Provider=Sqlite`, `Database__ConnectionStrings__Sqlite`, `DataProtection__KeysPath`), compte `admin` / `admin123` à changer au premier login.
 
-**État du labo** (VM arrêtées) : SRV-PRINT en 26.11.9.1 propre (instantané « SQL Server 26.11.9.1 (livraison validée) ») ; SRV-AD avec les OU de test « Équipements » et « Lyon, Part-Dieu » (B76).
+**État du labo** (VM arrêtées le 11/11, disques dans `D:\AutomatedLab-VMs`) : SRV-PRINT mis à jour par l'installeur de test de la branche du 11/11 (SQL Server, runtime 10.0.15 ; dernier instantané propre : « SQL Server 26.11.9.1 (livraison validée) ») ; SRV-AD avec les OU de test « Équipements » et « Lyon, Part-Dieu » (B76) ; CLT-TEST pas encore mis à jour.
 ## 🗺️ Feuille de route (décidée le 09/11/2026)
 
 Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurité avant le confort, ne pas retoucher deux fois les mêmes écrans.
