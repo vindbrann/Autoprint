@@ -8,7 +8,7 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Fait le 11/11 (fusionné dans `master`)** : B44 (SDK 10.0.404), B79 (.NET 10.0.15, PR #15), SqlClient 7.1.1 dans l'installeur (PR #16), PR Dependabot n° 7, 8 et 11, B32 (communautés SNMP chiffrées, PR #18). `master` : 0 alerte CodeQL, 0 alerte Dependabot. Radzen 12 (étape 3) sur `chore/radzen-12`.
 
-**Restent ouvertes, volontairement** : PR Dependabot n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 (étape .NET 11) ; n° 10 (Radzen 12) remplacée par `chore/radzen-12`, à fermer après sa fusion.
+**Restent ouvertes, volontairement** : PR Dependabot n° 9 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 jusqu'à la migration vers .NET 12 LTS (décision du 11/11 : LTS seulement) ; n° 10 (Radzen 12) remplacée par `chore/radzen-12`, à fermer après sa fusion.
 
 **Méthode décidée le 11/11** : on termine d'abord toutes les modifications et corrections, puis **une seule campagne de tests à la fin**, avec la liste ci-dessous (ne rien retirer de la liste sans l'avoir joué).
 
@@ -65,7 +65,8 @@ Ordre fixé selon trois critères : ce qui bloque le reste d'abord, la sécurit�
 | 4 | `feature/charte-graphique` | B77 : intégration du template (console après l'étape 3 ; client et installeur dès l'étape 1) | **en cours** (11/11) : console, client, installeur intégrés ; reste l'intérieur des Paramètres et la recette |
 | 5 | (sur `feature/charte-graphique`) | B45 : MSI serveur allégé | même campagne de recette que l'étape 4 ; **fait** le 11/11 (MSI 72 → 39 Mo), test en labo à faire |
 | 6 | (sur `feature/charte-graphique`) | B35 (déconnexion après inactivité), B33 (diagnostic SNMP sans profil) | **faits** le 11/11, tests en labo à faire |
-| 7 | `chore/dotnet-11` | .NET 11 (débloque Microsoft.OpenApi 3 et SQLitePCLRaw 3 : PR Dependabot n° 9 et 12), puis décision WiX 7 (B12 / B37) | selon `_POLITIQUE_VERSIONS.md` ; .NET 10 est LTS (support jusqu'en nov. 2028), .NET 11 STS : décision à prendre ; à avancer si l'on veut fermer n° 9 et 12 plus tôt |
+| 7 | `chore/dotnet-12` | **.NET 12 LTS** (sortie prévue en nov. 2027, migration quand il sera stable, au plus tard mai 2028) : débloque Microsoft.OpenApi 3 et SQLitePCLRaw 3 (PR Dependabot n° 9 et 12, laissées ouvertes) | **décidé le 11/11/2026 : LTS seulement**, .NET 11 (STS) non retenu (même fin de support que .NET 10, projet maintenu sur le temps libre) ; voir `_POLITIQUE_VERSIONS.md` |
+| 7 bis | `chore/wix-7` | Décision WiX 7 (B12 / B37) : vérifier d'abord la licence | indépendant de .NET |
 | — | à tout moment | B23 (documenter la sauvegarde des clés), B55 (vérification sur poste Entra ID hybride) | documentation, vérification |
 
 Règles :
