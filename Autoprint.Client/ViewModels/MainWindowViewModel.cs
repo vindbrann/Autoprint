@@ -30,7 +30,7 @@ namespace Autoprint.Client.ViewModels
         private List<Emplacement> _allLieux = new();
         private List<Imprimante> _printers = new();
         private Dictionary<string, string> _queues = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _pendingRemoval = new(StringComparer.OrdinalIgnoreCase);
+        private int _working; // ajouts / retraits en cours
         private List<PrinterRow> _addAll = new();
         private bool _loaded;
 
@@ -52,7 +52,7 @@ namespace Autoprint.Client.ViewModels
             OpenAddCommand = new RelayCommand(_ => IsAddOpen = true);
             CloseAddCommand = new RelayCommand(_ => { IsAddOpen = false; AddQuery = ""; });
             ToggleOthersCommand = new RelayCommand(_ => IsOthersOpen = !IsOthersOpen);
-            RemoveAllOthersCommand = new RelayCommand(_ => { foreach (var r in OtherPrinters.Where(r => !r.IsPendingRemoval).ToList()) Remove(r); });
+            RemoveAllOthersCommand = new RelayCommand(async _ => { foreach (var r in OtherPrinters.ToList()) await RemoveAsync(r); }, _ => !IsWorking);
             ClearQueryCommand = new RelayCommand(p =>
             {
                 switch (p as string)
@@ -127,7 +127,13 @@ namespace Autoprint.Client.ViewModels
         public bool IsOthersOpen { get => _isOthersOpen; set { if (Set(ref _isOthersOpen, value)) RaiseState(); } }
 
         public bool ShowTeleworkHint => _loaded && !HasSite;
-        public bool ShowElsewhereLink => _loaded && HasSite;
+        // Lien et bouton « autre site » seulement s'il existe un autre site avec des imprimantes (sinon le volet serait vide)
+        public bool HasOtherSites => _allLieux.Any(l => !_currentLieux.Any(c => c.Id == l.Id) && _printers.Any(p => p.EmplacementId == l.Id));
+        public bool ShowElsewhereLink => _loaded && HasSite && HasOtherSites;
+        public bool ShowTeleworkChoose => ShowTeleworkHint && HasOtherSites;
+
+        /// <summary>Un ajout ou un retrait est en cours : le panneau ne se range pas tout seul.</summary>
+        public bool IsWorking => _working > 0;
 
         // ---------- Volets ----------
         private bool _isSettingsOpen;
@@ -187,7 +193,7 @@ namespace Autoprint.Client.ViewModels
             Rebuild();
         }
 
-        /// <summary>Relit le spouleur et reconstruit toutes les listes (les retraits en attente sont conservés).</summary>
+        /// <summary>Relit le spouleur et reconstruit toutes les listes.</summary>
         public void Rebuild()
         {
             _queues = _readQueues();
@@ -199,8 +205,8 @@ namespace Autoprint.Client.ViewModels
             foreach (var p in _printers.Where(p => currentIds.Contains(p.EmplacementId) && _queues.ContainsKey(p.NomAffiche)).OrderBy(p => p.NomAffiche, FrSort))
             {
                 string full = _queues[p.NomAffiche];
-                var row = new PrinterRow(p.NomAffiche, p.Localisation, p, full, this) { IsPendingRemoval = _pendingRemoval.Contains(full) };
-                row.IsDefault = !row.IsPendingRemoval && string.Equals(fav, p.NomAffiche, StringComparison.OrdinalIgnoreCase);
+                var row = new PrinterRow(p.NomAffiche, p.Localisation, p, full, this);
+                row.IsDefault = string.Equals(fav, p.NomAffiche, StringComparison.OrdinalIgnoreCase);
                 MyPrinters.Add(row);
                 mine.Add(p.NomAffiche);
             }
@@ -218,7 +224,7 @@ namespace Autoprint.Client.ViewModels
                 var p = _printers.FirstOrDefault(x => string.Equals(x.NomAffiche, q.Key, StringComparison.OrdinalIgnoreCase));
                 var lieu = p == null ? null : _allLieux.FirstOrDefault(l => l.Id == p.EmplacementId);
                 string sub = lieu == null ? q.Value : lieu.Nom + (string.Equals(Preferred(lieu.Code), q.Key, StringComparison.OrdinalIgnoreCase) ? " · par défaut sur ce site" : "");
-                OtherPrinters.Add(new PrinterRow(p?.NomAffiche ?? q.Key, sub, p, q.Value, this) { IsPendingRemoval = _pendingRemoval.Contains(q.Value) });
+                OtherPrinters.Add(new PrinterRow(p?.NomAffiche ?? q.Key, sub, p, q.Value, this));
             }
 
             if (IsElsewhereOpen) { BuildSites(); BuildSitePrinters(); }
@@ -279,7 +285,7 @@ namespace Autoprint.Client.ViewModels
         public void Pick(PrinterRow row)
         {
             string? code = CurrentCode;
-            if (row.IsPendingRemoval || row.IsDefault || string.IsNullOrEmpty(code) || row.QueueFullName == null) return;
+            if (row.IsBusy || row.IsDefault || string.IsNullOrEmpty(code) || row.QueueFullName == null) return;
 
             _prefService.SetPreferredPrinter(code, row.Name);
             PrinterService.SetDefault(row.QueueFullName); // choix explicite : toujours appliqué à Windows
@@ -296,8 +302,10 @@ namespace Autoprint.Client.ViewModels
 
             row.ErrorText = null;
             row.IsBusy = true;
-            bool ok = await PrinterService.InstallAsync(PrinterService.UncPath(server, row.Name));
-            row.IsBusy = false;
+            SetWorking(+1);
+            bool ok;
+            try { ok = await PrinterService.InstallAsync(PrinterService.UncPath(server, row.Name)); }
+            finally { row.IsBusy = false; SetWorking(-1); }
             if (!ok) { row.ErrorText = "Ajout impossible. Réessayez plus tard."; return; }
 
             // La première imprimante ajoutée sur un site devient celle par défaut de ce site
@@ -320,51 +328,27 @@ namespace Autoprint.Client.ViewModels
             }
         }
 
-        // Retrait différé : la ligne affiche « Retirée · Annuler » ; le retrait réel a lieu à la fermeture du panneau
-        public void Remove(PrinterRow row)
+        // Retrait immédiat (sans « Annuler ») : roue sur la ligne, puis la ligne disparaît
+        public async Task RemoveAsync(PrinterRow row)
         {
-            if (row.QueueFullName == null) return;
-            _pendingRemoval.Add(row.QueueFullName);
-            row.IsPendingRemoval = true;
-            row.IsDefault = false;
-            RaiseState();
-        }
+            if (row.QueueFullName == null || row.IsBusy) return;
+            row.ErrorText = null;
+            row.IsBusy = true;
+            SetWorking(+1);
+            bool ok;
+            try { ok = await PrinterService.RemoveAsync(row.QueueFullName); }
+            finally { row.IsBusy = false; SetWorking(-1); }
+            if (!ok) { row.ErrorText = "Retrait impossible. Réessayez plus tard."; return; }
 
-        public void Undo(PrinterRow row)
-        {
-            if (row.QueueFullName == null) return;
-            _pendingRemoval.Remove(row.QueueFullName);
-            row.IsPendingRemoval = false;
-            if (MyPrinters.Contains(row)) row.IsDefault = string.Equals(Preferred(CurrentCode), row.Name, StringComparison.OrdinalIgnoreCase);
-            RaiseState();
-        }
-
-        /// <summary>Exécute les retraits en attente (fermeture du panneau ou de l'application).</summary>
-        public async Task CommitPendingRemovalsAsync()
-        {
-            if (_pendingRemoval.Count == 0) return;
-            var todo = _pendingRemoval.ToList();
-            _pendingRemoval.Clear();
-
-            foreach (var full in todo)
-                if (await PrinterService.RemoveAsync(full)) ForgetPreferred(full);
+            ForgetPreferred(row.QueueFullName);
             Rebuild();
         }
 
-        /// <summary>Fermeture de l'application : termine les retraits en attente sans passer par l'interface (délai borné).</summary>
-        public void CommitPendingRemovalsBlocking(TimeSpan timeout)
+        private void SetWorking(int delta)
         {
-            if (_pendingRemoval.Count == 0) return;
-            var todo = _pendingRemoval.ToList();
-            _pendingRemoval.Clear();
-
-            var work = Task.Run(async () =>
-            {
-                var done = new List<string>();
-                foreach (var full in todo) if (await PrinterService.RemoveAsync(full)) done.Add(full);
-                return done;
-            });
-            if (work.Wait(timeout)) foreach (var full in work.Result) ForgetPreferred(full);
+            _working = Math.Max(0, _working + delta);
+            OnPropertyChanged(nameof(IsWorking));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         // Une imprimante retirée n'est plus l'imprimante par défaut d'aucun site
@@ -418,7 +402,6 @@ namespace Autoprint.Client.ViewModels
             IsAddOpen = false;
             IsOthersOpen = false;
             ApplyAddFilter();
-            _ = CommitPendingRemovalsAsync();
         }
 
         private void RaiseState()
@@ -428,7 +411,7 @@ namespace Autoprint.Client.ViewModels
                 nameof(CanInstall), nameof(HasSite), nameof(HeaderKicker), nameof(SiteName), nameof(ShowNote), nameof(NoteText), nameof(AddDisabledTip),
                 nameof(HasMyPrinters), nameof(ShowMySection), nameof(ShowNoPrinterHint), nameof(ShowDefaultHint),
                 nameof(AddCount), nameof(ShowAddSimple), nameof(ShowAddCollapsed), nameof(ShowAddOpen), nameof(ShowAddNoMatch),
-                nameof(HasOthers), nameof(OtherCount), nameof(ShowTeleworkHint), nameof(ShowElsewhereLink),
+                nameof(HasOthers), nameof(OtherCount), nameof(ShowTeleworkHint), nameof(ShowElsewhereLink), nameof(HasOtherSites), nameof(ShowTeleworkChoose),
                 nameof(IsSiteStep), nameof(IsPrinterStep), nameof(ElsewhereTitle), nameof(ShowPrinterFilter), nameof(ShowSitesNoMatch), nameof(ShowSitePrintersNoMatch)
             }) OnPropertyChanged(n);
             CommandManager.InvalidateRequerySuggested();

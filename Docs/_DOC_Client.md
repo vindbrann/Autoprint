@@ -16,7 +16,7 @@ L'agent client est une application Windows légère s'exécutant entièrement da
 * **Contexte :** `User Session` (Privilèges utilisateur standard, sans service permanent).
 * **Panneau unique (B81) :** un panneau compact s'ouvre au clic sur l'icône près de l'horloge et se range dès qu'on clique ailleurs (ou Échap). Tout tient sur une page, sans popup pour les actions (maquette : `Docs/_MAQUETTE_CLIENT.html`) :
   1. **En-tête :** site actuel et état du serveur (point vert ou orange), réglages, fermer.
-  2. **Vos imprimantes :** celles du site installées sur le poste. Le bouton radio choisit l'imprimante par défaut du site (tag « Par défaut », bref surlignage). La corbeille affiche « Retirée · Annuler » ; le retrait réel a lieu à la fermeture du panneau.
+  2. **Vos imprimantes :** celles du site installées sur le poste. Le bouton radio choisit l'imprimante par défaut du site (tag « Par défaut », bref surlignage). La corbeille retire l'imprimante tout de suite (roue pendant le retrait, puis la ligne disparaît).
   3. **Ajouter sur ce site :** tri alphabétique uniquement. Au-delà de 6 imprimantes, une ligne repliée « Ajouter une imprimante · N » ; dépliée, un champ filtre par nom, emplacement ou code inventaire.
   4. **Vos imprimantes sur d'autres sites :** section repliée (toutes les imprimantes réseau du poste hors site actuel), corbeille et « Tout retirer ».
   5. **Imprimer sur un autre site :** lien en bas, qui ouvre un volet : choix du site, puis de l'imprimante de ce site. Les recherches ignorent accents et majuscules.
@@ -52,13 +52,12 @@ Avant d'autoriser toute installation, l'interface graphique teste l'accessibilit
 
 ### 4.1 Ajout d'Imprimante Réseau
 Le processus d'ajout d'imprimante s'exécute entièrement dans le contexte utilisateur :
-* **Mappage de la Queue :** Commande de connexion spouleur utilisateur :
-  `rundll32 printui.dll,PrintUIEntry /in /n "\\serveur-impression\NomPartageImprimante"`
+* **Connexion à la file :** API Windows `AddPrinterConnection2` (`\\serveur-impression\NomPartageImprimante`) avec l'option `PRINTER_CONNECTION_NO_UI` : aucune fenêtre Windows ne s'affiche. Si Windows aurait dû poser une question (pilote absent, Point and Print), la connexion échoue et le panneau l'indique sous la ligne.
 * **Pré-requis Pilotes (Driver Store) :** Le pilote requis doit être présent dans le Driver Store de la machine (pré-déployé via Intune, SCCM ou GPO) pour une sécurité maximale contre les failles de type PrintNightmare.
 
 ### 4.2 Retrait d'imprimantes
-* **Imprimantes réseau seulement :** le panneau ne liste et ne retire que les connexions réseau de l'utilisateur (`\\serveur\imprimante`), via `printui.dll /dn` dans la session utilisateur (aucun privilège requis, `System32\rundll32.exe` en chemin absolu, nom passé en argument séparé et filtré).
-* **Retrait différé et annulable :** la corbeille marque la ligne « Retirée · Annuler » ; les retraits sont exécutés à la fermeture du panneau (ou de l'application). Une imprimante retirée cesse d'être l'imprimante par défaut de son site.
+* **Imprimantes réseau seulement :** le panneau ne liste et ne retire que les connexions réseau de l'utilisateur (`\\serveur\imprimante`), via l'API Windows `DeletePrinterConnection`, dans la session utilisateur (aucun privilège requis, nom filtré).
+* **Retrait immédiat :** la corbeille retire la connexion tout de suite (roue sur la ligne, message en rouge en cas d'échec). Une imprimante retirée cesse d'être l'imprimante par défaut de son site.
 * **Imprimantes locales et virtuelles** (PDF, XPS, OneNote, imprimantes installées pour l'ordinateur) : jamais affichées ni touchées par Autoprint ; elles se gèrent depuis « Imprimantes et scanners » de Windows (lien dans les réglages et le menu de l'icône).
 
 ---

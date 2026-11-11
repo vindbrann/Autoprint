@@ -19,7 +19,8 @@ namespace Autoprint.Client
         {
             InitializeComponent();
             PreviewKeyDown += OnPreviewKeyDown;
-            Deactivated += (_, _) => HidePanel();
+            // Clic ailleurs : le panneau se range, sauf pendant un ajout ou un retrait (Windows peut prendre le focus un instant)
+            Deactivated += (_, _) => { if (Vm?.IsWorking != true) HidePanel(); };
             SizeChanged += (_, _) => PlaceNearClock();
             DataContextChanged += (_, e) =>
             {

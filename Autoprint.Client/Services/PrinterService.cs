@@ -54,9 +54,46 @@ namespace Autoprint.Client.Services
             return map;
         }
 
-        public static Task<bool> InstallAsync(string uncPath) => RunPrintUiAsync("/in", uncPath);
+        // Connexion à une imprimante partagée sans aucune fenêtre Windows (pas de « Ajout de l'imprimante » qui volerait le focus
+        // et refermerait le panneau) : si Windows aurait dû demander quelque chose, la connexion échoue et le panneau l'indique.
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct PRINTER_CONNECTION_INFO_1
+        {
+            public uint dwFlags;
+            public string? pszDriverName;
+        }
 
-        public static Task<bool> RemoveAsync(string fullName) => RunPrintUiAsync("/dn", fullName);
+        private const uint PRINTER_CONNECTION_NO_UI = 0x00000040;
+
+        [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "AddPrinterConnection2W")]
+        private static extern bool AddPrinterConnection2(IntPtr hWnd, string pszName, uint dwLevel, ref PRINTER_CONNECTION_INFO_1 pConnectionInfo);
+
+        [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "DeletePrinterConnectionW")]
+        private static extern bool DeletePrinterConnection(string pName);
+
+        public static Task<bool> InstallAsync(string uncPath) => Task.Run(() =>
+        {
+            if (!IsSafeName(uncPath)) return false;
+            var info = new PRINTER_CONNECTION_INFO_1 { dwFlags = PRINTER_CONNECTION_NO_UI, pszDriverName = null };
+            if (AddPrinterConnection2(IntPtr.Zero, uncPath, 1, ref info)) return true;
+            Debug.WriteLine($"[SPOULEUR] Connexion à {uncPath} impossible (erreur Windows {Marshal.GetLastWin32Error()})");
+            return false;
+        });
+
+        public static Task<bool> RemoveAsync(string fullName) => Task.Run(() =>
+        {
+            if (!IsSafeName(fullName)) return false;
+            if (DeletePrinterConnection(fullName)) return true;
+            Debug.WriteLine($"[SPOULEUR] Retrait de {fullName} impossible (erreur Windows {Marshal.GetLastWin32Error()})");
+            return false;
+        });
+
+        private static bool IsSafeName(string name)
+        {
+            if (!string.IsNullOrWhiteSpace(name) && name.StartsWith(@"\\") && name.IndexOfAny(ForbiddenChars) < 0) return true;
+            Debug.WriteLine($"[SECURITY] Nom d'imprimante rejeté : {name}");
+            return false;
+        }
 
         public static bool SetDefault(string fullName)
         {
@@ -64,46 +101,5 @@ namespace Autoprint.Client.Services
             catch (Exception ex) { Debug.WriteLine($"Erreur SetDefaultPrinter : {ex.Message}"); return false; }
         }
 
-        // printui.dll en mode silencieux, sans shell : le nom passe en argument séparé (pas d'injection possible)
-        private static async Task<bool> RunPrintUiAsync(string action, string target)
-        {
-            if (string.IsNullOrWhiteSpace(target) || target.IndexOfAny(ForbiddenChars) >= 0)
-            {
-                Debug.WriteLine($"[SECURITY] Nom d'imprimante rejeté : {target}");
-                return false;
-            }
-
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    // Chemin absolu : évite qu'un rundll32.exe placé dans le dossier courant soit exécuté à la place
-                    FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "rundll32.exe"),
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                psi.ArgumentList.Add("printui.dll,PrintUIEntry");
-                psi.ArgumentList.Add(action);
-                psi.ArgumentList.Add("/q");
-                psi.ArgumentList.Add("/n");
-                psi.ArgumentList.Add(target);
-
-                using var process = Process.Start(psi);
-                if (process == null) return false;
-
-                var exited = process.WaitForExitAsync();
-                if (await Task.WhenAny(exited, Task.Delay(TimeSpan.FromSeconds(60))) != exited)
-                {
-                    try { process.Kill(); } catch { }
-                    return false;
-                }
-                return process.ExitCode == 0;
-            }
-            catch (Win32Exception ex)
-            {
-                Debug.WriteLine($"[PRINTUI] {ex.Message}");
-                return false;
-            }
-        }
     }
 }

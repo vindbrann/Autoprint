@@ -34,10 +34,9 @@ namespace Autoprint.Client.ViewModels
             Data = data;
             QueueFullName = queueFullName;
 
-            PickCommand = new RelayCommand(_ => actions.Pick(this), _ => !IsPendingRemoval);
+            PickCommand = new RelayCommand(_ => actions.Pick(this), _ => !IsBusy);
             AddCommand = new RelayCommand(async _ => await actions.AddAsync(this), _ => actions.CanInstall && !IsBusy);
-            RemoveCommand = new RelayCommand(_ => actions.Remove(this));
-            UndoCommand = new RelayCommand(_ => actions.Undo(this));
+            RemoveCommand = new RelayCommand(async _ => await actions.RemoveAsync(this), _ => !IsBusy);
         }
 
         public string Name { get; }
@@ -49,13 +48,6 @@ namespace Autoprint.Client.ViewModels
 
         private bool _isDefault;
         public bool IsDefault { get => _isDefault; set => Set(ref _isDefault, value); }
-
-        private bool _isPendingRemoval;
-        public bool IsPendingRemoval
-        {
-            get => _isPendingRemoval;
-            set { if (Set(ref _isPendingRemoval, value)) CommandManager.InvalidateRequerySuggested(); }
-        }
 
         private bool _isBusy;
         public bool IsBusy
@@ -86,7 +78,6 @@ namespace Autoprint.Client.ViewModels
         public ICommand PickCommand { get; }
         public ICommand AddCommand { get; }
         public ICommand RemoveCommand { get; }
-        public ICommand UndoCommand { get; }
     }
 
     /// <summary>Un site (lieu) du volet « imprimer sur un autre site ».</summary>
@@ -111,7 +102,6 @@ namespace Autoprint.Client.ViewModels
         bool CanInstall { get; }
         void Pick(PrinterRow row);
         Task AddAsync(PrinterRow row);
-        void Remove(PrinterRow row);
-        void Undo(PrinterRow row);
+        Task RemoveAsync(PrinterRow row);
     }
 }
