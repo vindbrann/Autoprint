@@ -112,3 +112,10 @@ Le bouton **Audit Serveur** compare la base de données avec le Spouleur Windows
 
 ### Restauration en cas de désastre
 Vous pouvez exporter l'intégralité des métadonnées du parc au format JSON depuis l'onglet **Paramètres > Maintenance**. Ce fichier permettra de restaurer la configuration complète de l'application sur un nouveau serveur en cas de panne matérielle majeure.
+
+### Clés de chiffrement : sauvegarde des secrets (B23)
+Les secrets enregistrés en base (mots de passe Active Directory et SMTP, clé d'API des postes, communautés et identifiants SNMP) sont **chiffrés avec les clés du dossier `C:\ProgramData\Autoprint\Keys`**, elles-mêmes protégées par Windows (DPAPI) pour **ce serveur uniquement**.
+
+* **Sur le même serveur** (fichier supprimé par erreur, retour à une sauvegarde de la machine) : sauvegardez ce dossier en même temps que la base (SQL Server, ou `C:\ProgramData\Autoprint` pour SQLite), avec les mêmes protections : accès réservé aux administrateurs.
+* **Sur un autre serveur, ou après une réinstallation de Windows**, ce dossier ne peut pas être relu. Pour conserver les secrets, faites régulièrement la **sauvegarde de Paramètres > Maintenance avec un mot de passe de protection** : elle contient ces secrets chiffrés avec ce mot de passe et se restaure sur un nouveau serveur. Conservez le fichier et son mot de passe séparément.
+* **Sans l'un ni l'autre** : ressaisir les mots de passe AD et SMTP (Paramètres), générer une nouvelle clé d'API (Paramètres, Sécurité) et la redéployer sur les postes (MSI `APIKEY=…` ou GPO `HKLM\SOFTWARE\Autoprint\APIKEY`), ressaisir les communautés et identifiants SNMP.

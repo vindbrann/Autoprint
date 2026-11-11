@@ -74,7 +74,7 @@ L'application articule sa configuration sur deux niveaux :
 * **Zone Technique Admin :** Accessible dans l'onglet Options après 5 clics sur la version, elle affiche les paramètres machine en lecture seule avec test de connectivité API, et se referme automatiquement à la fermeture de la fenêtre.
 
 ### 5.2 Packaging MSI Autonome (Single-File)
-Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 6 :
+Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 7 :
 * **Architecture Single-File :** L'exécutable client est compilé avec `PublishSingleFile=true`, `SelfContained=true` et `IncludeNativeLibrariesForSelfExtract=true`. Le package MSI ne déploie qu'un seul fichier binaire (`Autoprint.Client.exe`).
 * **Déploiement en Entreprise :** 
   - **En mode silencieux (`/qn` ou `/qr`) :** L'installation ou réparation s'exécute en **~7 secondes**, sans aucune invite bloquante.
