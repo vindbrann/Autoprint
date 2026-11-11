@@ -1160,7 +1160,7 @@ function Lot-Divers {
     Check 'SD-07' 'autre origine : aucun en-tête Access-Control-Allow-Origin (GET et pré-vol)' "[$acao][$acao2]" '[][]'
 
     # SE-09 : bibliothèques du rapport PDF
-    $files = Invoke-OnPrint { $d = 'C:\Program Files\Autoprint Server'; "$(Test-Path "$d\runtimes\win-x64\native\libSkiaSharp.dll")/$(Test-Path "$d\Licenses\AutoprintSans-OFL-LICENSE.txt")/$(@(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue | Where-Object Message -match 'libSkiaSharp').Count)" }
+    $files = Invoke-OnPrint { $d = 'C:\Program Files\Autoprint Server'; "$((Test-Path "$d\libSkiaSharp.dll") -or (Test-Path "$d\runtimes\win-x64\native\libSkiaSharp.dll"))/$(Test-Path "$d\Licenses\AutoprintSans-OFL-LICENSE.txt")/$(@(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue | Where-Object Message -match 'libSkiaSharp').Count)" }
     Check 'SE-09' 'libSkiaSharp.dll et licence de la police présentes ; aucune erreur libSkiaSharp' $files 'True/True/0'
 
     # SE-08 / SD-11 : rapport PDF avec plus de 45 imprimantes, mesures « Compteur » et « Pannes »

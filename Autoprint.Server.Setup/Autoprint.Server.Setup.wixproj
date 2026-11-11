@@ -1,4 +1,4 @@
-<Project Sdk="WixToolset.Sdk/6.0.2">
+﻿<Project Sdk="WixToolset.Sdk/6.0.2">
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
 		<Cultures>fr-FR</Cultures>
 		<DefineConstants>PublishFolder=..\Autoprint.Server\bin\Release\net10.0\publish\;AppVersion=$(Version)</DefineConstants>
@@ -27,7 +27,8 @@
 		<!-- Le MSI embarque tout le dossier publié (publish\**) : le vider avant, sinon les fichiers des publications
 		     précédentes (anciennes versions de la console, paquets supprimés) partent aussi dans le MSI -->
 		<RemoveDir Directories="..\Autoprint.Server\bin\Release\net10.0\publish;..\Autoprint.SpoolerService\bin\Release\publish" />
-		<Exec Command="dotnet publish ..\Autoprint.Server\Autoprint.Server.csproj -c Release -f net10.0" />
+		<!-- B45 : publication pour Windows x64 seulement (plus de bibliothèques natives Linux / macOS, ~110 Mo), dans le dossier habituel -->
+    <Exec Command="dotnet publish ..\Autoprint.Server\Autoprint.Server.csproj -c Release -f net10.0 -r win-x64 --self-contained false -o ..\Autoprint.Server\bin\Release\net10.0\publish" />
 		<!-- Service Windows AutoprintSpooler (exécutable unique) : seul composant privilégié du serveur -->
 		<Exec Command="dotnet publish ..\Autoprint.SpoolerService\Autoprint.SpoolerService.csproj -c Release -o ..\Autoprint.SpoolerService\bin\Release\publish" />
 	</Target>
