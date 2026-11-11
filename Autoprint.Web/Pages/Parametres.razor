@@ -595,7 +595,7 @@ else
                         </div>
                     </section>
                     <section class="ap-card">
-                        <div class="ap-set-row">
+                        <div class="ap-set-row is-stack">
                             <div>
                                 <h3>Noms acceptés par le serveur</h3>
                                 <p>Le serveur ne répond qu'aux adresses de cette liste (console et postes clients), plus localhost. Pendant un changement de nom, gardez l'ancien et le nouveau, puis retirez l'ancien quand tous les postes utilisent le nouveau.</p>
@@ -605,7 +605,7 @@ else
                                     @foreach (var h in allowedHosts)
                                     {
                                         bool isCurrent = string.Equals(h, allowedHostsCurrent, StringComparison.OrdinalIgnoreCase);
-                                        <span class="ap-chip" role="listitem" style="cursor: default;">
+                                        <span class="ap-chip is-host" role="listitem" style="cursor: default;" title="@h">
                                             @h
                                             @if (isCurrent)
                                             {
@@ -622,8 +622,8 @@ else
                                         <span class="ap-help is-warn">Tous les noms sont acceptés (serveur mis à jour sans nom public) : ajoutez le nom de la console.</span>
                                     }
                                 </div>
-                                <div style="display: flex; gap: var(--ap-s2); margin-top: var(--ap-s2);">
-                                    <RadzenTextBox @bind-Value="@nouveauNomAccepte" Placeholder="autoprint.mondomaine.fr" Style="flex: 1;" Class="ap-mono" aria-label="Nom à ajouter" />
+                                <div style="display: flex; gap: var(--ap-s2); margin-top: var(--ap-s2); max-width: 520px;">
+                                    <RadzenTextBox @bind-Value="@nouveauNomAccepte" Placeholder="autoprint.mondomaine.fr" Style="flex: 1; min-width: 0;" Class="ap-mono" aria-label="Nom à ajouter" />
                                     <RadzenButton Icon="add" Text="Ajouter" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AjouterNomAccepte" IsBusy="@allowedHostsBusy" Disabled="@string.IsNullOrWhiteSpace(nouveauNomAccepte)" />
                                 </div>
                                 <span class="ap-help">Pris en compte immédiatement, sans redémarrage ; chaque modification est inscrite au journal d'audit. Le nom doit aussi avoir sa liaison HTTPS (certificat) dans IIS.</span>
