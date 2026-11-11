@@ -192,3 +192,79 @@ code {
 .ap-subnav-content hr { border: 0; border-top: 1px solid var(--ap-divider); opacity: 1; }
 .ap-set-row h3 .rzi { vertical-align: middle; }
 @media (max-width: 900px) { .ap-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); } }
+/* ---------- Modales (maquette « modales et nommage », retour de recette du 11/11) ----------
+   Sections sans cadre (titre + filet), options en lignes de réglage, barre d'actions toujours visible. */
+.rz-dialog .rz-fieldset { border: 0; border-top: 1px solid var(--ap-divider); border-radius: 0; background: transparent; padding: var(--ap-s4) 0 var(--ap-s2); margin: 0; }
+.rz-dialog .rz-fieldset-legend { float: left; width: 100%; background: transparent; border: 0; padding: 0; margin: 0 0 var(--ap-s3); font-size: 14px; font-weight: 600; color: var(--ap-text); }
+.rz-dialog .rz-fieldset-legend + *, .rz-dialog .rz-fieldset-content-wrapper { clear: both; }
+.rz-dialog .rz-label { font-size: 13px; font-weight: 500; color: var(--ap-text); margin-bottom: 4px; display: inline-block; }
+.ap-dlg { display: flex; flex-direction: column; }
+.ap-dlg-lead { margin: 0 0 var(--ap-s2); color: var(--ap-text-secondary); font-size: 13px; }
+.ap-dlg-strip { display: flex; flex-wrap: wrap; gap: var(--ap-s2) 20px; align-items: center; margin: calc(-1 * var(--ap-s2)) 0 var(--ap-s2); padding: var(--ap-s3) 14px; border-radius: var(--ap-r-lg); background: var(--ap-surface-raised); }
+.ap-dlg-strip .k { font-size: 12px; color: var(--ap-text-muted); margin-right: 6px; }
+.ap-dlg-strip .ap-label-tag { height: 24px; font-size: 13px; color: var(--ap-text); background: var(--ap-surface); }
+.ap-dlg-group { display: flex; flex-direction: column; gap: var(--ap-s3); padding: var(--ap-s4) 0; }
+.ap-dlg-group + .ap-dlg-group { border-top: 1px solid var(--ap-divider); }
+.ap-dlg-group > h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ap-text); }
+.ap-dlg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ap-s3) var(--ap-s4); }
+.ap-dlg-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ap-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ap-field > .rz-label { margin-bottom: 0; }
+.ap-opt { font-weight: 400; color: var(--ap-text-muted); }
+.ap-opt-row { display: flex; align-items: center; gap: var(--ap-s4); padding: var(--ap-s3) 0; }
+.ap-opt-row + .ap-opt-row { border-top: 1px solid var(--ap-divider); }
+.ap-opt-row .txt { flex: 1; min-width: 0; }
+.ap-opt-row .t { font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.ap-opt-row .d { font-size: 13px; color: var(--ap-text-secondary); }
+.ap-info { display: inline-flex; color: var(--ap-text-muted); cursor: help; border-radius: 50%; }
+.ap-info .rzi { font-size: 16px; }
+.ap-info:hover, .ap-info:focus-visible { color: var(--ap-text); }
+.ap-help.is-warn { color: var(--ap-warning); }
+.ap-ip-group { display: flex; height: var(--ap-control-height); border: 1px solid var(--ap-border-strong); border-radius: var(--ap-r-md); background: var(--ap-surface); overflow: hidden; }
+.ap-ip-group:focus-within { outline: 2px solid var(--ap-focus-ring); outline-offset: -1px; border-color: var(--ap-focus-ring); }
+.ap-ip-prefix { display: flex; align-items: center; padding: 0 8px 0 10px; background: var(--ap-surface-raised); border-right: 1px solid var(--ap-border); font-family: var(--ap-mono); color: var(--ap-text-secondary); }
+.ap-ip-input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 0 10px; background: transparent; color: var(--ap-text); font-family: var(--ap-mono); }
+.ap-adv > summary { cursor: pointer; color: var(--ap-link); font-weight: 500; font-size: 13px; list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+.ap-adv > summary::-webkit-details-marker { display: none; }
+.ap-adv > summary .rzi { font-size: 18px; transition: transform var(--ap-fast) var(--ap-ease); }
+.ap-adv[open] > summary .rzi { transform: rotate(90deg); }
+.ap-adv > .ap-dlg-grid { margin-top: var(--ap-s3); }
+/* Barre d'actions : collée au bas de la modale pendant le défilement */
+.ap-dlg-footer { position: sticky; bottom: calc(-1 * var(--rz-dialog-content-padding, 1.5rem)); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s2); margin: var(--ap-s2) calc(-1 * var(--rz-dialog-content-padding, 1.5rem)) calc(-1 * var(--rz-dialog-content-padding, 1.5rem)); padding: var(--ap-s3) var(--rz-dialog-content-padding, 1.5rem); background: var(--ap-surface); border-top: 1px solid var(--ap-divider); }
+.ap-dlg-footer .ap-help { flex: 1; min-width: 160px; }
+@media (max-width: 640px) { .ap-dlg-grid, .ap-dlg-grid.cols-3 { grid-template-columns: minmax(0, 1fr); } }
+/* ---------- Paramètres : menu groupé, section Nommage (maquette « modales et nommage ») ---------- */
+.ap-subnav-group { padding: 14px 10px 4px; font-size: 12px; color: var(--ap-text-muted); }
+.ap-subnav-group:first-child { padding-top: 0; }
+.ap-name-card { padding: 4px 20px 16px; }
+.ap-card-title { margin: 16px 0 4px; font-size: 16px; font-weight: 500; }
+.ap-card-lead { margin: 0 0 var(--ap-s2); color: var(--ap-text-secondary); font-size: 13px; }
+.ap-name-builder { display: flex; flex-direction: column; gap: var(--ap-s3); padding-top: var(--ap-s2); border-top: 1px solid var(--ap-divider); }
+.ap-name-builder.is-off .ap-field, .ap-name-builder.is-off .ap-chips, .ap-name-builder.is-off .ap-name-result { opacity: .6; }
+.ap-name-note { display: flex; gap: var(--ap-s2); align-items: center; padding: var(--ap-s2) var(--ap-s3); border-radius: var(--ap-r-md); background: var(--ap-info-subtle); color: var(--ap-info); font-size: 13px; }
+.ap-name-note .rzi { font-size: 16px; }
+.ap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--ap-border-strong); border-radius: var(--ap-r-pill); background: var(--ap-surface); color: var(--ap-text); font: 500 12px var(--ap-mono); cursor: pointer; transition: background-color var(--ap-fast) var(--ap-ease), border-color var(--ap-fast) var(--ap-ease), color var(--ap-fast) var(--ap-ease); }
+.ap-chip .rzi { font-size: 14px; }
+.ap-chip:hover:not(:disabled) { background: var(--ap-primary-subtle); border-color: var(--ap-primary); color: var(--ap-primary); }
+.ap-chip:focus-visible { outline: 2px solid var(--ap-focus-ring); outline-offset: 2px; }
+.ap-chip:disabled { cursor: not-allowed; color: var(--ap-text-disabled); border-color: var(--ap-border); }
+.ap-name-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ap-s2) var(--ap-s4); align-items: end; padding: var(--ap-s3) 14px; border-radius: var(--ap-r-lg); background: var(--ap-surface-raised); }
+.ap-name-out { font: 500 18px var(--ap-mono); overflow-wrap: anywhere; text-align: right; }
+.ap-name-result > .ap-help { grid-column: 1 / -1; }
+.ap-help.is-ok { color: var(--ap-success); }
+.ap-help.is-bad { color: var(--ap-danger); }
+.ap-name-apply { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s3) var(--ap-s4); }
+.ap-name-count { font-size: var(--ap-fs-kpi); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.ap-name-diff { margin-top: var(--ap-s3); border: 1px solid var(--ap-border); border-radius: var(--ap-r-lg); overflow: hidden; }
+.ap-name-diff-scroll { max-height: 320px; overflow: auto; }
+.ap-name-diff table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ap-name-diff th { position: sticky; top: 0; background: var(--ap-surface-raised); text-align: left; font-weight: 500; color: var(--ap-text-secondary); padding: 8px 12px; }
+.ap-name-diff td { padding: 8px 12px; border-top: 1px solid var(--ap-divider); font-family: var(--ap-mono); white-space: nowrap; }
+.ap-name-diff td.arrow { width: 24px; text-align: center; color: var(--ap-text-muted); font-family: var(--ap-font); }
+.ap-name-diff td.old { color: var(--ap-text-secondary); text-decoration: line-through; text-decoration-color: var(--ap-border-strong); }
+.ap-name-diff-foot { display: flex; flex-wrap: wrap; gap: var(--ap-s2); align-items: center; padding: var(--ap-s3); border-top: 1px solid var(--ap-divider); }
+.ap-name-diff-foot .ap-help { flex: 1; min-width: 200px; }
+@media (max-width: 640px) { .ap-name-result { grid-template-columns: minmax(0, 1fr); } .ap-name-out { text-align: left; } }
+/* Modales : pas de carte dans une section (cadre dans le cadre) */
+.rz-dialog .rz-fieldset .rz-card { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }

@@ -33,7 +33,7 @@ else
                     AllowSorting="true" ColumnWidth="200px">
         <Columns>
 
-            <RadzenDataGridColumn TItem="Pilote" Property="Nom" Title="Nom du Pilote" Sortable="true" Filterable="true" Width="300px">
+            <RadzenDataGridColumn TItem="Pilote" Property="Nom" Title="Nom du pilote" Sortable="true" Filterable="true" Width="300px">
                 <Template Context="p">
                     <span style="font-weight: bold; color: var(--rz-text-color);">@p.Nom</span>
                     @if (!p.EstInstalle)
@@ -100,7 +100,7 @@ else
 
     private async Task OuvrirScan()
     {
-        var result = await DialogService.OpenAsync<ScanDriversModal>("Scanner le Serveur", null, new DialogOptions() { Width = "500px" });
+        var result = await DialogService.OpenAsync<ScanDriversModal>("Scanner le serveur", null, new DialogOptions() { Width = "500px" });
         if (result == true) await ChargerListe();
     }
 

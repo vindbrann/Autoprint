@@ -10,7 +10,7 @@
 
         <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
             <RadzenColumn Size="8">
-                <RadzenLabel Text="Nom du Lieu" Component="Nom" />
+                <RadzenLabel Text="Nom du lieu" Component="Nom" />
                 <RadzenTextBox Name="Nom" @bind-Value="@lieuEdit.Nom" Style="width: 100%;" Placeholder="Ex: Siège Social" />
                 <RadzenRequiredValidator Component="Nom" Text="Le nom est requis" Popup="true" />
             </RadzenColumn>
@@ -20,23 +20,23 @@
             </RadzenColumn>
         </RadzenRow>
 
-        <RadzenFieldset Text="Réseau Principal">
+        <RadzenFieldset Text="Réseau principal">
             <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
                 <RadzenColumn Size="12">
-                    <RadzenLabel Text="CIDR Principal" Component="PrimCidr" Style="font-weight: bold;" />
+                    <RadzenLabel Text="CIDR principal" Component="PrimCidr" Style="font-weight: bold;" />
                     <RadzenTextBox Name="PrimCidr" @bind-Value="@primaryCidr" Placeholder="10.x.x.x/24" Style="width: 100%;" />
                     <RadzenRegexValidator Component="PrimCidr" Text="Format IP/Masque incorrect" Pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[12]?[0-9]|[0-9])$" Popup="true" />
                 </RadzenColumn>
             </RadzenRow>
         </RadzenFieldset>
 
-        <RadzenFieldset Text="Réseaux Secondaires">
+        <RadzenFieldset Text="Réseaux secondaires">
             <RadzenStack Gap="0.5rem">
 
                 <RadzenCard Variant="Variant.Outlined" Class="rz-p-2" Style="background-color: var(--rz-base-100);">
                     <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
                         <RadzenColumn Size="5">
-                            <RadzenLabel Text="CIDR Secondaire" Component="SecCidr" Style="font-size: 0.8em;" />
+                            <RadzenLabel Text="CIDR secondaire" Component="SecCidr" Style="font-size: 0.8em;" />
                             <RadzenTextBox Name="SecCidr" @bind-Value="@tempSecCidr" Placeholder="192.168.x.x/16" Style="width: 100%;" />
                         </RadzenColumn>
                         <RadzenColumn Size="5">
@@ -79,12 +79,12 @@
             <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenCheckBox @bind-Value="IsActive" Name="StatusCheck" TValue="bool" />
-                    <RadzenLabel Text="Site Actif (Opérationnel)" Component="StatusCheck" Style="cursor: pointer; font-weight: bold;" />
+                    <RadzenLabel Text="Site actif (opérationnel)" Component="StatusCheck" Style="cursor: pointer; font-weight: bold;" />
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
 
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
             @if (lieuEdit.Id != 0)
             {
                 <AuthorizeView Policy="LOCATION_DELETE">
@@ -99,8 +99,8 @@
             }
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" ButtonStyle="ButtonStyle.Primary" />
             </RadzenStack>
         </RadzenStack>
 

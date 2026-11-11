@@ -132,9 +132,9 @@ else
                 </RadzenAlert>
             }
 
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="@(editMode ? "Enregistrer" : "Créer")" Icon="save" ButtonStyle="ButtonStyle.Success" />
+            <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="@(editMode ? "Enregistrer" : "Créer")" ButtonStyle="ButtonStyle.Primary" />
             </RadzenStack>
 
         </RadzenStack>

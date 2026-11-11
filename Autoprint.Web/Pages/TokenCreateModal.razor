@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using Radzen
 @using Radzen.Blazor
 @inject HttpClient Http
@@ -18,8 +18,8 @@
             <RadzenDatePicker Name="ExpiresAt" @bind-Value="@dto.ExpiresAt" ShowTime="true" HourFormat="24" DateFormat="dd/MM/yyyy HH:mm" Placeholder="Aucune expiration" Style="width: 100%;" />
         </div>
 
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-4">
-            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
             <RadzenButton ButtonType="ButtonType.Submit" Text="Générer" Icon="vpn_key" ButtonStyle="ButtonStyle.Primary" />
         </RadzenStack>
     </RadzenStack>

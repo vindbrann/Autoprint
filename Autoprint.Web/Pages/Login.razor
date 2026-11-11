@@ -131,7 +131,7 @@
 
     private async Task OpenExpiredPasswordDialog()
     {
-        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+        var result = await DialogService.OpenAsync<PasswordModal>("Changement de mot de passe requis",
             new Dictionary<string, object?> { { "IsForced", true } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = false, ShowClose = false }
         );

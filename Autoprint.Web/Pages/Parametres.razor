@@ -33,19 +33,20 @@ else
 {
     @* Charte B77, maquette « Paramètres » : menu des sections à gauche (réductible), titre et description de la section,
        barre d'enregistrement dès qu'une modification est en attente *@
-    <div class="@(subnavCollapsed ? "ap-subnav-layout is-collapsed" : "ap-subnav-layout")">
+    @* Menu groupé (Imprimantes, Connexions, Serveur) ; plus d'entrée « Réduire » dans la liste (retour de recette du 11/11) *@
+    <div class="ap-subnav-layout">
         <nav class="ap-subnav" aria-label="Sections des paramètres">
-            @foreach (var s in Sections)
+            @foreach (var g in Sections.GroupBy(x => x.Group))
             {
-                <a href="javascript:void(0)" class="@(section == s.Key ? "active" : null)" aria-current="@(section == s.Key ? "page" : null)" @onclick="@(() => section = s.Key)" @onclick:preventDefault>
-                    <RadzenIcon Icon="@s.Icon" />
-                    @if (subnavCollapsed) { <span class="ap-rail-tip" role="tooltip">@s.Title</span> } else { <span>@s.Title</span> }
-                </a>
+                <div class="ap-subnav-group">@g.Key</div>
+                @foreach (var s in g)
+                {
+                    <a href="javascript:void(0)" class="@(section == s.Key ? "active" : null)" aria-current="@(section == s.Key ? "page" : null)" @onclick="@(() => OuvrirSection(s.Key))" @onclick:preventDefault>
+                        <RadzenIcon Icon="@s.Icon" />
+                        <span>@s.Title</span>
+                    </a>
+                }
             }
-            <a href="javascript:void(0)" @onclick="@(() => subnavCollapsed = !subnavCollapsed)" @onclick:preventDefault title="@(subnavCollapsed ? "Agrandir le menu des sections" : "Réduire le menu des sections")">
-                <RadzenIcon Icon="@(subnavCollapsed ? "left_panel_open" : "left_panel_close")" />
-                @if (!subnavCollapsed) { <span class="ap-muted">Réduire</span> }
-            </a>
         </nav>
         <div class="ap-subnav-content">
             @{ var cur = Sections.First(x => x.Key == section); }
@@ -179,108 +180,135 @@ else
                     </RadzenRow>
                 }
 
-            @* --- NOMMAGE --- *@
+            @* --- NOMMAGE --- (maquette « modales et nommage » : variables cliquables, aperçu en direct, renommage du parc en étape à part) *@
             @if (section == "Nommage")
             {
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-                        <RadzenColumn Size="12" SizeLG="7">
-                            <RadzenFieldset Text="Règles et automatisation" Icon="settings_suggest">
-                                <RadzenStack Gap="1.5rem">
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
-                                        <RadzenStack Gap="1rem">
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.NamingEnabled" />
-                                                    <RadzenLabel Text="Activer le nommage automatique" Style="font-weight: bold;" />
-                                                </RadzenStack>
-                                                <RadzenButton Text="Appliquer aux imprimantes" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@RenommerToutesImprimantes" Disabled="@(!model.NamingEnabled)" />
-                                            </RadzenStack>
-                                            <hr class="rz-my-4" />
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" />
-                                                    <RadzenLabel Text="Appliquer aussi au partage Windows" />
-                                                </RadzenStack>
-                                                <RadzenButton Text="Appliquer aux partages" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
-                                            </RadzenStack>
-                                            <hr class="rz-my-4" />
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" />
-                                                    <RadzenStack Gap="0">
-                                                        <RadzenLabel Text="Impression directe par défaut" Style="font-weight: bold;" />
-                                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Pour les nouvelles créations</RadzenText>
-                                                    </RadzenStack>
-                                                </RadzenStack>
-                                                <RadzenButton Text="Passer tout le parc en impression directe" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@ForcerModeDirect" />
-                                            </RadzenStack>
-                                        </RadzenStack>
-                                    </RadzenCard>
-                                    <RadzenStack Gap="0.5rem">
-                                        <RadzenLabel Text="Modèle de nom" />
-                                        <RadzenTextBox @bind-Value="@model.NamingTemplate" Disabled="@(!model.NamingEnabled)" Style="width: 100%; font-family: monospace; font-size: 1.1rem;" Placeholder="IMP_{LIEU}_{IP_LAST}" />
-                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1" Style="color: var(--rz-text-tertiary-color);">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
-                                    </RadzenStack>
-                                </RadzenStack>
-                            </RadzenFieldset>
-                        </RadzenColumn>
-
-                        <RadzenColumn Size="12" SizeLG="5">
-                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-info);">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                        <RadzenIcon Icon="science" Style="color: var(--rz-info);" />
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-info">Simulateur en direct</RadzenText>
-                                    </RadzenStack>
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Testez tous les tokens disponibles.</RadzenText>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Lieu (Nom)" Component="TLieu" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TLieu" @bind-Value="testLieu" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Lieu (Code)" Component="TLieuCode" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TLieuCode" @bind-Value="testLieuCode" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Marque" Component="TMarque" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TMarque" @bind-Value="testMarque" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Modèle" Component="TModele" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TModele" @bind-Value="testModele" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="8">
-                                            <RadzenLabel Text="Adresse IP" Component="TIP" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TIP" @bind-Value="testIp" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="4">
-                                            <RadzenLabel Text="Code imprimante" Component="TCode" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TCode" @bind-Value="testImpCode" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenButton Text="Générer l'aperçu" Icon="visibility" ButtonStyle="ButtonStyle.Info" Click="@SimulerNom" />
-
-                                    @if (!string.IsNullOrEmpty(previewResult))
+                <div class="ap-settings">
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Nom des imprimantes</h3>
+                        <div class="ap-opt-row">
+                            <div class="txt">
+                                <div class="t">Nommage automatique</div>
+                                <div class="d">Le nom est construit avec la règle ci-dessous à la création et à chaque modification d'une imprimante</div>
+                            </div>
+                            <RadzenSwitch @bind-Value="@model.NamingEnabled" Change="@(_ => OnPatternChanged())" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Nommage automatique" } })" />
+                        </div>
+                        <div class="@(model.NamingEnabled ? "ap-name-builder" : "ap-name-builder is-off")">
+                            @if (!model.NamingEnabled)
+                            {
+                                <div class="ap-name-note"><RadzenIcon Icon="info" />Activez le nommage automatique pour modifier la règle</div>
+                            }
+                            <div class="ap-field">
+                                <label class="rz-label" for="naming-pattern">Règle</label>
+                                <input id="naming-pattern" class="rz-textbox ap-mono" style="width: 100%;" spellcheck="false" autocomplete="off"
+                                       disabled="@(!model.NamingEnabled)" placeholder="IMP_{LIEU_CODE}_{MODELE}"
+                                       @bind="model.NamingTemplate" @bind:event="oninput" @bind:after="OnPatternChanged" />
+                            </div>
+                            <div>
+                                <div class="ap-help" style="margin-bottom: 6px;">Cliquez pour insérer à l'emplacement du curseur</div>
+                                <div class="ap-chips">
+                                    @foreach (var tok in NamingTokens)
                                     {
-                                        <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-2 rz-text-align-center" Style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">
-                                            @previewResult
-                                        </RadzenAlert>
+                                        <button type="button" class="ap-chip" disabled="@(!model.NamingEnabled)" title="{@tok.Key}" @onclick="@(() => InsererToken(tok.Key))"><RadzenIcon Icon="add" />@tok.Label</button>
                                     }
-                                </RadzenStack>
-                            </RadzenCard>
-                        </RadzenColumn>
-                    </RadzenRow>
-                }
+                                </div>
+                            </div>
+                            <div class="ap-name-result">
+                                <div class="ap-field" style="min-width: 0;">
+                                    <span class="ap-help">Exemple avec</span>
+                                    @if (namingSamples.Any())
+                                    {
+                                        <RadzenDropDown TValue="int" @bind-Value="@namingSampleId" Data="@namingSamples" TextProperty="NomAffiche" ValueProperty="Id"
+                                                        Change="@(_ => OnPatternChanged())" AllowFiltering="true" Style="width: 100%; max-width: 360px;" aria-label="Imprimante d'exemple" />
+                                    }
+                                    else
+                                    {
+                                        <span class="ap-help">Aucune imprimante dans le parc : l'aperçu utilise des valeurs d'exemple</span>
+                                    }
+                                </div>
+                                <div class="ap-name-out" aria-live="polite">@(string.IsNullOrEmpty(namingPreview) ? "—" : namingPreview)</div>
+                                <div class="ap-help @(namingCheckOk ? "is-ok" : "is-bad")">@namingCheck</div>
+                            </div>
+                        </div>
+                    </section>
 
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Partage Windows</h3>
+                        <div class="ap-opt-row">
+                            <div class="txt">
+                                <div class="t">Même nom pour le partage</div>
+                                <div class="d">Le nom de partage des imprimantes partagées reprend le nom de l'imprimante</div>
+                            </div>
+                            <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" Change="@(_ => OnPatternChanged())" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Même nom pour le partage" } })" />
+                        </div>
+                    </section>
+
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Appliquer au parc existant</h3>
+                        <p class="ap-card-lead">La règle s'applique aux nouvelles imprimantes. Pour renommer celles qui existent, vérifiez d'abord la liste des changements.</p>
+                        <div class="ap-name-apply">
+                            <span class="ap-name-count">@(namingChanges?.Count ?? 0)</span>
+                            <span class="ap-grow" style="min-width: 180px;">
+                                @(namingChanges == null ? "calcul en cours" : namingChanges.Count == 0 ? "aucune imprimante ne change de nom" : namingChanges.Count == 1 ? "imprimante changerait de nom" : "imprimantes changeraient de nom")<br />
+                                <span class="ap-help">Les postes connectés à l'ancien nom devront être reconnectés</span>
+                            </span>
+                            <RadzenButton Text="@(showNamingDiff ? "Masquer les changements" : "Voir les changements")" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined"
+                                          Disabled="@(!model.NamingEnabled || !namingCheckOk || namingChanges is not { Count: > 0 })" Click="@(() => showNamingDiff = !showNamingDiff)" />
+                        </div>
+                        @if (showNamingDiff && namingChanges is { Count: > 0 })
+                        {
+                            <div class="ap-name-diff">
+                                <div class="ap-name-diff-scroll">
+                                    <table>
+                                        <thead><tr><th>Nom actuel</th><th></th><th>Nouveau nom</th>@if (model.NamingSameShare) { <th>Partage</th> }</tr></thead>
+                                        <tbody>
+                                            @foreach (var c in namingChanges)
+                                            {
+                                                <tr>
+                                                    <td class="old">@c.CurrentName</td><td class="arrow">→</td><td>@c.NewName@(c.IsArchived ? " (archivée)" : "")</td>
+                                                    @if (model.NamingSameShare) { <td>@(c.NewShare ?? (c.CurrentShare == null ? "non partagée" : "inchangé"))</td> }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="ap-name-diff-foot">
+                                    <span class="ap-help">Les réglages de nommage sont enregistrés, puis la synchronisation renomme les files sur le serveur.</span>
+                                    <RadzenButton Text="Fermer" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => showNamingDiff = false)" />
+                                    <RadzenButton Text="@($"Renommer {namingChanges.Count} imprimante{(namingChanges.Count > 1 ? "s" : "")}")" ButtonStyle="ButtonStyle.Primary" Click="@AppliquerNommageAuParc" IsBusy="@namingApplying" />
+                                </div>
+                            </div>
+                        }
+                    </section>
+                </div>
+            }
+
+            @* --- VALEURS PAR DÉFAUT DES IMPRIMANTES --- (réglages sortis de « Nommage ») *@
+            @if (section == "Defauts")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Impression directe</h3><p>Valeur proposée à la création d'une imprimante : les travaux vont directement à l'imprimante, sans file d'attente sur le serveur.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Activée par défaut pour les nouvelles imprimantes</div></div>
+                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Impression directe par défaut" } })" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card ap-zone-sensible">
+                        <div class="ap-set-row">
+                            <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Tout le parc en impression directe</h3><p>Active l'impression directe sur toutes les imprimantes existantes.</p></div>
+                            <div class="ap-ctrl">
+                                <span class="ap-help">Toutes les files seront resynchronisées sur le serveur. Les travaux en attente dans le spouleur peuvent être perdus.</span>
+                                <div><RadzenButton Text="Passer tout le parc en impression directe" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@ForcerModeDirect" /></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
             @* --- ACTIVE DIRECTORY --- *@
             @if (section == "Active Directory")
             {
@@ -500,7 +528,7 @@ else
                 }
 
             @* --- SCANNER RÉSEAU --- *@
-            @if (section == "Scanner Réseau")
+            @if (section == "Scanner le réseau")
             {
                     <RadzenRow Class="rz-p-2" Gap="2rem">
 
@@ -767,9 +795,31 @@ else
     private string builderGroupName = "";
     private BackupRootDto? uploadedBackup;
     private bool isRestoring = false;
-    private string testLieu = "Bur", testLieuCode = "B", testImpCode = "P1", testIp = "1.1.1.1", previewResult = "";
-    private string testMarque = "HP";
-    private string testModele = "LaserJet";
+    // --- Nommage (aperçu en direct sur une imprimante du parc, changements avant application) ---
+    private sealed record NamingToken(string Key, string Label);
+    private static readonly NamingToken[] NamingTokens =
+    {
+        new("LIEU", "Lieu"), new("LIEU_CODE", "Code du lieu"), new("MARQUE", "Marque"), new("MODELE", "Modèle"),
+        new("IMP_CODE", "Code inventaire"), new("IP", "Adresse IP"), new("IP_LAST", "Fin de l'IP")
+    };
+    private List<Imprimante> namingSamples = new();
+    private int namingSampleId;
+    private string namingPreview = "";
+    private string namingCheck = "";
+    private bool namingCheckOk = true;
+    private List<NamingChangeView>? namingChanges;
+    private bool showNamingDiff;
+    private bool namingApplying;
+    private CancellationTokenSource? namingCts;
+    private sealed class NamingChangeView
+    {
+        public int Id { get; set; }
+        public string CurrentName { get; set; } = "";
+        public string NewName { get; set; } = "";
+        public string? CurrentShare { get; set; }
+        public string? NewShare { get; set; }
+        public bool IsArchived { get; set; }
+    }
 
     private DiscoveryProfile scanConfig = new DiscoveryProfile();
     private bool isScanning = false;
@@ -849,26 +899,33 @@ else
             await LoadScanProfile();
             await LoadTokens();
             savedSnapshot = Snapshot();
+            if (section == "Nommage") await ChargerNommage();
         }
         catch { }
         finally { isLoading = false; }
     }
 
     // --- Menu des sections et barre d'enregistrement (charte B77) ---
-    private string section = "Maintenance";
-    private bool subnavCollapsed;
-    private sealed record SettingsSection(string Key, string Title, string Icon, string Description);
+    private string section = "Nommage";
+    private sealed record SettingsSection(string Group, string Key, string Title, string Icon, string Description);
     private static readonly SettingsSection[] Sections =
     {
-        new("Maintenance", "Maintenance", "build", "Rétention du journal d'audit, sauvegarde et restauration de la configuration."),
-        new("SMTP", "Messagerie (SMTP)", "mail", "Serveur d'envoi des alertes et des rapports par e-mail."),
-        new("Nommage", "Nommage", "badge", "Modèle de nom des imprimantes et partages Windows."),
-        new("Active Directory", "Active Directory", "domain", "Connexion des comptes AD et rôles attribués par groupe."),
-        new("Supervision", "Supervision", "monitor_heart", "Fréquence et plages horaires de la supervision SNMP."),
-        new("Monitoring", "Intégration monitoring", "hub", "Jetons d'accès pour Zabbix, PRTG, Centreon… et alertes exportées."),
-        new("Scanner Réseau", "Scanner réseau", "radar", "Découverte automatique des imprimantes sur le réseau."),
-        new("Sécurité", "Sécurité", "shield", "Mots de passe, clé d'API des postes clients.")
+        new("Imprimantes", "Nommage", "Nommage", "badge", "Nom des imprimantes et des partages Windows créés par Autoprint"),
+        new("Imprimantes", "Defauts", "Valeurs par défaut", "tune", "Réglages proposés à la création d'une imprimante"),
+        new("Imprimantes", "Supervision", "Supervision", "monitor_heart", "Fréquence et plages horaires de la supervision SNMP"),
+        new("Imprimantes", "Scanner le réseau", "Scanner réseau", "radar", "Découverte automatique des imprimantes sur le réseau"),
+        new("Connexions", "Active Directory", "Active Directory", "domain", "Connexion des comptes AD et rôles attribués par groupe"),
+        new("Connexions", "SMTP", "Messagerie (SMTP)", "mail", "Serveur d'envoi des alertes et des rapports par e-mail"),
+        new("Connexions", "Monitoring", "Intégration monitoring", "hub", "Jetons d'accès pour Zabbix, PRTG, Centreon et alertes exportées"),
+        new("Serveur", "Sécurité", "Sécurité", "shield", "Mots de passe, clé d'API des postes clients"),
+        new("Serveur", "Maintenance", "Maintenance", "build", "Rétention du journal d'audit, sauvegarde et restauration de la configuration")
     };
+
+    private async Task OuvrirSection(string key)
+    {
+        section = key;
+        if (key == "Nommage") await ChargerNommage();
+    }
 
     private string? savedSnapshot;
     private string Snapshot() => System.Text.Json.JsonSerializer.Serialize(model);
@@ -878,6 +935,7 @@ else
     {
         if (savedSnapshot == null) return;
         model = System.Text.Json.JsonSerializer.Deserialize<SettingsModel>(savedSnapshot) ?? model;
+        if (section == "Nommage") _ = RecalculerNommage(CancellationToken.None);
     }
 
     private string GV(List<Autoprint.Shared.ServerSetting>? l, string k, string d = "") => l?.FirstOrDefault(s => s.Key == k)?.Value ?? d;
@@ -989,19 +1047,105 @@ else
         }
     }
 
-    private async Task RenommerToutesImprimantes() => await ActionNaming("api/Naming/ApplyToNames");
-    private async Task RenommerTousPartages() => await ActionNaming("api/Naming/ApplyToShares");
-
-    private async Task ActionNaming(string url)
+    private async Task ChargerNommage()
     {
-        var confirm = await DialogService.Confirm("Confirmer l'opération de renommage en masse ?", "Confirmation");
-        if (confirm == true)
+        if (!namingSamples.Any())
         {
-            await Http.PostAsJsonAsync("api/Settings/Save", model);
-            var r = await Http.PostAsync(url, null);
-            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès");
-            else NotificationService.Notify(NotificationSeverity.Error, "Erreur");
+            try { namingSamples = (await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes") ?? new()).OrderBy(i => i.NomAffiche).ToList(); }
+            catch { namingSamples = new(); }
+            namingSampleId = namingSamples.FirstOrDefault()?.Id ?? 0;
         }
+        await RecalculerNommage(CancellationToken.None);
+    }
+
+    private async Task InsererToken(string key)
+    {
+        // Insertion à l'emplacement du curseur (app.js), puis recalcul de l'aperçu
+        var value = await JS.InvokeAsync<string>("apInsertAtCursor", "naming-pattern", "{" + key + "}");
+        model.NamingTemplate = value;
+        await OnPatternChanged();
+    }
+
+    // Aperçu et liste des changements recalculés 300 ms après la dernière frappe
+    private async Task OnPatternChanged()
+    {
+        namingCts?.Cancel();
+        var cts = namingCts = new CancellationTokenSource();
+        try { await Task.Delay(300, cts.Token); } catch (TaskCanceledException) { return; }
+        await RecalculerNommage(cts.Token);
+    }
+
+    private async Task RecalculerNommage(CancellationToken ct)
+    {
+        var template = model.NamingTemplate ?? "";
+        var sample = namingSamples.FirstOrDefault(i => i.Id == namingSampleId);
+        var dto = new
+        {
+            Template = template,
+            Ip = sample?.AdresseIp ?? "10.12.4.30",
+            LieuNom = sample?.Emplacement?.Nom ?? "Siège",
+            LieuCode = sample?.Emplacement?.Code ?? "SIEGE",
+            ImpCode = sample?.Code ?? "P0042",
+            ModeleNom = sample?.Modele?.Nom ?? "IM C3000",
+            MarqueNom = sample?.Modele?.Marque?.Nom ?? "Ricoh"
+        };
+        try
+        {
+            var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto, ct);
+            if (r.IsSuccessStatusCode)
+            {
+                var json = await r.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+                namingPreview = json.TryGetProperty("generatedName", out var p) ? p.GetString() ?? "" : "";
+            }
+        }
+        catch (OperationCanceledException) { return; }
+        catch { namingPreview = ""; }
+
+        var unknown = System.Text.RegularExpressions.Regex.Matches(template, @"\{[^}]*\}").Select(m => m.Value)
+            .Where(v => !NamingTokens.Any(k => string.Equals("{" + k.Key + "}", v, StringComparison.OrdinalIgnoreCase))).Distinct().ToList();
+        if (string.IsNullOrWhiteSpace(template)) { namingCheckOk = false; namingCheck = "Saisissez une règle"; }
+        else if (unknown.Any()) { namingCheckOk = false; namingCheck = $"Variable inconnue : {string.Join(", ", unknown)}"; }
+        else if (string.IsNullOrEmpty(namingPreview)) { namingCheckOk = false; namingCheck = "La règle donne un nom vide"; }
+        else if (namingPreview.IndexOfAny(new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|', ',' }) >= 0) { namingCheckOk = false; namingCheck = "Caractère interdit dans un nom Windows (\\ / : * ? \" < > | ,)"; }
+        else if (model.NamingSameShare && namingPreview.Length > 80) { namingCheckOk = false; namingCheck = $"{namingPreview.Length} caractères : 80 au maximum pour un nom de partage"; }
+        else { namingCheckOk = true; namingCheck = $"{namingPreview.Length} caractères, valide pour une file et un partage Windows"; }
+
+        if (model.NamingEnabled && namingCheckOk)
+        {
+            try
+            {
+                var r = await Http.PostAsJsonAsync("api/Naming/PreviewChanges", new { Template = template, SameShare = model.NamingSameShare }, ct);
+                namingChanges = r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<NamingChangeView>>(cancellationToken: ct) ?? new() : new();
+            }
+            catch (OperationCanceledException) { return; }
+            catch { namingChanges = new(); }
+        }
+        else namingChanges = new();
+        if (namingChanges.Count == 0) showNamingDiff = false;
+        StateHasChanged();
+    }
+
+    private async Task AppliquerNommageAuParc()
+    {
+        namingApplying = true;
+        try
+        {
+            var save = await Http.PostAsJsonAsync("api/Settings/Save", model);
+            if (!save.IsSuccessStatusCode) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", await save.Content.ReadAsStringAsync()); return; }
+            savedSnapshot = Snapshot();
+            var r = await Http.PostAsync("api/Naming/ApplyToNames", null);
+            if (r.IsSuccessStatusCode && model.NamingSameShare) r = await Http.PostAsync("api/Naming/ApplyToShares", null);
+            if (r.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Imprimantes renommées", $"{namingChanges?.Count ?? 0} imprimante(s) renommée(s), à synchroniser.");
+                showNamingDiff = false;
+                namingSamples.Clear();
+                await ChargerNommage();
+            }
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { namingApplying = false; }
     }
 
     private async Task TesterEmail()
@@ -1025,25 +1169,6 @@ else
         if (string.IsNullOrWhiteSpace(model.AdLdapFilter)) model.AdLdapFilter = filter;
         else model.AdLdapFilter += filter;
         builderGroupName = "";
-    }
-
-    private async Task SimulerNom()
-    {
-        var dto = new {
-            Template = model.NamingTemplate,
-            Ip = testIp,
-            LieuNom = testLieu,
-            LieuCode = testLieuCode,
-            ImpCode = testImpCode,
-            ModeleNom = testModele,
-            MarqueNom = testMarque
-        };
-        var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
-        if (r.IsSuccessStatusCode)
-        {
-            var json = await (r.Content.ReadFromJsonAsync<JsonElement>());
-            if (json.TryGetProperty("generatedName", out var p)) previewResult = p.GetString() ?? "";
-        }
     }
 
     private async Task TesterFiltreAd()
@@ -1170,14 +1295,14 @@ else
 
     private async Task OuvrirGenerationToken()
     {
-        var result = await DialogService.OpenAsync<TokenCreateModal>("Générer un Jeton d'Intégration",
+        var result = await DialogService.OpenAsync<TokenCreateModal>("Générer un jeton d'intégration",
             null,
             new DialogOptions { Width = "500px" });
 
         if (result is IntegrationTokenCreationResultDto creationResult)
         {
             await LoadTokens();
-            await DialogService.OpenAsync<TokenShowModal>("Jeton d'Intégration Généré",
+            await DialogService.OpenAsync<TokenShowModal>("Jeton d'intégration généré",
                 new Dictionary<string, object?> { { "RawToken", creationResult.RawToken } },
                 new DialogOptions { Width = "550px" });
         }

@@ -47,7 +47,7 @@ else
                     RowRender="@RowRender">
         <Columns>
 
-            <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du Modèle" Sortable="true" Filterable="true" />
+            <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du modèle" Sortable="true" Filterable="true" />
 
             <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="m">
@@ -165,7 +165,7 @@ else
     private async Task OuvrirModal(Modele modele)
     {
         var resultat = await DialogService.OpenAsync<ModeleModal>(
-            modele.Id == 0 ? "Nouveau Modèle" : "Modifier le Modèle",
+            modele.Id == 0 ? "Nouveau modèle" : "Modifier le modèle",
             new Dictionary<string, object?> { { "ModeleToEdit", modele } },
             new DialogOptions() { Width = "600px", CloseDialogOnOverlayClick = true }
         );

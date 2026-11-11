@@ -160,7 +160,7 @@
     </RadzenCard>
 
     <!-- FOOTER : ACTIONS -->
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-pt-2" Style="border-top: 1px solid var(--rz-base-200);">
+    <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
         @if (profileEdit.Id != 0 && canDelete)
         {
             <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined" Text="Supprimer le Profil" Click="@OnDelete" />
@@ -171,8 +171,8 @@
         }
 
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-            <RadzenButton Text="Enregistrer le Profil" Icon="check" ButtonStyle="ButtonStyle.Primary" Click="@OnSubmit" Visible="@canWrite" />
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton Text="Enregistrer le Profil" ButtonStyle="ButtonStyle.Primary" Click="@OnSubmit" Visible="@canWrite" />
         </RadzenStack>
     </RadzenStack>
 </RadzenStack>

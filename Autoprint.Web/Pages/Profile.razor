@@ -158,7 +158,7 @@ else
 
     private async Task OpenPasswordModal()
     {
-        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+        var result = await DialogService.OpenAsync<PasswordModal>("Changement de mot de passe requis",
             new Dictionary<string, object?> { { "IsForced", false } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
         );

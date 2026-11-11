@@ -405,17 +405,17 @@
         }
 
         <!-- BOUTONS DE NAVIGATION DU WIZARD -->
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem" Class="rz-mt-4">
-            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" Style="border-radius: 6px; padding: 0 1.5rem;" />
+        <RadzenStack Class="ap-dlg-footer" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem">
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
             
             @if (currentStep > 1)
             {
-                <RadzenButton Text="Précédent" Icon="navigate_before" ButtonStyle="ButtonStyle.Secondary" Click="@(() => AllerStep(currentStep - 1))" Style="border-radius: 6px; padding: 0 1.5rem;" />
+                <RadzenButton Text="Précédent" Icon="navigate_before" ButtonStyle="ButtonStyle.Secondary" Click="@(() => AllerStep(currentStep - 1))" />
             }
             
             @if (currentStep < 3)
             {
-                <RadzenButton Text="Suivant" Icon="navigate_next" ButtonStyle="ButtonStyle.Primary" Click="@(() => AllerStep(currentStep + 1))" Style="border-radius: 6px; padding: 0 1.5rem;" />
+                <RadzenButton Text="Suivant" Icon="navigate_next" ButtonStyle="ButtonStyle.Primary" Click="@(() => AllerStep(currentStep + 1))" />
             }
             else
             {
