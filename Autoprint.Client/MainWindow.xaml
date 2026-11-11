@@ -581,7 +581,7 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- 5 clics sur la version : zone informatique -->
+                        <!-- 5 clics sur la version : informations serveur -->
                         <Button Command="{Binding VersionClickCommand}" HorizontalAlignment="Center" Margin="0,14,0,0" Cursor="Arrow" Focusable="False">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
@@ -597,7 +597,7 @@
                                         Visibility="{Binding IsAdminPanelVisible, Converter={StaticResource Vis}}">
                             <StackPanel>
                                 <Grid>
-                                    <TextBlock Text="Zone informatique" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Autoprint.Brush.Text}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Informations serveur" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Autoprint.Brush.Text}" VerticalAlignment="Center" />
                                     <Button Style="{StaticResource Link}" HorizontalAlignment="Right" Content="Fermer" Command="{Binding CloseAdminPanelCommand}" />
                                 </Grid>
                                 <TextBlock Text="Console et API" Style="{StaticResource Sub}" Margin="0,8,0,0" />
