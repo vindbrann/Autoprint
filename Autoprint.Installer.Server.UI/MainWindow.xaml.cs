@@ -163,18 +163,19 @@ namespace Autoprint.Installer.Server.UI
             for (int i = 1; i <= StepLabels.Length; i++)
             {
                 bool done = i < _currentStep, current = i == _currentStep;
+                var digit = new TextBlock
+                {
+                    Text = done ? "\uE73E" : i.ToString(),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                // FontFamily n'accepte pas null : on ne la fixe que pour la coche (\u00E9tape termin\u00E9e)
+                if (done) digit.FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets");
                 var number = new Border
                 {
                     Style = (Style)FindResource(done ? "Autoprint.StepNumber.Done" : current ? "Autoprint.StepNumber.Current" : "Autoprint.StepNumber"),
-                    Child = new TextBlock
-                    {
-                        Text = done ? "\uE73E" : i.ToString(),
-                        FontFamily = done ? new System.Windows.Media.FontFamily("Segoe MDL2 Assets") : null,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    }
+                    Child = digit
                 };
-                if (!done) ((TextBlock)number.Child).ClearValue(TextBlock.FontFamilyProperty);
                 var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 row.Children.Add(number);
                 row.Children.Add(new TextBlock { Text = StepLabels[i - 1], VerticalAlignment = VerticalAlignment.Center });

@@ -1,4 +1,4 @@
-# Résultats de la recette en labo
+﻿# Résultats de la recette en labo
 
 Recette de `Docs/_PROCEDURE_TESTS_SECURITE.md` sur le labo Hyper-V (`tools/lab/README.md`) : Windows Server 2022 **français**, domaine `lab.autoprint.test`, poste Windows 11 hors domaine.
 Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main ou dans le navigateur.
@@ -46,6 +46,17 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 | P1-02 | ✅ | Après fusion dans `master` (09/11) : aucune alerte Dependabot ouverte, n° 7 fermée. Avant fusion : PR brouillon vindbrann/Autoprint#6 vers `master` : « Contrôles de sécurité » (`build-and-audit`, audit des paquets vulnérables) réussi sur la branche. L'alerte Dependabot n° 7 (CVE-2026-96230, `Microsoft.AspNetCore.Components.WebAssembly.Server` 10.0.0) reste ouverte car Dependabot n'analyse que `master` (10.0.14 sur la branche) : à vérifier fermée après la fusion. |
 | P2-43 | ✅ après correctif (B75) | Après correctif (commits `2172ebf`, `fbe894e`) : CodeQL « No new alerts », toutes les vérifications de la PR au vert. Constat initial : 3 nouvelles alertes, analysées comme faux positifs. N° 16 (critique, LDAP, `SettingsController.cs:324`) : `TestUserQuery` déjà échappé par `SecurityHelper.EscapeLdapFilter`, que CodeQL ne reconnaît pas ; le filtre de base est saisi par l'administrateur (droit Paramètres). N° 17 et 18 (moyennes, journal, `SnmpProfilesController.cs:65` et `:90`) : adresse déjà validée par `IsValidHost` (IP ou nom DNS, sans retour à la ligne). Les 15 alertes de `master` (n° 1 à 15) ne réapparaissent pas sur la branche. Code adapté (B75). Le test du filtre AD dans la console n'a pas encore été rejoué en labo (prochaine version). |
 
+## Campagne B79 / B32 / charte (branche `feature/charte-graphique`, installeur de test) — 11/11/2026
+
+SRV-AD et SRV-PRINT seulement (CLT-TEST éteint). Installation SQL Server 26.11.9.1 mise à jour par l'installeur de test de la branche.
+
+- **Installeur (charte B77)** : 1re version plantée au démarrage (`BuildRail` : `FontFamily = null` refusé par WPF), corrigée. Nouveau look validé (étapes à gauche, pied de page). À l'écran : message du runtime coupé (retour à la ligne ajouté), icônes manquantes (fenêtre : icône du logiciel ; exe : nouvelle icône d'installeur `autoprint-installeur.ico`), corrigés après coup, à revoir au prochain passage.
+- **B79 (SE-01 / SE-02)** ✅ : runtime 10.0.14 signalé « trop ancienne : 10.0.15 requise » avec « Mettre à jour » ; après mise à jour : `Microsoft.AspNetCore.App 10.0.15` seul. « Mise à jour terminée ».
+- **B32 (migration SQL Server)** ✅ : avant : `nvarchar(100)`, 2 communautés en clair, 63 lignes d'audit qui citent `snmpCommunity` ; après : migration `ChiffrementCommunauteSnmp`, `nvarchar(max)`, 2/2 communautés en `enc:v1:`, 63/63 lignes d'audit masquées. Supervision v2c en communauté propre (SV3-11) et sauvegarde / restauration (lot Données) OK.
+- **SqlClient 7** ⏳ : **non exercé** par cette mise à jour (la connexion SQL de l'installeur ne sert qu'à l'installation neuve et au passage du site en compte sans privilège, déjà fait en 26.11.9.1). À couvrir par une installation neuve SQL Server (ou S8-10).
+- **Lots API** (`-Profil sql`, HTTPS) : Comptes + Escalade 20, Sessions 5, Imprimantes 11, Web 12, AD 24, Données 18, Email 15, SNMP 21, Divers 16, Infra 6 : **148 OK, 0 échec**. Lots Clé et Serveur à jouer avec CLT-TEST.
+- **Script de recette** : SV3-11 adapté à B32 (communauté jamais renvoyée par l'API, contrôlée chiffrée en base) ; lot AD : recyclage du pool si ad.user2 est encore bloqué par un P1-34 précédent. Port 8080 : redirige maintenant vers HTTPS (307), le jeton est perdu à la redirection : jouer la recette en HTTPS (adresse par défaut).
+- **Restent** : recette visuelle de la console (charte, Radzen 12) dans le labo, client (CLT-TEST), lots Clé et Serveur, SqlClient 7.
 ## Contrôles à l'écran (navigateur intégré, console HTTPS de l'installation SQL Server) — 09/11/2026
 
 Compte de test `ecran` (SuperAdmin) ; certificat du labo copié de l'instantané SQLite (liaison 443 ajoutée sur l'installation SQL Server).

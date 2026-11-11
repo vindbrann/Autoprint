@@ -9,6 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Icône de l'exe : symbole Autoprint + pastille d'installation (charte B77) ; la fenêtre garde l'icône du logiciel -->
+    <ApplicationIcon>Assets\autoprint-installeur.ico</ApplicationIcon>
     <!-- Version du Hosting Bundle embarqué (Resources\dotnet-hosting-10.exe, non versionné dans git).
          C'est aussi la version minimale exigée sur le serveur : un runtime plus ancien est signalé et mis à jour.
          À relever à chaque publication (voir Docs/_POLITIQUE_VERSIONS.md). -->
@@ -45,6 +47,7 @@
     <!-- Charte graphique (B77) : polices (licence OFL) et logo -->
     <Resource Include="Fonts\*.ttf" />
     <Resource Include="Assets\autoprint-symbole.png" />
+    <Resource Include="Assets\autoprint.ico" />
     <EmbeddedResource Include="Resources\dotnet-hosting-10.exe" />
     <EmbeddedResource Include="Resources\License.rtf" />
   </ItemGroup>

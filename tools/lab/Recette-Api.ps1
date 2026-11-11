@@ -529,6 +529,12 @@ function Lot-AD {
     Check 'P1-36' 'ad.user1 retiré du groupe : connexion refusée' $r.Code { param($x) $x -in 401, 403 } $r.Text
 
     $r = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    if ($r.Code -eq 429) {
+        # ad.user2 encore bloqué par le P1-34 d'un passage précédent : compteur en mémoire (B14), remis à zéro par un recyclage du pool
+        Write-Host '    (ad.user2 bloqué par un P1-34 précédent : recyclage du pool Autoprint)' -ForegroundColor DarkGray
+        Invoke-OnPrint { Import-Module WebAdministration; Restart-WebAppPool Autoprint }; Start-Sleep 5
+        $r = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    }
     Write-Host "         ad.user2 sans groupe : $($r.Code) $($r.Text)" -ForegroundColor DarkGray
     $u2 = (Invoke-Api GET '/api/users' -Token $ta).Json | Where-Object username -eq 'ad.user2'
     if ($u2) {
@@ -983,7 +989,9 @@ function Lot-Snmp {
     $u = Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta
     $g = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json
     $d2 = & $diag $pV2.id
-    Check 'SV3-11' 'sans profil : communauté « parc » / v2c enregistrées et utilisées' "$($u.Code)/$($g.snmpCommunity)/$($g.snmpVersion)/$($d2.Json.serialNumber)" '204/parc/2/SIMV2-0002'
+    # Depuis B32 la communauté n'est jamais renvoyée par l'API et elle est chiffrée en base (enc:v1:) : la supervision prouve qu'elle est utilisée
+    $db = Invoke-LabSql "SELECT SnmpCommunity FROM Imprimantes WHERE Id = $([int]$pV2.id)"
+    Check 'SV3-11' 'sans profil : communauté « parc » / v2c enregistrées (chiffrée, masquée) et utilisées' "$($u.Code)/[$($g.snmpCommunity)]/$($g.snmpVersion)/$db/$($d2.Json.serialNumber)" '204/[]/2/SnmpCommunity=enc:v1:/SIMV2-0002'
 
     # SV3-12 : éditeur de profils d'OID avec les identifiants v3
     $t = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = '192.168.99.10'; credentialId = $credId; items = @(@{ name = 'Toner cyan'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.2'; category = 0; valueType = 0 }) } $ta
