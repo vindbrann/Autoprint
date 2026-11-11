@@ -8,23 +8,22 @@
 @inject NotificationService NotificationService
 @inject IJSRuntime JS
 
-<PageTitle>Gestion des Marques</PageTitle>
+<PageTitle>Marques</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        🏷️ Gestion des Marques
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Marques</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(marques == null || !marques.Any())" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(marques == null || !marques.Any())" />
 
         <AuthorizeView Policy="BRAND_WRITE">
             <Authorized>
-                <RadzenButton Icon="add_circle" Text="Nouvelle Marque" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Marque()))" />
+                <RadzenButton Icon="add" Text="Nouvelle marque" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new Marque()))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (isLoading)
 {
@@ -32,7 +31,7 @@
 }
 else
 {
-    <RadzenDataGrid Data="@marques" TItem="Marque"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@marques" TItem="Marque"
                     AllowFiltering="true"
                     FilterMode="FilterMode.Advanced"
                     FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
@@ -67,7 +66,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {

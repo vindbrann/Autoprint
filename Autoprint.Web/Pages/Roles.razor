@@ -12,23 +12,22 @@
 @inject IJSRuntime JS
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ROLE_READ")]
 
-<PageTitle>Gestion des Rôles</PageTitle>
+<PageTitle>Rôles et droits</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        🛡️ Rôles & Permissions
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Rôles et droits</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(roles == null || !roles.Any())" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(roles == null || !roles.Any())" />
 
         <AuthorizeView Policy="ROLE_WRITE">
             <Authorized>
-                <RadzenButton Icon="add_circle" Text="Nouveau Rôle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OpenRoleModal(0))" />
+                <RadzenButton Icon="add" Text="Nouveau rôle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OpenRoleModal(0))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (roles == null)
 {
@@ -36,7 +35,7 @@
 }
 else
 {
-    <RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px">
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@roles" TItem="RoleViewDto" AllowSorting="true" AllowPaging="false" ColumnWidth="200px">
         <Columns>
 
             <RadzenDataGridColumn TItem="RoleViewDto" Property="Name" SortProperty="Name" Title="Rôle" Width="200px">
@@ -91,7 +90,7 @@ else
             </RadzenDataGridColumn>
 
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {
@@ -114,7 +113,7 @@ else
 
     private async Task OpenRoleModal(int roleId)
     {
-        var title = roleId == 0 ? "➕ Créer un Rôle" : "✏️ Modifier le Rôle";
+        var title = roleId == 0 ? "Nouveau rôle" : "Modifier le rôle";
 
         var result = await DialogService.OpenAsync<RolePermissionModal>(title,
             new Dictionary<string, object?>

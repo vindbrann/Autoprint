@@ -998,7 +998,7 @@ else
     private async Task ExecuteRestore()
     {
         if (uploadedBackup == null) return;
-        var confirm = await DialogService.Confirm("⛔ ATTENTION : Toutes les données seront remplacées.\nContinuer ?", "Danger", new ConfirmOptions() { OkButtonText = "Oui, écraser", CancelButtonText = "Non" });
+        var confirm = await DialogService.Confirm("Toutes les données du serveur seront remplacées par celles de la sauvegarde. Continuer ?", "Restaurer la configuration", new ConfirmOptions() { OkButtonText = "Oui, écraser", CancelButtonText = "Non" });
         if (confirm == true)
         {
             isRestoring = true;

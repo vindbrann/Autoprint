@@ -8,20 +8,18 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<PageTitle>Gestion des Pilotes</PageTitle>
+<PageTitle>Pilotes</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenStack Gap="0">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">💾 Bibliothèque des Pilotes</RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Inventaire WMI du serveur (Lecture Seule).</RadzenText>
-    </RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Pilotes</h1><span class="ap-sub">Inventaire des pilotes installés sur le serveur (lecture seule)</span></div>
+    <span class="ap-grow"></span>
 
     <AuthorizeView Policy="DRIVER_SCAN">
         <Authorized Context="auth">
-            <RadzenButton Icon="dns" Text="Scanner le Serveur" ButtonStyle="ButtonStyle.Primary" Click="@OuvrirScan" />
+            <RadzenButton Icon="dns" Text="Scanner le serveur" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@OuvrirScan" />
         </Authorized>
     </AuthorizeView>
-</RadzenStack>
+</div>
 
 @if (isLoading)
 {
@@ -29,7 +27,7 @@
 }
 else
 {
-    <RadzenDataGrid Data="@pilotes" TItem="Pilote"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@pilotes" TItem="Pilote"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="200px">
@@ -74,7 +72,7 @@ else
 
 
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 
     <div class="rz-mt-2 rz-text-align-right" style="color: var(--rz-text-tertiary-color); font-size: 0.8rem;">
         Total : @(pilotes?.Count ?? 0) pilotes répertoriés.

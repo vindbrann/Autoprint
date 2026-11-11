@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using System.Text.Json
 @using Radzen
 @using Radzen.Blazor
@@ -145,7 +145,7 @@
                     <!-- Compteur de pages -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📄</span>
+                            <RadzenIcon Icon="description" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Compteur de pages" Component="Pages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Volume total de pages imprimées relevé sur la machine.</span>
@@ -157,7 +157,7 @@
                     <!-- Consommables -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">🧪</span>
+                            <RadzenIcon Icon="science" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Consommables (Toners)" Component="Toner" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux d'encre et toners (Noir, Cyan, Magenta, Jaune).</span>
@@ -169,7 +169,7 @@
                     <!-- Bacs Papier -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📦</span>
+                            <RadzenIcon Icon="inventory_2" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Bacs de Papier" Component="Trays" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux de papier par bac (feuilles ou %).</span>
@@ -181,7 +181,7 @@
                     <!-- Disponibilité -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">⚡</span>
+                            <RadzenIcon Icon="bolt" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Disponibilité réseau (Ping)" Component="Availability" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Statut En ligne / Hors ligne de chaque machine.</span>
@@ -193,7 +193,7 @@
                     <!-- Alertes -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">⚠️</span>
+                            <RadzenIcon Icon="warning" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Pannes & Alertes matérielles" Component="Alerts" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Codes erreurs, bourrages et capots ouverts.</span>
@@ -242,7 +242,7 @@
                     <!-- Totalisation globale des pages -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; border-color: var(--rz-success-light); background: rgba(40, 167, 69, 0.03);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📊</span>
+                            <RadzenIcon Icon="bar_chart" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Totalisation globale des impressions" Component="TotalPages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block; color: var(--rz-success-darker);" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche la somme totale de toutes les pages imprimées sur le parc (en-tête PDF et pied CSV).</span>
@@ -254,7 +254,7 @@
                     <!-- Synthèse globale du parc -->
                     <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
                         <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📈</span>
+                            <RadzenIcon Icon="trending_up" Style="font-size: 22px; color: var(--ap-primary);" />
                             <div>
                                 <RadzenLabel Text="Statistiques globales du parc" Component="FleetSummary" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
                                 <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche les compteurs d'imprimantes en ligne/hors ligne et alertes actives en en-tête.</span>
@@ -314,7 +314,7 @@
                         @if (scopeFilter.Rules == null || scopeFilter.Rules.Count == 0)
                         {
                             <div style="text-align: center; padding: 2rem; border: 2px dashed var(--rz-border-color); border-radius: 8px; color: var(--rz-text-secondary-color);">
-                                <span style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;">🔍</span>
+                                <RadzenIcon Icon="search" Style="font-size: 28px; display: block; margin: 0 auto 0.5rem; color: var(--ap-text-muted);" />
                                 Aucun filtre créé. Cliquez sur "Ajouter une règle" pour commencer.
                             </div>
                         }

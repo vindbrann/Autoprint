@@ -11,23 +11,22 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<PageTitle>Journal d'Audit</PageTitle>
+<PageTitle>Journal d'audit</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        🕵️ Journal d'Audit
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Journal d'audit</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
 
         <AuthorizeView Policy="SETTINGS_MANAGE">
             <Authorized>
-                <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+                <RadzenButton Icon="delete_sweep" Text="Nettoyer (plus de 30 jours)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Click="@PurgerLogs" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 rz-p-2">
     <RadzenTextBox Placeholder="Rechercher (Utilisateur, Action, Détails)..."
@@ -35,7 +34,7 @@
                    Style="width: 100%;" />
 </RadzenCard>
 
-<RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
+<div class="ap-grid-wrap"><RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
                 TItem="AuditLogDto"
                 AllowPaging="true" PageSize="20"
                 AllowSorting="true" AllowFiltering="false"
@@ -91,7 +90,7 @@
         </RadzenDataGridColumn>
 
     </Columns>
-</RadzenDataGrid>
+</RadzenDataGrid></div>
 
 @code {
     private RadzenDataGrid<AuditLogDto>? grid;

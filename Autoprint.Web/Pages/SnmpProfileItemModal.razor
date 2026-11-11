@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Radzen
 @using Radzen.Blazor
@@ -10,7 +10,7 @@
     <!-- SUGGESTIONS RAPIDES DE CONFIGURATION -->
     <div style="background-color: var(--rz-base-50); border: 1px solid var(--rz-base-200); border-radius: 6px; padding: 0.75rem;">
         <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: 600; color: var(--rz-text-secondary-color); text-transform: uppercase; margin-bottom: 0.5rem;">
-            ⚡ Modèles d'OIDs Prédéfinis (RFC 3805 / Standard)
+            Modèles d'OID prédéfinis (RFC 3805)
         </RadzenText>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Style="flex-wrap: wrap;">
             <RadzenButton Text="Toner Noir" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Toner Noir", "1.3.6.1.2.1.43.11.1.1.9.1.1", "1.3.6.1.2.1.43.11.1.1.8.1.1", SnmpItemCategory.Toner, SnmpValueType.RawWithMax, "#212529"))" />
@@ -80,7 +80,7 @@
                 @if (!string.IsNullOrEmpty(testFeedback))
                 {
                     <span style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: @(testFeedbackSuccess ? "var(--rz-success)" : "var(--rz-danger)");">
-                        @(testFeedbackSuccess ? "✓ " : "⚠️ ") @testFeedback
+                        <RadzenIcon Icon="@(testFeedbackSuccess ? "check_circle" : "warning")" Style="font-size: 16px; vertical-align: middle;" /> @testFeedback
                     </span>
                 }
             </RadzenStack>
