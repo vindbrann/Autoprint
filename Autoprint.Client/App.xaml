@@ -18,25 +18,13 @@
                          Background="{DynamicResource Autoprint.Brush.Surface}"
                          TextElement.Foreground="{DynamicResource MaterialDesignBody}">
 
-                <MenuItem Header="Mes Imprimantes" Click="MenuOpen_Click">
+                <MenuItem Header="Ouvrir Autoprint" Click="MenuOpen_Click">
                     <MenuItem.Icon>
                         <materialDesign:PackIcon Kind="Printer" />
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <MenuItem Header="Mes Installations" Click="MenuManage_Click">
-                    <MenuItem.Icon>
-                        <materialDesign:PackIcon Kind="Broom" />
-                    </MenuItem.Icon>
-                </MenuItem>
-
-                <MenuItem Header="Options" Click="MenuOptions_Click">
-                    <MenuItem.Icon>
-                        <materialDesign:PackIcon Kind="Cog" />
-                    </MenuItem.Icon>
-                </MenuItem>
-
-                <MenuItem Header="Gérer imprimantes Windows" Click="MenuWindowsPrinters_Click">
+                <MenuItem Header="Imprimantes et scanners de Windows" Click="MenuWindowsPrinters_Click">
                     <MenuItem.Icon>
                         <materialDesign:PackIcon Kind="MicrosoftWindows" />
                     </MenuItem.Icon>
@@ -52,10 +40,11 @@
             </ContextMenu>
 
             <tb:TaskbarIcon x:Key="MainNotifyIcon"
-                            ToolTipText="Autoprint Agent"
+                            ToolTipText="Autoprint"
                             IconSource="pack://application:,,,/Autoprint.ico"
                             ContextMenu="{StaticResource TrayMenu}"
-                            TrayMouseDoubleClick="OnTrayDoubleClick"
+                            NoLeftClickDelay="True"
+                            TrayLeftMouseUp="OnTrayLeftClick"
                             TrayBalloonTipClicked="OnTrayBalloonTipClicked"/>
         </ResourceDictionary>
     </Application.Resources>
