@@ -9,10 +9,10 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 **Campagne de tests terminée le 12/11/2026** : toute la liste ci-dessous a été jouée et validée (détail dans `_RESULTATS_RECETTE_LABO.md`). Fusionné dans `master` : charte graphique, refonte du client et migration 1.1.2 (PR #24, version 26.11.11.1, avec B83 à B86), puis rapports PDF en IBM Plex Sans (B87, PR #25).
 
 **À faire ensuite** :
-- PR Dependabot n° 20 (paquets Microsoft du client), 21 (Radzen 13), 22 (SkiaSharp 4.156), 23 (Swashbuckle 11) : à tester puis fusionner (politique : `Docs/_POLITIQUE_VERSIONS.md`).
+- PR Dependabot n° 21 (Radzen 13), 22 (SkiaSharp 4.156), 23 (Swashbuckle 11) : testées le 13/11/2026 (compilation, `Microsoft.OpenApi` reste en 2.13 ; console locale avec Radzen 13 : connexion, fenêtres, grilles et filtres ; PDF du labo avec SkiaSharp 4.156 : 47 Ko, polices intégrées), à fusionner dans l'ordre 22, 23 (Dependabot la rebase : même zone du csproj), 21.
 - B14 (limite de tentatives de connexion gardée en mémoire) : à étudier.
 
-**Restent ouvertes, volontairement** : PR Dependabot n° 9 et 17 (Microsoft.OpenApi 3) et n° 12 (SQLitePCLRaw 3), bloquées par .NET 10 jusqu'à la migration vers .NET 12 LTS (décision du 11/11 : LTS seulement).
+**Restent ouvertes, volontairement** : PR Dependabot n° 9 et 17 (Microsoft.OpenApi 3), n° 12 (SQLitePCLRaw 3) et n° 20 (paquets Microsoft 11.0.0, c'est-à-dire .NET 11 non LTS ; ne compile pas en .NET 10), bloquées par .NET 10 jusqu'à la migration vers .NET 12 LTS (décision du 11/11 : LTS seulement).
 
 **Méthode décidée le 11/11** : on termine d'abord toutes les modifications et corrections, puis **une seule campagne de tests à la fin**. Pour le prochain lot, repartir d'une liste vide sur le modèle de celle ci-dessous (ne rien retirer sans l'avoir joué).
 
