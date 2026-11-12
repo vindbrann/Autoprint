@@ -50,8 +50,8 @@
 		<ProjectReference Include="..\Autoprint.Web\Autoprint.Web.csproj" />
 	</ItemGroup>
 
-	<!-- Police des rapports PDF : sous-ensemble latin de Liberation Sans (licence OFL), renommé « Autoprint Sans ».
-	     Embarquée dans l'assembly : PDF légers (~25 Ko par style) et indépendants des polices installées sur le serveur.
+	<!-- Police des rapports PDF : sous-ensemble latin d'IBM Plex Sans, police de la charte (licence OFL), renommé « Autoprint Sans ».
+	     Embarquée dans l'assembly : PDF légers (~38 Ko par style) et indépendants des polices installées sur le serveur.
 	     Régénération : tools/fonts/make_autoprint_sans.py (voir Resources/Fonts/README.md). -->
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Regular.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Regular.ttf" />
