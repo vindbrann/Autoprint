@@ -1,4 +1,4 @@
-using Autoprint.Server.Data;
+﻿using Autoprint.Server.Data;
 using Autoprint.Server.Helpers;
 using Autoprint.Server.Services;
 using Autoprint.Shared;
@@ -60,7 +60,12 @@ namespace Autoprint.Server.Controllers
             return Ok(new { key });
         }
 
-        public class AgentKeyRotationDto { public int TransitionDays { get; set; } = 30; }
+        public class AgentKeyRotationDto
+        {
+            public int TransitionDays { get; set; } = 30;
+            /// <summary>Confirme une rotation alors qu'une transition est en cours (la clé d'origine est alors refusée tout de suite).</summary>
+            public bool Force { get; set; }
+        }
 
         // Nouvelle clé agent (backlog B18). L'ancienne reste acceptée pendant la période de transition (0 à 90 jours),
         // le temps de redéployer la nouvelle clé sur les postes (MSI APIKEY=..., GPO, registre HKLM\SOFTWARE\Autoprint).
@@ -72,6 +77,12 @@ namespace Autoprint.Server.Controllers
 
             var current = await _context.ServerSettings.FindAsync("AgentApiKey");
             if (current == null) return NotFound("Clé agent absente.");
+
+            // Sécurité (recette du 12/11, double clic) : une seule « ancienne » clé est gardée ; une nouvelle rotation pendant
+            // une transition refuserait aussitôt la clé d'origine, encore utilisée par les postes non mis à jour
+            var previousUntil = await _context.ServerSettings.FindAsync("AgentApiKeyPreviousExpiresAt");
+            if (!dto.Force && DateTime.TryParse(previousUntil?.Value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var until) && until > DateTime.UtcNow)
+                return Conflict(new { message = $"Une transition de clé est déjà en cours (jusqu'au {until.ToLocalTime():dd/MM/yyyy HH:mm}). Une nouvelle clé refuserait immédiatement la clé d'origine : confirmez explicitement pour forcer." , transitionUntil = until });
 
             var newKey = Guid.NewGuid().ToString();
             if (dto.TransitionDays > 0)
@@ -92,6 +103,42 @@ namespace Autoprint.Server.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { key = newKey, previousValidUntil = dto.TransitionDays > 0 ? DateTime.UtcNow.AddDays(dto.TransitionDays) : (DateTime?)null });
+        }
+
+        // ---------- Noms d'hôte acceptés (B82) ----------
+
+        public class AllowedHostsDto
+        {
+            public List<string> Hosts { get; set; } = new();
+            /// <summary>Nom par lequel la console est ouverte (ne peut pas être retiré).</summary>
+            public string? CurrentHost { get; set; }
+        }
+
+        [HttpGet("allowed-hosts")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public ActionResult<AllowedHostsDto> GetAllowedHosts([FromServices] AllowedHostsService hosts)
+            => new AllowedHostsDto { Hosts = hosts.Hosts.ToList(), CurrentHost = Request.Host.Host };
+
+        // Remplace la liste. Garde-fous : au moins un nom, noms valides, le nom de la console ouverte reste dans la liste
+        [HttpPut("allowed-hosts")]
+        [Authorize(Policy = "SETTINGS_MANAGE")]
+        public async Task<IActionResult> SaveAllowedHosts([FromBody] AllowedHostsDto dto, [FromServices] AllowedHostsService hosts)
+        {
+            var list = AllowedHostsService.Parse(string.Join(";", dto.Hosts ?? new()));
+            if (list.Count == 0) return BadRequest("Indiquez au moins un nom (le nom public de la console).");
+            var invalid = list.FirstOrDefault(h => !AllowedHostsService.IsValidHost(h));
+            if (invalid != null) return BadRequest($"Nom invalide : « {invalid} » (ex : autoprint.mondomaine.fr, sans https:// ni port).");
+
+            string current = Request.Host.Host;
+            if (!AllowedHostsService.IsLocal(current) && !list.Any(h => h.Equals(current, StringComparison.OrdinalIgnoreCase)))
+                return BadRequest($"Le nom « {current} », par lequel vous êtes connecté, ne peut pas être retiré : ouvrez la console avec un autre nom de la liste pour le retirer.");
+
+            var before = string.Join(";", hosts.Hosts);
+            await hosts.SaveAsync(_context, list);
+            _auditService.LogAction("ALLOWED_HOSTS_UPDATE", $"Noms d'hôte acceptés : {before} → {string.Join(";", list)}", User.Identity?.Name, "WARNING", resourceName: AllowedHostsService.SettingKey);
+            await _context.SaveChangesAsync();
+
+            return Ok(new AllowedHostsDto { Hosts = list, CurrentHost = current });
         }
 
         // Valeur déjà chiffrée (ou non secrète) : écrite telle quelle
@@ -145,13 +192,13 @@ namespace Autoprint.Server.Controllers
             Check("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString(), "Mode Direct par défaut", "Impression");
 
             Check("PasswordExpirationDays", dto.PasswordExpirationDays.ToString(), "Expiration MDP", "Sécurité");
+            Check("Security_IdleTimeoutMinutes", dto.IdleTimeoutMinutes.ToString(), "Déconnexion après inactivité", "Sécurité");
             Check("AdDomain", dto.AdDomain, "AD Domaine", "Active Directory");
             Check("AdBaseDn", dto.AdBaseDn, "AD BaseDN", "Active Directory");
             Check("AdLdapFilter", dto.AdLdapFilter, "AD Filtre", "Active Directory");
             Check("AdUseServiceAccount", dto.AdUseServiceAccount.ToString(), "AD Service Account", "Active Directory");
             Check("AdServiceUser", dto.AdServiceUser, "AD User", "Active Directory");
             if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") Check("AdServicePassword", "CHANGED", "AD Password", "Active Directory", true);
-            Check("AdAdminEmails", dto.AdAdminEmails, "Mails Alertes", "Active Directory");
             Check("Monitoring_Enabled", dto.Monitoring_Enabled.ToString(), "Supervision active", "Supervision");
             Check("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString(), "Intervalle de scan (min)", "Supervision");
             Check("Monitoring_StartHour", dto.Monitoring_StartHour.ToString(), "Heure de début du scan", "Supervision");
@@ -176,6 +223,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("NamingSameShare", dto.NamingSameShare.ToString());
             await UpdateSetting("Printer_DefaultDirectModeEnabled", dto.Printer_DefaultDirectModeEnabled.ToString());
             if (dto.PasswordExpirationDays >= 0) await UpdateSetting("PasswordExpirationDays", dto.PasswordExpirationDays.ToString());
+            if (dto.IdleTimeoutMinutes is >= 0 and <= 1440) await UpdateSetting("Security_IdleTimeoutMinutes", dto.IdleTimeoutMinutes.ToString());
 
             await UpdateSetting("AdDomain", dto.AdDomain);
             await UpdateSetting("AdBaseDn", dto.AdBaseDn);
@@ -183,7 +231,6 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("AdUseServiceAccount", dto.AdUseServiceAccount.ToString());
             await UpdateSetting("AdServiceUser", dto.AdServiceUser);
             if (!string.IsNullOrEmpty(dto.AdServicePassword) && dto.AdServicePassword != "●●●●●●●●") await UpdateSetting("AdServicePassword", dto.AdServicePassword);
-            await UpdateSetting("AdAdminEmails", dto.AdAdminEmails);
             await UpdateSetting("Monitoring_Enabled", dto.Monitoring_Enabled.ToString());
             await UpdateSetting("Monitoring_IntervalMinutes", dto.Monitoring_IntervalMinutes.ToString());
             await UpdateSetting("Monitoring_StartHour", dto.Monitoring_StartHour.ToString());
@@ -242,7 +289,7 @@ namespace Autoprint.Server.Controllers
                         return BadRequest("Pour tester un autre serveur SMTP que celui enregistré, saisissez son mot de passe.");
                     password = _secrets.Unprotect(_context.ServerSettings.Find("SmtpPass")?.Value);
                 }
-                await _emailService.SendTestEmailAsync(dto.Host, dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
+                await _emailService.SendTestEmailAsync(dto.Host ?? "", dto.Port, dto.User, password, dto.Ssl, dto.From, dto.To);
                 return Ok(new { Message = "Connexion SMTP réussie !" });
             }
             catch (Exception ex) { return BadRequest("Echec du test SMTP : " + ex.Message); }
@@ -378,13 +425,13 @@ namespace Autoprint.Server.Controllers
         public bool NamingSameShare { get; set; } = false;
         public bool Printer_DefaultDirectModeEnabled { get; set; }
         public int PasswordExpirationDays { get; set; }
+        public int IdleTimeoutMinutes { get; set; } = 30;
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";
         public string AdLdapFilter { get; set; } = "";
         public bool AdUseServiceAccount { get; set; } = false;
         public string AdServiceUser { get; set; } = "";
         public string AdServicePassword { get; set; } = "";
-        public string AdAdminEmails { get; set; } = "";
         public bool Monitoring_Enabled { get; set; } = true;
         public int Monitoring_IntervalMinutes { get; set; } = 60;
         public int Monitoring_StartHour { get; set; } = 8;

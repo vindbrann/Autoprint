@@ -1,4 +1,9 @@
-<Project Sdk="WixToolset.Sdk/6.0.2">
+﻿<Project Sdk="WixToolset.Sdk/7.0.1">
+  <!-- Contrat OSMF de WiX 7 accepté par le propriétaire du projet le 11/11/2026 (redevance seulement au-delà de 10 000 $ de revenus annuels
+       tirés des projets qui utilisent WiX ; voir Docs/_POLITIQUE_VERSIONS.md). Porte de sortie : WiX compilé depuis ses sources (MS-RL). -->
+  <PropertyGroup>
+    <AcceptEula>wix7</AcceptEula>
+  </PropertyGroup>
 	<PropertyGroup>
 		<Platform>x64</Platform>
 		<Cultures>fr-FR</Cultures>
@@ -6,9 +11,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
-		<PackageReference Include="WixToolset.Firewall.wixext" Version="6.0.2" />
-		<PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+		<PackageReference Include="WixToolset.UI.wixext" Version="7.0.1" />
+		<PackageReference Include="WixToolset.Firewall.wixext" Version="7.0.1" />
+		<PackageReference Include="WixToolset.Util.wixext" Version="7.0.1" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -14,12 +14,15 @@ L'agent client est une application Windows légère s'exécutant entièrement da
 ### 2.1 Contexte d'Exécution & Interface Fenêtre Unique
 * **Processus unique :** `Autoprint.Client.exe` (compilé en exécutable autonome .NET 10 *Single-File*).
 * **Contexte :** `User Session` (Privilèges utilisateur standard, sans service permanent).
-* **Interface Fenêtre Unique :** Remplacement de l'ancien modèle multi-fenêtres par une fenêtre unifiée réactive organisée en onglets segmentés (*Segmented Pill Tabs*) :
-  1. **Disponibles :** Liste temps réel des imprimantes du lieu détecté avec installation et favoris (★).
-  2. **Mes installations :** Gestion unifiée du nettoyage (imprimantes réseau et locales).
-  3. **Options :** Préférences utilisateur (notifications, bascule automatique, démarrage) et zone technique admin sécurisée.
-  4. **Pied de page :** Bouton de raccourci direct vers la gestion Windows (`ms-settings:printers`) et actualisation manuelle.
-* **Intégration Tray :** Routage contextuel direct depuis les menus de la barre des tâches vers l'onglet approprié.
+* **Panneau unique (B81) :** un panneau compact s'ouvre au clic sur l'icône près de l'horloge et se range dès qu'on clique ailleurs (ou Échap). Tout tient sur une page, sans popup pour les actions (maquette : `Docs/_MAQUETTE_CLIENT.html`) :
+  1. **En-tête :** site actuel et état du serveur (point vert ou orange), réglages, fermer.
+  2. **Vos imprimantes :** celles du site installées sur le poste. Le bouton radio choisit l'imprimante par défaut du site (tag « Par défaut », bref surlignage). La corbeille retire l'imprimante tout de suite (roue pendant le retrait, puis la ligne disparaît).
+  3. **Ajouter sur ce site :** tri alphabétique uniquement. Au-delà de 6 imprimantes, une ligne repliée « Ajouter une imprimante · N » ; dépliée, un champ filtre par nom, emplacement ou code inventaire.
+  4. **Vos imprimantes sur d'autres sites :** section repliée (toutes les imprimantes réseau du poste hors site actuel), corbeille et « Tout retirer ».
+  5. **Imprimer sur un autre site :** lien en bas, qui ouvre un volet : choix du site, puis de l'imprimante de ce site. Les recherches ignorent accents et majuscules.
+  6. **Réglages :** volet avec trois interrupteurs (imprimante selon le site, annonce du changement de site, démarrage avec Windows), lien vers les imprimantes de Windows, informations serveur après 5 clics sur la version.
+* **Hors ligne ou télétravail :** une note discrète dans le panneau, jamais de popup. La notification Windows n'annonce qu'un changement de site, panneau fermé (pas au démarrage si le site est le même qu'à la session précédente).
+* **Menu de l'icône (clic droit) :** ouvrir Autoprint, imprimantes et scanners de Windows, quitter.
 * **Cycle de vie :** Lancé automatiquement à l'ouverture de session via l'Active Setup de Windows.
 
 ---
@@ -49,19 +52,13 @@ Avant d'autoriser toute installation, l'interface graphique teste l'accessibilit
 
 ### 4.1 Ajout d'Imprimante Réseau
 Le processus d'ajout d'imprimante s'exécute entièrement dans le contexte utilisateur :
-* **Mappage de la Queue :** Commande de connexion spouleur utilisateur :
-  `rundll32 printui.dll,PrintUIEntry /in /n "\\serveur-impression\NomPartageImprimante"`
+* **Connexion à la file :** API Windows `AddPrinterConnection2` (`\\serveur-impression\NomPartageImprimante`) avec l'option `PRINTER_CONNECTION_NO_UI` : aucune fenêtre Windows ne s'affiche. Si Windows aurait dû poser une question (pilote absent, Point and Print), la connexion échoue et le panneau l'indique sous la ligne.
 * **Pré-requis Pilotes (Driver Store) :** Le pilote requis doit être présent dans le Driver Store de la machine (pré-déployé via Intune, SCCM ou GPO) pour une sécurité maximale contre les failles de type PrintNightmare.
 
-### 4.2 Moteur de Nettoyage Hybride (Réseau & Local)
-L'onglet "Mes installations" implémente un nettoyage intelligent et sécurisé :
-* **Suppression Réseau :** Exécution directe dans la session utilisateur via `printui.dll /dn` (aucun privilège requis).
-* **Suppression Locale (UAC Just-in-Time) :** 
-  - Détection automatique des droits d'administration sur la file (`PRINTER_ACCESS_ADMINISTER`).
-  - Si l'imprimante a été déployée pour l'ordinateur entier (*Machine-Wide*), un bouclier UAC est affiché et une invite d'élévation ponctuelle Windows (`runas`) est sollicitée via le chemin absolu `System32\rundll32.exe`.
-* **Protection Système Absolue :**
-  - Les imprimantes virtuelles critiques (`Microsoft Print to PDF`, `XPS`, `OneNote`, `Fax`) sont protégées contre toute suppression accidentelle.
-  - Le bouton groupé **"NETTOYER"** cible exclusivement les imprimantes réseau non-favorites. Les imprimantes locales matérielles et les favoris sont systématiquement protégés.
+### 4.2 Retrait d'imprimantes
+* **Imprimantes réseau seulement :** le panneau ne liste et ne retire que les connexions réseau de l'utilisateur (`\\serveur\imprimante`), via l'API Windows `DeletePrinterConnection`, dans la session utilisateur (aucun privilège requis, nom filtré).
+* **Retrait immédiat :** la corbeille retire la connexion tout de suite (roue sur la ligne, message en rouge en cas d'échec). Une imprimante retirée cesse d'être l'imprimante par défaut de son site.
+* **Imprimantes locales et virtuelles** (PDF, XPS, OneNote, imprimantes installées pour l'ordinateur) : jamais affichées ni touchées par Autoprint ; elles se gèrent depuis « Imprimantes et scanners » de Windows (lien dans les réglages et le menu de l'icône).
 
 ---
 
@@ -69,12 +66,16 @@ L'onglet "Mes installations" implémente un nettoyage intelligent et sécurisé 
 
 ### 5.1 Gestion de la Configuration
 L'application articule sa configuration sur deux niveaux :
-* **Configuration Machine (Serveur & Clé API) :** Stockée dans le Registre Windows `HKLM\SOFTWARE\Autoprint` (valeurs `PRINTSERVER` et `APIKEY`). Déposée par l'installateur MSI ou surchargeable via arguments en ligne de commande (`--print-server`, `--api-key`).
+* **Configuration Machine :** stockée dans le Registre Windows `HKLM\SOFTWARE\Autoprint`, déposée par le MSI ou surchargeable en ligne de commande :
+  - `PRINTSERVER` (`--print-server`) : nom du serveur des partages d'impression (`\\PRINTSERVER\imprimante`) ;
+  - `SERVERURL` (`--server-url`), facultative (B82) : adresse de la console et de l'API (`https://autoprint.mondomaine.fr`), quand elle diffère du nom des partages. À défaut : `https://PRINTSERVER` ;
+  - `APIKEY` (`--api-key`) : clé agent.
+  - À la mise à jour du MSI, une valeur passée en ligne de commande l'emporte sur celle déjà présente dans le registre ; une valeur absente de la ligne de commande est conservée.
 * **Préférences Utilisateur :** Stockées dans `%UserProfile%\Documents\Autoprint\user-settings.json` (imprimantes favorites par lieu, activation des notifications, bascule automatique, lancement au démarrage).
-* **Zone Technique Admin :** Accessible dans l'onglet Options après 5 clics sur la version, elle affiche les paramètres machine en lecture seule avec test de connectivité API, et se referme automatiquement à la fermeture de la fenêtre.
+* **Informations serveur :** accessible dans les réglages après 5 clics sur la version, elles affichent les paramètres machine en lecture seule (clé masquée, 4 derniers caractères) avec test de connectivité API, et se referme à la fermeture du panneau.
 
 ### 5.2 Packaging MSI Autonome (Single-File)
-Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 6 :
+Le déploiement est assuré par un package MSI Windows Installer x64 généré via WiX Toolset 7 :
 * **Architecture Single-File :** L'exécutable client est compilé avec `PublishSingleFile=true`, `SelfContained=true` et `IncludeNativeLibrariesForSelfExtract=true`. Le package MSI ne déploie qu'un seul fichier binaire (`Autoprint.Client.exe`).
 * **Déploiement en Entreprise :** 
   - **En mode silencieux (`/qn` ou `/qr`) :** L'installation ou réparation s'exécute en **~7 secondes**, sans aucune invite bloquante.
@@ -82,5 +83,7 @@ Le déploiement est assuré par un package MSI Windows Installer x64 généré v
 * **Active Setup :** Enregistre la commande dans `HKLM\Software\Microsoft\Active Setup\Installed Components` pour lancer automatiquement l'agent à l'ouverture de session de chaque utilisateur.
 * **Paramètres d'installation silencieuse :**
   ```cmd
-  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="https://mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn
+  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="mon-serveur-print" APIKEY="ma-super-cle-api-agent" /qn
+  rem Console sous un autre nom que les partages (changement de nom web, B82) :
+  msiexec /i Autoprint.Client.Setup.msi PRINTSERVER="mon-serveur-print" SERVERURL="https://autoprint.mondomaine.fr" APIKEY="ma-super-cle-api-agent" /qn
   ```

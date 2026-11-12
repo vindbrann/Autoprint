@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using Autoprint.Web.Services
 @using System.Text.Json
 @using Radzen
@@ -9,201 +9,208 @@
 @inject CustomAuthStateProvider AuthProvider
 @using Autoprint.Shared.Enums
 
+@* Maquette « modales et nommage » (retour de recette du 11/11) : aperçu du nom en haut, sections sans cadre,
+   options en lignes de réglage, réglages SNMP avancés repliés, barre d'actions toujours visible *@
 <RadzenTemplateForm TItem="Imprimante" Data="@imprimanteEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
+    <div class="ap-dlg">
 
-        <RadzenFieldset Text="Identification">
-            <RadzenRow AlignItems="AlignItems.End">
-                <RadzenColumn Size="8">
-                    <RadzenLabel Text="Nom affiché" Component="NomAffiche" />
-                    <div style="display: flex; gap: 0.5rem;">
-                        <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="flex: 1;"
-                                       Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
-                        @if (namingEnabled)
-                        {
-                            <RadzenButton Icon="autorenew" ButtonStyle="ButtonStyle.Secondary" Click="@ForcerRefreshNom" Tooltip="Recalculer le nom" />
-                        }
-                    </div>
-                </RadzenColumn>
-                <RadzenColumn Size="4">
-                    <RadzenLabel Text="Code Inventaire" Component="Code" />
-                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;"
-                                   @onblur="GenerateNameIfEnabled" Placeholder="P001" />
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenFieldset>
+        <p class="ap-dlg-lead">@(imprimanteEdit.Id == 0 ? "Elle sera créée sur le serveur à la prochaine synchronisation." : "Les changements s'appliquent sur le serveur à la prochaine synchronisation.")</p>
 
-        <RadzenFieldset Text="Localisation & Réseau">
-            <RadzenStack Gap="1rem">
+        <div class="ap-dlg-strip" aria-live="polite">
+            <span><span class="k">Nom</span><span class="ap-label-tag">@(string.IsNullOrWhiteSpace(imprimanteEdit.NomAffiche) ? "à définir" : imprimanteEdit.NomAffiche)</span></span>
+            <span><span class="k">Partage Windows</span><span class="ap-label-tag">@(imprimanteEdit.EstPartagee ? $@"\\serveur\{(string.IsNullOrWhiteSpace(imprimanteEdit.NomPartage) ? imprimanteEdit.NomAffiche : imprimanteEdit.NomPartage)}" : "non partagée")</span></span>
+        </div>
 
-                <div>
-                    <RadzenLabel Text="Emplacement" Component="Emplacement" />
+        <div class="ap-dlg-group">
+            <h3>Emplacement</h3>
+            <div class="ap-dlg-grid">
+                <div class="ap-field">
+                    <RadzenLabel Text="Lieu" Component="Emplacement" />
                     @if (CanReadEmplacements)
                     {
                         <RadzenDropDown Name="Emplacement" @bind-Value="@imprimanteEdit.EmplacementId"
                                         Data="@listeEmplacements" TextProperty="Nom" ValueProperty="Id"
                                         Change="@(async args => await OnLieuChanged((int)args))"
-                                        Style="width: 100%;"
-                                        Placeholder="Choisir un emplacement..."
+                                        Style="width: 100%;" Placeholder="Choisir un lieu"
                                         AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
                             <Template Context="l">
-                                @((l as Emplacement).Nom)
-                                @{
-                                    var lieu = l as Emplacement;
-                                    if (lieu.Networks != null && lieu.Networks.Any())
-                                    {
-                                        var mainNet = lieu.Networks.First();
-                                        <span style="color: var(--rz-text-tertiary-color); font-size: 0.8em; margin-left: 5px;">
-                                            (@mainNet.CidrIpv4 @(lieu.Networks.Count > 1 ? $" +{lieu.Networks.Count - 1}" : ""))
-                                        </span>
-                                    }
+                                @{ var lieu = (Emplacement)l; }
+                                @lieu.Nom
+                                @if (lieu.Networks != null && lieu.Networks.Any())
+                                {
+                                    <span class="ap-caption ap-mono" style="margin-left: 6px;">@lieu.Networks.First().CidrIpv4@(lieu.Networks.Count > 1 ? $" +{lieu.Networks.Count - 1}" : "")</span>
                                 }
                             </Template>
                         </RadzenDropDown>
-                        <RadzenRequiredValidator Component="Emplacement" Text="L'emplacement est requis" Popup="true" DefaultValue="0" />
+                        <RadzenRequiredValidator Component="Emplacement" Text="Choisissez un lieu" Popup="true" DefaultValue="0" />
                     }
                     else
                     {
-                        <RadzenAlert AlertStyle="AlertStyle.Warning" Size="AlertSize.Small" Variant="Variant.Flat">Accès refusé aux lieux</RadzenAlert>
+                        <span class="ap-help is-warn">Vous n'avez pas accès aux lieux</span>
                     }
                 </div>
+                <div class="ap-field">
+                    <RadzenLabel Component="Loc"><ChildContent>Détail <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                    <RadzenTextBox Name="Loc" @bind-Value="@imprimanteEdit.Localisation" Style="width: 100%;" Placeholder="Bureau 204" />
+                </div>
+            </div>
+            <div class="ap-field">
+                <RadzenLabel Text="Adresse IP" Component="Ip" />
+                @if (!string.IsNullOrEmpty(prefixeReseau))
+                {
+                    <div class="ap-ip-group">
+                        <span class="ap-ip-prefix">@prefixeReseau</span>
+                        <input id="Ip" class="ap-ip-input" value="@ipSuffix" @onchange="OnSuffixChanged" inputmode="decimal" placeholder="50" aria-label="Fin de l'adresse IP" />
+                    </div>
+                    <span class="ap-help">Début imposé par le réseau principal du lieu</span>
+                }
+                else
+                {
+                    <RadzenTextBox Name="Ip" @bind-Value="@imprimanteEdit.AdresseIp" Change="@(async _ => await GenerateNameIfEnabled())" Style="width: 100%;" Class="ap-mono" Placeholder="10.0.0.50" />
+                }
+            </div>
+        </div>
 
-                <RadzenRow>
-                    <RadzenColumn Size="7">
-                        <RadzenLabel Text="Adresse IP" Component="Ip" />
-                        @if (!string.IsNullOrEmpty(prefixeReseau))
-                        {
-                            <div class="input-group">
-                                <span class="input-group-text" style="font-weight: bold; border-right: none; background-color: var(--rz-base-200); color: var(--rz-text-color);">
-                                    @prefixeReseau
-                                </span>
-                                <input type="text" class="form-control" style="border-left: none; background-color: var(--rz-base-100); color: var(--rz-text-color);"
-                                       value="@ipSuffix" @onchange="OnSuffixChanged" placeholder="Ex: 50" />
-                            </div>
-                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                Masque imposé par le réseau principal du lieu.
-                            </RadzenText>
-                        }
-                        else
-                        {
-                            <RadzenTextBox Name="Ip" @bind-Value="@imprimanteEdit.AdresseIp" Style="width: 100%;" Placeholder="192.168.x.x" />
-                        }
-                    </RadzenColumn>
-
-                    <RadzenColumn Size="5">
-                        <RadzenLabel Text="Détail (Bureau)" Component="Loc" />
-                        <RadzenTextBox Name="Loc" @bind-Value="@imprimanteEdit.Localisation" Style="width: 100%;" Placeholder="Bureau 204" />
-                    </RadzenColumn>
-                </RadzenRow>
-
-            </RadzenStack>
-        </RadzenFieldset>
-
-        <RadzenFieldset Text="Matériel">
-            <RadzenRow>
-                <RadzenColumn Size="6">
+        <div class="ap-dlg-group">
+            <h3>Matériel</h3>
+            <div class="ap-dlg-grid">
+                <div class="ap-field">
                     <RadzenLabel Text="Marque" Component="Marque" />
                     <RadzenDropDown Name="Marque" @bind-Value="@selectedMarqueId"
                                     Data="@listeMarques" TextProperty="Nom" ValueProperty="Id"
-                                    Change="@OnMarqueChange"
-                                    Disabled="@(!CanReadMarques)"
-                                    Style="width: 100%;"
-                                    Placeholder="-- Marque --" AllowFiltering="true" />
-                </RadzenColumn>
-                <RadzenColumn Size="6">
+                                    Change="@OnMarqueChange" Disabled="@(!CanReadMarques)"
+                                    Style="width: 100%;" Placeholder="Choisir une marque" AllowFiltering="true" />
+                </div>
+                <div class="ap-field">
                     <RadzenLabel Text="Modèle" Component="Modele" />
                     <RadzenDropDown Name="Modele" @bind-Value="@imprimanteEdit.ModeleId"
                                     Data="@listeModelesFiltres" TextProperty="Nom" ValueProperty="Id"
                                     Disabled="@(selectedMarqueId == 0 || !CanReadModeles)"
                                     Change="@(args => GenerateNameIfEnabled())"
-                                    Style="width: 100%;"
-                                    Placeholder="-- Modèle --" AllowFiltering="true" />
-                    <RadzenRequiredValidator Component="Modele" Text="Le modèle est requis" Popup="true" DefaultValue="0" />
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenFieldset>
+                                    Style="width: 100%;" Placeholder="Choisir un modèle" AllowFiltering="true" />
+                    @if (selectedMarqueId == 0)
+                    {
+                        <span class="ap-help">Choisissez d'abord la marque</span>
+                    }
+                    <RadzenRequiredValidator Component="Modele" Text="Choisissez un modèle" Popup="true" DefaultValue="0" />
+                </div>
+            </div>
+        </div>
 
-        <RadzenCard Variant="Variant.Outlined" Class="rz-p-3" Style="border-color: var(--rz-info);">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                <RadzenSwitch @bind-Value="@imprimanteEdit.IsDirectPrintingEnabled" Name="ModeDirect" />
-                <RadzenLabel Text="Mode Impression Directe (RAW)" Component="ModeDirect" Style="font-weight: bold;" />
-            </RadzenStack>
-            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                <strong>Mode Performance :</strong> Le serveur agit comme un simple tuyau (Passthrough).<br />
-                Le spouleur est désactivé (Bit QUEUED=0) et le flux part directement à l'IP (Bit DIRECT=1).<br />
-                <em>Idéal pour les sites distants ou pour réduire la charge CPU/Disque du serveur.</em>
-            </RadzenText>
-        </RadzenCard>
-
-        <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" />
-                <RadzenLabel Text="Partager sur le réseau Windows ?" Component="Partage" Style="font-weight: bold;" />
-            </RadzenStack>
-
-            @if (imprimanteEdit.EstPartagee)
+        <div class="ap-dlg-group">
+            <h3>Identification</h3>
+            @if (namingEnabled)
             {
-                <div class="rz-mt-2 rz-pl-4" style="border-left: 3px solid var(--rz-success);">
-                    <RadzenLabel Text="Nom du partage" Component="NomPartage" />
-                    <RadzenTextBox Name="NomPartage" @bind-Value="@imprimanteEdit.NomPartage" Style="width: 100%;"
-                                   Disabled="@(namingEnabled && namingSameShare)" />
+                <div class="ap-opt-row" style="padding-top: 0;">
+                    <div class="txt">
+                        <div class="t">Nom automatique</div>
+                        <div class="d">Construit avec la règle de Paramètres, Nommage</div>
+                    </div>
+                    <RadzenButton Icon="autorenew" Text="Recalculer" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@ForcerRefreshNom" />
                 </div>
             }
-        </RadzenCard>
+            <div class="ap-dlg-grid">
+                <div class="ap-field">
+                    <RadzenLabel Text="Nom affiché" Component="NomAffiche" />
+                    <RadzenTextBox Name="NomAffiche" @bind-Value="@imprimanteEdit.NomAffiche" Style="width: 100%;" Class="ap-mono"
+                                   Disabled="@namingEnabled" Placeholder="IMP_ACCUEIL" />
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Component="Code"><ChildContent>Code inventaire <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                    <RadzenTextBox Name="Code" @bind-Value="@imprimanteEdit.Code" Style="width: 100%;" Class="ap-mono"
+                                   @onblur="GenerateNameIfEnabled" Placeholder="P001" />
+                </div>
+            </div>
+        </div>
 
-        <RadzenFieldset Text="Supervision &amp; Diagnostic (SNMP)">
-            <RadzenRow Class="rz-mb-2">
-                <RadzenColumn Size="12">
-                    <RadzenLabel Text="Identifiants SNMP" Component="SnmpCredential" />
-                    <RadzenDropDown Name="SnmpCredential" @bind-Value="@imprimanteEdit.SnmpCredentialId"
-                                    Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
-                                    AllowClear="true" Placeholder="@CredentialPlaceholder" Style="width: 100%;" />
-                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                        Laisser vide pour utiliser les identifiants du modèle. Choisir un profil uniquement pour un cas particulier.
-                    </RadzenText>
-                </RadzenColumn>
-            </RadzenRow>
-            <RadzenRow>
-                <RadzenColumn Size="4">
-                    <RadzenLabel Text="Port SNMP" Component="SnmpPort" />
-                    <RadzenNumeric Name="SnmpPort" TValue="int" @bind-Value="@imprimanteEdit.SnmpPort" Style="width: 100%;" Min="1" Max="65535" />
-                </RadzenColumn>
-                <RadzenColumn Size="4" Visible="@UsesLegacyFields">
-                    <RadzenLabel Text="Communauté SNMP" Component="SnmpCommunity" />
-                    @* Chiffrée en base et jamais réaffichée (B32) : vide = communauté actuelle conservée *@
-                    <RadzenPassword Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" AutoComplete="false"
-                                    Placeholder="@(imprimanteEdit.Id != 0 ? "Laisser vide pour conserver" : "public")" />
-                </RadzenColumn>
-                <RadzenColumn Size="4" Visible="@UsesLegacyFields">
-                    <RadzenLabel Text="Version SNMP" Component="SnmpVersion" />
-                    <RadzenDropDown Name="SnmpVersion" TValue="int" @bind-Value="@imprimanteEdit.SnmpVersion" Style="width: 100%;"
-                                    Data="@(new[] { new { Text = "v1", Value = 1 }, new { Text = "v2c", Value = 2 } })"
-                                    TextProperty="Text" ValueProperty="Value" />
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenFieldset>
+        <div class="ap-dlg-group" style="gap: 0;">
+            <h3 style="margin-bottom: var(--ap-s1);">Options</h3>
+            <div class="ap-opt-row">
+                <div class="txt">
+                    <div class="t">
+                        Impression directe
+                        <span class="ap-info" tabindex="0" role="img" aria-label="Le spouleur du serveur transmet les travaux tels quels à l'adresse IP de l'imprimante (bits QUEUED à 0 et DIRECT à 1). Utile pour les sites distants ou pour soulager le serveur."
+                              title="Le spouleur du serveur transmet les travaux tels quels à l'adresse IP de l'imprimante (bits QUEUED à 0 et DIRECT à 1). Utile pour les sites distants ou pour soulager le serveur."><RadzenIcon Icon="info" /></span>
+                    </div>
+                    <div class="d">Les travaux vont directement à l'imprimante, sans file d'attente sur le serveur</div>
+                </div>
+                <RadzenSwitch @bind-Value="@imprimanteEdit.IsDirectPrintingEnabled" Name="ModeDirect" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Impression directe" } })" />
+            </div>
+            <div class="ap-opt-row">
+                <div class="txt">
+                    <div class="t">Partager sur le réseau Windows</div>
+                    <div class="d">Les postes pourront s'y connecter par \\serveur\nom du partage</div>
+                </div>
+                <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Partager sur le réseau Windows" } })" />
+            </div>
+            @if (imprimanteEdit.EstPartagee)
+            {
+                <div class="ap-field" style="padding-bottom: var(--ap-s2);">
+                    <RadzenLabel Text="Nom du partage" Component="NomPartage" />
+                    <RadzenTextBox Name="NomPartage" @bind-Value="@imprimanteEdit.NomPartage" Style="width: 100%;" Class="ap-mono"
+                                   Disabled="@(namingEnabled && namingSameShare)" />
+                    @if (namingEnabled && namingSameShare)
+                    {
+                        <span class="ap-help">Identique au nom de l'imprimante (Paramètres, Nommage)</span>
+                    }
+                </div>
+            }
+        </div>
 
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+        <div class="ap-dlg-group">
+            <h3>Supervision SNMP</h3>
+            <div class="ap-field">
+                <RadzenLabel Text="Identifiants" Component="SnmpCredential" />
+                <RadzenDropDown Name="SnmpCredential" @bind-Value="@imprimanteEdit.SnmpCredentialId"
+                                Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
+                                AllowClear="true" Placeholder="@CredentialPlaceholder" Style="width: 100%;" />
+                <span class="ap-help">Laissez vide pour utiliser ceux du modèle ; choisissez un profil seulement pour une imprimante particulière</span>
+            </div>
+            <details class="ap-adv" open="@(imprimanteEdit.SnmpPort != 161 || UsesLegacyFields && imprimanteEdit.Id != 0 && imprimanteEdit.SnmpVersion != 2)">
+                <summary><RadzenIcon Icon="chevron_right" />Réglages SNMP avancés</summary>
+                <div class="ap-dlg-grid cols-3">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Port" Component="SnmpPort" />
+                        <RadzenNumeric Name="SnmpPort" TValue="int" @bind-Value="@imprimanteEdit.SnmpPort" Style="width: 100%;" Min="1" Max="65535" />
+                    </div>
+                    @if (UsesLegacyFields)
+                    {
+                        <div class="ap-field">
+                            <RadzenLabel Text="Communauté" Component="SnmpCommunity" />
+                            @* Chiffrée en base et jamais réaffichée (B32) : vide = communauté actuelle conservée *@
+                            <RadzenPassword Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" AutoComplete="false"
+                                            Placeholder="@(imprimanteEdit.Id != 0 ? "Inchangée si vide" : "public")" />
+                        </div>
+                        <div class="ap-field">
+                            <RadzenLabel Text="Version" Component="SnmpVersion" />
+                            <RadzenDropDown Name="SnmpVersion" TValue="int" @bind-Value="@imprimanteEdit.SnmpVersion" Style="width: 100%;"
+                                            Data="@(new[] { new { Text = "v1", Value = 1 }, new { Text = "v2c", Value = 2 } })"
+                                            TextProperty="Text" ValueProperty="Value" />
+                        </div>
+                    }
+                </div>
+                @if (!UsesLegacyFields)
+                {
+                    <span class="ap-help">La communauté et la version viennent du profil d'identifiants</span>
+                }
+            </details>
+        </div>
+
+        <div class="ap-dlg-footer">
             @if (imprimanteEdit.Id != 0)
             {
                 <AuthorizeView Policy="PRINTER_DELETE">
                     <Authorized Context="authContext">
-                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Text" Text="Supprimer" Click="@OnDelete" />
                     </Authorized>
                 </AuthorizeView>
             }
-            else
-            {
-                <div></div>
-            }
+            <span class="ap-help">@(IsComplete ? "" : "Choisissez le lieu, la marque et le modèle pour continuer")</span>
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="@(IsStagingMode ? "Valider" : imprimanteEdit.Id == 0 ? "Créer l'imprimante" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" Disabled="@(!IsComplete)" />
+        </div>
 
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
-            </RadzenStack>
-        </RadzenStack>
-
-    </RadzenStack>
+    </div>
 </RadzenTemplateForm>
 
 @code {
@@ -243,6 +250,8 @@
 
     // Les anciens champs communauté / version ne servent que sans profil (ni sur l'imprimante, ni sur le modèle)
     private bool UsesLegacyFields => imprimanteEdit.SnmpCredentialId == null && ModelCredential == null;
+
+    private bool IsComplete => imprimanteEdit.EmplacementId != 0 && imprimanteEdit.ModeleId != 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -452,16 +461,14 @@
                 imprimanteEdit.Status = PrinterStatus.PendingUpdate;
             }
 
-            if (imprimanteEdit.Id == 0)
-            {
-                await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante créée.");
-            }
-            else
-            {
-                await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
-                NotificationService.Notify(NotificationSeverity.Success, "Succès", "Imprimante mise à jour.");
-            }
+            // Refus du serveur (nom, lieu, validation…) : message affiché, la fenêtre reste ouverte (avant : « Succès » à tort)
+            bool creation = imprimanteEdit.Id == 0;
+            var response = creation
+                ? await Http.PostAsJsonAsync("api/Imprimantes", imprimanteEdit)
+                : await Http.PutAsJsonAsync($"api/Imprimantes/{imprimanteEdit.Id}", imprimanteEdit);
+            if (!await response.CheckAsync(NotificationService, creation ? "Création refusée" : "Modification refusée")) return;
+
+            NotificationService.Notify(NotificationSeverity.Success, "Succès", creation ? "Imprimante créée." : "Imprimante mise à jour.");
             DialogService.Close(true);
         }
         catch (Exception ex)
@@ -478,7 +485,8 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                var response = await Http.DeleteAsync($"api/Imprimantes/{imprimanteEdit.Id}");
+                if (!await response.CheckAsync(NotificationService, "Suppression refusée")) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Supprimé", "L'imprimante a été supprimée.");
                 DialogService.Close(true);
             }

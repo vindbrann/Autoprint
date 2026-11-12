@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -108,7 +108,7 @@ namespace Autoprint.Server.Services
 
             var activePrinters = await context.Imprimantes
                 .Include(i => i.Modele)
-                .ThenInclude(m => m.SnmpProfile)
+                .ThenInclude(m => m!.SnmpProfile)
                 .ThenInclude(p => p!.Items)
                 .Where(i => !i.IsArchived)
                 .ToListAsync(stoppingToken);

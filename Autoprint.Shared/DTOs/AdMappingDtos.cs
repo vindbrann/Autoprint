@@ -28,5 +28,8 @@ namespace Autoprint.Shared.DTOs
         public string SamAccountName { get; set; } = string.Empty;
         public string? Description { get; set; }
         public AdMappingType Type { get; set; }
+        public string? DistinguishedName { get; set; }
+        /// <summary>Filtre LDAP prêt à l'emploi (DN échappé, RFC 4515) pour le filtre de connexion AD.</summary>
+        public string? MemberOfFilter { get; set; }
     }
 }

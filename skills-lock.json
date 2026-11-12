@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "skills": {
+    "critique-affordance": {
+      "source": "NVlabs/Skill2Env",
+      "sourceType": "github",
+      "skillPath": "SkillHub/skills/critique-affordance/SKILL.md",
+      "computedHash": "b0c0fc5823f8e1405c60a3f44ce22c42595ded5bec13830d8ed432845b6673de"
+    }
+  }
+}

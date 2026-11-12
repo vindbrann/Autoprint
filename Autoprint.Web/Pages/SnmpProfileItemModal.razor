@@ -1,4 +1,4 @@
-@using Autoprint.Shared
+﻿@using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Radzen
 @using Radzen.Blazor
@@ -6,93 +6,87 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<RadzenStack Gap="1rem" Class="rz-p-2">
-    <!-- SUGGESTIONS RAPIDES DE CONFIGURATION -->
-    <div style="background-color: var(--rz-base-50); border: 1px solid var(--rz-base-200); border-radius: 6px; padding: 0.75rem;">
-        <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: 600; color: var(--rz-text-secondary-color); text-transform: uppercase; margin-bottom: 0.5rem;">
-            ⚡ Modèles d'OIDs Prédéfinis (RFC 3805 / Standard)
-        </RadzenText>
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.35rem" Style="flex-wrap: wrap;">
-            <RadzenButton Text="Toner Noir" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Toner Noir", "1.3.6.1.2.1.43.11.1.1.9.1.1", "1.3.6.1.2.1.43.11.1.1.8.1.1", SnmpItemCategory.Toner, SnmpValueType.RawWithMax, "#212529"))" />
-            <RadzenButton Text="Bac Papier 1" ButtonStyle="ButtonStyle.Info" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Bac 1 (Papier)", "1.3.6.1.2.1.43.8.2.1.10.1.1", "1.3.6.1.2.1.43.8.2.1.9.1.1", SnmpItemCategory.Tray, SnmpValueType.RawWithMax))" />
-            <RadzenButton Text="Compteur Total" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Compteur Total Pages", "1.3.6.1.2.1.43.10.2.1.4.1.1", null, SnmpItemCategory.PageCounter, SnmpValueType.Counter))" />
-            <RadzenButton Text="Écran LCD" ButtonStyle="ButtonStyle.Dark" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Écran LCD Console", "1.3.6.1.2.1.43.16.5.1.2.1.1", null, SnmpItemCategory.Console, SnmpValueType.String))" />
-            <RadzenButton Text="Statut Machine" ButtonStyle="ButtonStyle.Warning" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Statut Imprimante", "1.3.6.1.2.1.25.3.5.1.1.1", null, SnmpItemCategory.Status, SnmpValueType.String))" />
-            <RadzenButton Text="N° de Série" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined" Size="ButtonSize.ExtraSmall" Click="@(() => AppliquerPreset("Numéro de Série", "1.3.6.1.2.1.43.5.1.1.17.1", null, SnmpItemCategory.SerialNumber, SnmpValueType.String))" />
-        </RadzenStack>
-    </div>
-
-    <!-- FORMULAIRE DE CONFIGURATION DU CHAMP -->
-    <RadzenRow Gap="0.75rem">
-        <RadzenColumn Size="12" SizeMD="6">
-            <RadzenLabel Text="Catégorie du Champ" Style="font-weight: 600; font-size: 0.85rem;" />
-            <RadzenDropDown TValue="SnmpItemCategory" Data="@categoriesEnum" @bind-Value="@ItemToEdit.Category" Style="width: 100%;" />
-        </RadzenColumn>
-
-        <RadzenColumn Size="12" SizeMD="6">
-            <RadzenLabel Text="Désignation du Champ" Style="font-weight: 600; font-size: 0.85rem;" />
-            <RadzenTextBox @bind-Value="@ItemToEdit.Name" Style="width: 100%;" Placeholder="Ex: Toner Noir, Bac 1..." />
-        </RadzenColumn>
-    </RadzenRow>
-
-    <div>
-        <RadzenLabel Text="OID SNMP Principal (Lecture)" Style="font-weight: 600; font-size: 0.85rem;" />
-        <RadzenTextBox @bind-Value="@ItemToEdit.Oid" Style="width: 100%; font-family: monospace;" Placeholder="1.3.6.1.2.1.43..." />
-    </div>
-
-    <RadzenRow Gap="0.75rem">
-        <RadzenColumn Size="12" SizeMD="ItemToEdit.ValueType == SnmpValueType.RawWithMax ? 6 : 12">
-            <RadzenLabel Text="Type d'Interprétation" Style="font-weight: 600; font-size: 0.85rem;" />
-            <RadzenDropDown TValue="SnmpValueType" Data="@valueTypesEnum" @bind-Value="@ItemToEdit.ValueType" Style="width: 100%;" />
-        </RadzenColumn>
-
-        @if (ItemToEdit.ValueType == SnmpValueType.RawWithMax)
-        {
-            <RadzenColumn Size="12" SizeMD="6">
-                <RadzenLabel Text="OID Capacité Maximale" Style="font-weight: 600; font-size: 0.85rem;" />
-                <RadzenTextBox @bind-Value="@ItemToEdit.OidMaxCapacity" Style="width: 100%; font-family: monospace;" Placeholder="Ex: 1.3.6.1.2.1.43.11.1.1.8.1.1" />
-            </RadzenColumn>
-        }
-    </RadzenRow>
-
-    @if (ItemToEdit.Category == SnmpItemCategory.Toner)
-    {
-        <div>
-            <RadzenLabel Text="Couleur Visuelle" Style="font-weight: 600; font-size: 0.85rem;" />
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 4px; background-color: @ItemToEdit.ColorHex; border: 1px solid rgba(0,0,0,0.25);" />
-                <RadzenTextBox @bind-Value="@ItemToEdit.ColorHex" Style="width: 130px; font-family: monospace;" Placeholder="#212529" />
-                <span style="color: var(--rz-text-secondary-color); font-size: 0.8rem;">(Code HEX : #212529 Noir, #17a2b8 Cyan, #e83e8c Magenta, #ffc107 Jaune)</span>
-            </RadzenStack>
+@* Maquette « modales » (retour de recette du 11/11) : modèles d'OID en étiquettes neutres, libellés français
+   pour la catégorie et l'interprétation, test de l'OID en ligne, action principale nommée *@
+<div class="ap-dlg">
+    <div class="ap-field" style="margin-bottom: var(--ap-s2);">
+        <span class="ap-help">Partir d'un OID standard (RFC 3805)</span>
+        <div class="ap-chips">
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("Toner noir", "1.3.6.1.2.1.43.11.1.1.9.1.1", "1.3.6.1.2.1.43.11.1.1.8.1.1", SnmpItemCategory.Toner, SnmpValueType.RawWithMax, "#212529"))">Toner noir</button>
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("Bac 1", "1.3.6.1.2.1.43.8.2.1.10.1.1", "1.3.6.1.2.1.43.8.2.1.9.1.1", SnmpItemCategory.Tray, SnmpValueType.RawWithMax))">Bac papier 1</button>
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("Compteur total", "1.3.6.1.2.1.43.10.2.1.4.1.1", null, SnmpItemCategory.PageCounter, SnmpValueType.Counter))">Compteur total</button>
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("Écran de la console", "1.3.6.1.2.1.43.16.5.1.2.1.1", null, SnmpItemCategory.Console, SnmpValueType.String))">Écran</button>
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("État de l'imprimante", "1.3.6.1.2.1.25.3.5.1.1.1", null, SnmpItemCategory.Status, SnmpValueType.String))">État</button>
+            <button type="button" class="ap-chip" @onclick="@(() => AppliquerPreset("Numéro de série", "1.3.6.1.2.1.43.5.1.1.17.1", null, SnmpItemCategory.SerialNumber, SnmpValueType.String))">N° de série</button>
         </div>
-    }
+    </div>
 
-    <!-- TEST DIRECT DE CET OID -->
+    <div class="ap-dlg-group">
+        <h3>Champ</h3>
+        <div class="ap-dlg-grid">
+            <div class="ap-field">
+                <RadzenLabel Text="Nom" Component="ItemName" />
+                <RadzenTextBox Name="ItemName" @bind-Value="@ItemToEdit.Name" Style="width: 100%;" Placeholder="Toner cyan" />
+            </div>
+            <div class="ap-field">
+                <RadzenLabel Text="Catégorie" Component="ItemCat" />
+                <RadzenDropDown Name="ItemCat" TValue="SnmpItemCategory" Data="@categories" TextProperty="Text" ValueProperty="Value" @bind-Value="@ItemToEdit.Category" Style="width: 100%;" />
+            </div>
+        </div>
+        <div class="ap-field">
+            <RadzenLabel Text="OID lu" Component="ItemOid" />
+            <RadzenTextBox Name="ItemOid" @bind-Value="@ItemToEdit.Oid" Style="width: 100%;" Class="ap-mono" Placeholder="1.3.6.1.2.1.43.11.1.1.9.1.2" />
+        </div>
+        <div class="ap-dlg-grid">
+            <div class="ap-field">
+                <RadzenLabel Text="Lecture de la valeur" Component="ItemType" />
+                <RadzenDropDown Name="ItemType" TValue="SnmpValueType" Data="@valueTypes" TextProperty="Text" ValueProperty="Value" @bind-Value="@ItemToEdit.ValueType" Style="width: 100%;" />
+            </div>
+            @if (ItemToEdit.ValueType == SnmpValueType.RawWithMax)
+            {
+                <div class="ap-field">
+                    <RadzenLabel Text="OID de la capacité maximale" Component="ItemMax" />
+                    <RadzenTextBox Name="ItemMax" @bind-Value="@ItemToEdit.OidMaxCapacity" Style="width: 100%;" Class="ap-mono" Placeholder="1.3.6.1.2.1.43.11.1.1.8.1.2" />
+                </div>
+            }
+        </div>
+        @if (ItemToEdit.Category == SnmpItemCategory.Toner)
+        {
+            <div class="ap-field">
+                <RadzenLabel Text="Couleur affichée" Component="ItemColor" />
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s2);">
+                    <span style="display: inline-block; width: 24px; height: 24px; border-radius: var(--ap-r-sm); background-color: @ItemToEdit.ColorHex; border: 1px solid var(--ap-border-strong);"></span>
+                    <RadzenTextBox Name="ItemColor" @bind-Value="@ItemToEdit.ColorHex" Style="width: 130px;" Class="ap-mono" Placeholder="#212529" />
+                    @foreach (var c in TonerColors)
+                    {
+                        <button type="button" class="ap-chip" @onclick="@(() => ItemToEdit.ColorHex = c.Hex)"><span style="width: 10px; height: 10px; border-radius: 50%; background: @c.Hex; display: inline-block;"></span>@c.Name</button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
     @if (!string.IsNullOrWhiteSpace(TestIpAddress))
     {
-        <div style="border-top: 1px dashed var(--rz-base-200); padding-top: 0.75rem;">
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenButton Text="Tester cet OID" Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@TesterOidEnDirect" IsBusy="@isTesting" BusyText="Test..." Disabled="@string.IsNullOrWhiteSpace(ItemToEdit.Oid)" />
-                    <span style="font-size: 0.8rem; color: var(--rz-text-secondary-color);">sur @TestIpAddress</span>
-                </RadzenStack>
-
+        <div class="ap-dlg-group">
+            <h3>Essai</h3>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s3);">
+                <RadzenButton Text="Lire cet OID" Icon="play_arrow" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@TesterOidEnDirect" IsBusy="@isTesting" BusyText="Lecture…" Disabled="@string.IsNullOrWhiteSpace(ItemToEdit.Oid)" />
+                <span class="ap-help">sur <span class="ap-mono">@TestIpAddress</span></span>
                 @if (!string.IsNullOrEmpty(testFeedback))
                 {
-                    <span style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: @(testFeedbackSuccess ? "var(--rz-success)" : "var(--rz-danger)");">
-                        @(testFeedbackSuccess ? "✓ " : "⚠️ ") @testFeedback
-                    </span>
+                    <span class="ap-help ap-mono @(testFeedbackSuccess ? "is-ok" : "is-bad")">@testFeedback</span>
                 }
-            </RadzenStack>
+            </div>
         </div>
     }
 
-    <!-- ACTIONS -->
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" Class="rz-mt-2">
-        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
-        <RadzenButton Text="Valider le Champ" ButtonStyle="ButtonStyle.Primary" Icon="check" Click="@OnValider" />
-    </RadzenStack>
-</RadzenStack>
+    <div class="ap-dlg-footer">
+        <span class="ap-help">@(string.IsNullOrWhiteSpace(ItemToEdit.Name) || string.IsNullOrWhiteSpace(ItemToEdit.Oid) ? "Indiquez le nom et l'OID du champ" : "")</span>
+        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Valider le champ" ButtonStyle="ButtonStyle.Primary" Click="@OnValider" Disabled="@(string.IsNullOrWhiteSpace(ItemToEdit.Name) || string.IsNullOrWhiteSpace(ItemToEdit.Oid))" />
+    </div>
+</div>
 
 @code {
     [Parameter] public SnmpProfileItem ItemToEdit { get; set; } = new();
@@ -101,8 +95,23 @@
     [Parameter] public string TestCommunity { get; set; } = "public";
     [Parameter] public int TestVersion { get; set; } = 2;
 
-    private IEnumerable<SnmpItemCategory> categoriesEnum = Enum.GetValues(typeof(SnmpItemCategory)).Cast<SnmpItemCategory>();
-    private IEnumerable<SnmpValueType> valueTypesEnum = Enum.GetValues(typeof(SnmpValueType)).Cast<SnmpValueType>();
+    // Libellés français (avant : noms d'énumération anglais « RawWithMax », « PageCounter »…)
+    private static readonly object[] categories =
+    {
+        new { Text = "Toner", Value = SnmpItemCategory.Toner }, new { Text = "Bac papier", Value = SnmpItemCategory.Tray },
+        new { Text = "Compteur de pages", Value = SnmpItemCategory.PageCounter }, new { Text = "État", Value = SnmpItemCategory.Status },
+        new { Text = "Écran de la console", Value = SnmpItemCategory.Console }, new { Text = "Maintenance", Value = SnmpItemCategory.Maintenance },
+        new { Text = "Numéro de série", Value = SnmpItemCategory.SerialNumber }
+    };
+    private static readonly object[] valueTypes =
+    {
+        new { Text = "Pourcentage (0 à 100)", Value = SnmpValueType.Percentage },
+        new { Text = "Niveau rapporté à une capacité maximale", Value = SnmpValueType.RawWithMax },
+        new { Text = "Compteur (nombre)", Value = SnmpValueType.Counter },
+        new { Text = "Texte", Value = SnmpValueType.String }
+    };
+    private sealed record TonerColor(string Name, string Hex);
+    private static readonly TonerColor[] TonerColors = { new("Noir", "#212529"), new("Cyan", "#17a2b8"), new("Magenta", "#e83e8c"), new("Jaune", "#ffc107") };
 
     private bool isTesting = false;
     private string? testFeedback;

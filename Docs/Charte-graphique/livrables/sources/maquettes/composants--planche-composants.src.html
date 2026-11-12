@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planche de composants Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../commun/autoprint.css">
+<style>
+/* ---------- Mise en page de la planche ---------- */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 11; background: var(--ap-surface); }
+.board-head {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ap-surface); border-bottom: 1px solid var(--ap-border);
+}
+.board-head-inner { max-width: 1280px; margin: 0 auto; padding-block: var(--ap-s3); padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: var(--ap-s3); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: var(--ap-fs-lg); }
+.brand svg { width: 28px; height: 28px; }
+.board-head .meta { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); }
+.board-head .spacer { flex: 1; }
+.board { max-width: 1280px; margin: 0 auto; padding-block: var(--ap-s6) 96px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.intro { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--ap-s6); margin-bottom: var(--ap-s7); align-items: start; }
+.intro h1 { font-size: var(--ap-fs-h1); font-weight: 500; line-height: 1.2; margin: 0 0 var(--ap-s3); }
+.intro p { margin: 0 0 var(--ap-s3); color: var(--ap-text-secondary); max-width: 62ch; }
+.direction { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: var(--ap-s2) var(--ap-s4); font-size: 13px; }
+.direction dt { color: var(--ap-text-muted); }
+.direction dd { margin: 0; color: var(--ap-text); }
+
+.section { margin-top: var(--ap-s7); }
+.section > h2 { font-size: var(--ap-fs-h3); font-weight: 500; margin: 0 0 var(--ap-s1); }
+.section > .lead { color: var(--ap-text-secondary); margin: 0 0 var(--ap-s5); max-width: 72ch; }
+.panel { background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); padding: var(--ap-s5); box-shadow: var(--ap-shadow-sm); }
+.panel + .panel { margin-top: var(--ap-s4); }
+.panel-title { font-size: var(--ap-fs-sm); color: var(--ap-text-muted); margin: 0 0 var(--ap-s3); font-weight: 400; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--ap-s4); }
+.grid-chart { margin-top: var(--ap-s4); grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--ap-s4); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s3); }
+.stack { display: flex; flex-direction: column; gap: var(--ap-s3); }
+.caption { font-size: var(--ap-fs-sm); color: var(--ap-text-muted); }
+
+/* ---------- Couleurs ---------- */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--ap-s3); }
+.swatch { border: 1px solid var(--ap-border); border-radius: var(--ap-r-lg); overflow: hidden; background: var(--ap-surface); }
+.swatch .chip { height: 56px; display: flex; align-items: flex-end; padding: var(--ap-s2); font-size: var(--ap-fs-sm); border-bottom: 1px solid var(--ap-border); }
+.swatch .info { padding: var(--ap-s2) 10px; display: flex; flex-direction: column; gap: 2px; }
+.swatch .name { font-size: 13px; font-weight: 500; }
+.swatch .tok { font-family: var(--ap-mono); font-size: var(--ap-fs-xs); color: var(--ap-text-muted); }
+
+/* ---------- Typographie ---------- */
+.type-row { display: grid; grid-template-columns: 160px 1fr; gap: var(--ap-s4); align-items: baseline; padding: var(--ap-s3) 0; border-top: 1px solid var(--ap-divider); }
+.type-row:first-child { border-top: 0; padding-top: 0; }
+.type-row .spec { font-family: var(--ap-mono); font-size: var(--ap-fs-xs); color: var(--ap-text-muted); }
+
+/* Adaptation */
+@media (max-width: 1100px) {
+  .ap-kpis { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .intro, .grid-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .board { padding-block: var(--ap-s5) 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .board-head-inner { padding-block: var(--ap-s2); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); flex-wrap: wrap; }
+  .board-head .meta { display: none; }
+  .grid-2, .ap-fields { grid-template-columns: 1fr; }
+  .ap-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .btn-matrix { grid-template-columns: 1fr; }
+  .btn-matrix .h { display: none; }
+  .ap-sidebar-demo { grid-template-columns: 1fr; }
+  .ap-sidebar { border-right: 0; border-bottom: 1px solid var(--ap-border); }
+  .ap-page { padding: var(--ap-s4); }
+  .type-row { grid-template-columns: 1fr; gap: 4px; }
+  .ap-modal-stage { padding: var(--ap-s3); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+{{SPRITE}}
+    <symbol id="logo" viewBox="0 0 64 64">
+      <path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/>
+      <circle cx="32" cy="26" r="17" fill="#2f6fd8"/>
+      <path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/>
+      <rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/>
+      <rect x="22" y="28" width="20" height="2.4" rx="1" fill="#2f6fd8"/>
+      <rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/>
+      <rect x="27" y="33" width="10" height="1.8" rx=".9" fill="#2f6fd8"/>
+      <rect x="27" y="36.2" width="6.5" height="1.8" rx=".9" fill="#2f6fd8"/>
+      <circle cx="41.2" cy="24.4" r="1.4" fill="#2f6fd8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<input type="radio" name="theme" id="theme-auto" class="sr-only" checked>
+<input type="radio" name="theme" id="theme-light" class="sr-only">
+<input type="radio" name="theme" id="theme-dark" class="sr-only">
+
+<header class="board-head">
+  <div class="board-head-inner">
+    <div class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</div>
+    <span class="meta">Charte graphique · planche de composants · v1</span>
+    <span class="spacer"></span>
+    <div class="ap-segmented" role="group" aria-label="Thème">
+      <label for="theme-auto"><svg class="ic ic-sm"><use href="#i-desktop_windows"/></svg>Système</label>
+      <label for="theme-light"><svg class="ic ic-sm"><use href="#i-light_mode"/></svg>Clair</label>
+      <label for="theme-dark"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg>Sombre</label>
+    </div>
+  </div>
+</header>
+
+<main class="board">
+
+  <section class="intro">
+    <div>
+      <h1>Planche de composants</h1>
+      <p>Les éléments de base des trois interfaces Autoprint, construits avec les valeurs de <span class="mono">tokens.json</span>. On valide ici le style d'ensemble avant de l'appliquer aux écrans.</p>
+      <p>Une seule couleur d'accent, le bleu de la punaise, réservée à l'action principale, à la sélection et au focus. Le rouge, l'orange et le vert ne servent qu'aux statuts. Tout le reste est en gris légèrement froids, pour que les longues listes restent reposantes à l'œil.</p>
+    </div>
+    <dl class="direction panel">
+      <dt>Produit</dt><dd>Déployer et suivre les imprimantes réseau d'un parc Windows</dd>
+      <dt>Caractère</dt><dd>Fiable, précis, posé</dd>
+      <dt>Univers</dt><dd>Étiquettes d'inventaire, salle serveur, papier A4</dd>
+      <dt>Moments</dt><dd>L'état du parc au tableau de bord, la carte d'imprimante côté client</dd>
+      <dt>Signature</dt><dd>L'étiquette d'inventaire en chasse fixe : <span class="ap-label-tag">10.12.4.21</span></dd>
+      <dt>Police</dt><dd>IBM Plex Sans et Plex Mono, licence OFL</dd>
+      <dt>Icônes</dt><dd>Material Symbols Outlined, licence Apache 2.0</dd>
+      <dt>Base Radzen</dt><dd>Thème Standard</dd>
+    </dl>
+  </section>
+
+  <!-- COULEURS -->
+  <section class="section" id="couleurs">
+    <h2>Couleurs</h2>
+    <p class="lead">Contrastes vérifiés WCAG 2.1 AA dans les deux thèmes : 4,5:1 pour le texte, 3:1 pour le contour des champs. Le thème suit celui du système ; la bascule en haut à droite permet de forcer clair ou sombre.</p>
+    <div class="panel">
+      <p class="panel-title">Accent et surfaces</p>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:var(--ap-primary);color:var(--ap-on-primary)">Aa</div><div class="info"><span class="name">Principale</span><span class="tok">primary</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-primary-subtle);color:var(--ap-link)">Aa</div><div class="info"><span class="name">Principale atténuée</span><span class="tok">primary-subtle</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-brand);color:#fff"></div><div class="info"><span class="name">Marque (logo)</span><span class="tok">brand</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-background)"></div><div class="info"><span class="name">Fond de page</span><span class="tok">background</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-surface)"></div><div class="info"><span class="name">Surface</span><span class="tok">surface</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-surface-raised)"></div><div class="info"><span class="name">Surface relevée</span><span class="tok">surface-raised</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-sidebar)"></div><div class="info"><span class="name">Menu latéral</span><span class="tok">sidebar</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-surface);box-shadow:inset 0 -12px 0 var(--ap-border-strong)"></div><div class="info"><span class="name">Contour de champ</span><span class="tok">border-strong</span></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">Texte</p>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="color:var(--ap-text);font-size:20px">Aa</div><div class="info"><span class="name">Texte</span><span class="tok">text</span></div></div>
+        <div class="swatch"><div class="chip" style="color:var(--ap-text-secondary);font-size:20px">Aa</div><div class="info"><span class="name">Secondaire</span><span class="tok">text-secondary</span></div></div>
+        <div class="swatch"><div class="chip" style="color:var(--ap-text-muted);font-size:20px">Aa</div><div class="info"><span class="name">Discret</span><span class="tok">text-muted</span></div></div>
+        <div class="swatch"><div class="chip" style="color:var(--ap-text-disabled);font-size:20px">Aa</div><div class="info"><span class="name">Désactivé</span><span class="tok">text-disabled</span></div></div>
+        <div class="swatch"><div class="chip" style="color:var(--ap-link);font-size:20px">Aa</div><div class="info"><span class="name">Lien</span><span class="tok">link</span></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">Statuts : toujours couleur, icône et texte ensemble</p>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:var(--ap-success-subtle);color:var(--ap-success)"><svg class="ic"><use href="#i-check_circle"/></svg></div><div class="info"><span class="name">Succès, en ligne</span><span class="tok">success</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-warning-subtle);color:var(--ap-warning)"><svg class="ic"><use href="#i-warning"/></svg></div><div class="info"><span class="name">Avertissement, toner bas</span><span class="tok">warning</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-danger-subtle);color:var(--ap-danger)"><svg class="ic"><use href="#i-error"/></svg></div><div class="info"><span class="name">Erreur, hors ligne</span><span class="tok">danger</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-info-subtle);color:var(--ap-info)"><svg class="ic"><use href="#i-info"/></svg></div><div class="info"><span class="name">Information</span><span class="tok">info</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--ap-surface-raised);color:var(--ap-neutral)"><svg class="ic"><use href="#i-inventory_2"/></svg></div><div class="info"><span class="name">Neutre, archivé</span><span class="tok">neutral</span></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">Séries de graphiques : distinguables par un daltonien, le bleu mène, les autres suivent</p>
+      <div class="chart-swatches">
+        <i style="background:var(--ap-chart-1)"></i><i style="background:var(--ap-chart-2)"></i><i style="background:var(--ap-chart-3)"></i><i style="background:var(--ap-chart-4)"></i>
+        <i style="background:var(--ap-chart-5)"></i><i style="background:var(--ap-chart-6)"></i><i style="background:var(--ap-chart-7)"></i><i style="background:var(--ap-chart-8)"></i>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHIE -->
+  <section class="section" id="typo">
+    <h2>Typographie</h2>
+    <p class="lead">IBM Plex Sans pour l'interface, Plex Mono pour les adresses, codes et chiffres alignés. Deux graisses courantes, 400 et 500 ; 600 reste exceptionnel. Pas de majuscules espacées : les libellés sont en casse de phrase.</p>
+    <div class="panel">
+      <div class="type-row"><span class="spec">h1 · 28 / 500</span><span style="font-size:28px;font-weight:500;line-height:1.2">Parc d'imprimantes</span></div>
+      <div class="type-row"><span class="spec">h2 · 24 / 500</span><span style="font-size:24px;font-weight:500">Configuration du système</span></div>
+      <div class="type-row"><span class="spec">h3 · 20 / 500</span><span style="font-size:20px;font-weight:500">Répartition par modèle</span></div>
+      <div class="type-row"><span class="spec">h4 · 18 / 500</span><span style="font-size:18px;font-weight:500">Modifier l'imprimante</span></div>
+      <div class="type-row"><span class="spec">corps · 14 / 400</span><span>Le spouleur est désactivé et le flux part directement vers l'adresse IP de l'imprimante.</span></div>
+      <div class="type-row"><span class="spec">secondaire · 13 / 400</span><span style="font-size:13px;color:var(--ap-text-secondary)">Les journaux d'audit plus anciens que la durée définie seront supprimés.</span></div>
+      <div class="type-row"><span class="spec">légende · 12 / 400</span><span class="caption">Synchronisation des configurations Windows · admin · il y a 26 min</span></div>
+      <div class="type-row"><span class="spec">mono · 13 / 400</span><span class="mono" style="font-size:13px">10.12.4.21 · P-00412 · 26.11.9.1 · 1.3.6.1.2.1.43.11.1.1.9.1.1</span></div>
+      <div class="type-row"><span class="spec">indicateur · 28 / 500</span><span style="font-size:28px;font-weight:500">312 <span class="caption" style="font-size:14px">sur 318 imprimantes</span></span></div>
+    </div>
+  </section>
+
+  <!-- BOUTONS -->
+  <section class="section" id="boutons">
+    <h2>Boutons</h2>
+    <p class="lead">Un seul bouton principal par zone. Les actions moins importantes sont secondaires ou en texte. Hauteur 32 px, arrondi 6 px, casse de phrase.</p>
+    <div class="panel">
+      <div class="btn-matrix">
+        <span class="h"></span><span class="h">Normal</span><span class="h">Survol</span><span class="h">Focus clavier</span><span class="h">Désactivé</span>
+        <span class="caption">Principal</span>
+        <button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+        <button class="ap-btn ap-btn--primary is-hover"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+        <button class="ap-btn ap-btn--primary is-focus"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+        <button class="ap-btn ap-btn--primary" disabled><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+        <span class="caption">Secondaire</span>
+        <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-radar"/></svg>Scanner le réseau</button>
+        <button class="ap-btn ap-btn--secondary is-hover"><svg class="ic"><use href="#i-radar"/></svg>Scanner le réseau</button>
+        <button class="ap-btn ap-btn--secondary is-focus"><svg class="ic"><use href="#i-radar"/></svg>Scanner le réseau</button>
+        <button class="ap-btn ap-btn--secondary" disabled><svg class="ic"><use href="#i-radar"/></svg>Scanner le réseau</button>
+        <span class="caption">Contour</span>
+        <button class="ap-btn ap-btn--outline">Tester la connexion</button>
+        <button class="ap-btn ap-btn--outline is-hover">Tester la connexion</button>
+        <button class="ap-btn ap-btn--outline is-focus">Tester la connexion</button>
+        <button class="ap-btn ap-btn--outline" disabled>Tester la connexion</button>
+        <span class="caption">Texte</span>
+        <button class="ap-btn ap-btn--text">Mot de passe oublié</button>
+        <button class="ap-btn ap-btn--text is-hover">Mot de passe oublié</button>
+        <button class="ap-btn ap-btn--text is-focus">Mot de passe oublié</button>
+        <button class="ap-btn ap-btn--text" disabled>Mot de passe oublié</button>
+        <span class="caption">Danger</span>
+        <button class="ap-btn ap-btn--danger"><svg class="ic"><use href="#i-delete"/></svg>Supprimer</button>
+        <button class="ap-btn ap-btn--danger is-hover"><svg class="ic"><use href="#i-delete"/></svg>Supprimer</button>
+        <button class="ap-btn ap-btn--danger is-focus"><svg class="ic"><use href="#i-delete"/></svg>Supprimer</button>
+        <button class="ap-btn ap-btn--danger" disabled><svg class="ic"><use href="#i-delete"/></svg>Supprimer</button>
+        <span class="caption">Danger discret</span>
+        <button class="ap-btn ap-btn--danger-quiet">Nettoyer (+30 j)</button>
+        <button class="ap-btn ap-btn--danger-quiet is-hover">Nettoyer (+30 j)</button>
+        <button class="ap-btn ap-btn--danger-quiet is-focus">Nettoyer (+30 j)</button>
+        <button class="ap-btn ap-btn--danger-quiet" disabled>Nettoyer (+30 j)</button>
+        <span class="caption">Succès</span>
+        <button class="ap-btn ap-btn--success"><svg class="ic"><use href="#i-check"/></svg>Appliquer la synchronisation</button>
+        <button class="ap-btn ap-btn--success is-hover"><svg class="ic"><use href="#i-check"/></svg>Appliquer la synchronisation</button>
+        <button class="ap-btn ap-btn--success is-focus"><svg class="ic"><use href="#i-check"/></svg>Appliquer la synchronisation</button>
+        <button class="ap-btn ap-btn--success" disabled><svg class="ic"><use href="#i-check"/></svg>Appliquer la synchronisation</button>
+        <span class="caption">Icône seule</span>
+        <span class="row" style="gap:2px"><button class="ap-btn ap-btn--icon" aria-label="Modifier"><svg class="ic"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon" aria-label="Diagnostic"><svg class="ic"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon" aria-label="Plus d'actions"><svg class="ic"><use href="#i-more_vert"/></svg></button></span>
+        <button class="ap-btn ap-btn--icon is-hover" aria-label="Modifier"><svg class="ic"><use href="#i-edit"/></svg></button>
+        <button class="ap-btn ap-btn--icon is-focus" aria-label="Modifier"><svg class="ic"><use href="#i-edit"/></svg></button>
+        <button class="ap-btn ap-btn--icon" disabled aria-label="Modifier"><svg class="ic"><use href="#i-edit"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHAMPS -->
+  <section class="section" id="champs">
+    <h2>Champs de saisie</h2>
+    <p class="lead">Contour visible à 3:1, libellé au-dessus, aide en dessous. L'erreur ajoute une icône et un texte, pas seulement du rouge.</p>
+    <div class="grid-2">
+      <div class="panel stack" style="gap:var(--ap-s4)">
+        <div class="ap-field"><label class="ap-label">Nom affiché</label><input class="ap-input" value="SIEGE-A2-RICOH-01"></div>
+        <div class="ap-field"><label class="ap-label">Code inventaire</label><input class="ap-input is-focus mono" value="P-00412"><span class="ap-help">Focus clavier</span></div>
+        <div class="ap-field"><label class="ap-label">Adresse IP</label>
+          <div class="ap-input-group"><span class="ap-addon">10.12.4.</span><input class="ap-input mono is-error" value="300"></div>
+          <span class="ap-error"><svg class="ic ic-sm"><use href="#i-error"/></svg>Valeur entre 1 et 254 attendue</span></div>
+        <div class="ap-field"><label class="ap-label">Serveur SMTP</label><input class="ap-input" disabled value="smtp.mairie.local"><span class="ap-help">Désactivé : droits en lecture seule</span></div>
+        <div class="ap-field"><label class="ap-label">Mot de passe de protection des secrets <span class="opt">(facultatif)</span></label><input class="ap-input" type="password" placeholder="12 caractères minimum"></div>
+      </div>
+      <div class="panel stack" style="gap:var(--ap-s4)">
+        <div class="ap-field"><label class="ap-label">Emplacement</label>
+          <div class="ap-select is-focus"><span>Siège – Bâtiment A – 2e étage</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div>
+          <div class="ap-dropdown-menu" role="listbox">
+            <div class="ap-option">Accueil – Rez-de-chaussée <span class="sub">10.12.1.0/24</span></div>
+            <div class="ap-option is-hover">Siège – Bâtiment A – 1er étage <span class="sub">10.12.3.0/24</span></div>
+            <div class="ap-option is-selected">Siège – Bâtiment A – 2e étage <span class="sub">10.12.4.0/24</span></div>
+            <div class="ap-option">Services techniques <span class="sub">10.14.0.0/24</span></div>
+          </div>
+        </div>
+        <div class="ap-field"><label class="ap-label">Modèle</label><div class="ap-select"><span class="ph">Choisir un modèle</span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+        <div class="ap-field"><label class="ap-label">Purge automatique</label>
+          <div class="ap-input-group" style="max-width:200px"><input class="ap-input start mono" value="180"><span class="ap-addon ap-addon--end">jours</span></div>
+          <span class="ap-help">0 pour désactiver (illimité)</span></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:var(--ap-s4)">
+      <div class="grid-3">
+        <div class="stack">
+          <p class="panel-title" style="margin:0">Cases à cocher</p>
+          <label class="ap-check"><input type="checkbox" checked><span>Afficher les imprimantes locales</span></label>
+          <label class="ap-check"><input type="checkbox"><span>Inclure les archivées</span></label>
+          <label class="ap-check"><input type="checkbox" disabled><span>Gérer les rôles (lecture seule)</span></label>
+        </div>
+        <div class="stack">
+          <p class="panel-title" style="margin:0">Choix unique</p>
+          <label class="ap-check"><input type="radio" name="db" checked><span>SQL Server</span></label>
+          <label class="ap-check"><input type="radio" name="db"><span>SQLite (fichier local)</span></label>
+          <span class="ap-selectbar" style="margin-top:var(--ap-s1)"><span class="on">SNMP v2c</span><span>SNMP v3</span></span>
+        </div>
+        <div class="stack">
+          <p class="panel-title" style="margin:0">Interrupteurs</p>
+          <label class="ap-switch"><input type="checkbox" checked><span class="t">Partager sur le réseau Windows</span></label>
+          <label class="ap-switch"><input type="checkbox"><span class="t">Mode impression directe (RAW)<small>Le flux part directement vers l'imprimante</small></span></label>
+          <label class="ap-switch"><input type="checkbox" disabled><span class="t">Synchronisation Active Directory</span></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONGLETS -->
+  <section class="section" id="onglets">
+    <h2>Onglets</h2>
+    <p class="lead">Onglets soulignés pour les barres courtes de la console (Parc actif / Archives, onglets des modales). Au-delà de 5 ou 6 sections, comme dans les paramètres, on passe à un menu de sections vertical. Onglets en pilule pour la petite fenêtre du client.</p>
+    <div class="panel stack" style="gap:var(--ap-s5)">
+      <div class="ap-tabs" role="tablist">
+        <span class="ap-tab is-active"><svg class="ic"><use href="#i-history"/></svg>Maintenance</span>
+        <span class="ap-tab is-hover"><svg class="ic"><use href="#i-mail"/></svg>SMTP</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-sell"/></svg>Nommage</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-group"/></svg>Active Directory</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-visibility"/></svg>Supervision</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-bar_chart"/></svg>Monitoring</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-radar"/></svg>Scanner réseau</span>
+        <span class="ap-tab"><svg class="ic"><use href="#i-lock"/></svg>Sécurité</span>
+      </div>
+      <div class="row" style="gap:var(--ap-s6)">
+        <div class="ap-tabs" style="border:0">
+          <span class="ap-tab is-active"><svg class="ic"><use href="#i-print"/></svg>Parc actif <span class="count">312</span></span>
+          <span class="ap-tab"><svg class="ic"><use href="#i-inventory_2"/></svg>Archives <span class="count">6</span></span>
+        </div>
+        <div class="ap-pills">
+          <span class="ap-pill is-active">Disponibles <span class="count">12</span></span>
+          <span class="ap-pill">Mes installations <span class="count">4</span></span>
+          <span class="ap-pill">Options</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATUTS -->
+  <section class="section" id="statuts">
+    <h2>Badges et étiquettes</h2>
+    <p class="lead">Les statuts combinent couleur, icône et texte. Les étiquettes neutres servent aux modèles et aux lieux. L'étiquette d'inventaire, en chasse fixe, porte les adresses, codes et versions : c'est le détail qui revient partout.</p>
+    <div class="panel stack" style="gap:var(--ap-s4)">
+      <div class="row">
+        <span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span>
+        <span class="ap-status ap-status--offline"><svg class="ic"><use href="#i-cloud_off"/></svg>Hors ligne</span>
+        <span class="ap-status ap-status--warning"><svg class="ic"><use href="#i-warning"/></svg>Toner bas</span>
+        <span class="ap-status ap-status--archived"><svg class="ic"><use href="#i-inventory_2"/></svg>Archivée</span>
+        <span class="ap-status ap-status--unknown"><svg class="ic"><use href="#i-help"/></svg>Inconnu</span>
+        <span class="ap-status ap-status--info"><svg class="ic"><use href="#i-info"/></svg>Info</span>
+      </div>
+      <div class="row">
+        <span class="caption" style="width:150px">Service (pleine teinte)</span>
+        <span class="ap-status ap-status--solid ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span>
+        <span class="ap-status ap-status--solid ap-status--offline"><svg class="ic"><use href="#i-cancel"/></svg>Arrêté</span>
+      </div>
+      <div class="row">
+        <span class="caption" style="width:150px">Étiquettes</span>
+        <span class="ap-tag">Ricoh IM C3000</span><span class="ap-tag">HP LaserJet M507</span>
+        <span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Siège – Bât. A – 2e</span>
+      </div>
+      <div class="row">
+        <span class="caption" style="width:150px">Étiquette d'inventaire</span>
+        <span class="ap-label-tag">10.12.4.21</span><span class="ap-label-tag">P-00412</span><span class="ap-label-tag">v26.11.9.1</span>
+      </div>
+      <div class="row">
+        <span class="caption" style="width:150px">Compteur d'alerte</span>
+        <span class="ap-count-badge">2</span><span class="ap-count-badge">!</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALERTES ET NOTIFICATIONS -->
+  <section class="section" id="alertes">
+    <h2>Encadrés et notifications</h2>
+    <p class="lead">Les encadrés restent dans la page. Les notifications apparaissent en haut à droite et disparaissent seules.</p>
+    <div class="grid-2">
+      <div class="stack">
+        <div class="ap-alert ap-alert--success"><svg class="ic"><use href="#i-check_circle"/></svg><div><strong>Connexion SMTP réussie</strong><p>Un e-mail de test a été envoyé à support@mairie.local.</p></div></div>
+        <div class="ap-alert ap-alert--warning"><svg class="ic"><use href="#i-warning"/></svg><div><strong>Action requise</strong><p>Faites exécuter le script SQL par l'administrateur de la base avant de démarrer le service.</p></div><button class="ap-btn ap-btn--secondary ap-btn--sm"><svg class="ic ic-sm"><use href="#i-content_copy"/></svg>Copier le script</button></div>
+        <div class="ap-alert ap-alert--danger"><svg class="ic"><use href="#i-error"/></svg><div><strong>Restauration : écrase les données</strong><p>La configuration actuelle sera remplacée par celle du fichier.</p></div></div>
+        <div class="ap-alert ap-alert--info"><svg class="ic"><use href="#i-info"/></svg><div><strong>Masque imposé par le lieu</strong><p>Le réseau principal du lieu fixe les trois premiers octets de l'adresse.</p></div></div>
+      </div>
+      <div class="stack" style="align-items:flex-start">
+        <div class="ap-toast ap-toast--success"><svg class="ic"><use href="#i-check_circle"/></svg><div><strong>Imprimante enregistrée</strong><span>SIEGE-A2-RICOH-01</span></div><button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic ic-sm"><use href="#i-close"/></svg></button></div>
+        <div class="ap-toast ap-toast--danger"><svg class="ic"><use href="#i-error"/></svg><div><strong>Synchronisation impossible</strong><span>Le spouleur Windows ne répond pas</span></div><button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic ic-sm"><use href="#i-close"/></svg></button></div>
+        <div class="ap-toast ap-toast--warning"><svg class="ic"><use href="#i-warning"/></svg><div><strong>2 modèles sans pilote</strong><span>Associez un pilote avant le déploiement</span></div><button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic ic-sm"><use href="#i-close"/></svg></button></div>
+        <div class="ap-toast ap-toast--info"><svg class="ic"><use href="#i-info"/></svg><div><strong>Scan du réseau lancé</strong><span>10.12.4.1 à 10.12.4.254</span></div><button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic ic-sm"><use href="#i-close"/></svg></button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INDICATEURS + GRAPHIQUE -->
+  <section class="section" id="indicateurs">
+    <h2>Cartes d'indicateurs et graphique</h2>
+    <p class="lead">Une carte, c'est un libellé, un chiffre et une précision. Pas de bordure colorée : seul un chiffre qui demande une action prend la couleur de son statut. La répartition par modèle devient une barre empilée avec une légende chiffrée, plus lisible qu'un anneau quand le parc compte des dizaines de modèles.</p>
+    <div class="ap-kpis">
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-print"/></svg>Parc actif</span><span class="k-value">312</span><span class="k-sub">6 archivées</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-developer_board"/></svg>Pilotes</span><span class="k-value">18</span><span class="k-sub">2 modèles sans pilote</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-location_on"/></svg>Lieux</span><span class="k-value">24</span><span class="k-sub">7 sites</span></div>
+      <div class="ap-kpi-card ap-kpi-card--danger"><span class="k-label"><svg class="ic"><use href="#i-cloud_off"/></svg>Hors ligne</span><span class="k-value">3</span><span class="k-sub">depuis plus de 15 min</span></div>
+      <div class="ap-kpi-card ap-kpi-card--warning"><span class="k-label"><svg class="ic"><use href="#i-warning"/></svg>Toner bas</span><span class="k-value">7</span><span class="k-sub">sous 15 %</span></div>
+    </div>
+    <div class="grid-2 grid-chart">
+      <div class="ap-chart-card">
+        <h3>Répartition par modèle</h3>
+        <div class="share-bar" role="img" aria-label="Répartition des 312 imprimantes par modèle">
+          <i style="width:31%;background:var(--ap-chart-1)"></i><i style="width:22%;background:var(--ap-chart-2)"></i><i style="width:16%;background:var(--ap-chart-3)"></i><i style="width:12%;background:var(--ap-chart-4)"></i><i style="width:9%;background:var(--ap-chart-5)"></i><i style="width:10%;background:var(--ap-chart-8)"></i>
+        </div>
+        <ul class="legend">
+          <li><i class="dot" style="background:var(--ap-chart-1)"></i>Ricoh IM C3000<span class="n">97</span><span class="p">31 %</span></li>
+          <li><i class="dot" style="background:var(--ap-chart-2)"></i>HP LaserJet M507<span class="n">68</span><span class="p">22 %</span></li>
+          <li><i class="dot" style="background:var(--ap-chart-3)"></i>Kyocera ECOSYS M3655idn<span class="n">50</span><span class="p">16 %</span></li>
+          <li><i class="dot" style="background:var(--ap-chart-4)"></i>Canon iR-ADV C5535i<span class="n">37</span><span class="p">12 %</span></li>
+          <li><i class="dot" style="background:var(--ap-chart-5)"></i>Brother HL-L6400DW<span class="n">29</span><span class="p">9 %</span></li>
+          <li><i class="dot" style="background:var(--ap-chart-8)"></i>11 autres modèles<span class="n">31</span><span class="p">10 %</span></li>
+        </ul>
+      </div>
+      <div class="ap-chart-card">
+        <h3>Dernières activités</h3>
+        <ul class="ap-activity">
+          <li><svg class="ic"><use href="#i-sync"/></svg><div>Synchronisation des configurations Windows<small>admin</small></div><time>14:32</time></li>
+          <li><svg class="ic"><use href="#i-edit"/></svg><div>Modification de l'imprimante SIEGE-A2-RICOH-01<small>n.martin</small></div><time>14:05</time></li>
+          <li><svg class="ic"><use href="#i-delete"/></svg><div>Suppression du modèle Lexmark MS521<small>admin</small></div><time>11:47</time></li>
+          <li><svg class="ic"><use href="#i-add"/></svg><div>Création du lieu Services techniques<small>admin</small></div><time>09:12</time></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- GRILLE -->
+  <section class="section" id="grille">
+    <h2>Grille de données</h2>
+    <p class="lead">Lignes de 36 px pour afficher beaucoup sans serrer. On distingue l'en-tête, le tri actif, la ligne survolée, la ligne sélectionnée et le focus clavier. Les adresses sont en chasse fixe. Chaque ligne porte deux actions directes, modifier et diagnostiquer, les autres sont dans le menu.</p>
+    <div class="ap-grid-wrap">
+      <div class="ap-toolbar">
+        <div class="ap-search"><svg class="ic"><use href="#i-search"/></svg><input class="ap-input" placeholder="Rechercher"></div>
+        <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-filter_list"/></svg>Filtres</button>
+        <span class="grow"></span>
+        <button class="ap-btn ap-btn--text"><svg class="ic"><use href="#i-download"/></svg>Exporter en CSV</button>
+        <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-sync"/></svg>Synchroniser</button>
+        <button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+      </div>
+      <div class="ap-grid-scroll">
+      <table class="ap-grid">
+        <thead><tr>
+          <th style="width:36px"><label class="ap-check"><input type="checkbox" aria-label="Tout sélectionner"></label></th>
+          <th class="is-sorted"><span class="sort">Nom <svg class="ic"><use href="#i-arrow_upward"/></svg></span></th>
+          <th>Statut</th><th>Lieu</th><th>Modèle</th><th>Adresse IP</th><th class="actions"></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><label class="ap-check"><input type="checkbox" aria-label="Sélectionner"></label></td><td class="name">ACCUEIL-RDC-HP-01</td><td><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span></td><td><span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Accueil – RDC</span></td><td>HP LaserJet M507</td><td><span class="ap-label-tag">10.12.1.14</span></td><td class="actions"><span class="row"><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Modifier"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Diagnostic"><svg class="ic ic-sm"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Plus d'actions"><svg class="ic ic-sm"><use href="#i-more_vert"/></svg></button></span></td></tr>
+          <tr class="is-hover"><td><label class="ap-check"><input type="checkbox" aria-label="Sélectionner"></label></td><td class="name">SIEGE-A1-KYO-02</td><td><span class="ap-status ap-status--warning"><svg class="ic"><use href="#i-warning"/></svg>Toner bas</span></td><td><span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Siège – Bât. A – 1er</span></td><td>Kyocera ECOSYS M3655idn</td><td><span class="ap-label-tag">10.12.3.31</span></td><td class="actions"><span class="row"><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Modifier"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Diagnostic"><svg class="ic ic-sm"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Plus d'actions"><svg class="ic ic-sm"><use href="#i-more_vert"/></svg></button></span></td></tr>
+          <tr class="is-selected"><td><label class="ap-check"><input type="checkbox" checked aria-label="Sélectionner"></label></td><td class="name">SIEGE-A2-RICOH-01</td><td><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span></td><td><span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Siège – Bât. A – 2e</span></td><td>Ricoh IM C3000</td><td><span class="ap-label-tag">10.12.4.21</span></td><td class="actions"><span class="row"><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Modifier"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Diagnostic"><svg class="ic ic-sm"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Plus d'actions"><svg class="ic ic-sm"><use href="#i-more_vert"/></svg></button></span></td></tr>
+          <tr class="is-focus"><td><label class="ap-check"><input type="checkbox" aria-label="Sélectionner"></label></td><td class="name">SIEGE-B3-CANON-04</td><td><span class="ap-status ap-status--offline"><svg class="ic"><use href="#i-cloud_off"/></svg>Hors ligne</span></td><td><span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Siège – Bât. B – 3e</span></td><td>Canon iR-ADV C5535i</td><td><span class="ap-label-tag">10.12.7.40</span></td><td class="actions"><span class="row"><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Modifier"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Diagnostic"><svg class="ic ic-sm"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Plus d'actions"><svg class="ic ic-sm"><use href="#i-more_vert"/></svg></button></span></td></tr>
+          <tr class="is-archived"><td><label class="ap-check"><input type="checkbox" aria-label="Sélectionner"></label></td><td class="name">TECH-ATELIER-BRO-01</td><td><span class="ap-status ap-status--archived"><svg class="ic"><use href="#i-inventory_2"/></svg>Archivée</span></td><td><span class="ap-place"><svg class="ic"><use href="#i-location_on"/></svg>Services techniques</span></td><td>Brother HL-L6400DW</td><td><span class="ap-label-tag">10.14.0.12</span></td><td class="actions"><span class="row"><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Modifier"><svg class="ic ic-sm"><use href="#i-edit"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Diagnostic"><svg class="ic ic-sm"><use href="#i-stethoscope"/></svg></button><button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Plus d'actions"><svg class="ic ic-sm"><use href="#i-more_vert"/></svg></button></span></td></tr>
+          <tr><td colspan="7" style="padding:0 12px"><div class="row" style="gap:24px"><span class="ap-skeleton" style="width:140px"></span><span class="ap-skeleton" style="width:72px"></span><span class="ap-skeleton" style="width:120px"></span><span class="ap-skeleton" style="width:160px"></span><span class="caption">Chargement</span></div></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="ap-pager">
+        <span>1 à 25 sur 312</span><span class="grow"></span>
+        <button class="ap-btn ap-btn--icon ap-btn--sm" disabled aria-label="Première page"><svg class="ic ic-sm"><use href="#i-first_page"/></svg></button>
+        <button class="ap-btn ap-btn--icon ap-btn--sm" disabled aria-label="Page précédente"><svg class="ic ic-sm"><use href="#i-chevron_left"/></svg></button>
+        <span class="pg is-active">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">…</span><span class="pg">13</span>
+        <button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Page suivante"><svg class="ic ic-sm"><use href="#i-chevron_right"/></svg></button>
+        <button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Dernière page"><svg class="ic ic-sm"><use href="#i-last_page"/></svg></button>
+      </div>
+    </div>
+    <div class="ap-grid-wrap" style="margin-top:var(--ap-s4)">
+      <div class="ap-empty"><svg class="ic"><use href="#i-print_disabled"/></svg><strong>Aucune imprimante</strong><span>Ajoutez une imprimante ou importez celles du spouleur Windows.</span>
+        <div class="row" style="justify-content:center;margin-top:var(--ap-s4)"><button class="ap-btn ap-btn--secondary">Importer depuis le spouleur</button><button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button></div></div>
+    </div>
+  </section>
+
+  <!-- MODALE -->
+  <section class="section" id="modale">
+    <h2>Fenêtre modale</h2>
+    <p class="lead">Sections nommées, champs sur deux colonnes, actions en pied : l'action principale à droite, le diagnostic à gauche.</p>
+    <div class="ap-modal-stage">
+      <div class="ap-modal" role="dialog" aria-label="Modifier l'imprimante">
+        <div class="ap-modal-head"><h3>Modifier l'imprimante</h3><span class="ap-label-tag">P-00412</span><button class="ap-btn ap-btn--icon" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></button></div>
+        <div class="ap-modal-body">
+          <fieldset class="ap-fieldset"><legend>Identification</legend><div class="ap-fields">
+            <div class="ap-field"><label class="ap-label">Nom affiché</label><input class="ap-input" value="SIEGE-A2-RICOH-01"></div>
+            <div class="ap-field"><label class="ap-label">Code inventaire</label><input class="ap-input mono" value="P-00412"></div>
+          </div></fieldset>
+          <fieldset class="ap-fieldset"><legend>Localisation et réseau</legend><div class="ap-fields">
+            <div class="ap-field full"><label class="ap-label">Emplacement</label><div class="ap-select"><span>Siège – Bâtiment A – 2e étage <span class="caption mono">10.12.4.0/24</span></span><svg class="ic"><use href="#i-keyboard_arrow_down"/></svg></div></div>
+            <div class="ap-field"><label class="ap-label">Adresse IP</label><div class="ap-input-group"><span class="ap-addon">10.12.4.</span><input class="ap-input mono" value="21"></div><span class="ap-help">Masque imposé par le réseau du lieu</span></div>
+            <div class="ap-field"><label class="ap-label">Détail <span class="opt">(bureau)</span></label><input class="ap-input" value="Bureau 204"></div>
+            <div class="ap-option-card"><label class="ap-switch"><input type="checkbox"><span class="t">Mode impression directe (RAW)<small>Le spouleur est contourné et le flux part directement vers l'adresse IP. Utile pour les sites distants.</small></span></label></div>
+          </div></fieldset>
+        </div>
+        <div class="ap-modal-foot"><button class="ap-btn ap-btn--text"><svg class="ic"><use href="#i-stethoscope"/></svg>Diagnostic</button><span class="grow"></span><button class="ap-btn ap-btn--secondary">Annuler</button><button class="ap-btn ap-btn--primary">Enregistrer</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MENU LATÉRAL -->
+  <section class="section" id="menu">
+    <h2>Menu latéral et en-tête de page</h2>
+    <p class="lead">Rubrique active en bleu atténué, survol en gris, compteur rouge quand quelque chose est à traiter. Le menu passe de 280 à 248 px.</p>
+    <div class="ap-sidebar-demo">
+      <aside class="ap-sidebar">
+        <div class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</div>
+        <nav class="ap-nav">
+          <a href="#menu"><svg class="ic"><use href="#i-dashboard"/></svg><span class="lbl">Tableau de bord</span></a>
+        </nav>
+        <div class="ap-nav-section">Gestion</div>
+        <nav class="ap-nav">
+          <a href="#menu" class="is-active"><svg class="ic"><use href="#i-print"/></svg><span class="lbl">Imprimantes</span></a>
+          <a href="#menu" class="is-hover"><svg class="ic"><use href="#i-location_on"/></svg><span class="lbl">Lieux</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-sell"/></svg><span class="lbl">Marques</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-category"/></svg><span class="lbl">Modèles</span><span class="ap-count-badge">2</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-developer_board"/></svg><span class="lbl">Pilotes</span><span class="ap-count-badge">1</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-lan"/></svg><span class="lbl">Profils SNMP</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-key"/></svg><span class="lbl">Identifiants SNMP</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-bar_chart"/></svg><span class="lbl">Rapports et planification</span></a>
+        </nav>
+        <div class="ap-nav-section">Système</div>
+        <nav class="ap-nav">
+          <a href="#menu"><svg class="ic"><use href="#i-settings"/></svg><span class="lbl">Paramètres</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-group"/></svg><span class="lbl">Utilisateurs</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-history"/></svg><span class="lbl">Journal d'audit</span></a>
+          <a href="#menu"><svg class="ic"><use href="#i-admin_panel_settings"/></svg><span class="lbl">Rôles et droits</span></a>
+        </nav>
+        <div class="foot">
+          <span class="ap-avatar">SL</span>
+          <span class="who"><b>Sophie Laurent</b><small>Administrateur</small></span>
+          <button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Changer de thème"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg></button>
+          <button class="ap-btn ap-btn--icon ap-btn--sm" aria-label="Se déconnecter"><svg class="ic ic-sm"><use href="#i-logout"/></svg></button>
+        </div>
+      </aside>
+      <div class="ap-page">
+        <div class="ap-page-header">
+          <div><h1>Parc d'imprimantes</h1><span class="sub">312 actives · 6 archivées</span></div>
+          <span class="grow"></span>
+          <button class="ap-btn ap-btn--text"><svg class="ic"><use href="#i-download"/></svg>Exporter en CSV</button>
+          <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-radar"/></svg>Scanner le réseau</button>
+          <button class="ap-btn ap-btn--primary"><svg class="ic"><use href="#i-add"/></svg>Ajouter</button>
+        </div>
+        <div class="ap-tabs" style="margin-bottom:var(--ap-s4)">
+          <span class="ap-tab is-active"><svg class="ic"><use href="#i-print"/></svg>Parc actif <span class="count">312</span></span>
+          <span class="ap-tab"><svg class="ic"><use href="#i-inventory_2"/></svg>Archives <span class="count">6</span></span>
+        </div>
+        <p class="caption">La grille complète est montrée plus haut ; les maquettes d'écrans viendront à l'étape suivante.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="caption" style="margin-top:var(--ap-s7)">Planche réalisée avec la méthode unslop de Damir Sokolovsky (@heydamir), CC BY 4.0. Polices IBM Plex (OFL 1.1), icônes Material Symbols (Apache 2.0). Aucune ressource externe, aucun JavaScript.</p>
+</main>
+</body>
+</html>

@@ -50,6 +50,19 @@ namespace Autoprint.Server.Data
             // Mise à jour de la structure (SQL Server & SQLite) lors des mises à niveau
             if (context.Database.ProviderName != null && context.Database.ProviderName.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
             {
+                // B84 : la migration AddSnmpFields a donné aux imprimantes déjà présentes (serveurs 1.1.x en SQL Server) le port 0
+                // et la version 0, valeurs impossibles : supervision muette. Ramenées aux valeurs par défaut (161, v2c). Idempotent.
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Imprimantes') AND name = 'SnmpPort')
+                            UPDATE Imprimantes SET SnmpPort = 161 WHERE SnmpPort = 0;
+                        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Imprimantes') AND name = 'SnmpVersion')
+                            UPDATE Imprimantes SET SnmpVersion = 2 WHERE SnmpVersion = 0;
+                    ");
+                }
+                catch (Exception ex) { LogSchemaError(ex); }
+
                 try
                 {
                     context.Database.ExecuteSqlRaw(@"

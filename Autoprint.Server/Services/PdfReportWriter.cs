@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Autoprint.Server.Services
 {
@@ -48,10 +48,27 @@ namespace Autoprint.Server.Services
             return data == null ? null : SKTypeface.FromData(data);
         }
 
+        /// <summary>Numéro de la page en cours (1 pour la première).</summary>
+        public int PageNumber { get; private set; }
+
         public void NewPage()
         {
             if (_canvas != null) _document.EndPage();
             _canvas = _document.BeginPage(PageWidth, PageHeight);
+            PageNumber++;
+        }
+
+        public float MeasureText(string text, float size, bool bold = false) => Font(size, bold).MeasureText(text);
+
+        /// <summary>Texte aligné à droite sur <paramref name="rightX"/>.</summary>
+        public void TextRight(string text, float rightX, float baselineY, float size, SKColor color, bool bold = false)
+            => Text(text, rightX - MeasureText(text, size, bold), baselineY, size, color, bold);
+
+        /// <summary>Rectangle plein aux coins arrondis.</summary>
+        public void FillRoundRect(float x, float y, float width, float height, float radius, SKColor color)
+        {
+            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Fill, IsAntialias = true };
+            Canvas.DrawRoundRect(x, y, width, height, radius, radius, paint);
         }
 
         private SKCanvas Canvas => _canvas ?? throw new InvalidOperationException("Aucune page ouverte.");
@@ -70,7 +87,7 @@ namespace Autoprint.Server.Services
         public void Text(string text, float x, float baselineY, float size, SKColor color, bool bold = false)
         {
             using var paint = new SKPaint { Color = color, IsAntialias = true };
-            Canvas.DrawText(text, x, baselineY, Font(size, bold), paint);
+            Canvas.DrawText(text, x, baselineY, SKTextAlign.Left, Font(size, bold), paint);
         }
 
         /// <summary>Texte dont <paramref name="topY"/> est le haut des lettres (comme XStringFormats.TopLeft).</summary>

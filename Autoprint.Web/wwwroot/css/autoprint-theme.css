@@ -1,0 +1,527 @@
+/* ==========================================================================
+   Autoprint : thème de la console d'administration
+   Base : Radzen.Blazor 12, thème « standard » (vérifié sur 12.2.0)
+   Généré par sources/build_theme.py à partir de tokens.json : ne pas modifier
+   à la main, modifier tokens.json ou ce gabarit puis relancer le script.
+
+   Intégration (voir theme/console/LISEZMOI.md) :
+   - fichier dans Autoprint.Web/wwwroot/css/, polices dans wwwroot/fonts/ ;
+   - <link> placé après le thème Radzen, ou n'importe où : les sélecteurs
+     « html:root » l'emportent sur le « :root » de Radzen ;
+   - thème sombre : poser data-theme="dark" sur <html> en même temps que
+     ThemeService.SetTheme("standard-dark"), et le retirer en clair.
+   Aucune ressource externe, aucun JavaScript.
+   ========================================================================== */
+
+/* ---------- Polices (licence OFL, fichiers dans wwwroot/fonts) ---------- */
+@font-face { font-family: 'IBM Plex Sans'; src: url('../fonts/IBMPlexSans-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Sans'; src: url('../fonts/IBMPlexSans-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Sans'; src: url('../fonts/IBMPlexSans-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../fonts/IBMPlexMono-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../fonts/IBMPlexMono-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+
+/* ---------- 1. Jetons Autoprint : clair ---------- */
+html:root {
+  --ap-primary: #1d5fcf;
+  --ap-on-primary: #ffffff;
+  --ap-primary-hover: #174ea9;
+  --ap-primary-subtle: #e8f0fc;
+  --ap-secondary: #3b4352;
+  --ap-on-secondary: #ffffff;
+  --ap-brand: #4f8dee;
+  --ap-background: #f5f6f8;
+  --ap-surface: #ffffff;
+  --ap-surface-raised: #eef0f3;
+  --ap-sidebar: #fbfbfc;
+  --ap-on-sidebar: #161a21;
+  --ap-border: #e1e4e9;
+  --ap-border-strong: #858d9b;
+  --ap-divider: #eceef1;
+  --ap-text: #161a21;
+  --ap-text-secondary: #4a5262;
+  --ap-text-muted: #646c7c;
+  --ap-text-disabled: #9aa1ad;
+  --ap-link: #1d5fcf;
+  --ap-success: #1b7a43;
+  --ap-on-success: #ffffff;
+  --ap-success-subtle: #e5f3ea;
+  --ap-warning: #9a5200;
+  --ap-on-warning: #ffffff;
+  --ap-warning-subtle: #fbf0dd;
+  --ap-danger: #c0302b;
+  --ap-on-danger: #ffffff;
+  --ap-danger-subtle: #fbe9e8;
+  --ap-info: #0e6aa3;
+  --ap-on-info: #ffffff;
+  --ap-info-subtle: #e2f0f9;
+  --ap-neutral: #646c7c;
+  --ap-focus-ring: #1d5fcf;
+  --ap-chart-1: #1d5fcf;
+  --ap-chart-2: #d97a1e;
+  --ap-chart-3: #1a9a85;
+  --ap-chart-4: #8f5bd0;
+  --ap-chart-5: #c99a16;
+  --ap-chart-6: #cf4f7b;
+  --ap-chart-7: #5aa9e0;
+  --ap-chart-8: #7b8392;
+  --ap-hover: rgba(22, 26, 33, 0.045);
+  --ap-press: rgba(22, 26, 33, 0.08);
+  --ap-knob-on: #ffffff;
+  --ap-font: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --ap-mono: 'IBM Plex Mono', Consolas, monospace;
+  --ap-fs-xs: 11px;
+  --ap-fs-sm: 12px;
+  --ap-fs-base: 14px;
+  --ap-fs-lg: 16px;
+  --ap-fs-h6: 14px;
+  --ap-fs-h5: 16px;
+  --ap-fs-h4: 18px;
+  --ap-fs-h3: 20px;
+  --ap-fs-h2: 24px;
+  --ap-fs-h1: 28px;
+  --ap-fs-kpi: 28px;
+  --ap-s1: 4px;
+  --ap-s2: 8px;
+  --ap-s3: 12px;
+  --ap-s4: 16px;
+  --ap-s5: 24px;
+  --ap-s6: 32px;
+  --ap-s7: 48px;
+  --ap-r-sm: 4px;
+  --ap-r-md: 6px;
+  --ap-r-lg: 10px;
+  --ap-r-xl: 14px;
+  --ap-r-pill: 999px;
+  --ap-shadow-sm: 0 1px 2px rgba(16, 20, 28, 0.06);
+  --ap-shadow-md: 0 4px 12px rgba(16, 20, 28, 0.08);
+  --ap-shadow-lg: 0 12px 32px rgba(16, 20, 28, 0.14);
+  --ap-control-height: 32px;
+  --ap-control-height-sm: 28px;
+  --ap-control-height-lg: 40px;
+  --ap-sidebar-width: 248px;
+  --ap-sidebar-width-collapsed: 56px;
+  --ap-grid-row-height: 36px;
+  --ap-grid-row-height-compact: 32px;
+  --ap-nav-item-height: 34px;
+  --ap-page-header-height: 56px;
+  --ap-icon: 18px;
+  --ap-icon-sm: 16px;
+  --ap-focus-ring-width: 2px;
+  --ap-focus-ring-offset: 2px;
+  --ap-fast: 120ms;
+  --ap-base: 200ms;
+  --ap-slow: 320ms;
+  --ap-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+/* ---------- 1 bis. Jetons Autoprint : sombre ---------- */
+html:root[data-theme="dark"] {
+  --ap-primary: #5b9bf5;
+  --ap-on-primary: #0a1322;
+  --ap-primary-hover: #7cb0f8;
+  --ap-primary-subtle: #16253d;
+  --ap-secondary: #c9ced8;
+  --ap-on-secondary: #111317;
+  --ap-brand: #4f8dee;
+  --ap-background: #111317;
+  --ap-surface: #171a1f;
+  --ap-surface-raised: #20242b;
+  --ap-sidebar: #0d0f12;
+  --ap-on-sidebar: #e8eaee;
+  --ap-border: #262a31;
+  --ap-border-strong: #6b7381;
+  --ap-divider: #1f2228;
+  --ap-text: #e8eaee;
+  --ap-text-secondary: #a9afbb;
+  --ap-text-muted: #8a919e;
+  --ap-text-disabled: #5c636f;
+  --ap-link: #7cb0f8;
+  --ap-success: #4cc38a;
+  --ap-on-success: #0d0f12;
+  --ap-success-subtle: #12291e;
+  --ap-warning: #f0a33a;
+  --ap-on-warning: #0d0f12;
+  --ap-warning-subtle: #2d2210;
+  --ap-danger: #f2726c;
+  --ap-on-danger: #0d0f12;
+  --ap-danger-subtle: #331614;
+  --ap-info: #5cb3ea;
+  --ap-on-info: #0d0f12;
+  --ap-info-subtle: #112838;
+  --ap-neutral: #8a919e;
+  --ap-focus-ring: #7cb0f8;
+  --ap-chart-1: #5b9bf5;
+  --ap-chart-2: #f0a04b;
+  --ap-chart-3: #3cc0a8;
+  --ap-chart-4: #b08ae8;
+  --ap-chart-5: #e2be4a;
+  --ap-chart-6: #ec7aa0;
+  --ap-chart-7: #8cc8f0;
+  --ap-chart-8: #9aa1ad;
+  --ap-hover: rgba(232, 234, 238, 0.05);
+  --ap-press: rgba(232, 234, 238, 0.09);
+  --ap-knob-on: #0a1322;
+  --ap-shadow-sm: none;
+  --ap-shadow-md: none;
+  --ap-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+/* ---------- 2. Gamme de gris Radzen (son sens diffère entre clair et sombre) ---------- */
+html:root {
+  --rz-base-50: #ffffff; --rz-base-100: #f5f6f8; --rz-base-200: #eef0f3; --rz-base-300: #e1e4e9; --rz-base-400: #c6cbd3;
+  --rz-base-500: #9aa1ad; --rz-base-600: #858d9b; --rz-base-700: #646c7c; --rz-base-800: #4a5262; --rz-base-900: #161a21;
+  --rz-base: var(--rz-base-300); --rz-base-light: var(--rz-base-200); --rz-base-lighter: var(--rz-base-100);
+  --rz-base-dark: var(--rz-base-700); --rz-base-darker: var(--rz-base-900);
+  --rz-on-base: var(--ap-text);
+}
+html:root[data-theme="dark"] {
+  --rz-base-50: #f4f5f7; --rz-base-100: #e8eaee; --rz-base-200: #c9ced8; --rz-base-300: #a9afbb; --rz-base-400: #8a919e;
+  --rz-base-500: #5c636f; --rz-base-600: #2e333b; --rz-base-700: #20242b; --rz-base-800: #171a1f; --rz-base-900: #111317;
+  --rz-on-base: var(--ap-text);
+}
+
+/* ---------- 3. Correspondance jetons Autoprint -> variables Radzen (valable dans les deux thèmes) ---------- */
+html:root, html:root[data-theme="dark"] {
+  /* Couleurs de marque et de statut. « -lighter » = fond atténué, « on-*-lighter » = texte sur ce fond */
+  --rz-primary: var(--ap-primary); --rz-primary-light: var(--ap-primary); --rz-primary-lighter: var(--ap-primary-subtle);
+  --rz-primary-dark: var(--ap-primary-hover); --rz-primary-darker: var(--ap-primary-hover);
+  --rz-on-primary: var(--ap-on-primary); --rz-on-primary-light: var(--ap-on-primary); --rz-on-primary-lighter: var(--ap-link);
+  --rz-on-primary-dark: var(--ap-on-primary); --rz-on-primary-darker: var(--ap-on-primary);
+
+  --rz-secondary: var(--ap-secondary); --rz-secondary-light: var(--ap-secondary); --rz-secondary-lighter: var(--ap-surface-raised);
+  --rz-secondary-dark: var(--ap-secondary); --rz-secondary-darker: var(--ap-secondary);
+  --rz-on-secondary: var(--ap-on-secondary); --rz-on-secondary-light: var(--ap-on-secondary); --rz-on-secondary-lighter: var(--ap-text);
+  --rz-on-secondary-dark: var(--ap-on-secondary); --rz-on-secondary-darker: var(--ap-on-secondary);
+
+  --rz-info: var(--ap-info); --rz-info-light: var(--ap-info); --rz-info-lighter: var(--ap-info-subtle); --rz-info-dark: var(--ap-info); --rz-info-darker: var(--ap-info);
+  --rz-on-info: var(--ap-on-info); --rz-on-info-light: var(--ap-on-info); --rz-on-info-lighter: var(--ap-info); --rz-on-info-dark: var(--ap-on-info); --rz-on-info-darker: var(--ap-on-info);
+  --rz-success: var(--ap-success); --rz-success-light: var(--ap-success); --rz-success-lighter: var(--ap-success-subtle); --rz-success-dark: var(--ap-success); --rz-success-darker: var(--ap-success);
+  --rz-on-success: var(--ap-on-success); --rz-on-success-light: var(--ap-on-success); --rz-on-success-lighter: var(--ap-success); --rz-on-success-dark: var(--ap-on-success); --rz-on-success-darker: var(--ap-on-success);
+  --rz-warning: var(--ap-warning); --rz-warning-light: var(--ap-warning); --rz-warning-lighter: var(--ap-warning-subtle); --rz-warning-dark: var(--ap-warning); --rz-warning-darker: var(--ap-warning);
+  --rz-on-warning: var(--ap-on-warning); --rz-on-warning-light: var(--ap-on-warning); --rz-on-warning-lighter: var(--ap-warning); --rz-on-warning-dark: var(--ap-on-warning); --rz-on-warning-darker: var(--ap-on-warning);
+  --rz-danger: var(--ap-danger); --rz-danger-light: var(--ap-danger); --rz-danger-lighter: var(--ap-danger-subtle); --rz-danger-dark: var(--ap-danger); --rz-danger-darker: var(--ap-danger);
+  --rz-on-danger: var(--ap-on-danger); --rz-on-danger-light: var(--ap-on-danger); --rz-on-danger-lighter: var(--ap-danger); --rz-on-danger-dark: var(--ap-on-danger); --rz-on-danger-darker: var(--ap-on-danger);
+
+  /* Séries de graphiques (8 couleurs, lisibles par un daltonien) */
+  --rz-series-1: var(--ap-chart-1); --rz-series-2: var(--ap-chart-2); --rz-series-3: var(--ap-chart-3); --rz-series-4: var(--ap-chart-4);
+  --rz-series-5: var(--ap-chart-5); --rz-series-6: var(--ap-chart-6); --rz-series-7: var(--ap-chart-7); --rz-series-8: var(--ap-chart-8);
+  --rz-series-9: var(--ap-chart-1); --rz-series-10: var(--ap-chart-2); --rz-series-11: var(--ap-chart-3); --rz-series-12: var(--ap-chart-4);
+  --rz-series-13: var(--ap-chart-5); --rz-series-14: var(--ap-chart-6); --rz-series-15: var(--ap-chart-7); --rz-series-16: var(--ap-chart-8);
+  --rz-series-17: var(--ap-chart-1); --rz-series-18: var(--ap-chart-2); --rz-series-19: var(--ap-chart-3); --rz-series-20: var(--ap-chart-4);
+  --rz-series-21: var(--ap-chart-5); --rz-series-22: var(--ap-chart-6); --rz-series-23: var(--ap-chart-7); --rz-series-24: var(--ap-chart-8);
+
+  /* Textes */
+  --rz-text-font-family: var(--ap-font);
+  --rz-text-title-color: var(--ap-text); --rz-text-color: var(--ap-text);
+  --rz-text-secondary-color: var(--ap-text-secondary); --rz-text-tertiary-color: var(--ap-text-muted);
+  --rz-text-disabled-color: var(--ap-text-disabled); --rz-text-contrast-color: var(--ap-on-primary);
+  --rz-body-font-size: 0.875rem; --rz-body-line-height: 1.5;
+  --rz-body-background-color: var(--ap-background); --rz-base-background-color: var(--ap-surface);
+
+  /* Titres : casse de phrase, graisse 500, pas de majuscules espacées */
+  --rz-text-h1-font-size: 1.75rem; --rz-text-h1-font-weight: 500; --rz-text-h1-line-height: 1.2; --rz-text-h1-letter-spacing: 0;
+  --rz-text-h2-font-size: 1.5rem; --rz-text-h2-font-weight: 500; --rz-text-h2-line-height: 1.25; --rz-text-h2-letter-spacing: 0;
+  --rz-text-h3-font-size: 1.25rem; --rz-text-h3-font-weight: 500; --rz-text-h3-line-height: 1.3; --rz-text-h3-letter-spacing: 0;
+  --rz-text-h4-font-size: 1.125rem; --rz-text-h4-font-weight: 500; --rz-text-h4-line-height: 1.35; --rz-text-h4-letter-spacing: 0;
+  --rz-text-h5-font-size: 1rem; --rz-text-h5-font-weight: 500; --rz-text-h5-line-height: 1.4; --rz-text-h5-letter-spacing: 0;
+  --rz-text-h6-font-size: 0.875rem; --rz-text-h6-font-weight: 500; --rz-text-h6-line-height: 1.45; --rz-text-h6-letter-spacing: 0;
+  --rz-text-subtitle1-font-size: 1rem; --rz-text-subtitle1-font-weight: 500;
+  --rz-text-subtitle2-font-size: 0.875rem; --rz-text-subtitle2-font-weight: 500;
+  --rz-text-caption-font-size: 0.75rem; --rz-text-caption-color: var(--ap-text-muted);
+  --rz-text-overline-text-transform: none; --rz-text-overline-letter-spacing: 0; --rz-text-overline-font-size: 0.75rem; --rz-text-overline-color: var(--ap-text-muted);
+  --rz-text-button-font-size: 0.875rem; --rz-text-button-font-weight: 500; --rz-text-button-letter-spacing: 0;
+
+  /* Icônes : Material Symbols (fourni par Radzen 12), graisse 300 */
+  --rz-icon-weight: 300; --rz-icon-fill: 0;
+
+  /* Formes, filets, focus */
+  --rz-border-width: 1px;
+  --rz-border-radius: 6px;
+  --rz-border-normal: 1px solid var(--ap-border);
+  --rz-border-disabled: 1px solid var(--ap-border);
+  --rz-border-primary-light: 1px solid var(--ap-primary);
+  --rz-outline-color: var(--ap-focus-ring); --rz-outline-width: 2px; --rz-outline-offset: 2px;
+  --rz-shadow-1: var(--ap-shadow-sm); --rz-shadow-2: var(--ap-shadow-sm); --rz-shadow-3: var(--ap-shadow-md);
+  --rz-shadow-4: var(--ap-shadow-md); --rz-shadow-5: var(--ap-shadow-md); --rz-shadow-6: var(--ap-shadow-lg);
+  --rz-transition: all 120ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Boutons : 32 px, arrondi 6 px, sans dégradé */
+  --rz-button-size-md: 32px; --rz-button-size-sm: 28px; --rz-button-size-lg: 40px;
+  --rz-button-border-radius: 6px;
+  --rz-button-shadow: none; --rz-button-hover-shadow: none; --rz-button-focus-shadow: none; --rz-button-active-shadow: none;
+  --rz-button-hover-gradient: linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08));
+  --rz-button-active-gradient: linear-gradient(rgba(0,0,0,.14), rgba(0,0,0,.14));
+  --rz-button-focus-gradient: none;
+  --rz-button-base-background-color: var(--ap-surface); --rz-button-base-color: var(--ap-text);
+
+  /* Champs */
+  --rz-input-size-md: 32px; --rz-input-size-sm: 28px; --rz-input-size-lg: 40px; --rz-input-height: 32px;
+  --rz-input-border-radius: 6px;
+  --rz-input-border: 1px solid var(--ap-border-strong);
+  --rz-input-hover-border: 1px solid var(--ap-text-secondary);
+  --rz-input-focus-border: 1px solid var(--ap-primary);
+  --rz-input-focus-shadow: 0 0 0 1px var(--ap-primary), 0 0 0 4px color-mix(in srgb, var(--ap-primary) 18%, transparent);
+  --rz-input-disabled-border: 1px solid var(--ap-border);
+  --rz-input-border-block-end: var(--rz-input-border); --rz-input-hover-border-block-end: var(--rz-input-hover-border);
+  --rz-input-focus-border-block-end: var(--rz-input-focus-border); --rz-input-disabled-border-block-end: var(--rz-input-disabled-border);
+  --rz-input-background-color: var(--ap-surface); --rz-input-value-color: var(--ap-text); --rz-input-placeholder-color: var(--ap-text-muted);
+  --rz-input-shadow: none; --rz-input-hover-shadow: none;
+
+  /* Grille de données : lignes de 36 px, en-tête discret, survol et sélection distincts */
+  --rz-grid-border: 1px solid var(--ap-border); --rz-grid-border-radius: 14px;
+  --rz-grid-background-color: var(--ap-surface);
+  --rz-grid-header-background-color: var(--ap-surface); --rz-grid-header-sorted-background-color: var(--ap-surface);
+  --rz-grid-header-color: var(--ap-text-secondary); --rz-grid-header-font-size: 0.75rem; --rz-grid-header-font-weight: 500; --rz-grid-header-text-transform: none;
+  --rz-grid-header-cell-border: none; --rz-grid-header-cell-border-bottom: 1px solid var(--ap-border);
+  --rz-grid-header-filter-icon-active-color: var(--ap-primary);
+  --rz-grid-cell-padding: 0.5rem 0.75rem; --rz-grid-cell-font-size: 0.8125rem; --rz-grid-cell-color: var(--ap-text);
+  --rz-grid-cell-border: 1px solid var(--ap-divider);
+  --rz-grid-hover-background-color: var(--ap-hover); --rz-grid-hover-color: var(--ap-text);
+  --rz-grid-selected-background-color: var(--ap-primary-subtle); --rz-grid-selected-color: var(--ap-text);
+  --rz-grid-stripe-background-color: var(--ap-surface); --rz-grid-stripe-odd-background-color: var(--ap-surface);
+  --rz-grid-cell-focus-outline: 2px solid var(--ap-focus-ring);
+
+  /* Pagination */
+  --rz-pager-background-color: var(--ap-surface); --rz-pager-border: none; --rz-pager-summary-color: var(--ap-text-secondary);
+  --rz-pager-numeric-button-selected-background-color: var(--ap-primary-subtle); --rz-pager-numeric-button-selected-color: var(--ap-link);
+  --rz-pager-numeric-button-color: var(--ap-text-secondary); --rz-pager-numeric-button-hover-background-color: var(--ap-hover);
+
+  /* Mise en page : menu latéral clair, en-tête sans ombre */
+  --rz-layout-body-background-color: var(--ap-background); --rz-layout-background-color: var(--ap-background);
+  --rz-sidebar-width: 248px; --rz-sidebar-background-color: var(--ap-sidebar); --rz-sidebar-color: var(--ap-on-sidebar);
+  --rz-sidebar-border-inline-end: 1px solid var(--ap-border);
+  --rz-header-background-color: var(--ap-surface); --rz-header-color: var(--ap-text); --rz-header-border: 1px solid var(--ap-border); --rz-header-shadow: none;
+
+  /* Menu (PanelMenu) : rubrique active en bleu atténué, survol gris */
+  --rz-panel-menu-font-size: 0.84375rem;
+  --rz-panel-menu-item-padding-block: 0.4375rem; --rz-panel-menu-item-padding-inline: 0.625rem;
+  --rz-panel-menu-item-margin-inline: 0.5rem; --rz-panel-menu-item-margin-block: 1px;
+  --rz-panel-menu-item-border-radius: 6px; --rz-panel-menu-item-border: none; /* Standard trace un filet sous chaque entrée */
+  --rz-panel-menu-item-color: var(--ap-text-secondary); --rz-panel-menu-item-background-color: transparent;
+  --rz-panel-menu-item-hover-color: var(--ap-text); --rz-panel-menu-item-hover-background-color: var(--ap-hover);
+  --rz-panel-menu-item-active-color: var(--ap-link); --rz-panel-menu-item-active-background-color: var(--ap-primary-subtle);
+  --rz-panel-menu-item-active-indicator: transparent;
+  --rz-panel-menu-item-2nd-level-color: var(--ap-text-secondary); --rz-panel-menu-item-2nd-level-hover-background-color: var(--ap-hover);
+  --rz-panel-menu-item-2nd-level-active-color: var(--ap-link); --rz-panel-menu-item-2nd-level-active-background-color: var(--ap-primary-subtle);
+  --rz-panel-menu-icon-color: var(--ap-text-muted);
+
+  /* Onglets soulignés */
+  --rz-tabs-background-color: transparent; --rz-tabs-border: 1px solid var(--ap-border); --rz-tabs-shadow: none;
+  --rz-tabs-tab-color: var(--ap-text-secondary); --rz-tabs-tab-selected-color: var(--ap-text);
+  --rz-tabs-tab-selected-background-color: transparent; --rz-tabs-tab-selected-top-border-color: var(--ap-primary);
+  --rz-tabs-tab-hover-background-color: var(--ap-hover); --rz-tabs-tab-hover-color: var(--ap-text);
+  --rz-tabs-tab-font-weight: 400; --rz-tabs-tab-text-transform: none; --rz-tabs-tab-letter-spacing: 0;
+  --rz-tabs-tab-padding-block: 0.625rem; --rz-tabs-tab-padding-inline: 0.75rem;
+
+  /* Cartes, groupes, modales */
+  --rz-card-padding: 1.25rem; --rz-card-background-color: var(--ap-surface); --rz-card-flat-background-color: var(--ap-surface);
+  --rz-card-border: 1px solid var(--ap-border); --rz-card-border-radius: 14px; --rz-card-shadow: var(--ap-shadow-sm);
+  --rz-fieldset-border: 1px solid var(--ap-border); --rz-fieldset-border-radius: 10px; --rz-fieldset-legend-color: var(--ap-text-muted); --rz-fieldset-legend-font-size: 0.75rem;
+  --rz-dialog-background-color: var(--ap-surface); --rz-dialog-border-radius: 14px; --rz-dialog-shadow: var(--ap-shadow-lg);
+  --rz-dialog-mask-background-color: rgba(11, 13, 18, 0.55);
+  --rz-dialog-title-background-color: var(--ap-surface); --rz-dialog-title-color: var(--ap-text);
+  --rz-dialog-title-font-size: 1rem; --rz-dialog-title-font-weight: 500; --rz-dialog-title-line-height: 1.4;
+  --rz-dialog-title-border: 1px solid var(--ap-border); --rz-dialog-title-padding-block: 1rem; --rz-dialog-title-padding-inline: 1.5rem;
+  --rz-dialog-content-padding: 1.5rem; --rz-dialog-close-color: var(--ap-text-secondary); --rz-dialog-close-hover-color: var(--ap-text);
+
+  /* Notifications : surface neutre, couleur portée par l'icône et le filet de gauche (classe ap-ci-dessous) */
+  --rz-notification-border-radius: 10px; --rz-notification-shadow: var(--ap-shadow-lg); --rz-notification-padding: 0.75rem 1rem;
+  --rz-notification-success-background-color: var(--ap-surface); --rz-notification-success-color: var(--ap-text); --rz-notification-success-icon-color: var(--ap-success);
+  --rz-notification-warning-background-color: var(--ap-surface); --rz-notification-warning-color: var(--ap-text); --rz-notification-warning-icon-color: var(--ap-warning);
+  --rz-notification-error-background-color: var(--ap-surface); --rz-notification-error-color: var(--ap-text); --rz-notification-error-icon-color: var(--ap-danger);
+  --rz-notification-info-background-color: var(--ap-surface); --rz-notification-info-color: var(--ap-text); --rz-notification-info-icon-color: var(--ap-info);
+
+  /* Encadrés, badges */
+  --rz-alert-border-radius: 10px; --rz-alert-padding: 0.75rem 1rem; --rz-alert-box-shadow: none;
+  --rz-badge-border-radius: 4px; --rz-badge-padding: 0.125rem 0.5rem; --rz-badge-font-size: 0.75rem;
+  --rz-badge-font-weight: 500; --rz-badge-text-transform: none; --rz-badge-letter-spacing: 0;
+
+  /* Interrupteurs, cases, barre de sélection, progression, squelettes */
+  --rz-switch-background-color: var(--ap-border-strong); --rz-switch-checked-background-color: var(--ap-primary);
+  --rz-switch-circle-background-color: #ffffff; --rz-switch-checked-circle-background-color: var(--ap-knob-on);
+  --rz-checkbox-border-radius: 4px;
+  --rz-selectbar-background-color: var(--ap-surface); --rz-selectbar-color: var(--ap-text-secondary); --rz-selectbar-border: 1px solid var(--ap-border-strong);
+  --rz-selectbar-selected-background-color: var(--ap-primary-subtle); --rz-selectbar-selected-color: var(--ap-link); --rz-selectbar-selected-border: 1px solid var(--ap-border-strong);
+  --rz-selectbar-border-radius: 6px;
+  --rz-progressbar-background-color: var(--ap-surface-raised); --rz-progressbar-value-background-color: var(--ap-primary); --rz-progressbar-border-radius: 999px;
+  --rz-skeleton-background-color: var(--ap-surface-raised);
+
+  /* Listes déroulantes, infobulles, barres de défilement, graphiques */
+  --rz-dropdown-item-hover-background-color: var(--ap-hover); --rz-dropdown-item-selected-background-color: transparent; --rz-dropdown-item-selected-color: var(--ap-link);
+  --rz-dropdown-item-selected-hover-background-color: var(--ap-hover); --rz-dropdown-panel-shadow: var(--ap-shadow-lg); --rz-dropdown-panel-border: 1px solid var(--ap-border);
+  --rz-tooltip-background-color: var(--ap-text); --rz-tooltip-color: var(--ap-background); --rz-tooltip-border-radius: 6px; --rz-tooltip-font-size: 0.78125rem; --rz-tooltip-padding: 0.3125rem 0.625rem;
+  --rz-scrollbar-color: color-mix(in srgb, var(--ap-text-muted) 45%, transparent); --rz-scrollbar-background-color: transparent; --rz-scrollbar-size: 10px; --rz-scrollbar-border-radius: 5px;
+  --rz-chart-axis-color: var(--ap-border-strong); --rz-chart-axis-label-color: var(--ap-text-muted); --rz-chart-grid-line-color: var(--ap-divider);
+  --rz-chart-tooltip-background: var(--ap-text); --rz-chart-tooltip-color: var(--ap-background);
+}
+
+/* ---------- 4. Retouches directes (là où Radzen n'expose pas de variable) ---------- */
+/* Radzen Standard impose un fond de page avec une image décorative : on le remplace par le fond uni de la charte */
+html body { font-family: var(--ap-font); background: var(--ap-background) none; color: var(--ap-text); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+.rz-button { font-size: 0.875rem; font-weight: 500; text-transform: none; letter-spacing: 0; }
+/* Hauteurs : 28 / 32 / 40 px (Radzen ajoute une marge intérieure fixe qui donne 36 px en taille md) */
+.rz-button.rz-button-md, .rz-button.rz-button-md.rz-button-icon-left { padding-block: 0.375rem; font-weight: 500; }
+.rz-button.rz-button-sm { font-weight: 500; }
+.rz-button.rz-button-lg { padding-block: 0.5rem; border-radius: var(--rz-button-border-radius); font-weight: 500; }
+/* Bouton secondaire = ButtonStyle.Base + Variant.Outlined : fond surface, contour à 3:1 */
+html .rz-button.rz-base.rz-variant-outlined, html .rz-button.rz-base.rz-variant-outlined.rz-shade-default, html .rz-button.rz-base.rz-variant-outlined:not(.rz-state-disabled):hover { box-shadow: inset 0 0 0 1px var(--ap-border-strong); color: var(--ap-text); background-color: var(--ap-surface); }
+.rz-tabview-nav li.rz-state-active, .rz-tabview-nav .rz-tabview-selected { font-weight: 500; }
+.rz-tabview-nav { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.rz-tabview-nav::-webkit-scrollbar { display: none; }
+.rz-notification-item { border: 1px solid var(--ap-border); border-left-width: 3px; }
+.rz-notification-success .rz-notification-item { border-left-color: var(--ap-success); }
+.rz-notification-warn .rz-notification-item, .rz-notification-warning .rz-notification-item { border-left-color: var(--ap-warning); }
+.rz-notification-error .rz-notification-item { border-left-color: var(--ap-danger); }
+.rz-notification-info .rz-notification-item { border-left-color: var(--ap-info); }
+:focus-visible { outline: 2px solid var(--ap-focus-ring); outline-offset: 2px; }
+
+/* Barres de défilement fines, aux couleurs de la charte, sans flèches */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ap-text-muted) 45%, transparent) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ap-text-muted) 45%, transparent); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--ap-text-muted); }
+::-webkit-scrollbar-button { display: none; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+
+/* ==========================================================================
+   5. Classes utilitaires Autoprint (préfixe ap-)
+   Elles remplacent les ~930 attributs style="…" écrits en dur.
+   Exemples d'emploi : maquettes/*.html et theme/console/LISEZMOI.md
+   ========================================================================== */
+
+/* En-tête de page : titre, sous-titre, actions à droite */
+.ap-page-header { display: flex; align-items: center; gap: var(--ap-s3); margin-bottom: var(--ap-s5); flex-wrap: wrap; }
+.ap-page-header > .ap-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ap-page-header h1, .ap-page-header .rz-text-h1, .ap-page-header .rz-text-h4 { margin: 0; font-size: var(--ap-fs-h2); font-weight: 500; line-height: 1.2; }
+.ap-page-header .ap-sub { color: var(--ap-text-muted); font-size: 13px; }
+.ap-grow { flex: 1; }
+.ap-page { padding: var(--ap-s5) var(--ap-s6) var(--ap-s7); max-width: 1600px; margin: 0 auto; }
+
+/* Textes */
+.ap-mono { font-family: var(--ap-mono); }
+.ap-muted { color: var(--ap-text-muted); }
+.ap-secondary { color: var(--ap-text-secondary); }
+.ap-caption { font-size: var(--ap-fs-sm); color: var(--ap-text-muted); }
+.ap-help { font-size: var(--ap-fs-sm); color: var(--ap-text-muted); }
+.ap-error-text { font-size: var(--ap-fs-sm); color: var(--ap-danger); display: inline-flex; align-items: center; gap: 4px; }
+
+/* Cartes d'indicateurs : libellé, chiffre, précision ; couleur seulement si action requise */
+.ap-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ap-s3); }
+.ap-kpi-card { background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); padding: var(--ap-s4) 20px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ap-kpi-card .ap-kpi-label { display: flex; align-items: center; gap: 6px; color: var(--ap-text-secondary); font-size: 13px; }
+.ap-kpi-card .ap-kpi-label .rzi, .ap-kpi-card .ap-kpi-label .rz-icon { font-size: 16px; color: var(--ap-text-muted); }
+.ap-kpi-card .ap-kpi-value { font-size: var(--ap-fs-h1); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; }
+.ap-kpi-card .ap-kpi-sub { font-size: var(--ap-fs-sm); color: var(--ap-text-muted); }
+.ap-kpi-card--danger .ap-kpi-value, .ap-kpi-card--danger .ap-kpi-label .rzi { color: var(--ap-danger); }
+.ap-kpi-card--warning .ap-kpi-value, .ap-kpi-card--warning .ap-kpi-label .rzi { color: var(--ap-warning); }
+
+/* Badges de statut : couleur + icône + texte, jamais la couleur seule */
+.ap-status-badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px 0 6px; border-radius: var(--ap-r-sm); font-size: var(--ap-fs-sm); font-weight: 500; white-space: nowrap; }
+.ap-status-badge .rzi, .ap-status-badge .rz-icon { font-size: 14px; }
+.ap-status-badge--online   { background: var(--ap-success-subtle); color: var(--ap-success); }
+.ap-status-badge--offline  { background: var(--ap-danger-subtle);  color: var(--ap-danger); }
+.ap-status-badge--warning  { background: var(--ap-warning-subtle); color: var(--ap-warning); }
+.ap-status-badge--info     { background: var(--ap-info-subtle);    color: var(--ap-info); }
+.ap-status-badge--archived { background: var(--ap-surface-raised); color: var(--ap-text-secondary); }
+.ap-status-badge--unknown  { background: transparent; color: var(--ap-text-muted); box-shadow: inset 0 0 0 1px var(--ap-border); }
+.ap-status-badge--solid.ap-status-badge--online  { background: var(--ap-success); color: var(--ap-on-success); }
+.ap-status-badge--solid.ap-status-badge--offline { background: var(--ap-danger); color: var(--ap-on-danger); }
+.ap-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--ap-r-sm); background: var(--ap-surface-raised); color: var(--ap-text-secondary); font-size: var(--ap-fs-sm); white-space: nowrap; }
+.ap-count-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--ap-danger); color: var(--ap-on-danger); font-size: var(--ap-fs-xs); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Signature : l'étiquette d'inventaire (adresse IP, code inventaire, version) */
+.ap-label-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 6px; border: 1px solid var(--ap-border); border-radius: var(--ap-r-sm); background: var(--ap-surface); font-family: var(--ap-mono); font-size: var(--ap-fs-sm); color: var(--ap-text-secondary); white-space: nowrap; }
+.ap-place { display: inline-flex; align-items: center; gap: 4px; color: var(--ap-text-secondary); white-space: nowrap; }
+.ap-place .rzi { font-size: 16px; color: var(--ap-brand); }
+
+/* Bandeau « État du service » */
+.ap-service { display: flex; align-items: center; gap: var(--ap-s5); flex-wrap: wrap; padding: var(--ap-s3) 20px; margin-bottom: var(--ap-s4); background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); }
+.ap-service .ap-svc { display: flex; align-items: center; gap: var(--ap-s2); font-size: 13px; color: var(--ap-text-secondary); }
+.ap-service .ap-svc b { color: var(--ap-text); font-weight: 500; }
+.ap-service .ap-sep { width: 1px; align-self: stretch; background: var(--ap-border); }
+
+/* Répartition par modèle : barre empilée + légende simple (pastille, nom, nombre, part) */
+.ap-share-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.ap-share-bar > i { display: block; height: 100%; }
+.ap-models { list-style: none; margin: var(--ap-s4) 0 0; padding: 0; display: grid; gap: 2px; }
+.ap-models li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 44px; gap: 10px; align-items: center; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--ap-divider); }
+.ap-models li:first-child { border-top: 0; }
+.ap-models .ap-dot { width: 10px; height: 10px; border-radius: 3px; }
+.ap-models .ap-n { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); text-align: right; }
+.ap-models .ap-p { font-family: var(--ap-mono); font-size: var(--ap-fs-sm); color: var(--ap-text-muted); text-align: right; }
+.ap-series-1 { background: var(--ap-chart-1); } .ap-series-2 { background: var(--ap-chart-2); } .ap-series-3 { background: var(--ap-chart-3); } .ap-series-4 { background: var(--ap-chart-4); }
+.ap-series-5 { background: var(--ap-chart-5); } .ap-series-6 { background: var(--ap-chart-6); } .ap-series-7 { background: var(--ap-chart-7); } .ap-series-8 { background: var(--ap-chart-8); }
+
+/* Liste d'activités */
+.ap-activity { list-style: none; margin: 0; padding: 0; }
+.ap-activity li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ap-divider); font-size: 13px; }
+.ap-activity li:first-child { border-top: 0; padding-top: 0; }
+.ap-activity .rzi { font-size: 16px; color: var(--ap-text-muted); margin-top: 2px; }
+.ap-activity small { color: var(--ap-text-muted); display: block; font-size: var(--ap-fs-sm); }
+.ap-activity time { color: var(--ap-text-muted); font-family: var(--ap-mono); font-size: var(--ap-fs-sm); }
+
+/* Barre d'outils de grille et filtres en pastilles */
+.ap-toolbar { display: flex; align-items: center; gap: var(--ap-s2); padding: var(--ap-s3); flex-wrap: wrap; }
+.ap-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 10px; border: 1px solid var(--ap-border-strong); border-radius: var(--ap-r-md); font-size: 13px; color: var(--ap-text-secondary); background: var(--ap-surface); cursor: pointer; }
+.ap-chip.is-set { border-color: var(--ap-primary); background: var(--ap-primary-subtle); color: var(--ap-link); }
+.ap-cell-sub { display: block; font-size: var(--ap-fs-sm); color: var(--ap-text-muted); }
+
+/* Paramètres : menu des sections + réglages en deux colonnes */
+.ap-subnav-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--ap-s5); align-items: start; }
+.ap-subnav-layout.is-collapsed { grid-template-columns: 48px minmax(0, 1fr); }
+.ap-subnav { position: sticky; top: var(--ap-s4); display: flex; flex-direction: column; gap: 2px; }
+.ap-subnav a { position: relative; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: var(--ap-r-md); color: var(--ap-text-secondary); text-decoration: none; font-size: 13.5px; }
+.ap-subnav a .rzi { font-size: 18px; color: var(--ap-text-muted); }
+.ap-subnav a:hover { background: var(--ap-hover); color: var(--ap-text); }
+.ap-subnav a.active, .ap-subnav a[aria-current] { background: var(--ap-surface); color: var(--ap-text); font-weight: 500; box-shadow: inset 0 0 0 1px var(--ap-border); }
+.ap-subnav a.active .rzi, .ap-subnav a[aria-current] .rzi { color: var(--ap-primary); }
+.ap-subnav-layout.is-collapsed .ap-subnav a { justify-content: center; padding: 0; }
+.ap-section-head { margin-bottom: var(--ap-s4); }
+.ap-section-head h2 { margin: 0 0 2px; font-size: var(--ap-fs-h4); font-weight: 500; }
+.ap-section-head p { margin: 0; color: var(--ap-text-secondary); font-size: 13px; }
+.ap-settings { display: flex; flex-direction: column; gap: var(--ap-s4); }
+.ap-set-row { display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: var(--ap-s6); padding: 20px; }
+.ap-set-row + .ap-set-row { border-top: 1px solid var(--ap-divider); }
+.ap-set-row h3 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
+.ap-set-row p { margin: 0; color: var(--ap-text-secondary); font-size: 13px; }
+.ap-set-row .ap-ctrl { display: flex; flex-direction: column; gap: var(--ap-s3); max-width: 520px; min-width: 0; }
+.ap-zone-sensible { border-color: color-mix(in srgb, var(--ap-danger) 35%, var(--ap-border)) !important; }
+.ap-zone-label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--ap-fs-sm); color: var(--ap-danger); font-weight: 500; }
+.ap-savebar { position: sticky; bottom: 0; margin-top: var(--ap-s5); display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s3); padding: var(--ap-s3) 20px; background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); box-shadow: var(--ap-shadow-md); }
+
+/* Infobulle des menus réduits (menu principal et menu des sections) */
+.ap-rail-tip { position: absolute; left: calc(100% + 10px); top: 50%; transform: translate(-4px, -50%); white-space: nowrap; padding: 5px 10px; border-radius: var(--ap-r-md); background: var(--ap-text); color: var(--ap-background); font-size: 12.5px; font-weight: 500; line-height: 1.3; box-shadow: var(--ap-shadow-md); opacity: 0; pointer-events: none; z-index: 40; transition: opacity var(--ap-fast) var(--ap-ease), transform var(--ap-fast) var(--ap-ease); }
+:hover > .ap-rail-tip, :focus-visible > .ap-rail-tip { opacity: 1; transform: translate(0, -50%); }
+
+/* État vide */
+.ap-empty { padding: var(--ap-s7) var(--ap-s5); text-align: center; color: var(--ap-text-secondary); }
+.ap-empty > .rzi { font-size: 32px; color: var(--ap-text-muted); }
+.ap-empty strong { display: block; color: var(--ap-text); font-weight: 500; margin: var(--ap-s2) 0 2px; }
+
+/* Écran de connexion : carte centrée sur le fond de page */
+.ap-login { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ap-s4); padding: 40px 16px; background: var(--ap-background); }
+.ap-login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--ap-s4); padding: 32px; background: var(--ap-surface); border: 1px solid var(--ap-border); border-radius: var(--ap-r-xl); box-shadow: var(--ap-shadow-md); }
+.ap-login-foot { color: var(--ap-text-muted); font-size: var(--ap-fs-sm); display: flex; gap: var(--ap-s2); align-items: center; }
+
+/* Adaptation */
+@media (max-width: 1100px) {
+  .ap-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Menu latéral + menu des sections : sous 1280 px, réglages sur une colonne (boutons coupés, recette du 12/11) */
+@media (max-width: 1280px) {
+  .ap-set-row { grid-template-columns: 1fr; gap: var(--ap-s3); }
+}
+@media (max-width: 1024px) {
+  .ap-subnav-layout { grid-template-columns: 48px minmax(0, 1fr); }
+  .ap-subnav a { justify-content: center; padding: 0; }
+}
+@media (max-width: 640px) {
+  .ap-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ap-page { padding: var(--ap-s4); }
+  .ap-subnav-layout, .ap-subnav-layout.is-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .ap-subnav { display: none; }
+}

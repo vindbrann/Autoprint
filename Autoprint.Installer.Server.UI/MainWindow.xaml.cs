@@ -1,4 +1,4 @@
-using Autoprint.Installer.Server.UI.Services;
+﻿using Autoprint.Installer.Server.UI.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.Web.Administration;
 using System.Diagnostics;
@@ -148,6 +148,45 @@ namespace Autoprint.Installer.Server.UI
 
             if (_currentStep == 7) BtnNext.Content = "Terminer";
             else BtnNext.Content = "Suivant";
+
+            BuildRail();
+        }
+
+        // Étapes listées à gauche (charte B77, maquette « Installeur ») : faites (coche), en cours (mise en avant), à venir
+        private static readonly string[] StepLabels =
+            { "Bienvenue", "Contrat de licence", "Vérification du système", "Base de données", "Configuration web", "Installation", "Fin" };
+
+        private void BuildRail()
+        {
+            if (FindName("RailSteps") is not StackPanel rail) return;
+            rail.Children.Clear();
+            for (int i = 1; i <= StepLabels.Length; i++)
+            {
+                bool done = i < _currentStep, current = i == _currentStep;
+                var digit = new TextBlock
+                {
+                    Text = done ? "\uE73E" : i.ToString(),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                // FontFamily n'accepte pas null : on ne la fixe que pour la coche (\u00E9tape termin\u00E9e)
+                if (done) digit.FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets");
+                var number = new Border
+                {
+                    Style = (Style)FindResource(done ? "Autoprint.StepNumber.Done" : current ? "Autoprint.StepNumber.Current" : "Autoprint.StepNumber"),
+                    Child = digit
+                };
+                var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                row.Children.Add(number);
+                row.Children.Add(new TextBlock { Text = StepLabels[i - 1], VerticalAlignment = VerticalAlignment.Center });
+                rail.Children.Add(new Border
+                {
+                    Style = (Style)FindResource(done ? "Autoprint.Step.Done" : current ? "Autoprint.Step.Current" : "Autoprint.Step"),
+                    Child = row
+                });
+            }
+            if (FindName("TxtVersion") is TextBlock version && string.IsNullOrEmpty(version.Text))
+                version.Text = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "";
         }
 
         private bool ValidateCurrentStep()
@@ -176,13 +215,26 @@ namespace Autoprint.Installer.Server.UI
                 MessageBox.Show("Port Web invalide.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
-            if (_currentStep == 5 && !System.Text.RegularExpressions.Regex.IsMatch(TxtPublicHost.Text.Trim(), @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$"))
+            if (_currentStep == 5 && (PublicHosts.Count == 0 || PublicHosts.Any(h => !IsValidHostName(h))))
             {
-                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Nom public de la console invalide (ex : autoprint.maboite.fr, sans http:// ni port). Plusieurs noms : séparez-les par « ; ».", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             return true;
         }
+
+        /// <summary>Noms publics saisis (« nouveau.fr;ancien.fr » pendant un changement de nom, B82), sans doublon.</summary>
+        private List<string> PublicHosts => TxtPublicHost.Text
+            .Split(new[] { ';', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        internal static bool IsValidHostName(string host)
+            => System.Text.RegularExpressions.Regex.IsMatch(host, @"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$");
+
+        // Valeur de « AllowedHosts » : les noms publics, puis localhost (toujours autorisé)
+        private string AllowedHostsValue
+            => string.Join(";", PublicHosts.Where(h => !h.Equals("localhost", StringComparison.OrdinalIgnoreCase)).Append("localhost"));
 
         private async void RunPrereqCheck()
         {
@@ -595,7 +647,7 @@ namespace Autoprint.Installer.Server.UI
                     LogLevel = new { Default = "Information", Microsoft = "Warning" }
                 },
                 // Seuls le nom public et localhost sont acceptés (protection contre l'usurpation d'en-tête Host)
-                AllowedHosts = $"{TxtPublicHost.Text.Trim()};localhost",
+                AllowedHosts = AllowedHostsValue,
                 // Opérations du spouleur déléguées au service AutoprintSpooler (le site tourne sans privilège)
                 Spooler = new { Mode = "Service" },
                 Jwt = new
@@ -802,11 +854,11 @@ namespace Autoprint.Installer.Server.UI
             await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        // Mise à jour : « AllowedHosts » passe de « * » au nom public saisi (+ localhost)
+        // Mise à jour : « AllowedHosts » passe de « * » aux noms publics saisis (+ localhost). Ensuite, la liste se gère dans la console.
         private async Task ApplyPublicHost(string configPath)
         {
             var root = JsonNode.Parse(await File.ReadAllTextAsync(configPath))!.AsObject();
-            root["AllowedHosts"] = $"{TxtPublicHost.Text.Trim()};localhost";
+            root["AllowedHosts"] = AllowedHostsValue;
             await File.WriteAllTextAsync(configPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 

@@ -1,4 +1,4 @@
-using Autoprint.Server.Helpers;
+﻿using Autoprint.Server.Helpers;
 using Autoprint.Server.Data;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
@@ -87,8 +87,8 @@ namespace Autoprint.Server.Controllers
             return await query
                 .AsNoTracking()
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
-                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Pilote)
                 .ToListAsync();
         }
 
@@ -99,8 +99,8 @@ namespace Autoprint.Server.Controllers
             var imprimante = await _context.Imprimantes
                 .AsNoTracking()
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
-                .Include(i => i.Modele).ThenInclude(m => m.Pilote)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Pilote)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (imprimante == null) return NotFound();
@@ -149,9 +149,11 @@ namespace Autoprint.Server.Controllers
             await _context.SaveChangesAsync();
 
             var newPrinter = await _context.Imprimantes
+                .AsNoTracking()
                 .Include(i => i.Emplacement)
-                .Include(i => i.Modele).ThenInclude(m => m.Marque)
+                .Include(i => i.Modele).ThenInclude(m => m!.Marque)
                 .FirstOrDefaultAsync(i => i.Id == imprimante.Id);
+            if (newPrinter != null) newPrinter.SnmpCommunity = string.Empty; // jamais renvoyée, même chiffrée (B32)
 
             return CreatedAtAction("GetImprimante", new { id = imprimante.Id }, newPrinter);
         }
@@ -398,7 +400,7 @@ namespace Autoprint.Server.Controllers
         {
             var printer = await _context.Imprimantes
                 .Include(i => i.Modele)
-                .ThenInclude(m => m.SnmpProfile)
+                .ThenInclude(m => m!.SnmpProfile)
                 .ThenInclude(p => p!.Items)
                 .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();

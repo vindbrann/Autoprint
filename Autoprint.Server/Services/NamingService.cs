@@ -56,7 +56,9 @@ namespace Autoprint.Server.Services
         private string NettoyerChaine(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
-            string clean = input.Trim();
+            // Lettres accentuées gardées sans leur accent (« Siège » donnait « SIGE »), le reste des caractères spéciaux retiré
+            string clean = new string(input.Trim().Normalize(System.Text.NormalizationForm.FormD)
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
             clean = Regex.Replace(clean, "[^a-zA-Z0-9_ ]", "");
             return clean;
         }

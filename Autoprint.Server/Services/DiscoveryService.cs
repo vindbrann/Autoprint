@@ -214,7 +214,7 @@ namespace Autoprint.Server.Services
                 sb.Append("</div>");
             }
 
-            var recipients = profile.EmailRecipients.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var recipients = (profile.EmailRecipients ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
             var subject = newNetworks.Any()
                 ? $"[Autoprint] 🚀 {newNetworks.Count} Nouveaux réseaux détectés"
                 : $"[Autoprint] Rapport de scan (R.A.S)";

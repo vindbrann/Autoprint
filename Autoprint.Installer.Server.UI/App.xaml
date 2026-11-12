@@ -4,6 +4,11 @@
              xmlns:local="clr-namespace:Autoprint.Installer.Server.UI"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- Charte graphique (B77) : thème autonome (couleurs, polices, styles implicites des contrôles standard) -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme/Autoprint.Installer.Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

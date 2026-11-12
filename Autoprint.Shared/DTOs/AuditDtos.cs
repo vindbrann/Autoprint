@@ -78,6 +78,7 @@ namespace Autoprint.Shared.DTOs
                 // Clé agent, identifiants SNMP, mots de passe oubliés, opérations groupées (B78)
                 case "AGENT_KEY_REVEAL": return "Consultation de la clé agent";
                 case "AGENT_KEY_ROTATE": return "Changement de la clé agent";
+                case "ALLOWED_HOSTS_UPDATE": return "Modification des noms acceptés par le serveur";
                 case "SNMP_CREDENTIAL_CREATE": return $"Création des identifiants SNMP : {resourceName}";
                 case "SNMP_CREDENTIAL_UPDATE": return $"Modification des identifiants SNMP : {resourceName}";
                 case "SNMP_CREDENTIAL_DELETE": return $"Suppression des identifiants SNMP : {resourceName}";

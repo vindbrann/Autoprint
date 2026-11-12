@@ -1,22 +1,17 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Linq;
 using System.Net.NetworkInformation;
-using System.Printing;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using Autoprint.Client.Models;
 using Autoprint.Client.Services;
 using Autoprint.Client.ViewModels;
 using Autoprint.Shared;
 using Autoprint.Shared.Enums;
 using Hardcodet.Wpf.TaskbarNotification;
-using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
 
 namespace Autoprint.Client
@@ -25,8 +20,6 @@ namespace Autoprint.Client
     {
         private static Mutex? _instanceMutex;
         private readonly string _pipeName = $"AutoprintClient_WakeUp_{Environment.UserName}";
-        [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
-        public static extern bool SetDefaultPrinter(string Name);
 
         private TaskbarIcon? _notifyIcon;
         private readonly PathService _pathService = new PathService();
@@ -39,28 +32,21 @@ namespace Autoprint.Client
         private MainWindow? _mainWindow;
         private MainWindowViewModel? _mainViewModel;
 
-        private List<Imprimante> _toutesLesImprimantes = new List<Imprimante>();
-        private Emplacement? _lieuActuel = null;
         private string _ipActuelle = "Inconnue";
         private bool _estHorsLigne = false;
-
-        private string _lastLocationCode = string.Empty;
-        private string _lastPrinterSignature = string.Empty;
+        private string? _lastLocationCode;
 
         private readonly SemaphoreSlim _verrouRafraichissement = new SemaphoreSlim(1, 1);
 
         protected override async void OnStartup(StartupEventArgs e)
         {
-            bool createdNew;
-            _instanceMutex = new Mutex(true, $@"Local\AutoprintClient_Mutex_{Environment.UserName}", out createdNew);
+            _instanceMutex = new Mutex(true, $@"Local\AutoprintClient_Mutex_{Environment.UserName}", out bool createdNew);
 
             if (!createdNew)
             {
                 bool isSilentStart = e.Args.Contains("--firstrun") || e.Args.Contains("--silent");
-
                 if (!isSilentStart) await SendWakeUpSignalAsync();
-
-                Application.Current.Shutdown();
+                Current.Shutdown();
                 return;
             }
 
@@ -87,33 +73,29 @@ namespace Autoprint.Client
                 _configService.Initialize(e.Args, _prefService);
 
                 _mainViewModel = new MainWindowViewModel(_prefService, _configService);
-                _mainWindow = new MainWindow();
-                _mainWindow.DataContext = _mainViewModel;
+                _mainWindow = new MainWindow { DataContext = _mainViewModel };
+                _mainViewModel.PropertyChanged += (s, args) =>
+                {
+                    if (args.PropertyName == nameof(MainWindowViewModel.CanInstall)) UpdateTrayState();
+                };
 
-                string serverInput = _configService.PrintServerName;
-                if (string.IsNullOrWhiteSpace(serverInput)) serverInput = "localhost";
-
-                string baseUrl = serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                                ? serverInput
-                                : $"https://{serverInput}";
+                // Console / API : SERVERURL (à défaut le serveur d'impression) ; les partages restent sur PRINTSERVER
+                string baseUrl = _configService.WebBaseUrl;
 
                 _apiService = new ApiService(baseUrl, _configService.ApiKey);
 
                 _pathService.Initialize(e.Args);
                 _dataService = new DataService(_pathService);
-
                 await _dataService.InitializeDatabaseAsync();
-                _realTimeService = new RealTimeService(baseUrl);
 
+                _realTimeService = new RealTimeService(baseUrl);
                 _realTimeService.Initialize(
                     onRefreshRequested: async () => await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync(false)),
                     onStatusChanged: (isOnline) =>
                     {
                         _estHorsLigne = !isOnline;
-                        _ = RafraichirDonneesAsync(false);
-                    }
-                );
-
+                        _ = Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync(false));
+                    });
                 _ = _realTimeService.StartAsync();
 
                 NetworkChange.NetworkAddressChanged += async (s, args) => await OnReseauChangeAsync();
@@ -129,14 +111,13 @@ namespace Autoprint.Client
         public async Task RafraichirDonneesAsync(bool estDemarrage = false)
         {
             await _verrouRafraichissement.WaitAsync();
-
             try
             {
                 string targetServer = _configService.PrintServerName ?? "localhost";
                 _ipActuelle = _networkService.GetActiveLocalIpAddress(targetServer);
 
-                List<Emplacement> lieux = new List<Emplacement>();
-
+                List<Emplacement> lieux = new();
+                List<Imprimante> imprimantes = new();
                 try
                 {
                     if (_apiService != null)
@@ -146,143 +127,59 @@ namespace Autoprint.Client
                         await Task.WhenAll(taskLieux, taskImprimantes);
 
                         lieux = taskLieux.Result;
-                        _toutesLesImprimantes = taskImprimantes.Result;
-
+                        imprimantes = taskImprimantes.Result;
                         if (lieux.Count == 0) throw new Exception("API vide");
-                        if (_dataService != null) await _dataService.UpdateCacheAsync(lieux, _toutesLesImprimantes);
+                        if (_dataService != null) await _dataService.UpdateCacheAsync(lieux, imprimantes);
+                        _estHorsLigne = false;
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Synchro KO : {ex.Message} -> Utilisation du cache.");
+                    _estHorsLigne = true;
                     if (_dataService != null)
                     {
                         lieux = await _dataService.GetEmplacementsAsync();
-                        _toutesLesImprimantes = await _dataService.GetImprimantesAsync();
+                        imprimantes = await _dataService.GetImprimantesAsync();
                     }
                 }
 
                 lieux = lieux.Where(l => l.Status == LieuStatus.Active).ToList();
-                _toutesLesImprimantes = _toutesLesImprimantes
-                                        .Where(i => i.Status == PrinterStatus.Synchronized)
-                                        .ToList();
+                imprimantes = imprimantes.Where(i => i.Status == PrinterStatus.Synchronized).DistinctBy(i => i.Id).ToList();
 
-                List<Emplacement> lieuxAffiches = new List<Emplacement>();
-                List<Emplacement> tousLesLieuxCompatibles = new List<Emplacement>();
+                // Lieu du poste : celui dont un réseau contient l'adresse IP (réseau principal en priorité)
+                var compatibles = new List<Emplacement>();
+                if (!string.IsNullOrEmpty(_ipActuelle) && _ipActuelle != "127.0.0.1")
+                    compatibles = lieux.Where(l => l.Networks != null && l.Networks.Any(n => IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4))).ToList();
 
-                if (lieux.Count > 0 && !string.IsNullOrEmpty(_ipActuelle) && _ipActuelle != "127.0.0.1")
+                var principaux = compatibles.Where(l => l.Networks.Any(n => n.IsPrimary && IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4))).ToList();
+                var lieuxActuels = principaux.Any() ? principaux : compatibles;
+                var lieuActuel = lieuxActuels.FirstOrDefault();
+
+                _mainViewModel?.Load(lieuxActuels, lieux, imprimantes, _estHorsLigne);
+
+                // Changement de site : imprimante par défaut du site et notification discrète (panneau fermé seulement)
+                string? code = lieuActuel?.Code;
+                bool siteChange = estDemarrage || !string.Equals(code, _lastLocationCode, StringComparison.OrdinalIgnoreCase);
+                _lastLocationCode = code;
+                if (!siteChange || lieuActuel == null) return;
+
+                string? fav = !string.IsNullOrEmpty(code) && _prefService.Current.PreferredPrinters.TryGetValue(code, out var f) ? f : null;
+                bool bascule = fav != null && _prefService.Current.AutoSwitchDefaultPrinter && SetDefaultPrinterSafe(fav);
+
+                // Au démarrage, pas de notification si l'on est sur le même site qu'à la dernière session
+                bool nouveauSite = !string.Equals(_prefService.Current.LastDetectedLocationCode, code, StringComparison.OrdinalIgnoreCase);
+                if (nouveauSite)
                 {
-                    foreach (var lieu in lieux)
-                    {
-                        if (lieu.Networks == null) continue;
-                        if (lieu.Networks.Any(net => IpHelper.IsIpInCidr(_ipActuelle, net.CidrIpv4)))
-                        {
-                            tousLesLieuxCompatibles.Add(lieu);
-                        }
-                    }
+                    _prefService.Current.LastDetectedLocationCode = code;
+                    _prefService.Save();
                 }
 
-                var principaux = tousLesLieuxCompatibles
-                    .Where(l => l.Networks.Any(n => n.IsPrimary && IpHelper.IsIpInCidr(_ipActuelle, n.CidrIpv4)))
-                    .ToList();
-
-                if (principaux.Any())
+                bool annoncer = (!estDemarrage || nouveauSite) && !_estHorsLigne && _prefService.Current.EnableNotifications && _mainWindow?.IsVisible != true;
+                if (annoncer && _notifyIcon != null)
                 {
-                    lieuxAffiches = principaux;
-                    _lieuActuel = principaux.First();
-                }
-                else
-                {
-                    lieuxAffiches = tousLesLieuxCompatibles;
-                    _lieuActuel = tousLesLieuxCompatibles.FirstOrDefault();
-                }
-
-
-                var idsLieux = lieuxAffiches.Select(l => l.Id).ToList();
-                var imprimantesPourCeLieu = _toutesLesImprimantes
-                                            .Where(i => idsLieux.Contains(i.EmplacementId))
-                                            .DistinctBy(i => i.Id)
-                                            .ToList();
-
-                string newLocationCode = _lieuActuel?.Code ?? "UNKNOWN";
-                string newPrinterSignature = string.Join(",", imprimantesPourCeLieu
-                                                              .OrderBy(p => p.Id)
-                                                              .Select(p => p.Id));
-
-                bool changementDetecte = false;
-
-                if (newLocationCode != _lastLocationCode) changementDetecte = true;
-                if (newPrinterSignature != _lastPrinterSignature) changementDetecte = true;
-
-                _lastLocationCode = newLocationCode;
-                _lastPrinterSignature = newPrinterSignature;
-
-
-                string titreNotif = "Autoprint";
-                string messageNotif = "Mise à jour...";
-                BalloonIcon iconeNotif = BalloonIcon.None;
-                if (_estHorsLigne) iconeNotif = BalloonIcon.Warning;
-
-                if (lieuxAffiches.Any())
-                {
-                    if (_lieuActuel != null && _prefService.Current.LastDetectedLocationCode != _lieuActuel.Code)
-                    {
-                        _prefService.Current.LastDetectedLocationCode = _lieuActuel.Code;
-                        _prefService.Save();
-                    }
-
-                    int nbImprimantes = imprimantesPourCeLieu.Count;
-
-                    if (lieuxAffiches.Count == 1)
-                        titreNotif = $"📍 {lieuxAffiches[0].Nom}";
-                    else
-                        titreNotif = $"📍 Zone Partagée ({lieuxAffiches.Count} lieux)";
-
-                    messageNotif = $"{nbImprimantes} imprimante(s) disponible(s).";
-
-                    string messageSwitch = "";
-                    foreach (var lieu in lieuxAffiches)
-                    {
-                        if (_prefService.Current.PreferredPrinters.TryGetValue(lieu.Code ?? "", out string? fav))
-                        {
-                            if (estDemarrage || changementDetecte)
-                            {
-                                if (SetDefaultPrinterSafe(fav))
-                                {
-                                    messageSwitch = $"\n✅ {fav} par défaut.";
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (!string.IsNullOrEmpty(messageSwitch)) messageNotif += messageSwitch;
-                }
-                else
-                {
-                    if (estDemarrage || changementDetecte)
-                    {
-                        _lieuActuel = null;
-                        titreNotif = "⛔ Lieu Inconnu";
-                        messageNotif = $"IP: {_ipActuelle}\nAucun lieu ne correspond.";
-                        iconeNotif = BalloonIcon.Warning;
-                    }
-                }
-
-                MettreAJourInterfaceMulti(lieuxAffiches, _estHorsLigne);
-
-                if (_notifyIcon != null && _prefService.Current.EnableNotifications)
-                {
-                    if (estDemarrage || changementDetecte)
-                    {
-                        if (!string.IsNullOrEmpty(messageNotif))
-                        {
-                            _notifyIcon.ShowBalloonTip(titreNotif, messageNotif, iconeNotif);
-                        }
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[Refresh] Données identiques, notification ignorée (Anti-Spam).");
-                    }
+                    string message = bascule ? $"Vos documents partent sur {fav}." : "Cliquez pour choisir une imprimante sur ce site.";
+                    _notifyIcon.ShowBalloonTip(lieuActuel.Nom, message, BalloonIcon.None);
                 }
             }
             finally
@@ -291,97 +188,60 @@ namespace Autoprint.Client
             }
         }
 
-        private void MettreAJourInterfaceMulti(List<Emplacement> lieux, bool isOffline)
+        // Icône près de l'horloge : point orange quand l'ajout d'imprimantes est impossible (serveur ou partage injoignable)
+        private System.Drawing.Icon? _trayIconNormal;
+        private System.Drawing.Icon? _trayIconWarning;
+        private bool? _trayWarning;
+
+        private void UpdateTrayState()
         {
-            if (_mainViewModel == null) return;
-
-            string nomAffiche;
-            string codeAffiche;
-            List<Imprimante> imprimantesFinales = new List<Imprimante>();
-
-            if (lieux.Any())
-            {
-                if (lieux.Count == 1)
-                {
-                    nomAffiche = lieux[0].Nom;
-                    codeAffiche = lieux[0].Code ?? "";
-                }
-                else
-                {
-                    nomAffiche = string.Join(" + ", lieux.Select(l => l.Nom));
-                    codeAffiche = "MULTI";
-                }
-
-                var ids = lieux.Select(l => l.Id).ToList();
-                imprimantesFinales = _toutesLesImprimantes
-                                     .Where(i => ids.Contains(i.EmplacementId))
-                                     .ToList();
-            }
-            else
-            {
-                nomAffiche = "Lieu Inconnu";
-                codeAffiche = "";
-            }
-
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _mainViewModel.ChargerDonnees(nomAffiche, codeAffiche, imprimantesFinales, _ipActuelle, isOffline);
-            });
-        }
-
-        public bool SetDefaultPrinterSafe(string printerShortName)
-        {
+            if (_notifyIcon == null || _mainViewModel == null) return;
+            bool warning = _mainViewModel.HasLoaded && !_mainViewModel.CanInstall;
+            if (_trayWarning == warning) return;
+            _trayWarning = warning;
             try
             {
-                string? serverName = _configService.PrintServerName;
-                if (string.IsNullOrEmpty(serverName)) return false;
-
-                serverName = serverName.Replace("https://", "").Replace("http://", "").Trim('/');
-                string targetUncName = $@"\\{serverName}\{printerShortName}";
-                bool isInstalled = false;
-
-                try
+                if (_trayIconNormal == null)
                 {
-                    using (var printServer = new LocalPrintServer())
-                    {
-                        var queues = printServer.GetPrintQueues(new[] { EnumeratedPrintQueueTypes.Local, EnumeratedPrintQueueTypes.Connections });
-                        foreach (var q in queues)
-                        {
-                            if (q.FullName.Equals(targetUncName, StringComparison.OrdinalIgnoreCase) ||
-                                q.Name.Equals(printerShortName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                isInstalled = true;
-                                targetUncName = q.FullName;
-                                break;
-                            }
-                        }
-                    }
+                    var res = GetResourceStream(new Uri("pack://application:,,,/Autoprint.ico"));
+                    if (res == null) return;
+                    using (res.Stream) _trayIconNormal = new System.Drawing.Icon(res.Stream, 32, 32);
+                    _trayIconWarning = WithWarningDot(_trayIconNormal);
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Erreur lecture Spouleur : {ex.Message}");
-                    isInstalled = false;
-                }
-
-                if (!isInstalled) return false;
-
-                return SetDefaultPrinter(targetUncName);
+                _notifyIcon.Icon = warning ? _trayIconWarning : _trayIconNormal;
             }
-            catch (Exception ex)
+            catch (Exception ex) { Debug.WriteLine($"Icône de notification : {ex.Message}"); }
+            _notifyIcon.ToolTipText = warning ? "Autoprint · serveur injoignable" : "Autoprint";
+        }
+
+        private static System.Drawing.Icon WithWarningDot(System.Drawing.Icon baseIcon)
+        {
+            var bmp = new System.Drawing.Bitmap(32, 32);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
-                Debug.WriteLine($"Erreur SetDefaultPrinter : {ex.Message}");
-                return false;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.DrawIcon(baseIcon, new System.Drawing.Rectangle(0, 0, 32, 32));
+                using var ring = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+                using var dot = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xF5, 0x9E, 0x0B));
+                g.FillEllipse(ring, 17, 17, 15, 15);
+                g.FillEllipse(dot, 19, 19, 11, 11);
             }
+            return System.Drawing.Icon.FromHandle(bmp.GetHicon());
         }
 
-        private void MenuOptions_Click(object sender, RoutedEventArgs e)
+        /// <summary>Met l'imprimante (nom court) par défaut dans Windows, si elle est installée sur le poste.</summary>
+        public bool SetDefaultPrinterSafe(string printerShortName)
         {
-            AfficherFenetre(ClientTab.Options);
+            var queues = PrinterService.GetNetworkQueues();
+            return queues.TryGetValue(printerShortName, out var fullName) && PrinterService.SetDefault(fullName);
         }
 
-        private void MenuManage_Click(object sender, RoutedEventArgs e)
+        private void AfficherPanneau()
         {
-            AfficherFenetre(ClientTab.Manage);
+            if (_mainWindow == null) return;
+            _mainViewModel?.Rebuild();
+            _mainWindow.ShowPanel();
+            _ = RafraichirDonneesAsync(false);
         }
 
         private void MenuWindowsPrinters_Click(object sender, RoutedEventArgs e)
@@ -390,60 +250,25 @@ namespace Autoprint.Client
             catch { try { Process.Start(new ProcessStartInfo("control", "printers") { UseShellExecute = true }); } catch { } }
         }
 
-        private void AfficherFenetre(ClientTab tab = ClientTab.Printers)
-        {
-            if (_mainWindow == null || _mainViewModel == null) return;
-
-            _mainViewModel.OptionsViewModel?.ResetAdminPanel();
-            _mainViewModel.OptionsViewModel?.ReloadConfig();
-            _mainViewModel.SelectedTab = tab;
-
-            if (tab == ClientTab.Printers)
-            {
-                MettreAJourInterfaceMulti(new List<Emplacement>(), _estHorsLigne);
-                _ = RafraichirDonneesAsync(false);
-                _mainViewModel.RafraichirEtatInstallation();
-            }
-            else if (tab == ClientTab.Manage)
-            {
-                _mainViewModel.ManageViewModel?.RefreshPrinters();
-            }
-
-            if (_mainWindow.Visibility != Visibility.Visible)
-            {
-                _mainWindow.Show();
-            }
-
-            if (_mainWindow.WindowState == WindowState.Minimized)
-            {
-                _mainWindow.WindowState = WindowState.Normal;
-            }
-
-            _mainWindow.Activate();
-            _mainWindow.Topmost = true;
-            _mainWindow.Topmost = false;
-            _mainWindow.Focus();
-        }
-
         private async Task OnReseauChangeAsync()
         {
             await Task.Delay(3000);
             await Dispatcher.InvokeAsync(async () => await RafraichirDonneesAsync());
         }
 
-        private void UpdateTheme()
-        {
-            var paletteHelper = new PaletteHelper();
-            var theme = paletteHelper.GetTheme();
-            var systemTheme = Theme.GetSystemTheme() ?? BaseTheme.Light;
-            theme.SetBaseTheme(systemTheme);
-            paletteHelper.SetTheme(theme);
-        }
+        // Charte graphique (B77) : palette bleue Autoprint et dictionnaire de couleurs clair / sombre selon le thème de Windows
+        private void UpdateTheme() => AutoprintTheme.Apply();
 
         private void MenuExit_Click(object sender, RoutedEventArgs e) { Shutdown(); }
-        private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherFenetre(ClientTab.Printers);
-        private void OnTrayDoubleClick(object sender, RoutedEventArgs e) => AfficherFenetre(_mainViewModel?.SelectedTab ?? ClientTab.Printers);
-        private void MenuOpen_Click(object sender, RoutedEventArgs e) => AfficherFenetre(ClientTab.Printers);
+        private void MenuOpen_Click(object sender, RoutedEventArgs e) => AfficherPanneau();
+        private void OnTrayBalloonTipClicked(object sender, RoutedEventArgs e) => AfficherPanneau();
+
+        private void OnTrayLeftClick(object sender, RoutedEventArgs e)
+        {
+            if (_mainWindow == null) return;
+            if (_mainWindow.IsVisible) _mainWindow.HidePanel();
+            else { _mainViewModel?.Rebuild(); _mainWindow.TogglePanel(); if (_mainWindow.IsVisible) _ = RafraichirDonneesAsync(false); }
+        }
 
         protected override void OnExit(ExitEventArgs e)
         {
@@ -460,7 +285,7 @@ namespace Autoprint.Client
                 using var writer = new System.IO.StreamWriter(client);
                 await writer.WriteAsync("WAKE_UP");
             }
-            catch {  }
+            catch { }
         }
 
         private async Task ListenForWakeUpSignalsAsync()
@@ -475,10 +300,7 @@ namespace Autoprint.Client
                     using var reader = new System.IO.StreamReader(server);
                     var msg = await reader.ReadToEndAsync();
 
-                    if (msg == "WAKE_UP")
-                    {
-                        Dispatcher.Invoke(() => AfficherFenetre(ClientTab.Printers));
-                    }
+                    if (msg == "WAKE_UP") Dispatcher.Invoke(AfficherPanneau);
                 }
                 catch
                 {

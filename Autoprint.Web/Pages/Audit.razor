@@ -11,23 +11,22 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<PageTitle>Journal d'Audit</PageTitle>
+<PageTitle>Journal d'audit</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        🕵️ Journal d'Audit
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Journal d'audit</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(totalCount == 0)" />
 
         <AuthorizeView Policy="SETTINGS_MANAGE">
             <Authorized>
-                <RadzenButton Icon="delete_sweep" Text="Nettoyage (> 30j)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@PurgerLogs" />
+                <RadzenButton Icon="delete_sweep" Text="Nettoyer (plus de 30 jours)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Click="@PurgerLogs" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 <RadzenCard Variant="Variant.Outlined" Class="rz-mb-4 rz-p-2">
     <RadzenTextBox Placeholder="Rechercher (Utilisateur, Action, Détails)..."
@@ -35,10 +34,11 @@
                    Style="width: 100%;" />
 </RadzenCard>
 
-<RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
+<div class="ap-grid-wrap"><RadzenDataGrid @ref="grid" Data="@logs" Count="@totalCount" LoadData="@LoadData" IsLoading="@isLoading"
                 TItem="AuditLogDto"
                 AllowPaging="true" PageSize="20"
-                AllowSorting="true" AllowFiltering="false"
+                AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                LoadColumnFilterData="@LoadNiveaux"
                 Density="Density.Compact"
                 Style="height: 600px;">
     <Columns>
@@ -49,7 +49,7 @@
             </Template>
         </RadzenDataGridColumn>
 
-        <RadzenDataGridColumn TItem="AuditLogDto" Property="Niveau" Title="Niveau" Width="90px" TextAlign="TextAlign.Center">
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Niveau" Title="Niveau" Width="110px" TextAlign="TextAlign.Center" FilterMode="FilterMode.CheckBoxList">
             <Template Context="log">
                 @switch (log.Niveau)
                 {
@@ -69,13 +69,13 @@
             </Template>
         </RadzenDataGridColumn>
 
-        <RadzenDataGridColumn TItem="AuditLogDto" Property="Utilisateur" Title="Utilisateur" Width="140px">
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Utilisateur" Title="Utilisateur" Width="140px" FilterMode="FilterMode.Simple">
             <Template Context="log">
                 <span style="font-weight: 500; font-size: 0.9em;">@log.Utilisateur</span>
             </Template>
         </RadzenDataGridColumn>
 
-        <RadzenDataGridColumn TItem="AuditLogDto" Property="Action" Title="Détails de l'opération" MinWidth="300px">
+        <RadzenDataGridColumn TItem="AuditLogDto" Property="Action" Title="Détails de l'opération" MinWidth="300px" FilterMode="FilterMode.Simple">
             <Template Context="log">
                 <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; white-space: nowrap;">
 
@@ -91,7 +91,7 @@
         </RadzenDataGridColumn>
 
     </Columns>
-</RadzenDataGrid>
+</RadzenDataGrid></div>
 
 @code {
     private RadzenDataGrid<AuditLogDto>? grid;
@@ -100,6 +100,8 @@
     private bool isLoading;
 
     private string currentSearch = "";
+    private string columnQuery = ""; // filtres et tri des colonnes, traduits en paramètres de l'API (pagination côté serveur)
+    private static readonly string[] Niveaux = { "INFO", "WARNING", "ERROR", "Critical" };
     private System.Timers.Timer? debounceTimer;
 
     protected override void OnInitialized()
@@ -108,7 +110,7 @@
         debounceTimer.AutoReset = false;
         debounceTimer.Elapsed += async (sender, e) =>
         {
-            await InvokeAsync(() => grid?.Reload());
+            await InvokeAsync(() => grid?.Reload() ?? Task.CompletedTask);
         };
     }
 
@@ -126,7 +128,8 @@
         {
             var page = (args.Skip / args.Top) + 1;
             var pageSize = args.Top ?? 20;
-            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={page}&pageSize={pageSize}&search={currentSearch}");
+            columnQuery = BuildColumnQuery(args);
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page={page}&pageSize={pageSize}&search={Uri.EscapeDataString(currentSearch)}{columnQuery}");
             if (result != null)
             {
                 logs = result.Items;
@@ -141,6 +144,51 @@
         {
             isLoading = false;
         }
+    }
+
+    // Valeurs proposées dans le filtre à cases du niveau (la grille ne charge qu'une page)
+    private void LoadNiveaux(DataGridLoadColumnFilterDataEventArgs<AuditLogDto> args)
+    {
+        // Radzen attend des lignes du type de la grille, dont il lit la propriété de la colonne
+        if (args.Column?.Property == nameof(AuditLogDto.Niveau)) { args.Data = Niveaux.Select(n => new AuditLogDto { Niveau = n }).ToList(); args.Count = Niveaux.Length; }
+    }
+
+    private static string BuildColumnQuery(LoadDataArgs args)
+    {
+        var q = new StringBuilder();
+        void Add(string k, object? v) { if (v != null && $"{v}" != "") q.Append('&').Append(k).Append('=').Append(Uri.EscapeDataString(v is DateTime d ? d.ToUniversalTime().ToString("o") : $"{v}")); }
+        void Date(FilterOperator op, object? v)
+        {
+            if (v is not DateTime d) return;
+            switch (op)
+            {
+                case FilterOperator.GreaterThan: Add("du", d.AddMinutes(1)); break;
+                case FilterOperator.GreaterThanOrEquals: Add("du", d); break;
+                case FilterOperator.LessThan: Add("au", d); break;
+                case FilterOperator.LessThanOrEquals: Add("au", d.AddMinutes(1)); break;
+                case FilterOperator.Equals: Add("du", d.Date); Add("au", d.Date.AddDays(1)); break;
+            }
+        }
+        foreach (var f in args.Filters ?? Enumerable.Empty<FilterDescriptor>())
+        {
+            switch (f.Property)
+            {
+                case nameof(AuditLogDto.Utilisateur): Add("utilisateur", f.FilterValue); break;
+                case nameof(AuditLogDto.Action): Add("action", f.FilterValue); break;
+                case nameof(AuditLogDto.Niveau):
+                    if (f.FilterValue is System.Collections.IEnumerable list and not string) foreach (var n in list) Add("niveau", n);
+                    else Add("niveau", f.FilterValue);
+                    break;
+                case nameof(AuditLogDto.DateAction): Date(f.FilterOperator, f.FilterValue); Date(f.SecondFilterOperator, f.SecondFilterValue); break;
+            }
+        }
+        var s = args.Sorts?.FirstOrDefault(x => x.SortOrder != null);
+        if (s != null)
+        {
+            Add("tri", s.Property);
+            Add("desc", s.SortOrder == SortOrder.Descending ? "true" : "false");
+        }
+        return q.ToString();
     }
 
     private async Task ShowDetails(int logId)
@@ -179,7 +227,7 @@
         {
             NotificationService.Notify(NotificationSeverity.Info, "Export", "Génération du fichier en cours...");
 
-            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page=1&pageSize=100000&search={currentSearch}");
+            var result = await Http.GetFromJsonAsync<PaginatedList<AuditLogDto>>($"/api/Audit?page=1&pageSize=100000&search={Uri.EscapeDataString(currentSearch)}{columnQuery}");
 
             if (result?.Items == null || !result.Items.Any()) return;
 

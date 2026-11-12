@@ -1173,13 +1173,6 @@ namespace Autoprint.Server.Migrations
                         },
                         new
                         {
-                            Key = "AdAdminEmails",
-                            Description = "Mails alerte panne AD (séparés par ;)",
-                            Type = "STRING",
-                            Value = ""
-                        },
-                        new
-                        {
                             Key = "Monitoring_IncludeOffline",
                             Description = "Inclure les imprimantes hors lignes dans l'export API",
                             Type = "BOOL",
