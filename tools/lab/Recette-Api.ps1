@@ -581,7 +581,10 @@ function Lot-Cle {
     Check 'SC-05' 'journal d''audit AGENT_KEY_ROTATE' ([bool]($audit | Where-Object action -eq 'AGENT_KEY_ROTATE')) $true
     Check 'SC-06' 'pendant la transition : ancienne clé / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)" '200/200'
 
-    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 0 } $ta
+    # Sécurité (recette du 12/11) : pendant une transition, une nouvelle rotation est refusée sans confirmation explicite
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 30 } $ta
+    Check 'SC-08' 'nouvelle rotation pendant la transition, sans confirmation : refusée (clés inchangées)' "$($r.Code)/$(Test-AgentKey $k0)/$(Test-AgentKey $k1)" '409/200/200' $r.Text
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 0; force = $true } $ta
     $k2 = ConvertTo-SecureString $r.Json.key -AsPlainText -Force; $r = $null
     Check 'SC-07' 'révocation immédiate : clé initiale / clé précédente / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)/$(Test-AgentKey $k2)" '401/401/200'
     $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 91 } $ta

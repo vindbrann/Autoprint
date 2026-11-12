@@ -60,7 +60,12 @@ namespace Autoprint.Server.Controllers
             return Ok(new { key });
         }
 
-        public class AgentKeyRotationDto { public int TransitionDays { get; set; } = 30; }
+        public class AgentKeyRotationDto
+        {
+            public int TransitionDays { get; set; } = 30;
+            /// <summary>Confirme une rotation alors qu'une transition est en cours (la clé d'origine est alors refusée tout de suite).</summary>
+            public bool Force { get; set; }
+        }
 
         // Nouvelle clé agent (backlog B18). L'ancienne reste acceptée pendant la période de transition (0 à 90 jours),
         // le temps de redéployer la nouvelle clé sur les postes (MSI APIKEY=..., GPO, registre HKLM\SOFTWARE\Autoprint).
@@ -72,6 +77,12 @@ namespace Autoprint.Server.Controllers
 
             var current = await _context.ServerSettings.FindAsync("AgentApiKey");
             if (current == null) return NotFound("Clé agent absente.");
+
+            // Sécurité (recette du 12/11, double clic) : une seule « ancienne » clé est gardée ; une nouvelle rotation pendant
+            // une transition refuserait aussitôt la clé d'origine, encore utilisée par les postes non mis à jour
+            var previousUntil = await _context.ServerSettings.FindAsync("AgentApiKeyPreviousExpiresAt");
+            if (!dto.Force && DateTime.TryParse(previousUntil?.Value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var until) && until > DateTime.UtcNow)
+                return Conflict(new { message = $"Une transition de clé est déjà en cours (jusqu'au {until.ToLocalTime():dd/MM/yyyy HH:mm}). Une nouvelle clé refuserait immédiatement la clé d'origine : confirmez explicitement pour forcer." , transitionUntil = until });
 
             var newKey = Guid.NewGuid().ToString();
             if (dto.TransitionDays > 0)
