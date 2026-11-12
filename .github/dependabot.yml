@@ -1,4 +1,5 @@
 # Mises à jour automatiques des dépendances (audit 2026-11, phase 3)
+# Politique : Docs/_POLITIQUE_VERSIONS.md
 version: 2
 updates:
   - package-ecosystem: "nuget"
@@ -6,6 +7,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # .NET LTS uniquement (décision du 11/11/2026) : .NET 11 est une version STS, on attend .NET 12 LTS.
+      # Les correctifs 10.0.x (dont les correctifs de sécurité) ne sont pas concernés et restent proposés.
+      # À la sortie de .NET 13 (STS), ajouter la plage ">= 13.0.0, < 14.0.0".
+      - dependency-name: "Microsoft.*"
+        versions: [">= 11.0.0, < 12.0.0"]
+      - dependency-name: "System.*"
+        versions: [">= 11.0.0, < 12.0.0"]
     groups:
       # Les packages Microsoft évoluent ensemble (même version 10.0.x)
       microsoft:
