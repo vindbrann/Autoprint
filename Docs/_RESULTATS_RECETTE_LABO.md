@@ -1,4 +1,4 @@
-﻿# Résultats de la recette en labo
+# Résultats de la recette en labo
 
 Recette de `Docs/_PROCEDURE_TESTS_SECURITE.md` sur le labo Hyper-V (`tools/lab/README.md`) : Windows Server 2022 **français**, domaine `lab.autoprint.test`, poste Windows 11 hors domaine.
 Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main ou dans le navigateur.
@@ -56,6 +56,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 - **B35** : délai d'inactivité 1 min : déconnexion seule après ~2 min, message « Session fermée après 1 minute sans activité » ; remis à 30.
 - **Console, revue de toutes les grilles et fenêtres de création** (rôle, identifiants SNMP, rapport, profil SNMP, utilisateur, marque, modèle) : conformes. Corrigés : boutons d'action des grilles harmonisés (icônes discrètes, suppression en rouge), colonne Actions des utilisateurs figée à droite, titre « Champs lus » du profil SNMP à la taille des autres titres ; installeur : champ du serveur SQL élargi.
 - **B85** trouvé : une marque en double était acceptée (deux « Labo ») ; marques, modèles et lieux en double désormais refusés (409), refus affiché par la fenêtre.
+- **B86** : rapport PDF aligné sur la charte graphique (en-tête, pavés de résumé, tableau épuré, pied de page numéroté) ; lot E-mail 15/15 (NR-06 : vrai PDF, 39 Ko), rendu validé visuellement.
 
 ## Campagne finale (branche `feature/charte-graphique`, installeur 26.11.11.1) — 11-12/11/2026
 
