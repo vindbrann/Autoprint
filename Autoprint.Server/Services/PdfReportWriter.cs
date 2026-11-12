@@ -30,9 +30,9 @@ namespace Autoprint.Server.Services
                 Modified = DateTime.Now
             };
             _document = SKDocument.CreatePdf(_stream, metadata);
-            // Police embarquée (sous-ensemble latin, ~25 Ko) : Skia intègre toujours la police entière dans le PDF,
-            // une police système comme Arial (~1 Mo) donnerait des rapports de plus d'un mégaoctet.
-            // Mêmes largeurs de caractères qu'Arial, qui sert de secours.
+            // Police embarquée (IBM Plex Sans de la charte, sous-ensemble latin renommé, ~38 Ko) : Skia intègre toujours
+            // la police entière dans le PDF, une police système comme Arial (~1 Mo) donnerait des rapports de plus d'un mégaoctet.
+            // Arial ne sert que de secours si la ressource manquait.
             _regular = LoadEmbeddedTypeface("AutoprintSans-Regular.ttf")
                        ?? SKTypeface.FromFamilyName("Arial", SKFontStyle.Normal) ?? SKTypeface.Default;
             _bold = LoadEmbeddedTypeface("AutoprintSans-Bold.ttf")
@@ -59,6 +59,15 @@ namespace Autoprint.Server.Services
         }
 
         public float MeasureText(string text, float size, bool bold = false) => Font(size, bold).MeasureText(text);
+
+        /// <summary>Raccourcit <paramref name="text"/> (avec « … ») pour qu'il tienne dans <paramref name="maxWidth"/> points.</summary>
+        public string Fit(string text, float maxWidth, float size, bool bold = false)
+        {
+            if (string.IsNullOrEmpty(text) || MeasureText(text, size, bold) <= maxWidth) return text;
+            var t = text;
+            while (t.Length > 1 && MeasureText(t.TrimEnd() + "…", size, bold) > maxWidth) t = t[..^1];
+            return t.TrimEnd() + "…";
+        }
 
         /// <summary>Texte aligné à droite sur <paramref name="rightX"/>.</summary>
         public void TextRight(string text, float rightX, float baselineY, float size, SKColor color, bool bold = false)
