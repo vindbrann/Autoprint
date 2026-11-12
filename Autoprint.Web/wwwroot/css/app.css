@@ -191,8 +191,6 @@ code {
 .ap-subnav-content > .rz-row.rz-p-2, .ap-subnav-content > .rz-stack.rz-p-2 { padding: 0 !important; }
 .ap-subnav-content hr { border: 0; border-top: 1px solid var(--ap-divider); opacity: 1; }
 .ap-set-row h3 .rzi { vertical-align: middle; }
-/* Menu latéral + menu des sections : sous 1280 px la colonne des réglages devenait trop étroite (boutons coupés, recette du 12/11) */
-@media (max-width: 1280px) { .ap-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); } }
 /* Réglage en pleine largeur (liste des noms acceptés) */
 .ap-set-row.is-stack { grid-template-columns: minmax(0, 1fr); gap: var(--ap-s3); }
 .ap-set-row.is-stack .ap-ctrl { max-width: none; }
