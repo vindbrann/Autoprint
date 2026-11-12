@@ -208,7 +208,8 @@ code {
 .ap-dlg-strip .ap-label-tag { height: 24px; font-size: 13px; color: var(--ap-text); background: var(--ap-surface); }
 .ap-dlg-group { display: flex; flex-direction: column; gap: var(--ap-s3); padding: var(--ap-s4) 0; }
 .ap-dlg-group + .ap-dlg-group { border-top: 1px solid var(--ap-divider); }
-.ap-dlg-group > h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ap-text); }
+/* Titre de groupe, y compris dans une barre d'en-tête avec boutons (« Champs lus » du profil SNMP) */
+.ap-dlg-group > h3, .ap-dlg-group > div > h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ap-text); }
 .ap-dlg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ap-s3) var(--ap-s4); }
 .ap-dlg-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ap-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
