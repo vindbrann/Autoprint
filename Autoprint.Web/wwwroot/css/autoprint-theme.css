@@ -511,8 +511,11 @@ html .rz-button.rz-base.rz-variant-outlined, html .rz-button.rz-base.rz-variant-
 @media (max-width: 1100px) {
   .ap-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 1024px) {
+/* Menu latéral + menu des sections : sous 1280 px, réglages sur une colonne (boutons coupés, recette du 12/11) */
+@media (max-width: 1280px) {
   .ap-set-row { grid-template-columns: 1fr; gap: var(--ap-s3); }
+}
+@media (max-width: 1024px) {
   .ap-subnav-layout { grid-template-columns: 48px minmax(0, 1fr); }
   .ap-subnav a { justify-content: center; padding: 0; }
 }
