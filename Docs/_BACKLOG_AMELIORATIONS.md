@@ -19,10 +19,10 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 Résultats déjà acquis le 11/11 (détail dans `_RESULTATS_RECETTE_LABO.md`) : B79 (SE-01 / SE-02), B32 (migration SQL Server, SV3-11, sauvegarde / restauration), 148 tests API sans échec. À rejouer seulement si le code concerné change.
 
 1. **Installeur serveur** (nouvel installeur de test construit depuis la branche)
-   - [ ] Démarrage sans plantage ; icône de la fenêtre (logo Autoprint) et icône de l'exe (installeur) dans l'Explorateur et la barre des tâches
+   - [x] Démarrage sans plantage ; icône de la fenêtre (logo Autoprint) et icône de l'exe (installeur) dans l'Explorateur et la barre des tâches
    - [ ] Message « trop ancienne » du runtime sur plusieurs lignes, non coupé (installer un runtime plus ancien avant, ou sur un instantané)
    - [ ] **SqlClient 7** : installation **neuve** SQL Server (test de connexion de l'étape Base de données) et S8-10 (SQL distant sur SRV-AD) ; non exercé par une mise à jour
-   - [ ] Mise à jour d'un serveur existant (SQL Server) : « Mise à jour terminée »
+   - [x] Mise à jour d'un serveur existant (SQL Server) : « Mise à jour terminée »
    - [ ] **WiX 7** : MSI serveur (dans l'installeur) et MSI client (Intune, en SYSTEM) construits avec WiX 7.0.1 : installation neuve, mise à jour depuis une version WiX 6, désinstallation ; écran de configuration du client (APIKEY, serveur) toujours affiché
    - [ ] **B45 (MSI allégé)** : installation neuve et mise à jour avec le MSI de 39 Mo ; après la mise à jour, plus de dossier `runtimes` ni `BlazorDebugProxy` dans `C:\Program Files\Autoprint Server` ; site, SQL Server, SQLite, connexion AD et rapport PDF (SE-09, `libSkiaSharp.dll` à la racine) fonctionnent
 2. **Console : recette visuelle** (clair et sombre, Ctrl+F5)
@@ -41,11 +41,11 @@ Résultats déjà acquis le 11/11 (détail dans `_RESULTATS_RECETTE_LABO.md`) : 
    - [ ] Paramètres, autres sections au format de la maquette : Messagerie (test d'envoi), Active Directory (recherche d'un groupe dans l'annuaire puis « Ajouter au filtre » : DN exact échappé ; « Vérifier un compte »), Supervision (champs grisés quand elle est coupée), Intégration monitoring (jetons : générer, révoquer), Scanner réseau (jours en boutons, enregistrement par la barre commune, « Lancer l'analyse » grisé tant que non enregistré), Sécurité (copie de la clé, nouvelle clé en zone sensible)
    - [ ] API : `GET api/Roles/ad/search?…&sansFiltre=true` refusé (403) sans le droit Paramètres ; avec, renvoie le DN et le filtre memberOf
 3. **Tests API** (`tools/lab/Recette-Api.ps1 -Profil sql`, en **HTTPS** : le port 8080 redirige et fait perdre le jeton)
-   - [ ] Tous les lots après la dernière livraison de test, dont **Clé** et **Serveur** (ont besoin de CLT-TEST allumé)
-   - [ ] Laisser une minute entre deux lancements (limite de 10 connexions par minute)
+   - [x] Tous les lots après la dernière livraison de test, dont **Clé** et **Serveur** (ont besoin de CLT-TEST allumé)
+   - [x] Laisser une minute entre deux lancements (limite de 10 connexions par minute)
 4. **Client (CLT-TEST)**
    - [ ] Recette visuelle du client à la charte (thèmes clair et sombre, icône, badge hors ligne)
-   - [ ] **B81 (nouveau panneau)**, utilisateur standard du domaine sur CLT-TEST :
+   - [x] **B81 (nouveau panneau)**, utilisateur standard du domaine sur CLT-TEST :
      - clic sur l'icône : le panneau s'ouvre en bas à droite, au-dessus de la barre des tâches ; clic ailleurs, Échap ou croix : il se range ; nouveau clic sur l'icône quand il est ouvert : il se ferme (pas de réouverture) ; clic droit : menu à 3 entrées
      - « Vos imprimantes » : le bouton radio change l'imprimante par défaut **de Windows** (vérifier dans Imprimantes et scanners) avec le tag et le bref surlignage ; le choix est retenu au retour sur le site
      - ajout : roue pendant l'ajout, puis la ligne monte dans « Vos imprimantes » ; la première ajoutée sur un site devient celle par défaut ; échec (pilote absent) : message rouge sous la ligne, sans popup
@@ -62,18 +62,18 @@ Résultats déjà acquis le 11/11 (détail dans `_RESULTATS_RECETTE_LABO.md`) : 
      - thème Windows clair / sombre : le panneau suit
    - [ ] Installation / mise à jour du client par l'installeur MSI (bannières à la charte)
 5. **Migration 1.1.2 → 26.11 avec changement du nom web (B82, `Docs/_PLAN_MIGRATION_1.1.2.md`)** : instantané « Serveur en 1.1.2 », client 1.1.x sur CLT-TEST ; un « ancien » nom web (certificat auto-signé) et un « nouveau » (certificat approuvé), partages sur le nom du serveur
-   - [ ] Deux liaisons HTTPS IIS (SNI) ; le serveur 1.1.2 répond déjà aux deux noms
-   - [ ] Installeur 26.11, nom public « nouveau;ancien » : `AllowedHosts` d'appsettings.json = les deux noms + localhost ; Paramètres > Sécurité affiche les deux ; console ouverte par chacun des deux noms
-   - [ ] Client 1.1.x (ancien nom) après la mise à jour : badge hors ligne disparu en moins d'une minute, lieu détecté, ajout d'imprimante, modification de la console reçue
-   - [ ] Nom non autorisé (ex. adresse IP ou alias) : erreur 400 « Nom d'hôte non autorisé » ; ajouté dans la console : accepté aussitôt, sans redémarrage, et inscrit au journal d'audit
-   - [ ] Console : impossible de retirer le nom par lequel on est connecté ; impossible d'enregistrer une liste vide ; nom invalide (https://, port) refusé ; liste vide héritée (« * ») : l'ajout d'un nom y met aussi le nom courant
-   - [ ] Restauration d'une sauvegarde : la liste des noms acceptés du serveur est conservée (pas celle du fichier)
+   - [x] Deux liaisons HTTPS IIS (SNI) ; le serveur 1.1.2 répond déjà aux deux noms
+   - [x] Installeur 26.11, nom public « nouveau;ancien » : `AllowedHosts` d'appsettings.json = les deux noms + localhost ; Paramètres > Sécurité affiche les deux ; console ouverte par chacun des deux noms
+   - [x] Client 1.1.x (ancien nom) après la mise à jour : badge hors ligne disparu en moins d'une minute, lieu détecté, ajout d'imprimante, modification de la console reçue
+   - [x] Nom non autorisé (ex. adresse IP ou alias) : erreur 400 « Nom d'hôte non autorisé » ; ajouté dans la console : accepté aussitôt, sans redémarrage, et inscrit au journal d'audit
+   - [x] Console : impossible de retirer le nom par lequel on est connecté ; impossible d'enregistrer une liste vide ; nom invalide (https://, port) refusé ; liste vide héritée (« * ») : l'ajout d'un nom y met aussi le nom courant
+   - [x] Restauration d'une sauvegarde : la liste des noms acceptés du serveur est conservée (pas celle du fichier)
    - [ ] Mot de passe oublié : le lien du courriel utilise le premier nom de la liste
-   - [ ] MSI client 26.11 par-dessus le 1.1.x (en SYSTEM, comme Intune) avec `PRINTSERVER=<serveur> SERVERURL=https://nouveau APIKEY=…` : une seule entrée dans Programmes ; registre `SERVERURL` écrit ; informations serveur : « Console et API » = nouveau nom, « Partages d'impression » = `\serveur` ; imprimantes déjà installées inchangées et utilisables ; ajout d'une imprimante sur `\serveur\...` ; préférences et imprimante par défaut de chaque site retrouvées
-   - [ ] MSI sans `SERVERURL` ni `APIKEY` en mise à jour : valeurs du registre conservées ; MSI avec une **autre** `APIKEY` : la nouvelle valeur est écrite (avant, l'ancienne du registre l'emportait)
+   - [x] MSI client 26.11 par-dessus le 1.1.x (en SYSTEM, comme Intune) avec `PRINTSERVER=<serveur> SERVERURL=https://nouveau APIKEY=…` : une seule entrée dans Programmes ; registre `SERVERURL` écrit ; informations serveur : « Console et API » = nouveau nom, « Partages d'impression » = `\serveur` ; imprimantes déjà installées inchangées et utilisables ; ajout d'une imprimante sur `\serveur\...` ; préférences et imprimante par défaut de chaque site retrouvées
+   - [x] MSI sans `SERVERURL` ni `APIKEY` en mise à jour : valeurs du registre conservées ; MSI avec une **autre** `APIKEY` : la nouvelle valeur est écrite (avant, l'ancienne du registre l'emportait)
    - [ ] Écran de configuration du MSI (installation manuelle) : trois champs (serveur d'impression, adresse de la console facultative, clé), textes non coupés
-   - [ ] Certificat non approuvé sur le nouveau nom : le client 26.11 affiche « Serveur injoignable » et « Certificat du serveur refusé » au test de connexion ; le client 1.1.x continue de fonctionner sur l'ancien nom
-   - [ ] Fin de transition : ancien nom retiré dans la console : le client 1.1.x restant reçoit 400, le client 26.11 continue ; rotation de la clé avec transition : ancienne clé acceptée puis refusée, nouvelle clé redéployée par le MSI
+   - [x] Certificat non approuvé sur le nouveau nom : le client 26.11 affiche « Serveur injoignable » et « Certificat du serveur refusé » au test de connexion ; le client 1.1.x continue de fonctionner sur l'ancien nom
+   - [x] Fin de transition : ancien nom retiré dans la console : le client 1.1.x restant reçoit 400, le client 26.11 continue ; rotation de la clé avec transition : ancienne clé acceptée puis refusée, nouvelle clé redéployée par le MSI
    - [ ] **Corrections de la recette du 12/11** (nouvel installeur) : fenêtre « Nouvelle imprimante » : un refus du serveur s'affiche et la fenêtre reste ouverte (cause du 400 du 11/11 à lire dans le message) ; tableau de bord et journal : « Modification des noms acceptés par le serveur » au lieu de « CODE NON TRADUIT » ; Paramètres sous 1280 px : réglages sur une colonne, plus de bouton coupé (« Copier », « Ajouter ») ; carte « Noms acceptés » : noms sur une ligne, ajout / retrait à la souris ; **B83** : sauvegarde puis restauration : réseau principal et lieu inactif conservés ; ancienne sauvegarde (sans `isPrimary`) : premier réseau de chaque lieu redevenu principal
    - [ ] **Recette du 12/11, suite** : installeur, écran « Configuration web » : port et nom public lisibles en entier (plus de texte rogné), champs SQL aussi ; console : nouvelle clé pendant une transition : avertissement « Transition déjà en cours », refus serveur (409) sans confirmation, « Forcer » révoque la clé d'origine ; double clic sur « Générer » : une seule rotation ; clé affichée sur sa propre ligne ; lot API Clé : SC-08 (409 puis clés inchangées)
 6. **Clôture**
