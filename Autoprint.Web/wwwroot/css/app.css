@@ -305,4 +305,8 @@ code {
 .ap-choice-item.is-on { border-color: var(--ap-primary); box-shadow: inset 0 0 0 1px var(--ap-primary); background: var(--ap-primary-subtle); }
 .ap-rule-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) auto; gap: var(--ap-s2); align-items: center; padding: var(--ap-s2) var(--ap-s3); }
 .ap-rule-row + .ap-rule-row { border-top: 1px solid var(--ap-divider); }
-@media (max-width: 640px) { .ap-choice, .ap-rule-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .ap-choice, .ap-rule-row { grid-template-columns: minmax(0, 1fr); } }/* Grille Imprimantes (recette du 12/11) : colonne Actions figée assez large, titre et boutons centrés ; filtre d'en-tête du statut */
+.ap-col-actions { text-align: center !important; }
+.ap-col-actions .ap-row-actions { justify-content: center; }
+.ap-status-filter { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; min-width: 190px; }
+.ap-status-filter-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }

@@ -116,24 +116,20 @@ else
             </div>
         }
 
+        @* Filtres dans les en-têtes de colonnes, comme toutes les grilles (plus de recherche ni de pastille « Statut » au-dessus) *@
+        @if (selected?.Any() == true)
+        {
         <div class="ap-toolbar">
-            <RadzenTextBox class="ap-search" Placeholder="Rechercher" @bind-Value="@searchText" @oninput="@(e => { searchText = e.Value?.ToString() ?? ""; AppliquerFiltres(); })" aria-label="Rechercher une imprimante" />
-            <div class="ap-filters">
-                <RadzenDropDown TValue="string" class="@(filterStatut != null ? "ap-chip-dd is-set" : "ap-chip-dd")" Data="@statutOptions" TextProperty="Text" ValueProperty="Value"
-                                @bind-Value="@filterStatut" Change="@(_ => AppliquerFiltres())" AllowClear="true" Placeholder="Statut" aria-label="Filtrer par statut" />
-            </div>
             <span class="ap-grow"></span>
-            @if (selected?.Any() == true)
-            {
-                <span class="ap-selection">
+            <span class="ap-selection">
                 <span class="ap-caption">@selected.Count sélectionnée@(selected.Count > 1 ? "s" : "")</span>
                 <AuthorizeView Policy="PRINTER_SYNC">
                     <RadzenButton Icon="sync" Text="Synchroniser" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="SynchroniserSelection" Disabled="@isSyncing" />
                 </AuthorizeView>
                 <RadzenButton Icon="close" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" Size="ButtonSize.Small" Click="@(() => selected = null)" title="Effacer la sélection" aria-label="Effacer la sélection" />
-                </span>
-            }
+            </span>
         </div>
+        }
 
         <RadzenDataGrid @ref="grid" Data="@imprimantesFiltrees" TItem="Imprimante"
                         AllowPaging="true" PageSize="25" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
@@ -161,8 +157,25 @@ else
                     </Template>
                 </RadzenDataGridColumn>
 
-                @* Statut calculé (synchronisation + supervision) : filtré par la pastille « Statut » de la barre d'outils *@
-                <RadzenDataGridColumn TItem="Imprimante" Title="Statut" Width="170px" SortProperty="Status" Filterable="false">
+                @* Statut calculé (synchronisation + supervision) : la grille ne sait pas le filtrer, d'où un filtre d'en-tête
+                   personnalisé (cases à cocher, comme Lieu ou Modèle) appliqué aux données avant la grille *@
+                <RadzenDataGridColumn TItem="Imprimante" Property="Status" Title="Statut" Width="170px" SortProperty="Status">
+                    <FilterTemplate>
+                        <div class="ap-status-filter" role="group" aria-label="Filtrer par statut">
+                            @foreach (var opt in statutOptions)
+                            {
+                                bool coche = filtresStatut.Contains(opt.Value);
+                                <label class="ap-status-filter-item">
+                                    <RadzenCheckBox TValue="bool" Value="@coche" Change="@(v => BasculerStatut(opt.Value, v))" />
+                                    <span>@opt.Text</span>
+                                </label>
+                            }
+                            @if (filtresStatut.Count > 0)
+                            {
+                                <RadzenButton Text="Effacer" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => { filtresStatut.Clear(); AppliquerFiltres(); })" />
+                            }
+                        </div>
+                    </FilterTemplate>
                     <Template Context="imp">
                         @{ var st = Statut(imp); }
                         <span class="@($"ap-status-badge ap-status-badge--{st.Css}")" title="@st.Detail"><RadzenIcon Icon="@st.Icon" />@st.Text</span>
@@ -208,8 +221,8 @@ else
                     <Template Context="imp">@(imp.LastSeen?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="120px" Sortable="false" Filterable="false" Pickable="false" TextAlign="TextAlign.Right"
-                                      Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="140px" Sortable="false" Filterable="false" Pickable="false" Resizable="false" TextAlign="TextAlign.Center"
+                                      Frozen="true" FrozenPosition="FrozenColumnPosition.Right" CssClass="ap-col-actions" HeaderCssClass="ap-col-actions">
                     <Template Context="imp">
                         <span class="ap-row-actions">
                             <AuthorizeView Policy="PRINTER_WRITE">
@@ -251,8 +264,7 @@ else
     private List<Imprimante> imprimantesFiltrees = new();
     private int selectedTab = 0;
     private const string GridSettingsKey = "PrintersGridSettings.v2"; // colonnes changées par la charte (B77) : anciens réglages ignorés
-    private string searchText = "";
-    private string? filterStatut;
+    private readonly HashSet<string> filtresStatut = new();
     private IList<Imprimante>? selected;
     private bool isLoading = true;
     private bool isSyncing = false;
@@ -347,22 +359,20 @@ else
         AppliquerFiltres();
     }
 
-    // Recherche + pastille « Statut » (valeur calculée), dans l'onglet courant ; les autres colonnes se filtrent dans leur en-tête
+    // Onglet courant + filtre d'en-tête « Statut » (valeur calculée) ; les autres colonnes se filtrent dans la grille
     private void AppliquerFiltres()
     {
         IEnumerable<Imprimante> q = (imprimantes ?? new List<Imprimante>()).Where(i => i.IsArchived == (selectedTab == 1));
-        if (filterStatut != null) q = q.Where(i => Statut(i).Key == filterStatut);
-        if (!string.IsNullOrWhiteSpace(searchText))
-        {
-            var s = searchText.Trim();
-            q = q.Where(i => Contient(i.NomAffiche, s) || Contient(i.AdresseIp, s) || Contient(i.Code, s) || Contient(i.Localisation, s)
-                          || Contient(i.Emplacement?.Nom, s) || Contient(NomModele(i), s) || Contient(i.SerialNumber, s));
-        }
+        if (filtresStatut.Count > 0) q = q.Where(i => filtresStatut.Contains(Statut(i).Key));
         imprimantesFiltrees = q.ToList();
         if (selected != null) selected = selected.Where(imprimantesFiltrees.Contains).ToList();
     }
 
-    private static bool Contient(string? value, string s) => value?.Contains(s, StringComparison.OrdinalIgnoreCase) == true;
+    private void BasculerStatut(string key, bool coche)
+    {
+        if (coche) filtresStatut.Add(key); else filtresStatut.Remove(key);
+        AppliquerFiltres();
+    }
 
     private int ActiveCount => imprimantes?.Count(i => !i.IsArchived) ?? 0;
     private int ArchivedCount => imprimantes?.Count(i => i.IsArchived) ?? 0;
