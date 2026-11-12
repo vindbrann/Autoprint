@@ -55,6 +55,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 - **B33** : diagnostic d'une imprimante (simulateur v2c `parc`, modèle sans profil) : valeurs standard (Printer MIB) avec la note, statut, n° de série SIMV2-0002, compteur 50 500, toner 62 %.
 - **B35** : délai d'inactivité 1 min : déconnexion seule après ~2 min, message « Session fermée après 1 minute sans activité » ; remis à 30.
 - **Console, revue de toutes les grilles et fenêtres de création** (rôle, identifiants SNMP, rapport, profil SNMP, utilisateur, marque, modèle) : conformes. Corrigés : boutons d'action des grilles harmonisés (icônes discrètes, suppression en rouge), colonne Actions des utilisateurs figée à droite, titre « Champs lus » du profil SNMP à la taille des autres titres ; installeur : champ du serveur SQL élargi.
+- **B85** trouvé : une marque en double était acceptée (deux « Labo ») ; marques, modèles et lieux en double désormais refusés (409), refus affiché par la fenêtre.
 
 ## Campagne finale (branche `feature/charte-graphique`, installeur 26.11.11.1) — 11-12/11/2026
 
