@@ -480,20 +480,18 @@ namespace Autoprint.Server.Services
                 // Séparateur fin entre les lignes (charte : pas de fond alterné)
                 pdf.Line(left, y + 5, right, y + 5, border, 0.5f);
 
-                string printName = item.Printer.NomAffiche.Length > 16 ? item.Printer.NomAffiche.Substring(0, 14) + ".." : item.Printer.NomAffiche;
-                pdf.Text(printName, colName, y, sizeText, black);
+                // Textes coupés à la largeur réelle de la colonne (marge de 6 pt)
+                pdf.Text(pdf.Fit(item.Printer.NomAffiche, colSerial - colName - 6, sizeText), colName, y, sizeText, black);
 
                 string snDisplay = !string.IsNullOrWhiteSpace(item.SerialNumber)
                     ? item.SerialNumber
                     : (!string.IsNullOrWhiteSpace(item.Printer.SerialNumber) ? item.Printer.SerialNumber : "-");
-                if (snDisplay.Length > 13) snDisplay = snDisplay.Substring(0, 11) + "..";
-                pdf.Text(snDisplay, colSerial, y, sizeText, slate);
+                pdf.Text(pdf.Fit(snDisplay, colIp - colSerial - 6, sizeText), colSerial, y, sizeText, slate);
 
-                pdf.Text(item.Printer.AdresseIp, colIp, y, sizeText, black);
+                pdf.Text(pdf.Fit(item.Printer.AdresseIp, colLocation - colIp - 6, sizeText), colIp, y, sizeText, black);
 
                 string locName = item.Printer.Emplacement?.Nom ?? "Non défini";
-                if (locName.Length > 12) locName = locName.Substring(0, 10) + "..";
-                pdf.Text(locName, colLocation, y, sizeText, black);
+                pdf.Text(pdf.Fit(locName, colStatus - colLocation - 6, sizeText), colLocation, y, sizeText, black);
 
                 pdf.Text(item.PingSuccess ? "En ligne" : "Hors ligne", colStatus, y, sizeText, item.PingSuccess ? success : danger, bold: true);
 
@@ -530,8 +528,8 @@ namespace Autoprint.Server.Services
                     }
                     values.Add(val);
                 }
-                if (values.Count > 0) pdf.Text(values[0], colMetric1, y, sizeText, black);
-                if (values.Count > 1) pdf.Text(values[1], colMetric2, y, sizeText, black);
+                if (values.Count > 0) pdf.Text(pdf.Fit(values[0], colMetric2 - colMetric1 - 6, sizeText), colMetric1, y, sizeText, black);
+                if (values.Count > 1) pdf.Text(pdf.Fit(values[1], right - colMetric2, sizeText), colMetric2, y, sizeText, black);
             }
 
             if (data.Count == 0) pdf.Text("Aucune imprimante dans le périmètre de ce rapport.", left, y + 20, sizeText, textMuted);

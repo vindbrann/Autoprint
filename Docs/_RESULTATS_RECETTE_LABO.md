@@ -57,6 +57,7 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 - **Console, revue de toutes les grilles et fenêtres de création** (rôle, identifiants SNMP, rapport, profil SNMP, utilisateur, marque, modèle) : conformes. Corrigés : boutons d'action des grilles harmonisés (icônes discrètes, suppression en rouge), colonne Actions des utilisateurs figée à droite, titre « Champs lus » du profil SNMP à la taille des autres titres ; installeur : champ du serveur SQL élargi.
 - **B85** trouvé : une marque en double était acceptée (deux « Labo ») ; marques, modèles et lieux en double désormais refusés (409), refus affiché par la fenêtre.
 - **B86** : rapport PDF aligné sur la charte graphique (en-tête, pavés de résumé, tableau épuré, pied de page numéroté) ; lot E-mail 15/15 (NR-06 : vrai PDF, 39 Ko), rendu validé visuellement.
+- **B87** : rapport PDF en IBM Plex Sans (renommée « Autoprint Sans »), généré depuis CLT-TEST (« Envoyer maintenant », capture SMTP) : 46 Ko, polices intégrées AutoprintSans-Regular/Bold, rendu validé.
 
 ## Campagne finale (branche `feature/charte-graphique`, installeur 26.11.11.1) — 11-12/11/2026
 
