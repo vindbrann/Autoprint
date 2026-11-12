@@ -82,6 +82,8 @@ namespace Autoprint.Server.Controllers
             {
                 return BadRequest("Erreur : Aucune marque sélectionnée (MarqueId = 0).");
             }
+            var doublon = await DoublonAsync(inputModele.Nom, inputModele.MarqueId, id);
+            if (doublon != null) return doublon;
 
             bool marqueExiste = await _context.Marques.AnyAsync(m => m.Id == inputModele.MarqueId);
             if (!marqueExiste)
@@ -158,6 +160,17 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
+        // Même nom de modèle pour la même marque refusé (recette du 12/11 : les doublons étaient acceptés)
+        private async Task<ActionResult?> DoublonAsync(string? nom, int marqueId, int idExclu)
+        {
+            var n = (nom ?? "").Trim();
+            if (n.Length == 0) return BadRequest(new { message = "Nom du modèle obligatoire." });
+            var upper = n.ToUpper();
+            if (await _context.Modeles.AnyAsync(m => m.Id != idExclu && m.MarqueId == marqueId && m.Nom.ToUpper() == upper))
+                return Conflict(new { message = $"Le modèle « {n} » existe déjà pour cette marque." });
+            return null;
+        }
+
         [HttpPost]
         [Authorize(Policy = "MODEL_WRITE")]
         public async Task<ActionResult<Modele>> PostModele(Modele modele)
@@ -166,6 +179,8 @@ namespace Autoprint.Server.Controllers
 
             if (!await _context.Marques.AnyAsync(m => m.Id == modele.MarqueId))
                 return BadRequest($"Marque ID {modele.MarqueId} introuvable.");
+            var doublon = await DoublonAsync(modele.Nom, modele.MarqueId, 0);
+            if (doublon != null) return doublon;
 
             modele.Marque = null!;
             modele.Pilote = null;

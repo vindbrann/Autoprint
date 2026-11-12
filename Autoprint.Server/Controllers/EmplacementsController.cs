@@ -71,6 +71,8 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> PutEmplacement(int id, Emplacement emplacement)
         {
             if (id != emplacement.Id) return BadRequest();
+            var doublon = await DoublonAsync(emplacement.Nom, id);
+            if (doublon != null) return doublon;
 
             var existingLieu = await _context.Emplacements
                 .Include(e => e.Networks)
@@ -133,10 +135,24 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
+        // Deux lieux du même nom refusés (recette du 12/11 : doublons acceptés pour les marques ; même contrôle ici)
+        private async Task<ActionResult?> DoublonAsync(string? nom, int idExclu)
+        {
+            var n = (nom ?? "").Trim();
+            if (n.Length == 0) return BadRequest(new { message = "Nom du lieu obligatoire." });
+            var upper = n.ToUpper();
+            if (await _context.Emplacements.AnyAsync(e => e.Id != idExclu && e.Nom.ToUpper() == upper))
+                return Conflict(new { message = $"Le lieu « {n} » existe déjà." });
+            return null;
+        }
+
         [HttpPost]
         [Authorize(Policy = "LOCATION_WRITE")]
         public async Task<ActionResult<Emplacement>> PostEmplacement(Emplacement emplacement)
         {
+            var doublon = await DoublonAsync(emplacement.Nom, 0);
+            if (doublon != null) return doublon;
+
             _context.Emplacements.Add(emplacement);
 
             _auditService.LogAction(

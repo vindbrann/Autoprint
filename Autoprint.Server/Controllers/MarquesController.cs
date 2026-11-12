@@ -57,6 +57,8 @@ namespace Autoprint.Server.Controllers
         public async Task<IActionResult> PutMarque(int id, Marque marque)
         {
             if (id != marque.Id) return BadRequest();
+            var doublon = await DoublonAsync(marque.Nom, id);
+            if (doublon != null) return doublon;
 
             _context.Entry(marque).State = EntityState.Modified;
 
@@ -82,6 +84,9 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "BRAND_WRITE")]
         public async Task<ActionResult<Marque>> PostMarque(Marque marque)
         {
+            var doublon = await DoublonAsync(marque.Nom, 0);
+            if (doublon != null) return doublon;
+
             _context.Marques.Add(marque);
 
             _auditService.LogAction(
@@ -92,6 +97,17 @@ namespace Autoprint.Server.Controllers
 
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetMarque", new { id = marque.Id }, marque);
+        }
+
+        // Recette du 12/11 : une marque en double était acceptée (deux « Labo »). Comparaison sans tenir compte de la casse.
+        private async Task<ActionResult?> DoublonAsync(string? nom, int idExclu)
+        {
+            var n = (nom ?? "").Trim();
+            if (n.Length == 0) return BadRequest(new { message = "Nom de la marque obligatoire." });
+            var upper = n.ToUpper();
+            if (await _context.Marques.AnyAsync(m => m.Id != idExclu && m.Nom.ToUpper() == upper))
+                return Conflict(new { message = $"La marque « {n} » existe déjà." });
+            return null;
         }
 
         [HttpDelete("{id}")]
