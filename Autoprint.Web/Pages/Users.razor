@@ -95,18 +95,18 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="UserViewDto" Title="Actions" Sortable="false" Filterable="false" Width="120px" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="UserViewDto" Title="Actions" Sortable="false" Filterable="false" Width="110px" TextAlign="TextAlign.Center" Frozen="true" FrozenPosition="FrozenColumnPosition.Right" CssClass="ap-col-actions" HeaderCssClass="ap-col-actions">
                 <Template Context="u">
                     <AuthorizeView Policy="USER_WRITE">
                         <Authorized Context="auth">
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Class="rz-mr-1"
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small"
                                           Click="@(() => OuvrirModal(u))" />
                         </Authorized>
                     </AuthorizeView>
 
                     <AuthorizeView Policy="USER_DELETE">
                         <Authorized Context="auth">
-                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Medium"
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small"
                                           Click="@(() => DeleteUser(u))" Disabled="@u.IsAdUser"
                                           Tooltip="@(u.IsAdUser ? "Impossible de supprimer un compte AD ici" : "Supprimer")" />
                         </Authorized>

@@ -105,7 +105,7 @@ else
                 <Template Context="m">
                     <AuthorizeView Policy="MODEL_WRITE">
                         <Authorized>
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(m))" />
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(m))" />
                         </Authorized>
                         <NotAuthorized>
                             <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />

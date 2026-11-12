@@ -57,7 +57,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="220px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="RoleViewDto" Title="Actions" Width="140px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
                 <Template Context="role">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
 
@@ -66,7 +66,7 @@ else
                                 @* SuperAdmin : liaison AD réservée aux comptes « Administration » (le serveur refuse les autres, B58) *@
                                 @if (role.Name != "SuperAdmin" || authAd.User.HasClaim("Permission", "ADMIN_ACCESS"))
                                 {
-                                    <RadzenButton Text="Lier AD" Icon="domain" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small"
+                                    <RadzenButton Icon="domain" title="Lier à des groupes Active Directory" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small"
                                                   Click="@(() => OpenAdModal(role.Id, role.Name))"
                                                   Tooltip="Gérer la liaison Active Directory" />
                                 }
@@ -77,12 +77,12 @@ else
                         {
                             <AuthorizeView Policy="ROLE_WRITE">
                                 <Authorized Context="authEdit">
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OpenRoleModal(role.Id))" />
                                 </Authorized>
                             </AuthorizeView>
                             <AuthorizeView Policy="ROLE_WRITE">
                                 <Authorized Context="authDelete">
-                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => DeleteRole(role))" />
                                 </Authorized>
                             </AuthorizeView>
                         }

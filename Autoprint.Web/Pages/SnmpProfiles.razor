@@ -73,8 +73,8 @@ else
             <RadzenDataGridColumn TItem="SnmpProfile" Title="Actions" Sortable="false" Filterable="false" Width="150px" TextAlign="TextAlign.Center">
                 <Template Context="p">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.Center">
-                        <RadzenButton Icon="@(canWrite ? "edit" : "visibility")" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(p))" Tooltip="@(canWrite ? "Modifier" : "Consulter")" />
-                        <RadzenButton Icon="file_download" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => ExporterProfil(p))" Tooltip="Exporter JSON" />
+                        <RadzenButton Icon="@(canWrite ? "edit" : "visibility")" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(p))" Tooltip="@(canWrite ? "Modifier" : "Consulter")" />
+                        <RadzenButton Icon="file_download" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => ExporterProfil(p))" Tooltip="Exporter JSON" />
                     </RadzenStack>
                 </Template>
             </RadzenDataGridColumn>
