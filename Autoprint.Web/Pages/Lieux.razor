@@ -120,7 +120,7 @@ else
                 <Template Context="l">
                     <AuthorizeView Policy="LOCATION_WRITE">
                         <Authorized>
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(l))" />
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(l))" />
                         </Authorized>
                         <NotAuthorized>
                             <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />

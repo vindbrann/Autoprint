@@ -80,9 +80,9 @@ else
             <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
                 <Template Context="s">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
-                        <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" title="Envoyer maintenant (Test)" />
-                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(s))" Tooltip="Modifier" title="Modifier" />
-                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => Supprimer(s))" Tooltip="Supprimer" title="Supprimer" />
+                        <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" title="Envoyer maintenant (Test)" />
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(s))" Tooltip="Modifier" title="Modifier" />
+                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => Supprimer(s))" Tooltip="Supprimer" title="Supprimer" />
                     </RadzenStack>
                 </Template>
             </RadzenDataGridColumn>
