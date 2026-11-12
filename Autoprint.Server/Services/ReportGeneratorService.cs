@@ -358,50 +358,85 @@ namespace Autoprint.Server.Services
 
             const float left = 20f;
             const float right = PdfReportWriter.PageWidth - 20f;
-            const float sizeTitle = 18f, sizeSubtitle = 11f, sizeText = 8.5f;
-            var black = SKColors.Black;
-            var gray = SKColors.Gray;
-            var slate = SKColors.DarkSlateGray;
+            const float sizeTitle = 18f, sizeText = 8.5f;
+
+            // Charte graphique Autoprint (B77, mêmes valeurs que la console en thème clair)
+            var primary = SKColor.Parse("#1d5fcf");
+            var text = SKColor.Parse("#161a21");
+            var textSecondary = SKColor.Parse("#4a5262");
+            var textMuted = SKColor.Parse("#646c7c");
+            var border = SKColor.Parse("#e1e4e9");
+            var borderStrong = SKColor.Parse("#858d9b");
+            var surfaceRaised = SKColor.Parse("#eef0f3");
+            var success = SKColor.Parse("#1b7a43");
+            var danger = SKColor.Parse("#c0302b");
+            var warning = SKColor.Parse("#9a5200");
+            var black = text;
+            var slate = textSecondary;
 
             using var pdf = new PdfReportWriter($"Rapport Autoprint - {schedule.ReportName}");
 
-            // 1. Bandeau de titre
-            pdf.FillRect(left, 20, right - left, 50, new SKColor(13, 110, 253)); // bleu « primary » de Bootstrap
-            pdf.TextTop("AUTOPRINT - RAPPORT D'ACTIVITÉ", 30, 30, sizeTitle, SKColors.White, bold: true);
+            void DrawFooter()
+            {
+                pdf.Line(left, PdfReportWriter.PageHeight - 30, right, PdfReportWriter.PageHeight - 30, border);
+                pdf.Text("Autoprint", left, PdfReportWriter.PageHeight - 18, 7.5f, textMuted, bold: true);
+                pdf.TextRight($"Page {pdf.PageNumber}", right, PdfReportWriter.PageHeight - 18, 7.5f, textMuted);
+            }
 
-            // 2. Résumé
-            pdf.Text($"Rapport : {schedule.ReportName}", left, 95, sizeSubtitle, black, bold: true);
-            pdf.Text($"Généré le : {DateTime.Now:dd/MM/yyyy HH:mm}", left, 115, sizeText, gray);
-            pdf.Text($"Fréquence : {schedule.Frequency}", left, 130, sizeText, gray);
+            // 1. En-tête : filet bleu, marque, titre et informations du rapport
+            pdf.FillRect(left, 20, right - left, 3, primary);
+            pdf.Text("Autoprint", left, 44, 10f, primary, bold: true);
+            pdf.TextRight($"Généré le {DateTime.Now:dd/MM/yyyy à HH:mm}", right, 44, sizeText, textMuted);
+            pdf.Text("Rapport d'activité", left, 70, sizeTitle, text, bold: true);
+            pdf.Text($"{schedule.ReportName}  ·  {schedule.Frequency}", left, 87, 9.5f, textSecondary);
 
             int totalCount = data.Count;
             int onlineCount = data.Count(d => d.PingSuccess);
             int offlineCount = totalCount - onlineCount;
             int alertCount = data.Count(d => d.Alerts.Any());
 
-            float summaryY = 150;
+            float summaryY = 104;
+
+            // 2. Résumé en pavés, comme le tableau de bord de la console
+            void DrawTiles(IReadOnlyList<(string Label, string Value, SKColor Color)> tiles)
+            {
+                const float gap = 8f, height = 42f;
+                float width = (right - left - gap * (tiles.Count - 1)) / tiles.Count;
+                for (int i = 0; i < tiles.Count; i++)
+                {
+                    float x = left + i * (width + gap);
+                    pdf.FillRoundRect(x, summaryY, width, height, 6, surfaceRaised);
+                    pdf.Text(tiles[i].Label, x + 10, summaryY + 15, 7.5f, textMuted);
+                    pdf.Text(tiles[i].Value, x + 10, summaryY + 33, 15f, tiles[i].Color, bold: true);
+                }
+                summaryY += height + 10;
+            }
 
             if (metrics.Contains("FleetSummary") || !metrics.Contains("TotalPages"))
             {
-                pdf.Text($"Total imprimantes : {totalCount}  |  En ligne : {onlineCount}  |  Hors ligne : {offlineCount}  |  En alerte : {alertCount}",
-                    left, summaryY, sizeText, slate, bold: true);
-                summaryY += 16;
+                DrawTiles(new[]
+                {
+                    ("Imprimantes", totalCount.ToString("N0"), text),
+                    ("En ligne", onlineCount.ToString("N0"), success),
+                    ("Hors ligne", offlineCount.ToString("N0"), offlineCount > 0 ? danger : text),
+                    ("En alerte", alertCount.ToString("N0"), alertCount > 0 ? warning : text)
+                });
             }
 
+            var extra = new List<(string Label, string Value, SKColor Color)>();
             if (metrics.Contains("TotalPages"))
             {
                 long totalPages = data.Where(d => d.PingSuccess).Sum(d => d.PageCounter);
-                pdf.Text($"Volume total d'impressions du parc : {totalPages:N0} pages", left, summaryY, sizeText, SKColors.DarkBlue, bold: true);
-                summaryY += 16;
+                extra.Add(("Volume total d'impressions du parc", $"{totalPages:N0} pages", primary));
             }
-
             if (metrics.Contains("Predictions"))
             {
                 int predictionThreshold = schedule.PredictionThresholdDays;
                 int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
-                pdf.Text($"Alertes épuisement toner proche (<= {predictionThreshold} jours) : {nearExhaustionCount}", left, summaryY, sizeText, SKColors.DarkRed, bold: true);
-                summaryY += 16;
+                extra.Add(($"Toners bientôt épuisés (≤ {predictionThreshold} jours)", nearExhaustionCount.ToString("N0"), nearExhaustionCount > 0 ? danger : text));
             }
+            if (extra.Count > 0) DrawTiles(extra);
+            summaryY += 4;
 
             // Positions des colonnes (page de 595 points, marges de 20)
             const float colName = 20, colSerial = 125, colIp = 210, colLocation = 290, colStatus = 370, colMetric1 = 430, colMetric2 = 505;
@@ -414,17 +449,16 @@ namespace Autoprint.Server.Services
             // En-tête du tableau, répété en haut de chaque page (le trait gris est au-dessus des intitulés : B36)
             float DrawTableHeader(float top)
             {
-                pdf.Line(left, top, right, top, SKColors.DarkGray);
                 float baseline = top + 12;
-                pdf.Text("Nom imprimante", colName, baseline, sizeText, black, bold: true);
-                pdf.Text("N° série", colSerial, baseline, sizeText, black, bold: true);
-                pdf.Text("Adresse IP", colIp, baseline, sizeText, black, bold: true);
-                pdf.Text("Emplacement", colLocation, baseline, sizeText, black, bold: true);
-                pdf.Text("Statut", colStatus, baseline, sizeText, black, bold: true);
-                if (columnMetrics.Count > 0) pdf.Text(MapMetricHeader(columnMetrics[0]), colMetric1, baseline, sizeText, black, bold: true);
-                if (columnMetrics.Count > 1) pdf.Text(MapMetricHeader(columnMetrics[1]), colMetric2, baseline, sizeText, black, bold: true);
-                float bottom = baseline + 5;
-                pdf.Line(left, bottom, right, bottom, black);
+                pdf.Text("Imprimante", colName, baseline, sizeText, textSecondary, bold: true);
+                pdf.Text("N° série", colSerial, baseline, sizeText, textSecondary, bold: true);
+                pdf.Text("Adresse IP", colIp, baseline, sizeText, textSecondary, bold: true);
+                pdf.Text("Lieu", colLocation, baseline, sizeText, textSecondary, bold: true);
+                pdf.Text("Statut", colStatus, baseline, sizeText, textSecondary, bold: true);
+                if (columnMetrics.Count > 0) pdf.Text(MapMetricHeader(columnMetrics[0]), colMetric1, baseline, sizeText, textSecondary, bold: true);
+                if (columnMetrics.Count > 1) pdf.Text(MapMetricHeader(columnMetrics[1]), colMetric2, baseline, sizeText, textSecondary, bold: true);
+                float bottom = baseline + 6;
+                pdf.Line(left, bottom, right, bottom, borderStrong);
                 return bottom;
             }
 
@@ -435,15 +469,16 @@ namespace Autoprint.Server.Services
             for (int index = 0; index < data.Count; index++)
             {
                 var item = data[index];
-                y += 15;
-                if (y > PdfReportWriter.PageHeight - 40)
+                y += 16;
+                if (y > PdfReportWriter.PageHeight - 46)
                 {
+                    DrawFooter();
                     pdf.NewPage();
-                    y = DrawTableHeader(30) + 15;
+                    y = DrawTableHeader(30) + 16;
                 }
 
-                // Fond alterné
-                if (index % 2 == 1) pdf.FillRect(left, y - 11, right - left, 15, new SKColor(245, 245, 245));
+                // Séparateur fin entre les lignes (charte : pas de fond alterné)
+                pdf.Line(left, y + 5, right, y + 5, border, 0.5f);
 
                 string printName = item.Printer.NomAffiche.Length > 16 ? item.Printer.NomAffiche.Substring(0, 14) + ".." : item.Printer.NomAffiche;
                 pdf.Text(printName, colName, y, sizeText, black);
@@ -460,7 +495,7 @@ namespace Autoprint.Server.Services
                 if (locName.Length > 12) locName = locName.Substring(0, 10) + "..";
                 pdf.Text(locName, colLocation, y, sizeText, black);
 
-                pdf.Text(item.PingSuccess ? "En ligne" : "Hors ligne", colStatus, y, sizeText, item.PingSuccess ? SKColors.Green : SKColors.Red, bold: true);
+                pdf.Text(item.PingSuccess ? "En ligne" : "Hors ligne", colStatus, y, sizeText, item.PingSuccess ? success : danger, bold: true);
 
                 // Deux premières mesures choisies, dans l'ordre
                 var values = new List<string>();
@@ -499,6 +534,8 @@ namespace Autoprint.Server.Services
                 if (values.Count > 1) pdf.Text(values[1], colMetric2, y, sizeText, black);
             }
 
+            if (data.Count == 0) pdf.Text("Aucune imprimante dans le périmètre de ce rapport.", left, y + 20, sizeText, textMuted);
+            DrawFooter();
             return pdf.ToArray();
         }
 
