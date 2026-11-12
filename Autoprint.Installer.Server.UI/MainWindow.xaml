@@ -156,16 +156,16 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="70"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="TxtSqlServer" Text="localhost" Padding="3"/>
+                                    <TextBox x:Name="TxtSqlServer" Text="localhost"/>
                                     <TextBlock Grid.Column="1" Text="Port :" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" Padding="3" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
+                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
                                 </Grid>
                                 <TextBlock Text="Ex. : sqlsrv01 ou sqlsrv01\SQLEXPRESS. Port facultatif (vide = port par défaut ou instance nommée)."
                                            Foreground="{DynamicResource Autoprint.Brush.TextMuted}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <TextBlock Grid.Row="1" Text="Nom de la base :" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb" Padding="3"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb"/>
                         </Grid>
 
                         <Separator Background="{DynamicResource Autoprint.Brush.Divider}" Margin="0,5,0,10"/>
@@ -188,10 +188,10 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Text="Utilisateur (SA) :" VerticalAlignment="Center" Margin="0,0,0,10"/>
-                                <TextBox Grid.Column="1" x:Name="TxtSqlUser" Text="sa" Padding="3" Margin="0,0,0,10"/>
+                                <TextBox Grid.Column="1" x:Name="TxtSqlUser" Text="sa" Margin="0,0,0,10"/>
 
                                 <TextBlock Grid.Row="1" Text="Mot de passe :" VerticalAlignment="Center"/>
-                                <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlPass" Padding="3"/>
+                                <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlPass"/>
                             </Grid>
                         </Border>
 
@@ -210,12 +210,12 @@
                         <ColumnDefinition Width="100"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Port HTTP :" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" Padding="5" MaxLength="5"/>
+                    <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" MaxLength="5"/>
                 </Grid>
                 <TextBlock Text="Note : L'installeur configurera le pare-feu automatiquement." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0"/>
 
-                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5"/>
-                <TextBox x:Name="TxtPublicHost" Padding="5" Width="350" HorizontalAlignment="Left"/>
+                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5" TextWrapping="Wrap"/>
+                <TextBox x:Name="TxtPublicHost" MaxWidth="520" HorizontalAlignment="Stretch"/>
                 <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé). Changement de nom en cours : saisissez les deux, séparés par « ; » (nouveau;ancien), et retirez l'ancien plus tard dans la console (Paramètres > Sécurité)." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 

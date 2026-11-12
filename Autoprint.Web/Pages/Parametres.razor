@@ -682,29 +682,56 @@ else
 
     private async Task RotateAgentKey()
     {
-        var message = agentKeyTransitionDays > 0
-            ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
-            : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
-        if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
-
+        if (rotatingAgentKey) return; // double clic : une seule rotation à la fois
         rotatingAgentKey = true;
         try
         {
-            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays });
-            if (!response.IsSuccessStatusCode)
+            // Transition déjà en cours (recette du 12/11, double clic) : une seule « ancienne » clé est gardée, la clé d'origine
+            // serait refusée tout de suite. Le serveur refuse alors la rotation (409) sauf confirmation explicite (Force).
+            bool transitionEnCours = agentKeyPreviousUntil != null && agentKeyPreviousUntil > DateTime.UtcNow;
+            if (transitionEnCours)
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
-                return;
+                if (!await ConfirmerRotationForcee(agentKeyPreviousUntil!.Value)) return;
             }
+            else
+            {
+                var message = agentKeyTransitionDays > 0
+                    ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
+                    : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
+                if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays, Force = transitionEnCours });
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                // Transition lancée entre-temps (autre onglet, autre administrateur) : on demande la confirmation explicite
+                var conflict = await response.Content.ReadFromJsonAsync<RotationConflict>();
+                if (!await ConfirmerRotationForcee(conflict?.TransitionUntil ?? DateTime.UtcNow)) return;
+                response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays, Force = true });
+            }
+            if (!await response.CheckAsync(NotificationService, "Nouvelle clé refusée")) return;
+
             var result = await response.Content.ReadFromJsonAsync<AgentKeyRotationResult>();
             agentKeyPreviousUntil = result?.PreviousValidUntil;
-            await DialogService.Alert(
-                $"Nouvelle clé : {result?.Key}\n\nCopiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier la clé ».",
-                "Nouvelle clé d'API agent", new AlertOptions { OkButtonText = "J'ai copié la clé" });
+            var key = result?.Key ?? "";
+            await DialogService.OpenAsync("Nouvelle clé d'API agent", ds =>
+                @<div style="display: flex; flex-direction: column; gap: var(--ap-s3);">
+                    <div>Nouvelle clé :</div>
+                    <div class="ap-mono" style="font-size: 15px; user-select: all; word-break: break-all;">@key</div>
+                    <div class="ap-muted">Copiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier ».</div>
+                    <div style="display: flex; justify-content: flex-end;"><RadzenButton Text="J'ai copié la clé" ButtonStyle="ButtonStyle.Primary" Click="@(() => ds.Close(true))" /></div>
+                </div>, new DialogOptions { Width = "460px" });
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
         finally { rotatingAgentKey = false; }
     }
+
+    private async Task<bool> ConfirmerRotationForcee(DateTime until)
+        => await DialogService.Confirm(
+            $"Une transition de clé est déjà en cours (jusqu'au {until.ToLocalTime():dd/MM/yyyy HH:mm}). Générer encore une clé REFUSERA IMMÉDIATEMENT la clé d'origine : les postes qui ne l'ont pas encore remplacée perdront l'accès au serveur. Forcer quand même ?",
+            "Transition déjà en cours", new ConfirmOptions { OkButtonText = "Forcer une nouvelle clé", CancelButtonText = "Annuler" }) == true;
+
+    private class RotationConflict { public string? Message { get; set; } public DateTime? TransitionUntil { get; set; } }
 
     private class AgentKeyRotationResult { public string Key { get; set; } = ""; public DateTime? PreviousValidUntil { get; set; } }
 
