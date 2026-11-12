@@ -1,4 +1,4 @@
-@page "/reports"
+﻿@page "/reports"
 @using Autoprint.Shared
 @using Autoprint.Web.Services
 @using Radzen
@@ -8,14 +8,13 @@
 @inject NotificationService NotificationService
 @inject CustomAuthStateProvider AuthProvider
 
-<PageTitle>Rapports d'Activité</PageTitle>
+<PageTitle>Rapports et planification</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        📊 Rapports & Planification
-    </RadzenText>
-    <RadzenButton Icon="add_circle" Text="Planifier un Rapport" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new ReportSchedule()))" title="Planifier un nouveau rapport" />
-</RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Rapports et planification</h1></div>
+    <span class="ap-grow"></span>
+    <RadzenButton Icon="add" Text="Planifier un rapport" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new ReportSchedule()))" title="Planifier un nouveau rapport" />
+</div>
 
 <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);" Class="rz-mb-4">
     Configurez des rapports réguliers contenant les métriques de votre choix (compteur de pages, niveaux de toner, taux de disponibilité, etc.) envoyés automatiquement par courriel à vos équipes au format PDF ou CSV.
@@ -28,15 +27,16 @@
 else if (!schedules.Any())
 {
     <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
-        Aucun rapport planifié. Cliquez sur "Planifier un Rapport" ci-dessus pour démarrer.
+        Aucun rapport planifié. Cliquez sur « Planifier un rapport » ci-dessus pour démarrer.
     </RadzenAlert>
 }
 else
 {
-    <RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;">
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@schedules" TItem="ReportSchedule" AllowPaging="true" PageSize="10" Style="width: 100%;"
+                        AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
         <Columns>
             <RadzenDataGridColumn TItem="ReportSchedule" Property="ReportName" Title="Nom du Rapport" />
-            <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px">
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Fréquence" Width="200px" Sortable="false" Filterable="false">
                 <Template Context="s">
                     @if (s.Frequency == "Quotidien")
                     {
@@ -56,7 +56,7 @@ else
                     }
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="ReportSchedule" Property="Format" Title="Format" Width="100px" TextAlign="TextAlign.Center" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="s">
                     <RadzenBadge BadgeStyle="@(s.Format == "PDF" ? BadgeStyle.Danger : BadgeStyle.Success)" Text="@s.Format" />
                 </Template>
@@ -77,17 +77,17 @@ else
                     @(s.NextRunAt.HasValue ? s.NextRunAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center">
+            <RadzenDataGridColumn TItem="ReportSchedule" Title="Actions" Width="160px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
                 <Template Context="s">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" JustifyContent="JustifyContent.Center">
-                        <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" title="Envoyer maintenant (Test)" />
-                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => OuvrirModal(s))" Tooltip="Modifier" title="Modifier" />
-                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => Supprimer(s))" Tooltip="Supprimer" title="Supprimer" />
+                        <RadzenButton Icon="mail" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => TesterEnvoi(s))" Tooltip="Envoyer maintenant (Test)" title="Envoyer maintenant (Test)" />
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(s))" Tooltip="Modifier" title="Modifier" />
+                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => Supprimer(s))" Tooltip="Supprimer" title="Supprimer" />
                     </RadzenStack>
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {

@@ -14,130 +14,121 @@
 }
 else
 {
+        @* Maquette « modales » (retour de recette du 11/11) : sections sans cadre, options en lignes de réglage, action principale nommée *@
     <RadzenTemplateForm Data="@formData" Submit="@OnSubmit" TItem="object">
-        <RadzenStack Gap="1rem">
+        <div class="ap-dlg">
+            @if (isAdUser)
+            {
+                <div class="ap-name-note" style="margin-bottom: var(--ap-s2);"><RadzenIcon Icon="info" />Compte Active Directory : nom, e-mail et mot de passe sont gérés dans l'annuaire</div>
+            }
 
-            <RadzenRow RowGap="1rem">
-                <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Identifiant (Login)" Component="Username" />
-                    <RadzenTextBox Name="Username" @bind-Value="@formData.Username" Style="width: 100%;"
-                                   Disabled="@editMode" Placeholder="ex: jdupont" />
-                    @if (!editMode)
-                    {
-                        <RadzenRequiredValidator Component="Username" Text="L'identifiant est requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                    }
-                </RadzenColumn>
-
-                <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Rôle / Groupe" Component="Role" />
-                    <RadzenDropDown Name="Role" @bind-Value="@formData.RoleId"
-                                    Data="@availableRoles" TextProperty="Name" ValueProperty="Id"
-                                    Style="width: 100%;" Placeholder="Sélectionner un rôle..." />
-
-                    <RadzenRequiredValidator Component="Role" Text="Le rôle est requis" Popup="false" DefaultValue="0" Style="display: block; margin-top: 5px;" />
-                </RadzenColumn>
-            </RadzenRow>
-
-            <RadzenRow RowGap="1rem">
-                <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Nom Affiché" Component="DisplayName" />
-                    <RadzenTextBox Name="DisplayName" @bind-Value="@formData.DisplayName" Style="width: 100%;"
-                                   Disabled="@isAdUser" />
-                    @if (isAdUser)
-                    {
-                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-info);">
-                            <RadzenIcon Icon="info" Style="font-size: 0.8rem" /> Géré par Active Directory
-                        </RadzenText>
-                    }
-                    else
-                    {
-                        <RadzenRequiredValidator Component="DisplayName" Text="Le nom est requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                    }
-                </RadzenColumn>
-
-                <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Email (facultatif)" Component="Email" />
-                    <RadzenTextBox Name="Email" @bind-Value="@formData.Email" Style="width: 100%;"
-                                   Disabled="@isAdUser" Placeholder="jean.dupont@entreprise.com" />
-                    @if (!isAdUser)
-                    {
-                        @* Facultatif : le compte admin d'origine n'en a pas et devait pouvoir être modifié (B58) ; sans e-mail, pas de « Mot de passe oublié » *@
-                        @if (!string.IsNullOrWhiteSpace(formData.Email))
+            <div class="ap-dlg-group" style="padding-top: 0;">
+                <h3>Compte</h3>
+                <div class="ap-dlg-grid">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Identifiant" Component="Username" />
+                        <RadzenTextBox Name="Username" @bind-Value="@formData.Username" Style="width: 100%;" Class="ap-mono" Disabled="@editMode" Placeholder="jdupont" />
+                        @if (!editMode)
                         {
-                            <RadzenEmailValidator Component="Email" Text="Format email invalide" Popup="false" Style="display: block; margin-top: 5px;" />
+                            <RadzenRequiredValidator Component="Username" Text="Saisissez un identifiant" Popup="false" />
                         }
-                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Sans e-mail, « Mot de passe oublié » n'est pas disponible pour ce compte.</RadzenText>
-                    }
-                </RadzenColumn>
-            </RadzenRow>
+                        else
+                        {
+                            <span class="ap-help">L'identifiant ne peut pas être modifié</span>
+                        }
+                    </div>
+                    <div class="ap-field">
+                        <RadzenLabel Text="Rôle" Component="Role" />
+                        <RadzenDropDown Name="Role" @bind-Value="@formData.RoleId" Data="@availableRoles" TextProperty="Name" ValueProperty="Id" Style="width: 100%;" Placeholder="Choisir un rôle" />
+                        <RadzenRequiredValidator Component="Role" Text="Choisissez un rôle" Popup="false" DefaultValue="0" />
+                    </div>
+                </div>
+            </div>
 
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-my-2">
-                <RadzenIcon Icon="lock" />
-                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">Sécurité</RadzenText>
-                <div style="flex: 1; height: 1px; background-color: var(--rz-border-color);"></div>
-            </RadzenStack>
+            <div class="ap-dlg-group">
+                <h3>Identité</h3>
+                <div class="ap-dlg-grid">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Nom affiché" Component="DisplayName" />
+                        <RadzenTextBox Name="DisplayName" @bind-Value="@formData.DisplayName" Style="width: 100%;" Disabled="@isAdUser" Placeholder="Jean Dupont" />
+                        @if (!isAdUser)
+                        {
+                            <RadzenRequiredValidator Component="DisplayName" Text="Saisissez le nom affiché" Popup="false" />
+                        }
+                    </div>
+                    <div class="ap-field">
+                        <RadzenLabel Component="Email"><ChildContent>E-mail <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                        <RadzenTextBox Name="Email" @bind-Value="@formData.Email" Style="width: 100%;" Disabled="@isAdUser" Placeholder="jean.dupont@mondomaine.fr" />
+                        @if (!isAdUser)
+                        {
+                            @* Facultatif : le compte admin d'origine n'en a pas et devait pouvoir être modifié (B58) ; sans e-mail, pas de « Mot de passe oublié » *@
+                            @if (!string.IsNullOrWhiteSpace(formData.Email))
+                            {
+                                <RadzenEmailValidator Component="Email" Text="Adresse e-mail invalide" Popup="false" />
+                            }
+                            <span class="ap-help">Sans e-mail, « Mot de passe oublié » n'est pas disponible</span>
+                        }
+                    </div>
+                </div>
+            </div>
 
-            <RadzenRow RowGap="1rem">
-                <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenLabel Text="Mot de passe" Component="Password" />
-                    <RadzenPassword Name="Password" @bind-Value="@formData.Password" Style="width: 100%;"
-                                    Disabled="@isAdUser"
-                                    Placeholder="@(isAdUser ? "Géré par Windows" : (editMode ? "Laisser vide pour ne pas changer" : ""))" />
+            @if (!isAdUser)
+            {
+                <div class="ap-dlg-group">
+                    <h3>Mot de passe</h3>
+                    <div class="ap-field">
+                        <RadzenLabel Text="@(editMode ? "Nouveau mot de passe" : "Mot de passe")" Component="Password" />
+                        <RadzenPassword Name="Password" @bind-Value="@formData.Password" Style="width: 100%;" AutoComplete="false" Placeholder="@(editMode ? "Inchangé si vide" : "")" />
+                        @if (!editMode)
+                        {
+                            <RadzenRequiredValidator Component="Password" Text="Saisissez un mot de passe" Popup="false" />
+                            <RadzenLengthValidator Component="Password" Min="@PasswordPolicy.MinLength" Text="@PasswordPolicy.MinLengthMessage" Popup="false" />
+                        }
+                        @if (!string.IsNullOrEmpty(passwordError))
+                        {
+                            <span class="ap-help is-bad">@passwordError</span>
+                        }
+                        else
+                        {
+                            <span class="ap-help">@PasswordPolicy.MinLength caractères au minimum</span>
+                        }
+                    </div>
+                    <div class="ap-opt-row" style="padding-bottom: 0;">
+                        <div class="txt">
+                            <div class="t">Changement obligatoire à la prochaine connexion</div>
+                            <div class="d">L'utilisateur choisit son propre mot de passe avant d'accéder à la console</div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@formData.ForceChangePassword" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Changement obligatoire à la prochaine connexion" } })" />
+                    </div>
+                </div>
+            }
 
-                    @if (!editMode && !isAdUser)
-                    {
-                        <RadzenRequiredValidator Component="Password" Text="Mot de passe requis" Popup="false" Style="display: block; margin-top: 5px;" />
-                        <RadzenLengthValidator Component="Password" Min="@PasswordPolicy.MinLength" Text="@PasswordPolicy.MinLengthMessage" Popup="false" Style="display: block; margin-top: 5px;" />
-                    }
-                    @if (!string.IsNullOrEmpty(passwordError))
-                    {
-                        <div style="color: var(--rz-danger); font-size: 0.8rem; margin-top: 5px; display: block;">@passwordError</div>
-                    }
-                </RadzenColumn>
-
-                @if (!editMode)
-                {
-                    <RadzenColumn Size="12">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                            <RadzenCheckBox @bind-Value="@formData.ForceChangePassword" Name="ForceChangeNew" />
-                            <RadzenLabel Text="Changement du mot de passe obligatoire à la première connexion" Component="ForceChangeNew" />
-                        </RadzenStack>
-                    </RadzenColumn>
-                }
-
-                @if (editMode)
-                {
-                    <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenCard Variant="Variant.Outlined" Class="rz-p-2">
-                            <RadzenStack Gap="0.5rem">
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                    <RadzenSwitch @bind-Value="@formData.IsActive" />
-                                    <RadzenLabel Text="Compte Actif" />
-                                </RadzenStack>
-
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                    <RadzenCheckBox @bind-Value="@formData.ForceChangePassword" Disabled="@isAdUser" Name="ForceChange" />
-                                    <RadzenLabel Text="Forcer changement MDP" Component="ForceChange" Style="@(isAdUser ? "color: var(--rz-text-disabled-color);" : "color: var(--rz-danger); font-weight: bold;")" />
-                                </RadzenStack>
-                            </RadzenStack>
-                        </RadzenCard>
-                    </RadzenColumn>
-                }
-            </RadzenRow>
+            @if (editMode)
+            {
+                <div class="ap-dlg-group" style="gap: 0;">
+                    <div class="ap-opt-row" style="padding-top: 0;">
+                        <div class="txt">
+                            <div class="t">Compte actif</div>
+                            <div class="d">Un compte désactivé ne peut plus se connecter ; ses sessions ouvertes sont fermées</div>
+                        </div>
+                        <RadzenSwitch @bind-Value="@formData.IsActive" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Compte actif" } })" />
+                    </div>
+                </div>
+            }
 
             @if (!string.IsNullOrEmpty(apiError))
             {
-                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="true" Close="@(() => apiError = null)" Class="rz-mt-4">
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="true" Close="@(() => apiError = null)">
                     <div style="white-space: pre-line;">@apiError</div>
                 </RadzenAlert>
             }
 
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="@(editMode ? "Enregistrer" : "Créer")" Icon="save" ButtonStyle="ButtonStyle.Success" />
-            </RadzenStack>
-
-        </RadzenStack>
+            <div class="ap-dlg-footer">
+                <span class="ap-grow"></span>
+                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="@(editMode ? "Enregistrer les modifications" : "Créer le compte")" ButtonStyle="ButtonStyle.Primary" />
+            </div>
+        </div>
     </RadzenTemplateForm>
 }
 
@@ -181,7 +172,7 @@ else
                 {
                     Username = UserToEdit!.Username,
                     DisplayName = UserToEdit.DisplayName,
-                    Email = UserToEdit.Email,
+                    Email = UserToEdit.Email ?? "",
                     IsActive = UserToEdit.IsActive,
                     // Valeur réelle du compte (avant : toujours décochée, donc effacée à chaque enregistrement)
                     ForceChangePassword = UserToEdit.ForceChangePassword,

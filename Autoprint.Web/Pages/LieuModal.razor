@@ -1,110 +1,85 @@
-﻿@using Autoprint.Shared
+﻿@using Autoprint.Web.Services
+@using Autoprint.Shared
 @using Radzen
 @using Radzen.Blazor
 @inject HttpClient Http
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@* Maquette « modales » (retour de recette du 11/11) : sections sans cadre, réseaux en liste simple avec ajout en ligne,
+   statut en ligne de réglage, action principale nommée *@
 <RadzenTemplateForm TItem="Emplacement" Data="@lieuEdit" Submit="@OnSubmit">
-    <RadzenStack Gap="1rem">
+    <div class="ap-dlg">
+        <div class="ap-dlg-group" style="padding-top: 0;">
+            <h3>Identification</h3>
+            <div class="ap-dlg-grid" style="grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);">
+                <div class="ap-field">
+                    <RadzenLabel Text="Nom du lieu" Component="Nom" />
+                    <RadzenTextBox Name="Nom" @bind-Value="@lieuEdit.Nom" Style="width: 100%;" Placeholder="Siège" />
+                    <RadzenRequiredValidator Component="Nom" Text="Saisissez le nom du lieu" Popup="true" />
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Component="Code"><ChildContent>Code <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                    <RadzenTextBox Name="Code" @bind-Value="@lieuEdit.Code" Style="width: 100%;" Class="ap-mono" Placeholder="SIEGE" />
+                </div>
+            </div>
+            <span class="ap-help">Le code sert au nommage automatique des imprimantes ({LIEU_CODE})</span>
+        </div>
 
-        <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
-            <RadzenColumn Size="8">
-                <RadzenLabel Text="Nom du Lieu" Component="Nom" />
-                <RadzenTextBox Name="Nom" @bind-Value="@lieuEdit.Nom" Style="width: 100%;" Placeholder="Ex: Siège Social" />
-                <RadzenRequiredValidator Component="Nom" Text="Le nom est requis" Popup="true" />
-            </RadzenColumn>
-            <RadzenColumn Size="4">
-                <RadzenLabel Text="Code" Component="Code" />
-                <RadzenTextBox Name="Code" @bind-Value="@lieuEdit.Code" Style="width: 100%;" Placeholder="Ex: SIEGE" />
-            </RadzenColumn>
-        </RadzenRow>
+        <div class="ap-dlg-group">
+            <h3>Réseaux</h3>
+            <div class="ap-field">
+                <RadzenLabel Text="Réseau principal" Component="PrimCidr" />
+                <RadzenTextBox Name="PrimCidr" @bind-Value="@primaryCidr" Placeholder="10.12.0.0/16" Style="width: 100%;" Class="ap-mono" />
+                <RadzenRegexValidator Component="PrimCidr" Text="Format attendu : adresse/masque, par exemple 10.12.0.0/16" Pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[12]?[0-9]|[0-9])$" Popup="true" />
+                <span class="ap-help">Impose le début de l'adresse IP des imprimantes de ce lieu et sert à reconnaître le lieu des postes</span>
+            </div>
+            <div class="ap-field">
+                <span class="rz-label">Réseaux secondaires <span class="ap-opt">(facultatif)</span></span>
+                @if (secondaryNetworks.Any())
+                {
+                    <div class="ap-pick-list">
+                        @foreach (var n in secondaryNetworks)
+                        {
+                            <div class="ap-pick-row">
+                                <div class="txt"><div class="t ap-mono">@n.CidrIpv4</div><div class="d">@n.Description</div></div>
+                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => SupprimerSecondaire(n))" title="@($"Retirer {n.CidrIpv4}")" aria-label="@($"Retirer {n.CidrIpv4}")" />
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="ap-net-add">
+                    <RadzenTextBox @bind-Value="@tempSecCidr" Placeholder="192.168.10.0/24" Class="ap-mono" aria-label="Réseau secondaire à ajouter" />
+                    <RadzenTextBox @bind-Value="@tempSecDesc" Placeholder="Description (ex. Wi-Fi)" aria-label="Description du réseau secondaire" />
+                    <RadzenButton Icon="add" Text="Ajouter" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AjouterSecondaire" Disabled="@string.IsNullOrWhiteSpace(tempSecCidr)" />
+                </div>
+            </div>
+        </div>
 
-        <RadzenFieldset Text="Réseau Principal">
-            <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
-                <RadzenColumn Size="12">
-                    <RadzenLabel Text="CIDR Principal" Component="PrimCidr" Style="font-weight: bold;" />
-                    <RadzenTextBox Name="PrimCidr" @bind-Value="@primaryCidr" Placeholder="10.x.x.x/24" Style="width: 100%;" />
-                    <RadzenRegexValidator Component="PrimCidr" Text="Format IP/Masque incorrect" Pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[12]?[0-9]|[0-9])$" Popup="true" />
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenFieldset>
+        <div class="ap-dlg-group" style="gap: 0;">
+            <div class="ap-opt-row" style="padding-top: 0;">
+                <div class="txt">
+                    <div class="t">Lieu actif</div>
+                    <div class="d">Un lieu inactif n'est plus proposé à la création d'imprimantes</div>
+                </div>
+                <RadzenSwitch @bind-Value="IsActive" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Lieu actif" } })" />
+            </div>
+        </div>
 
-        <RadzenFieldset Text="Réseaux Secondaires">
-            <RadzenStack Gap="0.5rem">
-
-                <RadzenCard Variant="Variant.Outlined" Class="rz-p-2" Style="background-color: var(--rz-base-100);">
-                    <RadzenRow AlignItems="AlignItems.End" RowGap="0.5rem">
-                        <RadzenColumn Size="5">
-                            <RadzenLabel Text="CIDR Secondaire" Component="SecCidr" Style="font-size: 0.8em;" />
-                            <RadzenTextBox Name="SecCidr" @bind-Value="@tempSecCidr" Placeholder="192.168.x.x/16" Style="width: 100%;" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="5">
-                            <RadzenLabel Text="Description" Component="SecDesc" Style="font-size: 0.8em;" />
-                            <RadzenTextBox Name="SecDesc" @bind-Value="@tempSecDesc" Placeholder="Ex: Wifi Campus" Style="width: 100%;" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="2">
-                            <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Secondary" Click="@AjouterSecondaire" ToolTip="Ajouter ce réseau secondaire" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                </RadzenCard>
-
-                <RadzenDataGrid @ref="networksGrid"
-                                Data="@secondaryNetworks"
-                                TItem="EmplacementNetwork"
-                                Density="Density.Compact"
-                                AllowSorting="false"
-                                Class="rz-mt-2"
-                                Style="min-height: 150px; border: 1px solid var(--rz-border-color);"
-                                EmptyText="Aucun réseau secondaire.">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="EmplacementNetwork" Property="CidrIpv4" Title="Réseau" Width="140px">
-                            <Template Context="n">
-                                <span style="color: var(--rz-text-secondary-color);">@n.CidrIpv4</span>
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="EmplacementNetwork" Property="Description" Title="Description" />
-                        <RadzenDataGridColumn TItem="EmplacementNetwork" Context="n" Filterable="false" Sortable="false" TextAlign="TextAlign.Center" Width="60px">
-                            <Template Context="n">
-                                <RadzenButton Icon="delete" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Click="@(() => SupprimerSecondaire(n))" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
-
-            </RadzenStack>
-        </RadzenFieldset>
-
-        <RadzenCard Variant="Variant.Flat" Class="rz-p-3" Style="background-color: var(--rz-base-200);">
-            <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenCheckBox @bind-Value="IsActive" Name="StatusCheck" TValue="bool" />
-                    <RadzenLabel Text="Site Actif (Opérationnel)" Component="StatusCheck" Style="cursor: pointer; font-weight: bold;" />
-                </RadzenStack>
-            </RadzenStack>
-        </RadzenCard>
-
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
+        <div class="ap-dlg-footer">
             @if (lieuEdit.Id != 0)
             {
                 <AuthorizeView Policy="LOCATION_DELETE">
                     <Authorized Context="authContext">
-                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Text="Supprimer" Click="@OnDelete" />
+                        <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Text" Text="Supprimer" Click="@OnDelete" />
                     </Authorized>
                 </AuthorizeView>
             }
-            else
-            {
-                <div></div>
-            }
-
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" />
-            </RadzenStack>
-        </RadzenStack>
-
-    </RadzenStack>
+            <span class="ap-grow"></span>
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="@(lieuEdit.Id == 0 ? "Créer le lieu" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" />
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {
@@ -115,7 +90,6 @@
     private string primaryCidr = "";
     private int primaryId = 0;
 
-    private RadzenDataGrid<EmplacementNetwork>? networksGrid;
     private List<EmplacementNetwork> secondaryNetworks = new();
     private string tempSecCidr = "";
     private string tempSecDesc = "";
@@ -190,14 +164,12 @@
         tempSecCidr = "";
         tempSecDesc = "";
 
-        if (networksGrid != null) await networksGrid.Reload();
     }
 
     private async Task SupprimerSecondaire(EmplacementNetwork net)
     {
         secondaryNetworks = secondaryNetworks.Where(n => n != net).ToList();
 
-        if (networksGrid != null) await networksGrid.Reload();
     }
 
     private async Task OnSubmit(Emplacement args)
@@ -232,17 +204,17 @@
                 lieuEdit.Networks.Add(reseauSecondaire);
             }
 
-            lieuEdit.Nom = lieuEdit.Nom?.Trim();
+            lieuEdit.Nom = lieuEdit.Nom?.Trim() ?? "";
             lieuEdit.Code = lieuEdit.Code?.Trim().ToUpper();
 
             if (lieuEdit.Id == 0)
             {
-                await Http.PostAsJsonAsync("api/Emplacements", lieuEdit);
+                if (!await (await Http.PostAsJsonAsync("api/Emplacements", lieuEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu créé.");
             }
             else
             {
-                await Http.PutAsJsonAsync($"api/Emplacements/{lieuEdit.Id}", lieuEdit);
+                if (!await (await Http.PutAsJsonAsync($"api/Emplacements/{lieuEdit.Id}", lieuEdit)).CheckAsync(NotificationService)) return;
                 NotificationService.Notify(NotificationSeverity.Success, "Succès", "Lieu mis à jour.");
             }
             DialogService.Close(true);
@@ -260,7 +232,7 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/Emplacements/{lieuEdit.Id}");
+                if (!await (await Http.DeleteAsync($"api/Emplacements/{lieuEdit.Id}")).CheckAsync(NotificationService)) return;
                 DialogService.Close(true);
             }
             catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }

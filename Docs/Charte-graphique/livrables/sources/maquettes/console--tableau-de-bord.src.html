@@ -1,0 +1,69 @@
+{{> head title="Tableau de bord · Console Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Console" ecran="Tableau de bord" iface="console" note="Poste de bureau, 1366 à 1920 px"}}
+<div class="ap-app">
+  {{> sidebar active="tableau"}}
+  <main class="ap-main"><div class="ap-main-inner">
+    <div class="ap-page-header">
+      <div class="titles"><h1>Tableau de bord</h1><span class="sub">Mis à jour à 14:32</span></div>
+      <span class="grow"></span>
+      <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-refresh"/></svg>Actualiser</button>
+    </div>
+
+    <section class="ap-card ap-service" aria-label="État du service">
+      <span class="svc"><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span><b>Spouleur Windows</b></span>
+      <span class="sep"></span>
+      <span class="svc"><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span><b>Service AutoprintSpooler</b></span>
+      <span class="sep"></span>
+      <span class="svc">Erreurs de synchronisation <b class="mono">0</b></span>
+      <span class="grow"></span>
+      <span class="svc">Version du serveur <span class="ap-label-tag">26.11.9.1</span></span>
+    </section>
+
+    <div class="ap-kpis">
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-print"/></svg>Parc actif</span><span class="k-value">312</span><span class="k-sub">6 archivées</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-developer_board"/></svg>Pilotes</span><span class="k-value">18</span><span class="k-sub">2 modèles sans pilote</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-location_on"/></svg>Lieux</span><span class="k-value">24</span><span class="k-sub">répartis sur 7 sites</span></div>
+      <div class="ap-kpi-card ap-kpi-card--danger"><span class="k-label"><svg class="ic"><use href="#i-cloud_off"/></svg>Imprimantes hors ligne</span><span class="k-value">3</span><span class="k-sub">depuis plus de 15 min</span></div>
+      <div class="ap-kpi-card ap-kpi-card--warning"><span class="k-label"><svg class="ic"><use href="#i-warning"/></svg>Alertes actives</span><span class="k-value">7</span><span class="k-sub">toner sous 15 %</span></div>
+    </div>
+
+    <div class="ap-dash-grid">
+      <section class="ap-card">
+        <div class="ap-card-head"><h2>Répartition par modèle</h2><span class="grow"></span><a class="ap-link" href="imprimantes.html">Voir le parc<svg class="ic ic-sm"><use href="#i-chevron_right"/></svg></a></div>
+        <div class="ap-card-body">
+          <div class="ap-total"><b>312</b><span>imprimantes, 16 modèles</span></div>
+          <div class="share-bar" role="img" aria-label="Répartition des 312 imprimantes par modèle">
+            <i style="width:31%;background:var(--ap-chart-1)"></i><i style="width:22%;background:var(--ap-chart-2)"></i><i style="width:16%;background:var(--ap-chart-3)"></i><i style="width:12%;background:var(--ap-chart-4)"></i><i style="width:9%;background:var(--ap-chart-5)"></i><i style="width:10%;background:var(--ap-chart-8)"></i>
+          </div>
+          <ul class="ap-models">
+            <li><i class="dot" style="background:var(--ap-chart-1)"></i><span class="nm">Ricoh IM C3000</span><span class="n">97</span><span class="p">31 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-2)"></i><span class="nm">HP LaserJet M507</span><span class="n">68</span><span class="p">22 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-3)"></i><span class="nm">Kyocera ECOSYS M3655idn</span><span class="n">50</span><span class="p">16 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-4)"></i><span class="nm">Canon iR-ADV C5535i</span><span class="n">37</span><span class="p">12 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-5)"></i><span class="nm">Brother HL-L6400DW</span><span class="n">29</span><span class="p">9 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-8)"></i><span class="nm">11 autres modèles</span><span class="n">31</span><span class="p">10 %</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="ap-card">
+        <div class="ap-card-head"><h2>Dernières activités</h2><span class="grow"></span><a class="ap-link" href="#">Journal d'audit<svg class="ic ic-sm"><use href="#i-chevron_right"/></svg></a></div>
+        <div class="ap-card-body">
+          <ul class="ap-activity">
+            <li><svg class="ic"><use href="#i-sync"/></svg><div>Synchronisation des configurations Windows<small>admin</small></div><time>14:32</time></li>
+            <li><svg class="ic"><use href="#i-edit"/></svg><div>Modification de l'imprimante SIEGE-A2-RICOH-01<small>s.laurent</small></div><time>14:05</time></li>
+            <li><svg class="ic"><use href="#i-delete"/></svg><div>Suppression du modèle Lexmark MS521<small>admin</small></div><time>11:47</time></li>
+            <li><svg class="ic"><use href="#i-add"/></svg><div>Création du lieu Services techniques<small>admin</small></div><time>09:12</time></li>
+            <li><svg class="ic"><use href="#i-sync"/></svg><div>Synchronisation des configurations Windows<small>admin</small></div><time>08:00</time></li>
+            <li><svg class="ic"><use href="#i-key"/></svg><div>Rotation de la clé API agent<small>admin</small></div><time>hier</time></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div></main>
+</div>
+</body>
+</html>

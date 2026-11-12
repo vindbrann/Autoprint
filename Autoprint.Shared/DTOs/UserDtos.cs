@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Autoprint.Shared.DTOs
 {
@@ -20,6 +20,9 @@ namespace Autoprint.Shared.DTOs
         public List<string> Permissions { get; set; } = new();
 
         public bool PasswordExpired { get; set; }
+
+        /// <summary>Déconnexion de la console après ce nombre de minutes sans activité (0 : jamais) (B35).</summary>
+        public int IdleTimeoutMinutes { get; set; }
     }
 
     public class ForgotPasswordRequest
@@ -40,6 +43,10 @@ namespace Autoprint.Shared.DTOs
         public bool ForceChangePassword { get; set; }
         public DateTime LastLogin { get; set; }
         public List<string> Roles { get; set; } = new();
+
+        /// <summary>Rôles en texte, pour filtrer et trier la colonne « Rôle » de la console (non transmis par l'API).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string RolesText => string.Join(", ", Roles);
     }
 
     public class CreateUserDto

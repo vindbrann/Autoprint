@@ -20,11 +20,13 @@ namespace Autoprint.Server.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly SecretProtector _secrets;
+        private readonly AllowedHostsService _allowedHosts;
 
-        public BackupController(ApplicationDbContext context, SecretProtector secrets)
+        public BackupController(ApplicationDbContext context, SecretProtector secrets, AllowedHostsService allowedHosts)
         {
             _context = context;
             _secrets = secrets;
+            _allowedHosts = allowedHosts;
         }
 
         // POST : le mot de passe de protection ne doit jamais apparaître dans une URL
@@ -49,10 +51,12 @@ namespace Autoprint.Server.Controllers
                         Id = x.Id,
                         Nom = x.Nom,
                         Code = x.Code,
+                        Status = x.Status,
                         Networks = x.Networks.Select(n => new BackupNetworkDto
                         {
                             Cidr = n.CidrIpv4,
-                            Description = n.Description
+                            Description = n.Description,
+                            IsPrimary = n.IsPrimary
                         }).ToList()
                     }).ToListAsync(),
 
@@ -355,7 +359,7 @@ namespace Autoprint.Server.Controllers
                                     Oid = item.Oid,
                                     OidMaxCapacity = item.OidMaxCapacity,
                                     ValueType = item.ValueType,
-                                    ColorHex = item.ColorHex,
+                                    ColorHex = item.ColorHex ?? "#212529",
                                     SortOrder = item.SortOrder
                                 });
                             }
@@ -366,15 +370,20 @@ namespace Autoprint.Server.Controllers
                 }
 
                 await EnableIdentityInsert("Emplacements");
+                // Réseau principal et état du lieu (B83) : avant 26.11.11, la sauvegarde ne les contenait pas et tous les réseaux
+                // revenaient « secondaires » (le client ne retrouvait plus le lieu par son réseau principal). Ancienne sauvegarde :
+                // le premier réseau du lieu redevient le principal.
                 var lieuxToRestore = backup.Lieux.Select(x => new Emplacement
                 {
                     Id = x.Id,
                     Nom = x.Nom,
                     Code = x.Code,
-                    Networks = x.Networks.Select(n => new EmplacementNetwork
+                    Status = x.Status ?? LieuStatus.Active,
+                    Networks = x.Networks.Select((n, i) => new EmplacementNetwork
                     {
                         CidrIpv4 = n.Cidr,
-                        Description = n.Description
+                        Description = n.Description,
+                        IsPrimary = n.IsPrimary ?? (i == 0 && x.Networks.All(o => o.IsPrimary == null))
                     }).ToList()
                 });
                 _context.Emplacements.AddRange(lieuxToRestore);
@@ -498,7 +507,11 @@ namespace Autoprint.Server.Controllers
                     foreach (var rid in u.RoleIds) _context.UserRoles.Add(new UserRole { UserId = u.Id, RoleId = rid, IsFromAd = u.AdRoleIds.Contains(rid) });
                 }
 
-                foreach (var s in backup.Settings)
+                // Noms d'hôte acceptés : propres à ce serveur, jamais repris d'une sauvegarde (B82 : une sauvegarde d'un autre
+                // serveur ou d'avant un changement de nom bloquerait l'accès à la console et aux postes)
+                _context.ServerSettings.Add(new ServerSetting { Key = AllowedHostsService.SettingKey, Value = string.Join(";", _allowedHosts.Hosts), Type = "STRING", Description = "Noms d'hôte acceptés par le serveur (séparés par ;)" });
+
+                foreach (var s in backup.Settings.Where(s => !string.Equals(s.Key, AllowedHostsService.SettingKey, StringComparison.OrdinalIgnoreCase)))
                 {
                     var value = SecretProtector.IsSecret(s.Key) ? restoredSecrets.GetValueOrDefault(s.Key, "") : s.Value;
                     _context.ServerSettings.Add(new ServerSetting { Key = s.Key, Value = value, Type = s.Type });

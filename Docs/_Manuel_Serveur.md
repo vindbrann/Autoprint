@@ -15,6 +15,17 @@ L'administration est accessible via votre navigateur Web favori.
 
 > **Sécurité :** Lors de votre première connexion, si le mot de passe est expiré ou défini par défaut, l'application vous imposera immédiatement de le remplacer par un mot de passe fort avant d'accéder aux menus.
 
+### Noms acceptés par le serveur
+- Le serveur ne répond qu'aux noms de la liste **Paramètres > Sécurité > « Noms acceptés par le serveur »**, plus `localhost`. Un autre nom reçoit une erreur 400 : protection contre l'usurpation de l'en-tête Host.
+- La liste est initialisée par l'installeur (champ « Nom public », plusieurs noms séparés par `;`), puis se modifie dans la console. Elle est prise en compte immédiatement, et chaque modification est inscrite au journal d'audit.
+- Le premier nom de la liste sert aux liens envoyés par courriel (mot de passe oublié).
+- Le nom par lequel la console est ouverte ne peut pas être retiré. La liste n'est jamais reprise d'une sauvegarde.
+- **Changement de nom** (ex. nouveau domaine) :
+  1. ajouter le nouveau nom, avec sa liaison HTTPS dans IIS (SNI) et son DNS ;
+  2. déployer les postes avec `SERVERURL=https://nouveau-nom` ;
+  3. retirer l'ancien nom quand plus aucun poste ne l'utilise.
+  - Détail : `Docs/_PLAN_MIGRATION_1.1.2.md`.
+
 ---
 
 ## 2. Le Tableau de Bord & Supervision
@@ -112,3 +123,10 @@ Le bouton **Audit Serveur** compare la base de données avec le Spouleur Windows
 
 ### Restauration en cas de désastre
 Vous pouvez exporter l'intégralité des métadonnées du parc au format JSON depuis l'onglet **Paramètres > Maintenance**. Ce fichier permettra de restaurer la configuration complète de l'application sur un nouveau serveur en cas de panne matérielle majeure.
+
+### Clés de chiffrement : sauvegarde des secrets (B23)
+Les secrets enregistrés en base (mots de passe Active Directory et SMTP, clé d'API des postes, communautés et identifiants SNMP) sont **chiffrés avec les clés du dossier `C:\ProgramData\Autoprint\Keys`**, elles-mêmes protégées par Windows (DPAPI) pour **ce serveur uniquement**.
+
+* **Sur le même serveur** (fichier supprimé par erreur, retour à une sauvegarde de la machine) : sauvegardez ce dossier en même temps que la base (SQL Server, ou `C:\ProgramData\Autoprint` pour SQLite), avec les mêmes protections : accès réservé aux administrateurs.
+* **Sur un autre serveur, ou après une réinstallation de Windows**, ce dossier ne peut pas être relu. Pour conserver les secrets, faites régulièrement la **sauvegarde de Paramètres > Maintenance avec un mot de passe de protection** : elle contient ces secrets chiffrés avec ce mot de passe et se restaure sur un nouveau serveur. Conservez le fichier et son mot de passe séparément.
+* **Sans l'un ni l'autre** : ressaisir les mots de passe AD et SMTP (Paramètres), générer une nouvelle clé d'API (Paramètres, Sécurité) et la redéployer sur les postes (MSI `APIKEY=…` ou GPO `HKLM\SOFTWARE\Autoprint\APIKEY`), ressaisir les communautés et identifiants SNMP.

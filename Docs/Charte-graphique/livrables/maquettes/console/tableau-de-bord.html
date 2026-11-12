@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tableau de bord · Console Autoprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../commun/autoprint.css">
+</head>
+
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-add" viewBox="0 -960 960 960"><path d="M457.31-457.31H220v-45.38h237.31V-740h45.38v237.31H740v45.38H502.69V-220h-45.38v-237.31Z"/></symbol>
+<symbol id="i-admin_panel_settings" viewBox="0 -960 960 960"><path d="M731.58-291.38q17.96-18.68 17.96-44.11t-18.12-43.55q-18.12-18.11-43.55-18.11-25.43 0-44.11 17.96-18.68 17.95-18.68 43.61t18.61 44.27q18.62 18.62 44.27 18.62 25.66 0 43.62-18.69Zm-44.77 142.15q33.11 0 59.92-13.81 26.81-13.81 45.04-39.42-25.23-14-50.94-21-25.72-7-53.48-7-27.77 0-54.02 7-26.25 7-50.48 21 18.23 25.61 44.53 39.42 26.31 13.81 59.43 13.81ZM480-100.77Q351.23-134.31 265.62-251.5 180-368.69 180-520.46v-226.31l300-112.31 300 112.31v258.08q-10.54-4.69-22.89-8.85-12.34-4.15-22.5-5.77v-212.23L480-809.23l-254.61 93.69v195.08q0 74.46 23.73 137.5 23.73 63.04 61.53 111.54 37.81 48.5 84.39 80.69t92.65 45.42l1.16-.38q4.46 7.38 12.61 17.38 8.16 10 13.46 15.31-8.61 4.61-17.65 7.11T480-100.77Zm209.22.77q-70.77 0-120.77-50.31-49.99-50.31-49.99-120.15 0-71.64 49.98-121.86 49.99-50.22 121.28-50.22 70.28 0 120.59 50.22 50.3 50.22 50.3 121.86 0 69.84-50.3 120.15Q760-100 689.22-100ZM480-477.46Z"/></symbol>
+<symbol id="i-bar_chart" viewBox="0 -960 960 960"><path d="M654.61-180v-236.15H780V-180H654.61Zm-237.3 0v-600h125.38v600H417.31ZM180-180v-403.84h125.39V-180H180Z"/></symbol>
+<symbol id="i-category" viewBox="0 -960 960 960"><path d="m288.31-539.85 192.31-310.92 192.3 310.92H288.31ZM704.27-95.39q-68.04 0-114-46.15-45.96-46.15-45.96-114.19 0-68.04 45.96-114 45.96-45.96 114-45.96 68.04 0 114.19 45.96 46.15 45.96 46.15 114 0 68.04-46.15 114.19-46.15 46.15-114.19 46.15Zm-568.88-23.84v-277.46h277.46v277.46H135.39Zm569.15-21.54q47.92 0 81.31-33.46 33.38-33.46 33.38-81.6 0-48.14-33.46-81.31t-81.57-33.17q-48.12 0-81.32 33.31-33.19 33.3-33.19 81.54 0 47.92 33.31 81.31 33.3 33.38 81.54 33.38Zm-523.77-23.85h186.69v-186.69H180.77v186.69Zm188.61-420.61h222.85L480.62-764.31 369.38-585.23Zm111.24 0ZM367.46-351.31Zm337 95.77Z"/></symbol>
+<symbol id="i-check_circle" viewBox="0 -960 960 960"><path d="M421-311.46 690.54-581l-34.85-34.23L421-380.15 302.54-498.61l-33.85 34.23L421-311.46ZM480.07-100q-78.22 0-147.4-29.92t-120.99-81.71q-51.81-51.79-81.75-120.94Q100-401.71 100-479.93q0-78.84 29.92-148.21t81.71-120.68q51.79-51.31 120.94-81.25Q401.71-860 479.93-860q78.84 0 148.21 29.92t120.68 81.21q51.31 51.29 81.25 120.63Q860-558.9 860-480.07q0 78.22-29.92 147.4t-81.21 120.99q-51.29 51.81-120.63 81.75Q558.9-100 480.07-100Zm-.07-45.39q139.69 0 237.15-97.76 97.46-97.77 97.46-236.85 0-139.69-97.46-237.15-97.46-97.46-237.15-97.46-139.08 0-236.85 97.46-97.76 97.46-97.76 237.15 0 139.08 97.76 236.85 97.77 97.76 236.85 97.76ZM480-480Z"/></symbol>
+<symbol id="i-chevron_left" viewBox="0 -960 960 960"><path d="M560.62-253.85 333.85-480.62l226.77-227.15 32.61 32.62-194.15 194.53 194.15 194.16-32.61 32.61Z"/></symbol>
+<symbol id="i-chevron_right" viewBox="0 -960 960 960"><path d="M536.92-480.62 342.77-675.15l32.61-32.62 226.77 227.15-226.77 226.77-32.61-32.61 194.15-194.16Z"/></symbol>
+<symbol id="i-cloud_off" viewBox="0 -960 960 960"><path d="m824.15-70.62-116.53-117.3H251.08q-80.69 0-135.89-54.58Q60-297.08 60-377.77q0-77.31 50.5-128.23Q161-556.92 232-563.92q1.23-15.54 7.66-37.85Q246.08-624.08 256-640L95.39-800.61l32-32 729.38 729.38-32.62 32.61ZM251.08-233.31h412L292.31-604.08q-11.77 16.93-16.81 39.58-5.04 22.65-5.04 44.5h-19.38q-60.85 0-103.27 39.88-42.42 39.89-42.42 100.49 0 60.6 42.42 103.46 42.42 42.86 103.27 42.86Zm225.61-186.38Zm366.16 201.53-35.47-35.46q22.31-16.61 34.77-36.72 12.46-20.12 12.46-47.43 0-42.51-30.55-72.68-30.55-30.17-72.91-30.17h-65.46v-81q0-86.46-60.2-145.76-60.21-59.31-146.61-59.31-28.11 0-58.69 8.42-30.57 8.42-56.42 26.89l-31.61-32.39q36-25.92 71.73-37.11 35.73-11.2 74.49-11.2 104.57 0 178.63 73.95 74.07 73.95 74.07 178.13v35.23h12.3q65.47-1.38 111.04 40.58Q900-402.23 900-337.77q0 30.38-13.62 63.69-13.61 33.31-43.53 55.92ZM586.08-472.31Z"/></symbol>
+<symbol id="i-dark_mode" viewBox="0 -960 960 960"><path d="M481.15-140q-141.66 0-240.83-99.17-99.16-99.16-99.16-240.83 0-135.77 92.11-232.88 92.11-97.12 225.57-105.2 4.16 0 9.12.31 4.96.31 13.96.49-27.15 30.9-41.96 71.74-14.81 40.85-14.81 85.54 0 98.33 68.84 167.17Q562.82-424 661.15-424q44.31 0 85.35-13.69 41.04-13.69 71.5-38.61.23 7.38.54 11.23.3 3.84.3 7.38-7.69 133.46-104.8 225.57Q616.92-140 481.15-140Zm0-45.39q103.23 0 181.35-62.49 78.11-62.5 101.19-149.66-23.46 9.46-49.82 14.19-26.36 4.74-52.72 4.74-116.92 0-199.15-82.23T379.77-660q0-23.23 4.42-48.62 4.42-25.38 15.5-56.15-92.61 28.16-152.88 107.47-60.27 79.31-60.27 177.3 0 122.77 85.92 208.69t208.69 85.92Zm-5.53-289.69Z"/></symbol>
+<symbol id="i-dashboard" viewBox="0 -960 960 960"><path d="M522.69-578.08V-820H820v241.92H522.69ZM140-467.31V-820h297.31v352.69H140ZM522.69-140v-352.69H820V-140H522.69ZM140-140v-241.92h297.31V-140H140Zm45.39-372.69h206.53v-261.92H185.39v261.92Zm382.69 327.3h206.53v-261.92H568.08v261.92Zm0-438.07h206.53v-151.15H568.08v151.15ZM185.39-185.39h206.53v-151.15H185.39v151.15Zm206.53-327.3Zm176.16-110.77Zm0 176.15ZM391.92-336.54Z"/></symbol>
+<symbol id="i-delete" viewBox="0 -960 960 960"><path d="M278.31-140q-23.6 0-40.65-17.05-17.04-17.05-17.04-40.64v-544.23H180v-45.39h171.08v-28.07h257.84v28.07H780v45.39h-40.62v544.23q0 23.53-17.08 40.61T681.69-140H278.31ZM694-741.92H266v544.23q0 5.38 3.65 8.84 3.66 3.46 8.66 3.46h403.38q4.62 0 8.46-3.84 3.85-3.85 3.85-8.46v-544.23ZM381.23-269.85h45.39v-388.61h-45.39v388.61Zm152.15 0h45.39v-388.61h-45.39v388.61ZM266-741.92v556.53-556.53Z"/></symbol>
+<symbol id="i-desktop_windows" viewBox="0 -960 960 960"><path d="M350.16-140v-45.39h84.46V-280H157.69q-23.53 0-40.61-17.08T100-337.69v-424.62q0-23.53 17.08-40.61T157.69-820h644.62q23.53 0 40.61 17.08T860-762.31v424.62q0 23.53-17.08 40.61T802.31-280H525.38v94.61h84.46V-140H350.16ZM157.69-325.38h644.62q4.61 0 8.46-3.85 3.84-3.85 3.84-8.46v-424.62q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H157.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v424.62q0 4.61 3.84 8.46 3.85 3.85 8.46 3.85Zm-12.3 0v-449.23 449.23Z"/></symbol>
+<symbol id="i-developer_board" viewBox="0 -960 960 960"><path d="M169.62-140q-23.53 0-40.61-17.08-17.09-17.08-17.09-40.61v-564.62q0-23.53 17.09-40.61Q146.09-820 169.62-820h564.61q23.53 0 40.61 17.08t17.08 40.61v68.47h56.16v45.38h-56.16v145.77h56.16v45.38h-56.16v145.77h56.16v45.38h-56.16v68.47q0 23.53-17.08 40.61T734.23-140H169.62Zm0-45.39h564.61q4.62 0 8.46-3.84 3.85-3.85 3.85-8.46v-564.62q0-4.61-3.85-8.46-3.84-3.84-8.46-3.84H169.62q-4.62 0-8.47 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.47 3.84Zm68.46-80.77h219.53v-169.99H238.08v169.99ZM498-575.62h167.77v-118.22H498v118.22Zm-259.92 99.08h219.53v-217.3H238.08v217.3ZM498-266.16h167.77v-269.07H498v269.07ZM157.31-774.61v589.22-589.22Z"/></symbol>
+<symbol id="i-edit" viewBox="0 -960 960 960"><path d="M185.39-185.39h40.92l468.54-467.92-40.93-40.92-468.53 467.92v40.92ZM140-140v-104.54l561.92-562.07q6.23-5.63 14.66-9.2 8.42-3.57 17.6-3.57 8.57 0 16.81 3.34 8.24 3.35 15.32 9.43l40.92 40.92q6.69 6.69 9.73 15.16 3.04 8.46 3.04 16.93 0 8.6-3.51 17.33-3.5 8.73-9.26 14.96L244.54-140H140Zm634.38-594.31-39.46-39.07 39.46 39.07Zm-99.75 60.68-20.71-20.6 40.93 40.92-20.22-20.32Z"/></symbol>
+<symbol id="i-group" viewBox="0 -960 960 960"><path d="M70.31-187.69v-75.93q0-31.53 16.27-55.8 16.27-24.27 45.55-37.15 64.95-28.51 118.64-42.51 53.69-14 119.54-14 66.23 0 119.42 14t118.52 42.51q28.9 12.88 45.48 37.15 16.58 24.27 16.58 55.8v75.93h-600Zm665.38 0v-74.77q0-53.39-24.86-89.07-24.87-35.69-64.98-58.39 53.23 7.61 101.15 20.81 47.92 13.19 80.15 29.73 28.39 15.92 45.46 40.9 17.08 24.99 17.08 56.02v74.77h-154ZM275-530.31q-37.38-37.38-37.38-95.5 0-58.11 37.38-95.3 37.39-37.2 95.5-37.2 58.12 0 95.31 37.2Q503-683.92 503-625.81q0 58.12-37.19 95.5-37.19 37.39-95.31 37.39-58.11 0-95.5-37.39Zm374.18 0q-37.28 37.39-95.41 37.39-6.77 0-14.5-.93-7.73-.92-14.5-3.38 21.43-23.37 32.52-56.12 11.09-32.75 11.09-72.31 0-39.57-11.53-70.61-11.54-31.04-32.08-58.11 6.38-1.46 14.5-2.7 8.11-1.23 14.5-1.23 58.13 0 95.41 37.2 37.28 37.19 37.28 95.3 0 58.12-37.28 95.5ZM115.69-233.08h509.23v-30.54q0-16-9.11-30.03-9.12-14.04-26.19-22.35-62.77-29.31-110.62-40.5-47.84-11.19-108.69-11.19-60.46 0-108.62 11.19-48.15 11.19-110.92 40.5-17.08 8.31-26.08 22.35-9 14.03-9 30.03v30.54Zm317-330.15q24.93-24.92 24.93-62.38 0-37.47-24.93-62.39-24.92-24.92-62.38-24.92T307.92-688Q283-663.08 283-625.61q0 37.46 24.92 62.38 24.93 24.92 62.39 24.92t62.38-24.92Zm-62.38 330.15Zm0-392.53Z"/></symbol>
+<symbol id="i-history" viewBox="0 -960 960 960"><path d="M477-140q-137.85 0-235.5-95.69T140-469.85h45.39Q190-351 273.69-268.19q83.7 82.8 203.31 82.8 124.31 0 210.58-87.07 86.27-87.08 86.27-211.39 0-122.07-86.89-206.42-86.88-84.34-209.96-84.34-64.54 0-121.73 28.3-57.19 28.31-100.42 75.85h100.77v45.38H175.46V-805h45.39v103.69q49.31-55.23 115.8-86.96Q403.15-820 477-820q70.77 0 132.92 26.46 62.16 26.46 108.77 72.46 46.62 46 73.58 107.54 26.96 61.54 26.96 131.92 0 70.77-26.96 133.12-26.96 62.35-73.58 108.46-46.61 46.12-108.77 73.08Q547.77-140 477-140Zm131.85-182.77L458.31-471.69v-210.54h45.38v191.69l137.77 135.16-32.61 32.61Z"/></symbol>
+<symbol id="i-key" viewBox="0 -960 960 960"><path d="M240.65-440.65Q224.31-457 224.31-480t16.34-39.35Q257-535.69 280-535.69t39.35 16.34Q335.69-503 335.69-480t-16.34 39.35Q303-424.31 280-424.31t-39.35-16.34ZM280-260q-91.54 0-155.77-64.23T60-480q0-91.54 64.23-155.77T280-700q67.77 0 119.65 34 51.89 34 78.27 98.39h362.93l94.92 94.92-144.31 133.38-79.92-58.61-82.23 59.38-70.77-53.85h-80.62q-22.31 57.7-73.69 95.04Q352.85-260 280-260Zm0-45.39q58.77 0 105.65-38.11 46.89-38.12 60.12-94.27h129.38l54.77 42.69 82.62-58.77 75.84 57.39 81.93-77.85-47.93-47.92H445.77q-11.62-53.31-57.89-92.85-46.26-39.53-107.88-39.53-72.69 0-123.65 50.96-50.96 50.96-50.96 123.65t50.96 123.65q50.96 50.96 123.65 50.96Z"/></symbol>
+<symbol id="i-lan" viewBox="0 -960 960 960"><path d="M130-90v-252.69h120v-160h207.31v-114.62h-120V-870h285.38v252.69h-120v114.62H710v160h120V-90H544.62v-252.69h120v-114.62H295.38v114.62h120V-90H130Zm252.69-572.69h194.62v-161.93H382.69v161.93ZM175.38-135.38H370v-161.93H175.38v161.93Zm414.62 0h194.62v-161.93H590v161.93ZM480-662.69ZM370-297.31Zm220 0Z"/></symbol>
+<symbol id="i-left_panel_close" viewBox="0 -960 960 960"><path d="M644.15-354v-252L517.77-480l126.38 126ZM197.69-140q-23.59 0-40.64-17.05T140-197.69v-564.62q0-23.59 17.05-40.64T197.69-820h564.62q23.59 0 40.64 17.05T820-762.31v564.62q0 23.59-17.05 40.64T762.31-140H197.69Zm127.39-45.39v-589.22H197.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h127.39Zm45.38 0h391.85q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46v-564.62q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H370.46v589.22Zm-45.38 0H185.39h139.69Z"/></symbol>
+<symbol id="i-left_panel_open" viewBox="0 -960 960 960"><path d="M517.77-606v252l126.38-126-126.38-126ZM197.69-140q-23.59 0-40.64-17.05T140-197.69v-564.62q0-23.59 17.05-40.64T197.69-820h564.62q23.59 0 40.64 17.05T820-762.31v564.62q0 23.59-17.05 40.64T762.31-140H197.69Zm127.39-45.39v-589.22H197.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h127.39Zm45.38 0h391.85q4.61 0 8.46-3.84 3.84-3.85 3.84-8.46v-564.62q0-4.61-3.84-8.46-3.85-3.84-8.46-3.84H370.46v589.22Zm-45.38 0H185.39h139.69Z"/></symbol>
+<symbol id="i-light_mode" viewBox="0 -960 960 960"><path d="M575.15-384.85q39.46-39.46 39.46-95.15 0-55.69-39.46-95.15-39.46-39.46-95.15-39.46-55.69 0-95.15 39.46-39.46 39.46-39.46 95.15 0 55.69 39.46 95.15 39.46 39.46 95.15 39.46 55.69 0 95.15-39.46Zm-222.61 32.31Q300-405.08 300-480q0-74.92 52.54-127.46Q405.08-660 480-660q74.92 0 127.46 52.54Q660-554.92 660-480q0 74.92-52.54 127.46Q554.92-300 480-300q-74.92 0-127.46-52.54ZM200-457.31H50v-45.38h150v45.38Zm710 0H760v-45.38h150v45.38ZM457.31-760v-150h45.38v150h-45.38Zm0 710v-150h45.38v150h-45.38ZM267.39-662.62l-93.08-90.46 32.23-33.61L296.77-694l-29.38 31.38Zm486.69 488.7-91.46-92.7L693.61-298l92.08 91.08-31.61 33ZM662-693.61l91.08-92.08 33.61 31.61-92.08 91.46L662-693.61ZM173.92-206.54 266-298l31.23 31.23-90.69 92.85-32.62-32.62ZM480-480Z"/></symbol>
+<symbol id="i-location_on" viewBox="0 -960 960 960"><path d="M526.04-511.65Q545-530.62 545-557.69q0-27.08-18.96-46.04T480-622.69q-27.08 0-46.04 18.96T415-557.69q0 27.07 18.96 46.04 18.96 18.96 46.04 18.96t46.04-18.96ZM480-159.77q125.31-111.77 190.92-213.15 65.62-101.39 65.62-177.16 0-116.07-73.77-190.5Q589-815 480-815q-109 0-182.77 74.42-73.77 74.43-73.77 190.5 0 75.77 66.73 177.16Q356.92-271.54 480-159.77Zm0 60.15Q329-230.46 253.54-343.15q-75.46-112.7-75.46-206.93 0-138.46 89.57-224.19Q357.23-860 480-860t212.35 85.73q89.57 85.73 89.57 224.19 0 94.23-75.46 206.93Q631-230.46 480-99.62Zm0-458.07Z"/></symbol>
+<symbol id="i-logout" viewBox="0 -960 960 960"><path d="M197.69-140q-23.53 0-40.61-17.08T140-197.69v-564.62q0-23.53 17.08-40.61T197.69-820h282.08v45.39H197.69q-4.61 0-8.46 3.84-3.84 3.85-3.84 8.46v564.62q0 4.61 3.84 8.46 3.85 3.84 8.46 3.84h282.08V-140H197.69Zm470.62-187.69-33-32.23 97.38-97.39H363.85v-45.38h367.61l-97.38-97.39 32.61-32.61L820-479.19l-151.69 151.5Z"/></symbol>
+<symbol id="i-print" viewBox="0 -960 960 960"><path d="M653-633.38v-128.93H307v128.93h-45.38v-174.31h436.76v174.31H653ZM156.92-588h646.16-646.16Zm569.19 96.15q13.35 0 23.12-9.77 9.77-9.78 9.77-22.93 0-13.14-9.77-22.91-9.78-9.77-22.92-9.77-13.54 0-23.12 9.77-9.58 9.78-9.58 22.93t9.58 22.91q9.58 9.77 22.92 9.77ZM653-185.39v-194.3H307v194.3h346ZM698.38-140H261.62v-171.77H111.54v-232.15q0-37.71 25.89-63.59 25.88-25.87 63.96-25.87h557.22q38.19 0 64.02 25.87 25.83 25.88 25.83 63.59v232.15H698.38V-140Zm104.7-217.15v-186.99q0-18.63-12.79-31.24Q777.51-588 758.61-588H201.39q-18.9 0-31.68 12.84-12.79 12.84-12.79 31.24v186.77h104.7v-67.93h436.76v67.93h104.7Z"/></symbol>
+<symbol id="i-refresh" viewBox="0 -960 960 960"><path d="M481.66-180q-124.75 0-212.43-87.67-87.69-87.67-87.69-212.27 0-124.6 87.69-212.33Q356.91-780 481.54-780q81.92 0 145.15 35.66 63.23 35.65 106.39 97.57V-780h45.38v225.54H552.92v-45.39h158q-36.07-60.76-94.69-97.76-58.61-37-134.69-37-106.76 0-180.69 73.91-73.93 73.92-73.93 180.65 0 106.74 73.97 180.7 73.98 73.96 180.79 73.96 81.32 0 148.4-46.53 67.07-46.54 93.69-123h47Q742.92-298 662.8-239q-80.11 59-181.14 59Z"/></symbol>
+<symbol id="i-sell" viewBox="0 -960 960 960"><path d="M843.38-402.08 558.54-116.62q-8.67 8.31-19.51 12.46-10.84 4.16-21.7 4.16-10.87 0-21.48-4.31-10.62-4.31-19.23-12.31l-359-359.61q-8.39-7.62-13-18.1-4.62-10.49-4.62-22.36v-285.23q0-23.66 17.05-40.87Q134.1-860 158.08-860h285.84q11.72 0 22.38 4.64 10.67 4.63 19.08 12.59l358 358q9.19 8.71 13.41 19.6 4.21 10.89 4.21 21.85 0 11.1-4.43 22.12-4.42 11.01-13.19 19.12ZM527.54-147.62l284.84-285.84q3.85-3.85 3.85-9.04 0-5.19-3.85-9.04L448.92-814.23H158.08q-5.39 0-9.04 3.46-3.65 3.46-3.65 8.85v283.61q0 2.31.76 4.81.77 2.5 2.7 4.04l360.61 361.84q3.85 3.47 9.04 3.47 5.19 0 9.04-3.47ZM250.23-666.31q18.08 0 31.08-13.25 13-13.26 13-31.05 0-18.15-12.97-31.23-12.97-13.08-30.95-13.08-18.15 0-31.42 13.03-13.28 13.04-13.28 31.12 0 18.08 13.33 31.27 13.32 13.19 31.21 13.19Zm231.15 187.69Z"/></symbol>
+<symbol id="i-settings" viewBox="0 -960 960 960"><path d="m400.69-100-18.07-120.23q-20.54-7-44.23-20.35-23.7-13.34-40.85-28.27l-111.85 50.93-79.92-141.31 101.08-74.38q-2-10.54-2.89-23.01-.88-12.46-.88-23 0-10.15.88-22.61.89-12.46 2.89-24.16l-101.08-74.76 79.92-140.16 111.46 50.16q18.31-14.93 41.24-28.08 22.92-13.15 43.84-19.54L400.69-860h158.62l18.07 120.62q22.08 8.15 44.16 20.23 22.07 12.07 39.77 28l113.38-50.16 79.54 140.16-102.62 74.3q2.77 11.93 3.47 24 .69 12.08.69 22.85 0 10.38-.89 22.15-.88 11.77-3.27 24.47l102.23 74.15-79.92 141.31-112.61-51.31q-18.7 15.69-40.35 28.96-21.65 13.27-43.58 19.65L559.31-100H400.69Zm36.46-45.39h85.31L536.85-257q31.84-8 59.42-23.85 27.58-15.84 52.73-40.23l104.46 45.23 40-70.84L701-414.92q4-17.77 6.31-33.5 2.3-15.73 2.3-31.58 0-16.62-2-31.96-2-15.35-6.61-32.35l93.23-69-40-70.84-105.62 45.23q-21.07-23.69-50.84-41.77Q568-698.77 536.46-703l-13.61-111.61h-85.7l-13.23 111.23q-33.23 6.61-61.19 22.65t-52.11 41.42l-104.85-44.84-40 70.84 92.46 67.85q-4.38 15.84-6.69 32.15-2.31 16.31-2.31 33.69 0 16.62 2.31 32.54 2.31 15.93 6.31 32.16l-92.08 68.23 40 70.84 104.46-44.84q24 24.38 52.15 40.23 28.16 15.84 61.16 23.84l13.61 111.23Zm41.7-221.92q47.07 0 79.88-32.81 32.81-32.8 32.81-79.88t-32.81-79.88q-32.81-32.81-79.88-32.81-46.7 0-79.7 32.81-32.99 32.8-32.99 79.88t32.99 79.88q33 32.81 79.7 32.81ZM480-480Z"/></symbol>
+<symbol id="i-sync" viewBox="0 -960 960 960"><path d="M178.15-173.08v-45.38h131.54l-28.46-26.23q-57.84-49.46-84.54-106.58Q170-408.39 170-476.62q0-99.84 57.69-180.69 57.69-80.84 152.77-114.38v47q-74.61 30.92-119.85 98.81-45.23 67.88-45.23 149.26 0 60.31 22.54 107.39t62.93 83l40 33.69v-128.61h45.38v208.07H178.15Zm402-14.61v-47.62q75.62-30.92 120.04-98.81 44.43-67.88 44.43-149.26 0-49.16-22.54-98.66t-61.31-88.27l-39.39-37.15v128.61H576v-208.07h208.08v45.38H651.92L680-713.69q55.38 52.54 82.69 112.88Q790-540.46 790-483.38q0 99.84-57.39 180.99-57.38 81.16-152.46 114.7Z"/></symbol>
+<symbol id="i-warning" viewBox="0 -960 960 960"><path d="M74.62-140 480-840l405.38 700H74.62Zm78.61-45.39h653.54L480-749.23 153.23-185.39Zm347.46-67.41q7.16-7.33 7.16-17.84t-7.34-17.67q-7.34-7.15-17.85-7.15-10.51 0-17.66 7.33-7.15 7.34-7.15 17.85 0 10.51 7.33 17.66 7.34 7.16 17.85 7.16 10.51 0 17.66-7.34Zm-40.54-90.58h45.39v-217.85h-45.39v217.85ZM480-467.31Z"/></symbol>
+<symbol id="logo" viewBox="0 0 64 64"><path d="M32 61C32 61 9 40.5 9 26a23 23 0 0 1 46 0c0 14.5-23 35-23 35z" fill="#4f8dee"/><circle cx="32" cy="26" r="17" fill="#2f6fd8"/><path d="M24 21.5V13.5h11l5 5v3z" fill="#fff"/><rect x="18.5" y="20.5" width="27" height="14" rx="3" fill="#fff"/><rect x="22" y="28" width="20" height="2.4" rx="1" fill="#2f6fd8"/><rect x="24" y="29.2" width="16" height="11.3" rx="1.2" fill="#fff"/><rect x="27" y="33" width="10" height="1.8" rx=".9" fill="#2f6fd8"/><rect x="27" y="36.2" width="6.5" height="1.8" rx=".9" fill="#2f6fd8"/><circle cx="41.2" cy="24.4" r="1.4" fill="#2f6fd8"/></symbol>
+</defs></svg>
+
+<input type="radio" name="theme" id="theme-auto" class="sr-only" checked>
+<input type="radio" name="theme" id="theme-light" class="sr-only">
+<input type="radio" name="theme" id="theme-dark" class="sr-only">
+
+<header class="mq-bar"><div class="mq-bar-inner">
+  <a class="back" href="../index.html"><svg class="ic ic-sm"><use href="#i-chevron_left"/></svg>Maquettes</a>
+  <span class="crumb"><span>Console ·</span> Tableau de bord</span>
+  <nav class="mq-screens" aria-label="Écrans"><a href="connexion.html">Connexion</a><a href="tableau-de-bord.html" aria-current="page">Tableau de bord</a><a href="imprimantes.html">Imprimantes</a><a href="fiche-imprimante.html">Fiche imprimante</a><a href="parametres.html">Paramètres</a>
+</nav>
+  <span class="grow"></span>
+  <span class="note">Poste de bureau, 1366 à 1920 px</span>
+  <div class="ap-segmented" role="group" aria-label="Thème de la maquette">
+  <label for="theme-auto"><svg class="ic ic-sm"><use href="#i-desktop_windows"/></svg>Système</label>
+  <label for="theme-light"><svg class="ic ic-sm"><use href="#i-light_mode"/></svg>Clair</label>
+  <label for="theme-dark"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg>Sombre</label>
+</div>
+
+</div></header>
+
+<div class="ap-app">
+  <input type="checkbox" id="nav-collapsed" class="sr-only">
+<aside class="ap-sidebar">
+  <div class="ap-side-top">
+    <a class="brand" href="tableau-de-bord.html"><svg aria-hidden="true"><use href="#logo"/></svg><span>Autoprint</span></a>
+    <label class="ap-btn ap-btn--icon ap-btn--sm ap-collapse" for="nav-collapsed" title="Réduire ou agrandir le menu"><svg class="ic ic-sm when-open"><use href="#i-left_panel_close"/></svg><svg class="ic ic-sm when-closed"><use href="#i-left_panel_open"/></svg><span class="sr-only">Réduire ou agrandir le menu</span></label>
+  </div>
+  <nav class="ap-nav" aria-label="Navigation principale">
+    <a href="tableau-de-bord.html" data-nav="tableau" class="is-active" aria-current="page"><svg class="ic"><use href="#i-dashboard"/></svg><span class="lbl">Tableau de bord</span></a>
+  </nav>
+  <div class="ap-nav-section">Gestion</div>
+  <nav class="ap-nav">
+    <a href="imprimantes.html" data-nav="imprimantes"><svg class="ic"><use href="#i-print"/></svg><span class="lbl">Imprimantes</span></a>
+    <a href="#"><svg class="ic"><use href="#i-location_on"/></svg><span class="lbl">Lieux</span></a>
+    <a href="#"><svg class="ic"><use href="#i-sell"/></svg><span class="lbl">Marques</span></a>
+    <a href="#"><svg class="ic"><use href="#i-category"/></svg><span class="lbl">Modèles<span class="tip-extra"> · 2 à traiter</span></span><span class="ap-count-badge" aria-hidden="true">2</span></a>
+    <a href="#"><svg class="ic"><use href="#i-developer_board"/></svg><span class="lbl">Pilotes<span class="tip-extra"> · 1 à traiter</span></span><span class="ap-count-badge" aria-hidden="true">1</span></a>
+    <a href="#"><svg class="ic"><use href="#i-lan"/></svg><span class="lbl">Profils SNMP</span></a>
+    <a href="#"><svg class="ic"><use href="#i-key"/></svg><span class="lbl">Identifiants SNMP</span></a>
+    <a href="#"><svg class="ic"><use href="#i-bar_chart"/></svg><span class="lbl">Rapports et planification</span></a>
+  </nav>
+  <div class="ap-nav-section">Système</div>
+  <nav class="ap-nav">
+    <a href="parametres.html" data-nav="parametres"><svg class="ic"><use href="#i-settings"/></svg><span class="lbl">Paramètres</span></a>
+    <a href="#"><svg class="ic"><use href="#i-group"/></svg><span class="lbl">Utilisateurs</span></a>
+    <a href="#"><svg class="ic"><use href="#i-history"/></svg><span class="lbl">Journal d'audit</span></a>
+    <a href="#"><svg class="ic"><use href="#i-admin_panel_settings"/></svg><span class="lbl">Rôles et droits</span></a>
+  </nav>
+  <div class="foot">
+    <span class="ap-avatar">SL</span>
+    <span class="who"><b>Sophie Laurent</b><small>Administratrice</small></span>
+    <label class="ap-btn ap-btn--icon ap-btn--sm" for="theme-dark" title="Thème sombre"><svg class="ic ic-sm"><use href="#i-dark_mode"/></svg></label>
+    <a class="ap-btn ap-btn--icon ap-btn--sm" href="connexion.html" title="Se déconnecter"><svg class="ic ic-sm"><use href="#i-logout"/></svg></a>
+  </div>
+</aside>
+
+  <main class="ap-main"><div class="ap-main-inner">
+    <div class="ap-page-header">
+      <div class="titles"><h1>Tableau de bord</h1><span class="sub">Mis à jour à 14:32</span></div>
+      <span class="grow"></span>
+      <button class="ap-btn ap-btn--secondary"><svg class="ic"><use href="#i-refresh"/></svg>Actualiser</button>
+    </div>
+
+    <section class="ap-card ap-service" aria-label="État du service">
+      <span class="svc"><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span><b>Spouleur Windows</b></span>
+      <span class="sep"></span>
+      <span class="svc"><span class="ap-status ap-status--online"><svg class="ic"><use href="#i-check_circle"/></svg>En ligne</span><b>Service AutoprintSpooler</b></span>
+      <span class="sep"></span>
+      <span class="svc">Erreurs de synchronisation <b class="mono">0</b></span>
+      <span class="grow"></span>
+      <span class="svc">Version du serveur <span class="ap-label-tag">26.11.9.1</span></span>
+    </section>
+
+    <div class="ap-kpis">
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-print"/></svg>Parc actif</span><span class="k-value">312</span><span class="k-sub">6 archivées</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-developer_board"/></svg>Pilotes</span><span class="k-value">18</span><span class="k-sub">2 modèles sans pilote</span></div>
+      <div class="ap-kpi-card"><span class="k-label"><svg class="ic"><use href="#i-location_on"/></svg>Lieux</span><span class="k-value">24</span><span class="k-sub">répartis sur 7 sites</span></div>
+      <div class="ap-kpi-card ap-kpi-card--danger"><span class="k-label"><svg class="ic"><use href="#i-cloud_off"/></svg>Imprimantes hors ligne</span><span class="k-value">3</span><span class="k-sub">depuis plus de 15 min</span></div>
+      <div class="ap-kpi-card ap-kpi-card--warning"><span class="k-label"><svg class="ic"><use href="#i-warning"/></svg>Alertes actives</span><span class="k-value">7</span><span class="k-sub">toner sous 15 %</span></div>
+    </div>
+
+    <div class="ap-dash-grid">
+      <section class="ap-card">
+        <div class="ap-card-head"><h2>Répartition par modèle</h2><span class="grow"></span><a class="ap-link" href="imprimantes.html">Voir le parc<svg class="ic ic-sm"><use href="#i-chevron_right"/></svg></a></div>
+        <div class="ap-card-body">
+          <div class="ap-total"><b>312</b><span>imprimantes, 16 modèles</span></div>
+          <div class="share-bar" role="img" aria-label="Répartition des 312 imprimantes par modèle">
+            <i style="width:31%;background:var(--ap-chart-1)"></i><i style="width:22%;background:var(--ap-chart-2)"></i><i style="width:16%;background:var(--ap-chart-3)"></i><i style="width:12%;background:var(--ap-chart-4)"></i><i style="width:9%;background:var(--ap-chart-5)"></i><i style="width:10%;background:var(--ap-chart-8)"></i>
+          </div>
+          <ul class="ap-models">
+            <li><i class="dot" style="background:var(--ap-chart-1)"></i><span class="nm">Ricoh IM C3000</span><span class="n">97</span><span class="p">31 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-2)"></i><span class="nm">HP LaserJet M507</span><span class="n">68</span><span class="p">22 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-3)"></i><span class="nm">Kyocera ECOSYS M3655idn</span><span class="n">50</span><span class="p">16 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-4)"></i><span class="nm">Canon iR-ADV C5535i</span><span class="n">37</span><span class="p">12 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-5)"></i><span class="nm">Brother HL-L6400DW</span><span class="n">29</span><span class="p">9 %</span></li>
+            <li><i class="dot" style="background:var(--ap-chart-8)"></i><span class="nm">11 autres modèles</span><span class="n">31</span><span class="p">10 %</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="ap-card">
+        <div class="ap-card-head"><h2>Dernières activités</h2><span class="grow"></span><a class="ap-link" href="#">Journal d'audit<svg class="ic ic-sm"><use href="#i-chevron_right"/></svg></a></div>
+        <div class="ap-card-body">
+          <ul class="ap-activity">
+            <li><svg class="ic"><use href="#i-sync"/></svg><div>Synchronisation des configurations Windows<small>admin</small></div><time>14:32</time></li>
+            <li><svg class="ic"><use href="#i-edit"/></svg><div>Modification de l'imprimante SIEGE-A2-RICOH-01<small>s.laurent</small></div><time>14:05</time></li>
+            <li><svg class="ic"><use href="#i-delete"/></svg><div>Suppression du modèle Lexmark MS521<small>admin</small></div><time>11:47</time></li>
+            <li><svg class="ic"><use href="#i-add"/></svg><div>Création du lieu Services techniques<small>admin</small></div><time>09:12</time></li>
+            <li><svg class="ic"><use href="#i-sync"/></svg><div>Synchronisation des configurations Windows<small>admin</small></div><time>08:00</time></li>
+            <li><svg class="ic"><use href="#i-key"/></svg><div>Rotation de la clé API agent<small>admin</small></div><time>hier</time></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div></main>
+</div>
+</body>
+</html>

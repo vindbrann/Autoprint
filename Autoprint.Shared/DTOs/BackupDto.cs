@@ -1,4 +1,4 @@
-using Autoprint.Shared.Enums;
+﻿using Autoprint.Shared.Enums;
 
 namespace Autoprint.Shared.DTOs
 {
@@ -41,11 +41,21 @@ namespace Autoprint.Shared.DTOs
     {
         public string Cidr { get; set; } = string.Empty;
         public string? Description { get; set; }
+        // Absent des sauvegardes antérieures à 26.11.11 : le premier réseau du lieu redevient alors le réseau principal
+        public bool? IsPrimary { get; set; }
     }
 
     public class BackupMarqueDto { public int Id { get; set; } public string Nom { get; set; } = ""; }
     public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } public int? SnmpCredentialId { get; set; } }
-    public class BackupLieuDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Code { get; set; } = ""; public List<BackupNetworkDto> Networks { get; set; } = new(); }
+    public class BackupLieuDto
+    {
+        public int Id { get; set; }
+        public string Nom { get; set; } = "";
+        public string? Code { get; set; }
+        public List<BackupNetworkDto> Networks { get; set; } = new();
+        // Absent des sauvegardes antérieures à 26.11.11 : lieu restauré actif
+        public LieuStatus? Status { get; set; }
+    }
     public class BackupPiloteDto { public int Id { get; set; } public string Nom { get; set; } = ""; public string Version { get; set; } = ""; public bool EstInstalle { get; set; } }
 
     public class BackupSnmpProfileDto
@@ -94,7 +104,7 @@ namespace Autoprint.Shared.DTOs
     {
         public int Id { get; set; }
         public string TokenHash { get; set; } = "";
-        public string Description { get; set; } = "";
+        public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ExpiresAt { get; set; }
     }
@@ -104,7 +114,7 @@ namespace Autoprint.Shared.DTOs
         public int Id { get; set; }
         public string NomAffiche { get; set; } = "";
         public string AdresseIp { get; set; } = "";
-        public string NomPartage { get; set; } = "";
+        public string? NomPartage { get; set; }
         public bool EstPartagee { get; set; }
         public int ModeleId { get; set; }
         public int EmplacementId { get; set; }

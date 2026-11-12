@@ -45,16 +45,12 @@
             </RadzenStack>
         </RadzenCard>
 
+        @* B33 : sans profil d'OID sur le modèle, l'imprimante est quand même interrogée avec les OID standard *@
         @if (!diagnostic.HasSnmpProfile)
         {
-            <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat" Class="rz-p-4">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenIcon Icon="info" IconColor="var(--rz-info)" />
-                    <span><strong>Aucun profil SNMP configuré</strong> pour le modèle de cette imprimante. Associez un profil SNMP dans la gestion des modèles pour suivre les consommables et les compteurs.</span>
-                </RadzenStack>
-            </RadzenAlert>
+            <div class="ap-name-note"><RadzenIcon Icon="info" />Valeurs standard (Printer MIB) : le modèle n'a pas de profil SNMP. Associez-lui un profil (Modèles) pour suivre toutes les couleurs et les bacs.</div>
         }
-        else if (diagnostic.PingSuccess)
+        @if (diagnostic.PingSuccess)
         {
             <RadzenRow Gap="1rem">
                 <!-- Statut physique & Uptime -->

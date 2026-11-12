@@ -9,11 +9,9 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<PageTitle>Mon Profil</PageTitle>
+<PageTitle>Mon profil</PageTitle>
 
-<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-4">
-    👤 Mon Profil
-</RadzenText>
+<div class="ap-page-header"><div class="ap-titles"><h1>Mon profil</h1></div></div>
 
 @if (isLoading)
 {
@@ -160,7 +158,7 @@ else
 
     private async Task OpenPasswordModal()
     {
-        var result = await DialogService.OpenAsync<PasswordModal>("Sécurité Requise",
+        var result = await DialogService.OpenAsync<PasswordModal>("Changement de mot de passe requis",
             new Dictionary<string, object?> { { "IsForced", false } },
             new DialogOptions() { Width = "500px", CloseDialogOnOverlayClick = true }
         );

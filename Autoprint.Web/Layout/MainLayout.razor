@@ -5,18 +5,17 @@
 @using Autoprint.Web.Services
 @using Radzen
 @using Radzen.Blazor
-@using Autoprint.Web.Services
 
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
 @inject IAuthService AuthService
 @inject IJSRuntime JS
-@inject ThemeService ThemeService
+@inject AppThemeService AppTheme
 @inject ILocalStorageService LocalStorage
 @inject NotificationService NotificationService
 
 <RadzenComponents />
-<RadzenTheme Theme="material" />
+<RadzenTheme Theme="standard" />
 
 <AuthorizeView>
     <Authorized>
@@ -26,17 +25,19 @@
         }
         else
         {
-            <RadzenLayout Style="height: 100vh; display: flex;">
-                <RadzenSidebar Expanded="true" Style="width: 280px; min-width: 280px; display: flex; flex-direction: column; z-index: 1;">
-                    <NavMenu />
-                </RadzenSidebar>
+            <CascadingValue Value="@navCollapsed" Name="NavCollapsed">
+                <RadzenLayout class="@(navCollapsed ? "ap-shell is-collapsed" : "ap-shell")" Style="height: 100vh; display: flex;">
+                    <RadzenSidebar Expanded="true" class="ap-sidebar">
+                        <NavMenu OnToggleCollapse="ToggleNav" />
+                    </RadzenSidebar>
 
-                <RadzenBody Style="flex: 1; overflow: auto;">
-                    <div class="rz-p-4">
-                        @Body
-                    </div>
-                </RadzenBody>
-            </RadzenLayout>
+                    <RadzenBody Style="flex: 1; overflow: auto;">
+                        <div class="ap-page">
+                            @Body
+                        </div>
+                    </RadzenBody>
+                </RadzenLayout>
+            </CascadingValue>
         }
     </Authorized>
 
@@ -52,11 +53,25 @@
 </AuthorizeView>
 
 @code {
+    // Menu principal réduit en barre d'icônes : choix mémorisé par navigateur ; réduit d'office sous 1024 px (charte B77)
+    private bool navCollapsed;
+    private const string NavCollapsedKey = "nav_collapsed";
+
     protected override async Task OnInitializedAsync()
     {
-        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
-        if (string.IsNullOrEmpty(savedTheme)) savedTheme = "material";
-        ThemeService.SetTheme(savedTheme);
+        await AppTheme.InitializeAsync();
+        try
+        {
+            navCollapsed = await LocalStorage.GetItemAsync<bool?>(NavCollapsedKey) ?? false;
+            if (!navCollapsed && await JS.InvokeAsync<bool>("autoprintIsNarrow")) navCollapsed = true;
+        }
+        catch { /* stockage ou script indisponible : menu ouvert */ }
+    }
+
+    private async Task ToggleNav()
+    {
+        navCollapsed = !navCollapsed;
+        try { await LocalStorage.SetItemAsync(NavCollapsedKey, navCollapsed); } catch { }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

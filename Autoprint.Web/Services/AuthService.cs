@@ -37,6 +37,8 @@ namespace Autoprint.Web.Services
 
             var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
             await _localStorage.SetItemAsync("authToken", result!.Token);
+            await _localStorage.SetItemAsync(CustomAuthStateProvider.IdleTimeoutKey, result.IdleTimeoutMinutes);
+            await _localStorage.RemoveItemAsync(CustomAuthStateProvider.LogoutReasonKey);
             ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(result.Token);
 
             return result;

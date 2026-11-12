@@ -18,7 +18,7 @@ namespace Autoprint.Server.Services
         Task<LoginResponse?> LoginAsync(LoginRequest request);
         Task<bool> IsDirectoryLoginAsync(string username);
         Task<LoginResponse?> RefreshAsync(int userId, long authTime);
-        Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type);
+        Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type, bool applyLoginFilter = true);
     }
 
     /// <summary>L'annuaire n'a pas pu être interrogé pendant la connexion d'un utilisateur AD.</summary>
@@ -185,12 +185,15 @@ namespace Autoprint.Server.Services
                 Username = user.Username,
                 DisplayName = user.DisplayName,
                 Permissions = permissions,
-                PasswordExpired = passwordExpired
+                PasswordExpired = passwordExpired,
+                IdleTimeoutMinutes = await GetIdleTimeoutMinutesAsync()
             };
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-        public async Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type)
+        /// <param name="applyLoginFilter">Faux pour chercher un groupe à mettre dans le filtre de connexion (Paramètres) : le filtre
+        /// des comptes autorisés (souvent memberOf=…) ne doit pas s'appliquer aux groupes eux-mêmes.</param>
+        public async Task<List<AdSearchResultDto>> SearchAdAsync(string query, AdMappingType type, bool applyLoginFilter = true)
         {
             if (!OperatingSystem.IsWindows()) return new List<AdSearchResultDto>();
 
@@ -227,7 +230,7 @@ namespace Autoprint.Server.Services
                     string safeQuery = SecurityHelper.EscapeLdapFilter(query);
                     string classFilter = (type == AdMappingType.Group) ? "(objectClass=group)" : "(objectClass=user)";
                     string queryFilter = $"(|(sAMAccountName=*{safeQuery}*)(name=*{safeQuery}*))";
-                    string globalFilter = string.IsNullOrWhiteSpace(customFilter) ? "" : customFilter;
+                    string globalFilter = !applyLoginFilter || string.IsNullOrWhiteSpace(customFilter) ? "" : customFilter;
 
                     searcher.Filter = $"(&{classFilter}{queryFilter}{globalFilter})";
                     searcher.SizeLimit = 20;
@@ -237,10 +240,12 @@ namespace Autoprint.Server.Services
                         string name = res.Properties["name"].Count > 0 ? res.Properties["name"][0].ToString()! : "Inconnu";
                         string sam = res.Properties["sAMAccountName"].Count > 0 ? res.Properties["sAMAccountName"][0].ToString()! : "";
                         string desc = res.Properties["description"].Count > 0 ? res.Properties["description"][0].ToString()! : "";
+                        string dn = res.Properties["distinguishedName"].Count > 0 ? res.Properties["distinguishedName"][0].ToString()! : "";
 
                         if (!string.IsNullOrEmpty(sam))
                         {
-                            results.Add(new AdSearchResultDto { Name = name, SamAccountName = sam, Description = desc, Type = type });
+                            results.Add(new AdSearchResultDto { Name = name, SamAccountName = sam, Description = desc, Type = type, DistinguishedName = dn,
+                                MemberOfFilter = string.IsNullOrEmpty(dn) ? null : $"(memberOf={SecurityHelper.EscapeLdapFilter(dn)})" });
                         }
                     }
                 }
@@ -487,8 +492,16 @@ namespace Autoprint.Server.Services
                 Username = user.Username,
                 DisplayName = user.DisplayName,
                 Permissions = permissions,
-                PasswordExpired = passwordExpired
+                PasswordExpired = passwordExpired,
+                IdleTimeoutMinutes = await GetIdleTimeoutMinutesAsync()
             };
+        }
+
+        // Déconnexion de la console après inactivité (B35) : réglage « Security_IdleTimeoutMinutes », 30 minutes par défaut, 0 = jamais
+        private async Task<int> GetIdleTimeoutMinutesAsync()
+        {
+            var value = (await _context.ServerSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == "Security_IdleTimeoutMinutes"))?.Value;
+            return int.TryParse(value, out int minutes) && minutes >= 0 ? Math.Min(minutes, 1440) : 30;
         }
 
         private async Task<bool> IsPasswordExpiredAsync(User user)

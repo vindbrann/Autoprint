@@ -11,23 +11,22 @@
 @inject CustomAuthStateProvider AuthProvider
 @inject IJSRuntime JS
 
-<PageTitle>Gestion des Modèles</PageTitle>
+<PageTitle>Modèles</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        📄 Gestion des Modèles
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Modèles</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(modeles == null || !modeles.Any())" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(modeles == null || !modeles.Any())" />
 
         <AuthorizeView Policy="MODEL_WRITE">
             <Authorized>
-                <RadzenButton Icon="add_circle" Text="Nouveau Modèle" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Modele()))" />
+                <RadzenButton Icon="add" Text="Nouveau modèle" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new Modele()))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (messageErreur != null)
 {
@@ -41,16 +40,16 @@ else if (isLoading)
 }
 else
 {
-    <RadzenDataGrid Data="@modeles" TItem="Modele"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@modeles" TItem="Modele"
                     AllowFiltering="true" FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                     AllowPaging="true" PageSize="10"
                     AllowSorting="true" ColumnWidth="300px"
                     RowRender="@RowRender">
         <Columns>
 
-            <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du Modèle" Sortable="true" Filterable="true" />
+            <RadzenDataGridColumn TItem="Modele" Property="Nom" Title="Nom du modèle" Sortable="true" Filterable="true" />
 
-            <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px">
+            <RadzenDataGridColumn TItem="Modele" Property="Marque.Nom" Title="Marque" Sortable="true" Filterable="true" Width="200px" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="m">
                     @if (m.Marque != null)
                     {
@@ -63,7 +62,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Modele" Title="Pilote" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="Modele" Property="Pilote.Nom" Title="Pilote" Sortable="true" Filterable="true">
                 <Template Context="m">
                     @if (m.Pilote != null)
                     {
@@ -106,7 +105,7 @@ else
                 <Template Context="m">
                     <AuthorizeView Policy="MODEL_WRITE">
                         <Authorized>
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(m))" />
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(m))" />
                         </Authorized>
                         <NotAuthorized>
                             <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
@@ -115,7 +114,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {
@@ -156,7 +155,7 @@ else
 
     void RowRender(RowRenderEventArgs<Modele> args)
     {
-        bool alertePilote = args.Data.PiloteId.HasValue && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
+        bool alertePilote = args.Data?.PiloteId.HasValue == true && args.Data.Pilote != null && !args.Data.Pilote.EstInstalle;
         if (alertePilote)
         {
             args.Attributes.Add("style", "border-left: 4px solid var(--rz-danger) !important;");
@@ -166,7 +165,7 @@ else
     private async Task OuvrirModal(Modele modele)
     {
         var resultat = await DialogService.OpenAsync<ModeleModal>(
-            modele.Id == 0 ? "Nouveau Modèle" : "Modifier le Modèle",
+            modele.Id == 0 ? "Nouveau modèle" : "Modifier le modèle",
             new Dictionary<string, object?> { { "ModeleToEdit", modele } },
             new DialogOptions() { Width = "600px", CloseDialogOnOverlayClick = true }
         );

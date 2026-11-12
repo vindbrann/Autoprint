@@ -84,6 +84,11 @@ builder.Services.AddSingleton<SecretProtector>();
 
 // Anti brute-force (CWE-307) : 10 tentatives de connexion par minute et par IP, plus un délai par compte
 builder.Services.AddSingleton<LoginThrottleService>();
+
+// Noms d'hôte acceptés (B82) : liste en base, modifiable dans la console sans redémarrer (AllowedHostsService).
+// Le filtrage intégré d'ASP.NET Core, figé au démarrage sur appsettings.json, est donc désactivé.
+builder.Services.AddSingleton<AllowedHostsService>();
+builder.Services.Configure<Microsoft.AspNetCore.HostFiltering.HostFilteringOptions>(o => o.AllowedHosts = new List<string> { "*" });
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -298,6 +303,19 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Nom d'hôte non autorisé (usurpation de l'en-tête Host) : refusé avant tout traitement, comme le faisait AllowedHosts
+app.Services.GetRequiredService<AllowedHostsService>().UseConfiguration(app.Configuration);
+app.Use(async (context, next) =>
+{
+    if (!context.RequestServices.GetRequiredService<AllowedHostsService>().IsAllowed(context.Request.Host.Host))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync("Nom d'hôte non autorisé par le serveur Autoprint.");
+        return;
+    }
+    await next();
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
@@ -393,6 +411,7 @@ using (var scope = app.Services.CreateScope())
         DatabaseSchema.Ensure(context, services.GetRequiredService<ILogger<Program>>());
 
         DbInitializer.Initialize(context);
+        services.GetRequiredService<AllowedHostsService>().Initialize(context, config);
 
         int encrypted = services.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
         if (encrypted > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} secret(s) chiffré(s) en base.", encrypted);

@@ -421,7 +421,7 @@ function Get-SettingsDto([string]$Token) {
     $ints = 'LogRetentionDays', 'SmtpPort', 'PasswordExpirationDays', 'Monitoring_IntervalMinutes', 'Monitoring_StartHour', 'Monitoring_EndHour'
     $bools = 'SmtpEnableSsl', 'NamingEnabled', 'NamingSameShare', 'Printer_DefaultDirectModeEnabled', 'AdUseServiceAccount', 'Monitoring_Enabled',
              'Monitoring_ScanOnWeekends', 'Monitoring_IncludeOffline', 'Monitoring_IncludeWarning', 'Monitoring_IncludeCritical', 'Monitoring_IncludeArchived'
-    $strings = 'SmtpHost', 'SmtpUser', 'SmtpPass', 'SmtpFromAddress', 'NamingTemplate', 'AdDomain', 'AdBaseDn', 'AdLdapFilter', 'AdServiceUser', 'AdServicePassword', 'AdAdminEmails'
+    $strings = 'SmtpHost', 'SmtpUser', 'SmtpPass', 'SmtpFromAddress', 'NamingTemplate', 'AdDomain', 'AdBaseDn', 'AdLdapFilter', 'AdServiceUser', 'AdServicePassword'
     $dto = [ordered]@{}
     foreach ($k in $ints) { if ($kv.ContainsKey($k) -and $kv[$k] -match '^-?\d+$') { $dto[$k] = [int]$kv[$k] } }
     foreach ($k in $bools) { if ($kv.ContainsKey($k) -and $kv[$k]) { $dto[$k] = [bool]::Parse($kv[$k]) } }
@@ -529,6 +529,12 @@ function Lot-AD {
     Check 'P1-36' 'ad.user1 retiré du groupe : connexion refusée' $r.Code { param($x) $x -in 401, 403 } $r.Text
 
     $r = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    if ($r.Code -eq 429) {
+        # ad.user2 encore bloqué par le P1-34 d'un passage précédent : compteur en mémoire (B14), remis à zéro par un recyclage du pool
+        Write-Host '    (ad.user2 bloqué par un P1-34 précédent : recyclage du pool Autoprint)' -ForegroundColor DarkGray
+        Invoke-OnPrint { Import-Module WebAdministration; Restart-WebAppPool Autoprint }; Start-Sleep 5
+        $r = Invoke-Login 'ad.user2' (Get-Plain 'ad.user2')
+    }
     Write-Host "         ad.user2 sans groupe : $($r.Code) $($r.Text)" -ForegroundColor DarkGray
     $u2 = (Invoke-Api GET '/api/users' -Token $ta).Json | Where-Object username -eq 'ad.user2'
     if ($u2) {
@@ -575,7 +581,10 @@ function Lot-Cle {
     Check 'SC-05' 'journal d''audit AGENT_KEY_ROTATE' ([bool]($audit | Where-Object action -eq 'AGENT_KEY_ROTATE')) $true
     Check 'SC-06' 'pendant la transition : ancienne clé / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)" '200/200'
 
-    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 0 } $ta
+    # Sécurité (recette du 12/11) : pendant une transition, une nouvelle rotation est refusée sans confirmation explicite
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 30 } $ta
+    Check 'SC-08' 'nouvelle rotation pendant la transition, sans confirmation : refusée (clés inchangées)' "$($r.Code)/$(Test-AgentKey $k0)/$(Test-AgentKey $k1)" '409/200/200' $r.Text
+    $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 0; force = $true } $ta
     $k2 = ConvertTo-SecureString $r.Json.key -AsPlainText -Force; $r = $null
     Check 'SC-07' 'révocation immédiate : clé initiale / clé précédente / nouvelle clé' "$(Test-AgentKey $k0)/$(Test-AgentKey $k1)/$(Test-AgentKey $k2)" '401/401/200'
     $r = Invoke-Api POST '/api/Settings/agent-key/rotate' @{ transitionDays = 91 } $ta
@@ -983,7 +992,9 @@ function Lot-Snmp {
     $u = Invoke-Api PUT "/api/Imprimantes/$($pV2.id)" $pr $ta
     $g = (Invoke-Api GET "/api/Imprimantes/$($pV2.id)" -Token $ta).Json
     $d2 = & $diag $pV2.id
-    Check 'SV3-11' 'sans profil : communauté « parc » / v2c enregistrées et utilisées' "$($u.Code)/$($g.snmpCommunity)/$($g.snmpVersion)/$($d2.Json.serialNumber)" '204/parc/2/SIMV2-0002'
+    # Depuis B32 la communauté n'est jamais renvoyée par l'API et elle est chiffrée en base (enc:v1:) : la supervision prouve qu'elle est utilisée
+    $db = Invoke-LabSql "SELECT SnmpCommunity FROM Imprimantes WHERE Id = $([int]$pV2.id)"
+    Check 'SV3-11' 'sans profil : communauté « parc » / v2c enregistrées (chiffrée, masquée) et utilisées' "$($u.Code)/[$($g.snmpCommunity)]/$($g.snmpVersion)/$db/$($d2.Json.serialNumber)" '204/[]/2/SnmpCommunity=enc:v1:/SIMV2-0002'
 
     # SV3-12 : éditeur de profils d'OID avec les identifiants v3
     $t = Invoke-Api POST '/api/SnmpProfiles/test' @{ ipAddress = '192.168.99.10'; credentialId = $credId; items = @(@{ name = 'Toner cyan'; oid = '1.3.6.1.2.1.43.11.1.1.9.1.2'; category = 0; valueType = 0 }) } $ta
@@ -1152,7 +1163,7 @@ function Lot-Divers {
     Check 'SD-07' 'autre origine : aucun en-tête Access-Control-Allow-Origin (GET et pré-vol)' "[$acao][$acao2]" '[][]'
 
     # SE-09 : bibliothèques du rapport PDF
-    $files = Invoke-OnPrint { $d = 'C:\Program Files\Autoprint Server'; "$(Test-Path "$d\runtimes\win-x64\native\libSkiaSharp.dll")/$(Test-Path "$d\Licenses\AutoprintSans-OFL-LICENSE.txt")/$(@(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue | Where-Object Message -match 'libSkiaSharp').Count)" }
+    $files = Invoke-OnPrint { $d = 'C:\Program Files\Autoprint Server'; "$((Test-Path "$d\libSkiaSharp.dll") -or (Test-Path "$d\runtimes\win-x64\native\libSkiaSharp.dll"))/$(Test-Path "$d\Licenses\AutoprintSans-OFL-LICENSE.txt")/$(@(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue | Where-Object Message -match 'libSkiaSharp').Count)" }
     Check 'SE-09' 'libSkiaSharp.dll et licence de la police présentes ; aucune erreur libSkiaSharp' $files 'True/True/0'
 
     # SE-08 / SD-11 : rapport PDF avec plus de 45 imprimantes, mesures « Compteur » et « Pannes »

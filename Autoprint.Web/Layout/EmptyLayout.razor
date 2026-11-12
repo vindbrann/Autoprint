@@ -3,28 +3,15 @@
 @using Radzen.Blazor
 @using Autoprint.Web.Services
 
-@inject ThemeService ThemeService
-@inject ILocalStorageService LocalStorage
+@inject AppThemeService AppTheme
 
 <RadzenComponents />
-<RadzenTheme Theme="material" />
+<RadzenTheme Theme="standard" />
 
-<div class="main" style="background-color: var(--rz-base-background-color); min-height: 100vh;">
-    <div class="content px-4">
-        @Body
-    </div>
+<div style="background: var(--ap-background); min-height: 100vh;">
+    @Body
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync()
-    {
-        var savedTheme = await LocalStorage.GetItemAsync<string>("user_theme");
-
-        if (string.IsNullOrEmpty(savedTheme))
-        {
-            savedTheme = "material";
-        }
-
-        ThemeService.SetTheme(savedTheme);
-    }
+    protected override Task OnInitializedAsync() => AppTheme.InitializeAsync();
 }

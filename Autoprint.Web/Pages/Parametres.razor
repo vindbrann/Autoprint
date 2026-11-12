@@ -1,4 +1,4 @@
-@page "/parametres"
+﻿@page "/parametres"
 @using Autoprint.Shared
 @using Autoprint.Shared.DTOs
 @using Autoprint.Web.Services
@@ -13,20 +13,14 @@
 @inject DialogService DialogService
 @inject NetworkScannerService ScannerService
 
-<PageTitle>Configuration</PageTitle>
+<PageTitle>Paramètres</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenStack Gap="0">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0" Style="color: var(--rz-text-title-color);">
-            ⚙️ Configuration Système
-        </RadzenText>
-        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-            Gérez les paramètres globaux du serveur Autoprint.
-        </RadzenText>
-    </RadzenStack>
-
-    <RadzenButton Text="Enregistrer la configuration" Icon="save" ButtonStyle="ButtonStyle.Success" Click="@Sauvegarder" IsBusy="@sauvegardeEnCours" />
-</RadzenStack>
+<div class="ap-page-header">
+    <div class="ap-titles">
+        <h1>Paramètres</h1>
+        <span class="ap-sub">Réglages globaux du serveur Autoprint</span>
+    </div>
+</div>
 
 @if (isLoading)
 {
@@ -37,682 +31,636 @@
 }
 else
 {
-    <RadzenTabs RenderMode="TabRenderMode.Client" TabPosition="TabPosition.Top" Style="min-height: 600px;">
-        <Tabs>
+    @* Charte B77, maquette « Paramètres » : menu des sections à gauche (réductible), titre et description de la section,
+       barre d'enregistrement dès qu'une modification est en attente *@
+    @* Menu groupé (Imprimantes, Connexions, Serveur) ; plus d'entrée « Réduire » dans la liste (retour de recette du 11/11) *@
+    <div class="ap-subnav-layout">
+        <nav class="ap-subnav" aria-label="Sections des paramètres">
+            @foreach (var g in Sections.GroupBy(x => x.Group))
+            {
+                <div class="ap-subnav-group">@g.Key</div>
+                @foreach (var s in g)
+                {
+                    <a href="javascript:void(0)" class="@(section == s.Key ? "active" : null)" aria-current="@(section == s.Key ? "page" : null)" @onclick="@(() => OuvrirSection(s.Key))" @onclick:preventDefault>
+                        <RadzenIcon Icon="@s.Icon" />
+                        <span>@s.Title</span>
+                    </a>
+                }
+            }
+        </nav>
+        <div class="ap-subnav-content">
+            @{ var cur = Sections.First(x => x.Key == section); }
+            <div class="ap-section-head">
+                <h2>@cur.Title</h2>
+                <p>@cur.Description</p>
+            </div>
 
             @* --- MAINTENANCE --- *@
-            <RadzenTabsItem Text="Maintenance">
-                <Template><RadzenIcon Icon="build_circle" /> Maintenance</Template>
-                <ChildContent>
-                    <RadzenStack Gap="2rem" Class="rz-p-2">
-                        <RadzenFieldset Text="Rétention & Audit" Icon="history">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                                <RadzenIcon Icon="auto_delete" Style="font-size: 2rem; color: var(--rz-text-tertiary-color);" />
-                                <RadzenStack Gap="0" Style="flex: 1;">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0">Purge automatique</RadzenText>
-                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                        Les logs d'audit plus anciens que la durée définie seront supprimés.
-                                    </RadzenText>
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-mt-1">
-                                        <RadzenIcon Icon="info" Style="font-size: 1rem; color: var(--rz-secondary);" />
-                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-secondary); margin: 0;">
-                                            Mettre <strong>0</strong> pour désactiver (Illimité).
-                                        </RadzenText>
-                                    </RadzenStack>
+            @if (section == "Maintenance")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Rétention du journal d'audit</h3><p>Les entrées plus anciennes que cette durée sont supprimées automatiquement.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenLabel Text="Purge automatique" Component="LogRetention" />
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenNumeric Name="LogRetention" @bind-Value="@model.LogRetentionDays" Min="0" Max="3650" Style="width: 140px;" />
+                                    <span class="ap-muted">jours</span>
                                 </RadzenStack>
-                                <RadzenNumeric @bind-Value="@model.LogRetentionDays" Min="0" Max="3650" Style="width: 120px;" />
-                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">jours</RadzenText>
-                            </RadzenStack>
-                        </RadzenFieldset>
+                                <span class="ap-help">0 pour conserver sans limite.</span>
+                            </div>
+                        </div>
+                    </section>
 
-                        <RadzenRow Gap="1.5rem">
-                            <RadzenColumn Size="12" SizeMD="6">
-                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-primary);">
-                                    <RadzenStack Gap="1rem">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                            <RadzenIcon Icon="cloud_download" Style="color: var(--rz-primary);" />
-                                            <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Sauvegarde</RadzenText>
-                                        </RadzenStack>
-                                        <RadzenText TextStyle="TextStyle.Body2">Exportez la configuration complète au format JSON.</RadzenText>
-                                        <RadzenStack Gap="0.25rem">
-                                            <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" Style="font-size: 0.85rem; font-weight: 600;" />
-                                            <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
-                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                                Avec un mot de passe, les mots de passe AD / SMTP et la clé agent sont inclus chiffrés. Sans mot de passe, ils sont exclus du fichier.
-                                            </RadzenText>
-                                        </RadzenStack>
-                                        <RadzenButton Text="Télécharger le fichier" Icon="download" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Click="@DownloadBackup" Class="rz-mt-auto" />
-                                    </RadzenStack>
-                                </RadzenCard>
-                            </RadzenColumn>
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Sauvegarde</h3><p>Exporte toute la configuration dans un fichier JSON.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenLabel Text="Mot de passe de protection des secrets (facultatif)" Component="BackupPwd" />
+                                <RadzenPassword Name="BackupPwd" @bind-Value="@backupSecretsPassword" Placeholder="12 caractères minimum" Style="width: 100%;" AutoComplete="false" />
+                                <span class="ap-help">Avec un mot de passe, les mots de passe Active Directory et SMTP et la clé agent sont inclus, chiffrés. Sans mot de passe, ils sont exclus du fichier.</span>
+                                <div><RadzenButton Text="Télécharger la sauvegarde" Icon="download" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@DownloadBackup" /></div>
+                            </div>
+                        </div>
+                    </section>
 
-                            <RadzenColumn Size="12" SizeMD="6">
-                                <RadzenCard Variant="Variant.Outlined" Class="rz-h-100" Style="border-left: 4px solid var(--rz-danger);">
-                                    <RadzenStack Gap="1rem">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                                                <RadzenIcon Icon="cloud_upload" Style="color: var(--rz-danger);" />
-                                                <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0">Restauration</RadzenText>
-                                            </RadzenStack>
-                                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="ZONE DANGER" />
-                                        </RadzenStack>
-
-                                        <RadzenText TextStyle="TextStyle.Body2">Restaurez une configuration. <strong>Attention : Écrase les données.</strong></RadzenText>
-
-                                        @if (uploadedBackup == null)
-                                        {
-                                            <div class="custom-file-upload">
-                                                <InputFile OnChange="LoadFile" class="form-control" accept=".json" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
-                                                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
-                                                    <div><strong>Prêt :</strong> @uploadedBackup.CreatedBy (@uploadedBackup.CreatedAt.ToShortDateString())</div>
-                                                    @if (uploadedBackup.SecretsProtected)
-                                                    {
-                                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <div style="font-size: 0.8rem;">
-                                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
-                                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
-                                                        </div>
-                                                    }
-                                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                        <RadzenButton Text="Annuler" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light" Click="@(() => uploadedBackup = null)" />
-                                                        <RadzenButton Text="Ecraser" Size="ButtonSize.ExtraSmall" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
-                                                    </RadzenStack>
-                                                </RadzenStack>
-                                            </RadzenAlert>
-                                        }
-                                    </RadzenStack>
-                                </RadzenCard>
-                            </RadzenColumn>
-                        </RadzenRow>
-                    </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
-
-            @* --- SMTP --- *@
-            <RadzenTabsItem Text="SMTP">
-                <Template><RadzenIcon Icon="email" /> SMTP</Template>
-                <ChildContent>
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-                        <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Serveur de Messagerie" Icon="mail_outline">
-                                <RadzenRow RowGap="1rem">
-                                    <RadzenColumn Size="8">
-                                        <RadzenLabel Text="Hôte SMTP" />
-                                        <RadzenTextBox @bind-Value="@model.SmtpHost" Style="width: 100%;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="4">
-                                        <RadzenLabel Text="Port" />
-                                        <RadzenNumeric @bind-Value="@model.SmtpPort" Style="width: 100%;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6">
-                                        <RadzenLabel Text="Utilisateur" />
-                                        <RadzenTextBox @bind-Value="@model.SmtpUser" Style="width: 100%;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6">
-                                        <RadzenLabel Text="Mot de passe" />
-                                        <RadzenPassword @bind-Value="@model.SmtpPass" Style="width: 100%;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6">
-                                        <RadzenLabel Text="Adresse Expéditeur (From)" />
-                                        <RadzenTextBox @bind-Value="@model.SmtpFromAddress" Style="width: 100%;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="6" Class="rz-display-flex rz-align-items-center">
-                                        <RadzenSwitch @bind-Value="@model.SmtpEnableSsl" />
-                                        <RadzenLabel Text="Activer SSL / TLS" Class="rz-ml-2" />
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                @if (!model.SmtpEnableSsl)
+                    <section class="ap-card ap-zone-sensible">
+                        <div class="ap-set-row">
+                            <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Restauration</h3><p>Remplace la configuration actuelle par celle d'un fichier de sauvegarde.</p></div>
+                            <div class="ap-ctrl">
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
+                                    <strong>Les données actuelles seront écrasées.</strong> Faites une sauvegarde avant de restaurer.
+                                </RadzenAlert>
+                                @if (uploadedBackup == null)
                                 {
-                                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false" Class="rz-mt-2">
-                                        Sans TLS, le mot de passe SMTP et le contenu des rapports circulent en clair sur le réseau. À réserver à un relais interne de confiance.
-                                    </RadzenAlert>
-                                }
-                            </RadzenFieldset>
-                        </RadzenColumn>
-
-                        <RadzenColumn Size="12" SizeLG="4">
-                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-secondary);">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                        <RadzenIcon Icon="mark_email_read" Style="color: var(--rz-secondary);" />
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-secondary">Test d'envoi</RadzenText>
-                                    </RadzenStack>
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-                                        Vérifiez la connexion SMTP en envoyant un email de test.
-                                    </RadzenText>
-                                    <RadzenLabel Text="Email destinataire" Component="TestEmail" Style="font-size: 0.8rem; font-weight: bold;" />
-                                    <RadzenTextBox Name="TestEmail" @bind-Value="testEmailTo" Placeholder="email@test.com" Style="width: 100%;" />
-                                    <RadzenButton Text="Envoyer le test" Icon="send" ButtonStyle="ButtonStyle.Secondary" Click="@TesterEmail" IsBusy="@testEnCours" />
-                                </RadzenStack>
-                            </RadzenCard>
-                        </RadzenColumn>
-                    </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
-
-            @* --- NOMMAGE --- *@
-            <RadzenTabsItem Text="Nommage">
-                <Template><RadzenIcon Icon="edit_note" /> Nommage</Template>
-                <ChildContent>
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-                        <RadzenColumn Size="12" SizeLG="7">
-                            <RadzenFieldset Text="Règles & Automatisation" Icon="settings_suggest">
-                                <RadzenStack Gap="1.5rem">
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-3">
-                                        <RadzenStack Gap="1rem">
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.NamingEnabled" />
-                                                    <RadzenLabel Text="Activer le nommage automatique" Style="font-weight: bold;" />
-                                                </RadzenStack>
-                                                <RadzenButton Text="Appliquer (Imprimantes)" Icon="play_arrow" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Primary" Click="@RenommerToutesImprimantes" Disabled="@(!model.NamingEnabled)" />
-                                            </RadzenStack>
-                                            <hr class="rz-my-4" />
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" />
-                                                    <RadzenLabel Text="Appliquer aussi au Partage Windows" />
-                                                </RadzenStack>
-                                                <RadzenButton Text="Appliquer (Partages)" Icon="folder_shared" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@RenommerTousPartages" Disabled="@(!model.NamingSameShare)" />
-                                            </RadzenStack>
-                                            <hr class="rz-my-4" />
-                                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" />
-                                                    <RadzenStack Gap="0">
-                                                        <RadzenLabel Text="Mode Direct par défaut" Style="font-weight: bold;" />
-                                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Pour les nouvelles créations</RadzenText>
-                                                    </RadzenStack>
-                                                </RadzenStack>
-                                                <RadzenButton Text="Forcer le Mode Direct (Masse)" Icon="published_with_changes" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Info" Click="@ForcerModeDirect" />
-                                            </RadzenStack>
-                                        </RadzenStack>
-                                    </RadzenCard>
-                                    <RadzenStack Gap="0.5rem">
-                                        <RadzenLabel Text="Modèle de nom (Template)" />
-                                        <RadzenTextBox @bind-Value="@model.NamingTemplate" Disabled="@(!model.NamingEnabled)" Style="width: 100%; font-family: monospace; font-size: 1.1rem;" Placeholder="IMP_{LIEU}_{IP_LAST}" />
-                                        <RadzenText TextStyle="TextStyle.Caption" Class="rz-mt-1" Style="color: var(--rz-text-tertiary-color);">Tokens : {LIEU}, {LIEU_CODE}, {MARQUE}, {MODELE}, {IMP_CODE}, {IP}, {IP_LAST}</RadzenText>
-                                    </RadzenStack>
-                                </RadzenStack>
-                            </RadzenFieldset>
-                        </RadzenColumn>
-
-                        <RadzenColumn Size="12" SizeLG="5">
-                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-info);">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                        <RadzenIcon Icon="science" Style="color: var(--rz-info);" />
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-info">Simulateur en direct</RadzenText>
-                                    </RadzenStack>
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">Testez tous les tokens disponibles.</RadzenText>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Lieu (Nom)" Component="TLieu" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TLieu" @bind-Value="testLieu" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Lieu (Code)" Component="TLieuCode" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TLieuCode" @bind-Value="testLieuCode" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Marque" Component="TMarque" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TMarque" @bind-Value="testMarque" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Modèle" Component="TModele" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TModele" @bind-Value="testModele" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow RowGap="0.5rem">
-                                        <RadzenColumn Size="8">
-                                            <RadzenLabel Text="Adresse IP" Component="TIP" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TIP" @bind-Value="testIp" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="4">
-                                            <RadzenLabel Text="Code Imp" Component="TCode" Style="font-size: 0.8rem; font-weight: bold;" />
-                                            <RadzenTextBox Name="TCode" @bind-Value="testImpCode" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenButton Text="Générer l'aperçu" Icon="visibility" ButtonStyle="ButtonStyle.Info" Click="@SimulerNom" />
-
-                                    @if (!string.IsNullOrEmpty(previewResult))
-                                    {
-                                        <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mt-2 rz-text-align-center" Style="font-family: monospace; font-size: 1.2rem; font-weight: bold;">
-                                            @previewResult
-                                        </RadzenAlert>
-                                    }
-                                </RadzenStack>
-                            </RadzenCard>
-                        </RadzenColumn>
-                    </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
-
-            @* --- ACTIVE DIRECTORY --- *@
-            <RadzenTabsItem Text="Active Directory">
-                <Template><RadzenIcon Icon="domain" /> Active Directory</Template>
-                <ChildContent>
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-
-                        <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Connexion & Annuaire (Mode Service Obligatoire)" Icon="link">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenRow>
-                                        <RadzenColumn Size="12">
-                                            <RadzenLabel Text="Nom de Domaine" />
-                                            <RadzenTextBox @bind-Value="@model.AdDomain" Placeholder="mondomaine.lan" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-2" Style="background-color: var(--rz-base-200);">
-                                        <RadzenRow>
-                                            <RadzenColumn Size="6">
-                                                <RadzenLabel Text="Utilisateur de Service (AD)" />
-                                                <RadzenTextBox @bind-Value="@model.AdServiceUser" Placeholder="Login simple (ex: jdupont)" Style="width: 100%;" />
-                                            </RadzenColumn>
-                                            <RadzenColumn Size="6">
-                                                <RadzenLabel Text="Mot de passe" />
-                                                <RadzenPassword @bind-Value="@model.AdServicePassword" Style="width: 100%;" />
-                                            </RadzenColumn>
-                                        </RadzenRow>
-                                    </RadzenCard>
-
-                                    <hr class="rz-my-4" />
-
-                                    <RadzenRow>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Base DN (Racine)" />
-                                            <RadzenTextBox @bind-Value="@model.AdBaseDn" Placeholder="OU=Users,DC=corp,DC=local" Style="width: 100%; font-family: monospace;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Filtre LDAP" />
-                                            <RadzenTextBox @bind-Value="@model.AdLdapFilter" Style="width: 100%; font-family: monospace;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenCard Variant="Variant.Flat" Class="rz-p-2">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                            <RadzenIcon Icon="auto_fix_high" Style="color: var(--rz-secondary);" />
-                                            <RadzenText TextStyle="TextStyle.Caption" Style="font-weight: bold;">Assistant Filtre :</RadzenText>
-                                            <RadzenTextBox @bind-Value="builderGroupName" Placeholder="Nom du Groupe" Style="width: 150px;" />
-                                            <RadzenButton Text="+ Groupe" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Secondary" Click="@AddGroupFilter" />
-                                            <RadzenButton Icon="clear" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Click="@(() => model.AdLdapFilter = "")" Tooltip="Effacer le filtre" />
-                                        </RadzenStack>
-                                    </RadzenCard>
-
-                                    <RadzenLabel Text="Emails Alertes Admin" Class="rz-mt-2" />
-                                    <RadzenTextBox @bind-Value="@model.AdAdminEmails" Style="width: 100%;" Placeholder="admin1@corp.com; admin2@corp.com" />
-                                </RadzenStack>
-                            </RadzenFieldset>
-                        </RadzenColumn>
-
-                        <RadzenColumn Size="12" SizeLG="4">
-                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-secondary);">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                        <RadzenIcon Icon="verified_user" Style="color: var(--rz-secondary);" />
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-secondary">Testeur d'accès</RadzenText>
-                                    </RadzenStack>
-                                    <RadzenText TextStyle="TextStyle.Body2">
-                                        Vérifie si un utilisateur spécifique est bien couvert par le filtre LDAP actuel.
-                                    </RadzenText>
-
-                                    <RadzenTextBox @bind-Value="testAdQuery" Placeholder="Login (ex: jdupont)" Style="width: 100%;" />
-                                    <RadzenButton Text="Vérifier l'éligibilité" Icon="check" ButtonStyle="ButtonStyle.Secondary" Click="@TesterFiltreAd" IsBusy="@testAdFilterEnCours" />
-                                </RadzenStack>
-                            </RadzenCard>
-                        </RadzenColumn>
-
-                    </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
-
-            @* --- SUPERVISION --- *@
-            <RadzenTabsItem Text="Supervision">
-                <Template><RadzenIcon Icon="monitor_heart" /> Supervision</Template>
-                <ChildContent>
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-                        <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Supervision d'Arrière-plan" Icon="settings_suggest">
-                                <RadzenStack Gap="1.5rem">
-                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <RadzenCheckBox TValue="bool" @bind-Value="@model.Monitoring_Enabled" Name="MonEnabled" />
-                                        <RadzenLabel Text="Activer la supervision automatique" Component="MonEnabled" Style="cursor:pointer; font-weight: bold;" />
-                                    </div>
-                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -10px;">
-                                        Permet de scanner périodiquement les imprimantes actives par Ping et SNMP pour remonter les statuts et niveaux de toner.
-                                    </RadzenText>
-
-                                    <hr style="margin: 0.75rem 0; border-color: var(--rz-border-color);" />
-
-                                    <RadzenRow>
-                                        <RadzenColumn Size="12" SizeMD="6">
-                                            <RadzenLabel Text="Intervalle de scan (Minutes)" Component="MonInterval" Style="font-weight: bold;" />
-                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_IntervalMinutes" Min="1" Max="1440" Name="MonInterval" Style="width: 100%;" />
-                                            <span style="font-size: 0.8rem; color: var(--rz-text-tertiary-color);">Fréquence à laquelle le démon relance une interrogation globale.</span>
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; margin-top: 15px;">
-                                            <RadzenCheckBox TValue="bool" @bind-Value="@model.Monitoring_ScanOnWeekends" Name="MonWeekend" />
-                                            <RadzenLabel Text="Scanner aussi le week-end" Component="MonWeekend" Style="cursor:pointer; margin-left: 0.5rem;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <hr style="margin: 0.75rem 0; border-color: var(--rz-border-color);" />
-
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold;">Horaires de fonctionnement (Pause Nocturne)</RadzenText>
-                                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin-top: -10px;">
-                                        Configurez la plage horaire de travail pour éviter d'interroger les équipements la nuit.
-                                    </RadzenText>
-                                    <RadzenRow>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Heure de début (0-23)" Component="MonStart" />
-                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_StartHour" Min="0" Max="23" Name="MonStart" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="6">
-                                            <RadzenLabel Text="Heure de fin (0-23)" Component="MonEnd" />
-                                            <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_EndHour" Min="0" Max="23" Name="MonEnd" Style="width: 100%;" />
-                                        </RadzenColumn>
-                                    </RadzenRow>
-                                </RadzenStack>
-                            </RadzenFieldset>
-                        </RadzenColumn>
-                    </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
-
-            @* --- MONITORING --- *@
-            <RadzenTabsItem Text="Monitoring">
-                <Template><RadzenIcon Icon="analytics" /> Monitoring</Template>
-                <ChildContent>
-                    <RadzenStack Gap="2rem" Class="rz-p-2">
-                        <RadzenFieldset Text="Alertes à exporter (Filtres d'exportation)" Icon="filter_alt">
-                            <RadzenStack Gap="1.25rem">
-                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-                                    Choisissez les types d'alertes d'imprimantes qui seront retournés lors de l'appel à l'API d'intégration.
-                                </RadzenText>
-                                <RadzenRow Gap="1.5rem">
-                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeOffline" Name="IncOffline" />
-                                        <RadzenLabel Text="Inclure les imprimantes Hors Ligne (Offline)" Component="IncOffline" Style="cursor:pointer;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeWarning" Name="IncWarning" />
-                                        <RadzenLabel Text="Inclure les alertes & avertissements (Warning)" Component="IncWarning" Style="cursor:pointer;" />
-                                    </RadzenColumn>
-                                </RadzenRow>
-                                <RadzenRow Gap="1.5rem">
-                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeCritical" Name="IncCritical" />
-                                        <RadzenLabel Text="Inclure les pannes critiques (Critical)" Component="IncCritical" Style="cursor:pointer;" />
-                                    </RadzenColumn>
-                                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <RadzenSwitch @bind-Value="@model.Monitoring_IncludeArchived" Name="IncArchived" />
-                                        <RadzenLabel Text="Inclure les imprimantes archivées" Component="IncArchived" Style="cursor:pointer;" />
-                                    </RadzenColumn>
-                                </RadzenRow>
-                            </RadzenStack>
-                        </RadzenFieldset>
-
-                        <RadzenFieldset Text="Jetons d'Intégration (Zabbix, PRTG, Centreon...)" Icon="vpn_key">
-                            <RadzenStack Gap="1.5rem">
-                                <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color);">
-                                    Générez des jetons d'authentification pour permettre à des systèmes tiers d'extraire l'état de supervision des imprimantes via l'API <code>GET api/v1/monitoring/export</code>.
-                                </RadzenText>
-
-                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="margin: 0; font-weight: bold;">Liste des Jetons Actifs</RadzenText>
-                                    <RadzenButton Icon="add_circle" Text="Générer un Jeton" ButtonStyle="ButtonStyle.Success" Click="@OuvrirGenerationToken" />
-                                </RadzenStack>
-
-                                @if (tokensList == null)
-                                {
-                                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
-                                }
-                                else if (!tokensList.Any())
-                                {
-                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" Size="AlertSize.Small" AllowClose="false">
-                                        Aucun jeton d'intégration actif. Cliquez sur "Générer un Jeton" ci-dessus pour en créer un.
-                                    </RadzenAlert>
+                                    <InputFile OnChange="LoadFile" accept=".json" />
                                 }
                                 else
                                 {
-                                    <RadzenDataGrid Data="@tokensList" TItem="IntegrationToken" AllowPaging="true" PageSize="5" Style="width: 100%;">
+                                    <div><strong>Fichier prêt :</strong> @uploadedBackup.CreatedBy, le @uploadedBackup.CreatedAt.ToShortDateString()</div>
+                                    @if (uploadedBackup.SecretsProtected)
+                                    {
+                                        <RadzenPassword @bind-Value="@restoreSecretsPassword" Placeholder="Mot de passe de protection de la sauvegarde" Style="width: 100%;" AutoComplete="false" />
+                                    }
+                                    else
+                                    {
+                                        <span class="ap-help">
+                                            Cette sauvegarde ne contient pas les secrets : les mots de passe AD / SMTP, les identifiants SNMP et la clé agent <strong>de ce serveur</strong> seront conservés.
+                                            Sur un nouveau serveur, il faudra les ressaisir, et les postes configurés avec la clé agent de l'ancien serveur seront refusés jusqu'à leur mise à jour.
+                                        </span>
+                                    }
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                        <RadzenButton Text="Restaurer" Icon="restore" ButtonStyle="ButtonStyle.Danger" Click="@ExecuteRestore" IsBusy="@isRestoring" />
+                                        <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => uploadedBackup = null)" />
+                                    </RadzenStack>
+                                }
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
+            @* --- SMTP --- (format de la maquette : réglage à gauche, champs à droite) *@
+            @if (section == "SMTP")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Serveur d'envoi</h3><p>Relais SMTP utilisé pour les alertes et les rapports planifiés.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-dlg-grid" style="grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);">
+                                    <div class="ap-field"><RadzenLabel Text="Adresse du serveur" Component="SmtpHost" /><RadzenTextBox Name="SmtpHost" @bind-Value="@model.SmtpHost" Placeholder="smtp.mondomaine.fr" Style="width: 100%;" /></div>
+                                    <div class="ap-field"><RadzenLabel Text="Port" Component="SmtpPort" /><RadzenNumeric Name="SmtpPort" @bind-Value="@model.SmtpPort" Min="1" Max="65535" Style="width: 100%;" /></div>
+                                </div>
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Chiffrement TLS</div><div class="d">Recommandé : sans TLS, le mot de passe et le contenu des rapports circulent en clair</div></div>
+                                    <RadzenSwitch @bind-Value="@model.SmtpEnableSsl" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Chiffrement TLS" } })" />
+                                </div>
+                                @if (!model.SmtpEnableSsl)
+                                {
+                                    <span class="ap-help is-warn">Sans TLS : à réserver à un relais interne de confiance</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Authentification</h3><p>Laissez vide si le relais accepte les envois sans compte.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-dlg-grid">
+                                    <div class="ap-field"><RadzenLabel Text="Utilisateur" Component="SmtpUser" /><RadzenTextBox Name="SmtpUser" @bind-Value="@model.SmtpUser" Style="width: 100%;" AutoComplete="false" /></div>
+                                    <div class="ap-field"><RadzenLabel Text="Mot de passe" Component="SmtpPass" /><RadzenPassword Name="SmtpPass" @bind-Value="@model.SmtpPass" Style="width: 100%;" AutoComplete="false" /></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Expéditeur</h3><p>Adresse affichée comme expéditeur des e-mails.</p></div>
+                            <div class="ap-ctrl"><RadzenTextBox @bind-Value="@model.SmtpFromAddress" Placeholder="autoprint@mondomaine.fr" Style="width: 100%;" aria-label="Adresse de l'expéditeur" /></div>
+                        </div>
+                    </section>
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Test d'envoi</h3><p>Envoie un e-mail avec les réglages affichés, même non enregistrés.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-field"><RadzenLabel Text="Destinataire" Component="TestEmail" /><RadzenTextBox Name="TestEmail" @bind-Value="testEmailTo" Placeholder="vous@mondomaine.fr" Style="width: 100%;" /></div>
+                                <div><RadzenButton Text="Envoyer un e-mail de test" Icon="send" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@TesterEmail" IsBusy="@testEnCours" Disabled="@string.IsNullOrWhiteSpace(testEmailTo)" /></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
+
+            @* --- NOMMAGE --- (maquette « modales et nommage » : variables cliquables, aperçu en direct, renommage du parc en étape à part) *@
+            @if (section == "Nommage")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Nom des imprimantes</h3>
+                        <div class="ap-opt-row">
+                            <div class="txt">
+                                <div class="t">Nommage automatique</div>
+                                <div class="d">Le nom est construit avec la règle ci-dessous à la création et à chaque modification d'une imprimante</div>
+                            </div>
+                            <RadzenSwitch @bind-Value="@model.NamingEnabled" Change="@(_ => OnPatternChanged())" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Nommage automatique" } })" />
+                        </div>
+                        <div class="@(model.NamingEnabled ? "ap-name-builder" : "ap-name-builder is-off")">
+                            @if (!model.NamingEnabled)
+                            {
+                                <div class="ap-name-note"><RadzenIcon Icon="info" />Activez le nommage automatique pour modifier la règle</div>
+                            }
+                            <div class="ap-field">
+                                <label class="rz-label" for="naming-pattern">Règle</label>
+                                <input id="naming-pattern" class="rz-textbox ap-mono" style="width: 100%;" spellcheck="false" autocomplete="off"
+                                       disabled="@(!model.NamingEnabled)" placeholder="IMP_{LIEU_CODE}_{MODELE}"
+                                       @bind="model.NamingTemplate" @bind:event="oninput" @bind:after="OnPatternChanged" />
+                            </div>
+                            <div>
+                                <div class="ap-help" style="margin-bottom: 6px;">Cliquez pour insérer à l'emplacement du curseur</div>
+                                <div class="ap-chips">
+                                    @foreach (var tok in NamingTokens)
+                                    {
+                                        <button type="button" class="ap-chip" disabled="@(!model.NamingEnabled)" title="{@tok.Key}" @onclick="@(() => InsererToken(tok.Key))"><RadzenIcon Icon="add" />@tok.Label</button>
+                                    }
+                                </div>
+                            </div>
+                            <div class="ap-name-result">
+                                <div class="ap-field" style="min-width: 0;">
+                                    <span class="ap-help">Exemple avec</span>
+                                    @if (namingSamples.Any())
+                                    {
+                                        <RadzenDropDown TValue="int" @bind-Value="@namingSampleId" Data="@namingSamples" TextProperty="NomAffiche" ValueProperty="Id"
+                                                        Change="@(_ => OnPatternChanged())" AllowFiltering="true" Style="width: 100%; max-width: 360px;" aria-label="Imprimante d'exemple" />
+                                    }
+                                    else
+                                    {
+                                        <span class="ap-help">Aucune imprimante dans le parc : l'aperçu utilise des valeurs d'exemple</span>
+                                    }
+                                </div>
+                                <div class="ap-name-out" aria-live="polite">@(string.IsNullOrEmpty(namingPreview) ? "—" : namingPreview)</div>
+                                <div class="ap-help @(namingCheckOk ? "is-ok" : "is-bad")">@namingCheck</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Partage Windows</h3>
+                        <div class="ap-opt-row">
+                            <div class="txt">
+                                <div class="t">Même nom pour le partage</div>
+                                <div class="d">Le nom de partage des imprimantes partagées reprend le nom de l'imprimante</div>
+                            </div>
+                            <RadzenSwitch @bind-Value="@model.NamingSameShare" Disabled="@(!model.NamingEnabled)" Change="@(_ => OnPatternChanged())" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Même nom pour le partage" } })" />
+                        </div>
+                    </section>
+
+                    <section class="ap-card ap-name-card">
+                        <h3 class="ap-card-title">Appliquer au parc existant</h3>
+                        <p class="ap-card-lead">La règle s'applique aux nouvelles imprimantes. Pour renommer celles qui existent, vérifiez d'abord la liste des changements.</p>
+                        <div class="ap-name-apply">
+                            <span class="ap-name-count">@(namingChanges?.Count ?? 0)</span>
+                            <span class="ap-grow" style="min-width: 180px;">
+                                @(namingChanges == null ? "calcul en cours" : namingChanges.Count == 0 ? "aucune imprimante ne change de nom" : namingChanges.Count == 1 ? "imprimante changerait de nom" : "imprimantes changeraient de nom")<br />
+                                <span class="ap-help">Les postes connectés à l'ancien nom devront être reconnectés</span>
+                            </span>
+                            <RadzenButton Text="@(showNamingDiff ? "Masquer les changements" : "Voir les changements")" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined"
+                                          Disabled="@(!model.NamingEnabled || !namingCheckOk || namingChanges is not { Count: > 0 })" Click="@(() => showNamingDiff = !showNamingDiff)" />
+                        </div>
+                        @if (showNamingDiff && namingChanges is { Count: > 0 })
+                        {
+                            <div class="ap-name-diff">
+                                <div class="ap-name-diff-scroll">
+                                    <table>
+                                        <thead><tr><th>Nom actuel</th><th></th><th>Nouveau nom</th>@if (model.NamingSameShare) { <th>Partage</th> }</tr></thead>
+                                        <tbody>
+                                            @foreach (var c in namingChanges)
+                                            {
+                                                <tr>
+                                                    <td class="old">@c.CurrentName</td><td class="arrow">→</td><td>@c.NewName@(c.IsArchived ? " (archivée)" : "")</td>
+                                                    @if (model.NamingSameShare) { <td>@(c.NewShare ?? (c.CurrentShare == null ? "non partagée" : "inchangé"))</td> }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="ap-name-diff-foot">
+                                    <span class="ap-help">Les réglages de nommage sont enregistrés, puis la synchronisation renomme les files sur le serveur.</span>
+                                    <RadzenButton Text="Fermer" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => showNamingDiff = false)" />
+                                    <RadzenButton Text="@($"Renommer {namingChanges.Count} imprimante{(namingChanges.Count > 1 ? "s" : "")}")" ButtonStyle="ButtonStyle.Primary" Click="@AppliquerNommageAuParc" IsBusy="@namingApplying" />
+                                </div>
+                            </div>
+                        }
+                    </section>
+                </div>
+            }
+
+            @* --- VALEURS PAR DÉFAUT DES IMPRIMANTES --- (réglages sortis de « Nommage ») *@
+            @if (section == "Defauts")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Impression directe</h3><p>Valeur proposée à la création d'une imprimante : les travaux vont directement à l'imprimante, sans file d'attente sur le serveur.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Activée par défaut pour les nouvelles imprimantes</div></div>
+                                    <RadzenSwitch @bind-Value="@model.Printer_DefaultDirectModeEnabled" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Impression directe par défaut" } })" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card ap-zone-sensible">
+                        <div class="ap-set-row">
+                            <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Tout le parc en impression directe</h3><p>Active l'impression directe sur toutes les imprimantes existantes.</p></div>
+                            <div class="ap-ctrl">
+                                <span class="ap-help">Toutes les files seront resynchronisées sur le serveur. Les travaux en attente dans le spouleur peuvent être perdus.</span>
+                                <div><RadzenButton Text="Passer tout le parc en impression directe" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@ForcerModeDirect" /></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
+            @* --- ACTIVE DIRECTORY --- (assistant de filtre remplacé par une recherche de groupe dans l'annuaire : DN exact) *@
+            @if (section == "Active Directory")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Domaine</h3><p>Nom DNS du domaine Active Directory.</p></div>
+                            <div class="ap-ctrl"><RadzenTextBox @bind-Value="@model.AdDomain" Placeholder="mondomaine.lan" Style="width: 100%;" Class="ap-mono" aria-label="Nom de domaine" /></div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Compte de service</h3><p>Compte qui lit l'annuaire pour vérifier les connexions. Un compte sans droit particulier suffit.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-dlg-grid">
+                                    <div class="ap-field"><RadzenLabel Text="Identifiant" Component="AdUser" /><RadzenTextBox Name="AdUser" @bind-Value="@model.AdServiceUser" Placeholder="svc-autoprint" Style="width: 100%;" AutoComplete="false" /></div>
+                                    <div class="ap-field"><RadzenLabel Text="Mot de passe" Component="AdPwd" /><RadzenPassword Name="AdPwd" @bind-Value="@model.AdServicePassword" Style="width: 100%;" AutoComplete="false" /></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Comptes autorisés</h3><p>Seuls les comptes trouvés sous ce DN de base et qui respectent le filtre peuvent se connecter.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-field">
+                                    <RadzenLabel Component="AdBaseDn"><ChildContent>DN de base <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                                    <RadzenTextBox Name="AdBaseDn" @bind-Value="@model.AdBaseDn" Placeholder="OU=Utilisateurs,DC=mondomaine,DC=lan" Style="width: 100%;" Class="ap-mono" />
+                                    <span class="ap-help">Écrire \, pour une virgule dans un nom</span>
+                                </div>
+                                <div class="ap-field">
+                                    <RadzenLabel Component="AdFilter"><ChildContent>Filtre LDAP <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                                    <RadzenTextBox Name="AdFilter" @bind-Value="@model.AdLdapFilter" Placeholder="(memberOf=CN=GG_Autoprint,OU=Groupes,DC=mondomaine,DC=lan)" Style="width: 100%;" Class="ap-mono" />
+                                    <div style="display: flex; flex-wrap: wrap; gap: var(--ap-s2); align-items: center;">
+                                        <span class="ap-help ap-grow">Plusieurs conditions à la suite : toutes doivent être vraies</span>
+                                        @if (!string.IsNullOrWhiteSpace(model.AdLdapFilter))
+                                        {
+                                            <RadzenButton Text="Effacer le filtre" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => model.AdLdapFilter = "")" />
+                                        }
+                                    </div>
+                                </div>
+                                <div class="ap-field">
+                                    <RadzenLabel Text="Limiter à un groupe" Component="AdGroupSearch" />
+                                    <div style="display: flex; gap: var(--ap-s2);">
+                                        <RadzenTextBox Name="AdGroupSearch" @bind-Value="builderGroupName" Placeholder="Nom du groupe" Style="flex: 1;" @onkeydown="@(async e => { if (e.Key == "Enter") await ChercherGroupesAd(); })" />
+                                        <RadzenButton Text="Rechercher" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@ChercherGroupesAd" IsBusy="@adGroupSearching" />
+                                    </div>
+                                    <span class="ap-help">Recherche dans l'annuaire avec les réglages enregistrés ; le groupe choisi est ajouté au filtre avec son DN exact</span>
+                                    @if (adGroupResults != null)
+                                    {
+                                        @if (!adGroupResults.Any())
+                                        {
+                                            <span class="ap-help is-warn">Aucun groupe trouvé (vérifiez le domaine et le compte de service, puis enregistrez)</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="ap-pick-list">
+                                                @foreach (var g in adGroupResults)
+                                                {
+                                                    <div class="ap-pick-row">
+                                                        <div class="txt"><div class="t">@g.Name</div><div class="d ap-mono">@g.DistinguishedName</div></div>
+                                                        <RadzenButton Text="Ajouter au filtre" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Disabled="@(g.MemberOfFilter == null)" Click="@(() => AjouterGroupeAuFiltre(g))" />
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Vérifier un compte</h3><p>Indique si un compte est couvert par le DN de base et le filtre affichés.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; gap: var(--ap-s2);">
+                                    <RadzenTextBox @bind-Value="testAdQuery" Placeholder="Identifiant (ex. jdupont)" Style="flex: 1;" aria-label="Identifiant à vérifier" />
+                                    <RadzenButton Text="Vérifier" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@TesterFiltreAd" IsBusy="@testAdFilterEnCours" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
+
+            @* --- SUPERVISION --- *@
+            @if (section == "Supervision")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Supervision automatique</h3><p>Interroge régulièrement les imprimantes actives (ping et SNMP) pour leur état et leurs niveaux de toner.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Activée</div></div>
+                                    <RadzenSwitch @bind-Value="@model.Monitoring_Enabled" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Supervision automatique" } })" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Fréquence</h3><p>Délai entre deux passages sur tout le parc.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_IntervalMinutes" Min="1" Max="1440" Style="width: 140px;" Disabled="@(!model.Monitoring_Enabled)" aria-label="Intervalle en minutes" />
+                                    <span class="ap-muted">minutes</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Plage horaire</h3><p>En dehors de cette plage, les imprimantes ne sont pas interrogées.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s2);">
+                                    <span>De</span>
+                                    <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_StartHour" Min="0" Max="23" Style="width: 90px;" Disabled="@(!model.Monitoring_Enabled)" aria-label="Heure de début" />
+                                    <span>h à</span>
+                                    <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_EndHour" Min="0" Max="23" Style="width: 90px;" Disabled="@(!model.Monitoring_Enabled)" aria-label="Heure de fin" />
+                                    <span>h</span>
+                                </div>
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Aussi le week-end</div></div>
+                                    <RadzenSwitch @bind-Value="@model.Monitoring_ScanOnWeekends" Disabled="@(!model.Monitoring_Enabled)" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Superviser aussi le week-end" } })" />
+                                </div>
+                                @if (!model.Monitoring_Enabled)
+                                {
+                                    <span class="ap-help">Activez la supervision automatique pour modifier ces réglages</span>
+                                }
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
+
+            @* --- MONITORING --- *@
+            @if (section == "Monitoring")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Alertes exportées</h3><p>États renvoyés aux outils de supervision par <span class="ap-mono">GET api/v1/monitoring/export</span>.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row"><div class="txt"><div class="t">Imprimantes hors ligne</div></div><RadzenSwitch @bind-Value="@model.Monitoring_IncludeOffline" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Imprimantes hors ligne" } })" /></div>
+                                <div class="ap-opt-row"><div class="txt"><div class="t">Avertissements</div><div class="d">Toner bas, bac vide</div></div><RadzenSwitch @bind-Value="@model.Monitoring_IncludeWarning" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Avertissements" } })" /></div>
+                                <div class="ap-opt-row"><div class="txt"><div class="t">Pannes critiques</div></div><RadzenSwitch @bind-Value="@model.Monitoring_IncludeCritical" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Pannes critiques" } })" /></div>
+                                <div class="ap-opt-row"><div class="txt"><div class="t">Imprimantes archivées</div></div><RadzenSwitch @bind-Value="@model.Monitoring_IncludeArchived" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Imprimantes archivées" } })" /></div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card ap-name-card">
+                        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s3); margin-top: var(--ap-s4);">
+                            <div class="ap-grow">
+                                <h3 class="ap-card-title" style="margin-top: 0;">Jetons d'intégration</h3>
+                                <p class="ap-card-lead" style="margin: 0;">Pour Zabbix, PRTG, Centreon ou tout outil qui lit l'état des imprimantes. Un jeton par outil, révocable à tout moment.</p>
+                            </div>
+                            <RadzenButton Icon="add" Text="Générer un jeton" ButtonStyle="ButtonStyle.Primary" Click="@OuvrirGenerationToken" />
+                        </div>
+                        <div style="margin-top: var(--ap-s3);">
+                            @if (tokensList == null)
+                            {
+                                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                            }
+                            else if (!tokensList.Any())
+                            {
+                                <div class="ap-name-note"><RadzenIcon Icon="info" />Aucun jeton actif. Générez-en un par outil de supervision.</div>
+                            }
+                            else
+                            {
+                                <div class="ap-grid-wrap">
+                                    <RadzenDataGrid Data="@tokensList" TItem="IntegrationToken" AllowPaging="true" PageSize="5" AllowSorting="true" Style="width: 100%;">
                                         <Columns>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="Description" Title="Usage / Description" />
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="Description" Title="Outil ou usage" />
                                             <RadzenDataGridColumn TItem="IntegrationToken" Property="CreatedAt" Title="Créé le" Width="150px">
-                                                <Template Context="t">
-                                                    @t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                                                </Template>
+                                                <Template Context="t">@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
                                             </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="ExpiresAt" Title="Expire le" Width="150px">
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Property="ExpiresAt" Title="Expire le" Width="170px">
                                                 <Template Context="t">
                                                     @if (t.ExpiresAt.HasValue)
                                                     {
-                                                        <span style="@(t.ExpiresAt < DateTime.UtcNow ? "color: var(--rz-danger); font-weight: bold;" : "")">
-                                                            @t.ExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                                                        </span>
+                                                        <span style="@(t.ExpiresAt < DateTime.UtcNow ? "color: var(--ap-danger);" : "")">@t.ExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")@(t.ExpiresAt < DateTime.UtcNow ? " (expiré)" : "")</span>
                                                     }
                                                     else
                                                     {
-                                                        <span style="color: var(--rz-text-disabled-color);">Jamais</span>
+                                                        <span class="ap-muted">Jamais</span>
                                                     }
                                                 </Template>
                                             </RadzenDataGridColumn>
-                                            <RadzenDataGridColumn TItem="IntegrationToken" Title="Actions" Width="100px" TextAlign="TextAlign.Center">
+                                            <RadzenDataGridColumn TItem="IntegrationToken" Title="" Width="110px" TextAlign="TextAlign.Right" Sortable="false">
                                                 <Template Context="t">
-                                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Small" Click="@(() => SupprimerToken(t))" Tooltip="Révoquer" title="Révoquer ce jeton" />
+                                                    <RadzenButton Text="Révoquer" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => SupprimerToken(t))" />
                                                 </Template>
                                             </RadzenDataGridColumn>
                                         </Columns>
                                     </RadzenDataGrid>
-                                }
-                            </RadzenStack>
-                        </RadzenFieldset>
-                    </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                </div>
+            }
 
-            @* --- SCANNER RÉSEAU --- *@
-            <RadzenTabsItem Text="Scanner Réseau">
-                <Template><RadzenIcon Icon="radar" /> Scanner Réseau</Template>
-                <ChildContent>
-                    <RadzenRow Class="rz-p-2" Gap="2rem">
-
-                        <RadzenColumn Size="12" SizeLG="8">
-                            <RadzenFieldset Text="Configuration Auto-Discovery" Icon="settings_remote">
-                                <RadzenStack Gap="1rem">
-
-                                    <RadzenRow>
-                                        <RadzenColumn Size="12" SizeMD="6">
-                                            <RadzenLabel Text="Plages IP Cibles (CIDR)" Style="font-weight: bold;" />
-                                            <RadzenTextArea @bind-Value="@scanConfig.TargetRanges" Placeholder="192.168.1.0/24&#10;10.0.0.0/16" Style="width: 100%; height: 120px; font-family: monospace;" />
-                                            <small class="text-muted">Une plage par ligne (ou séparées par ;). Max /16.</small>
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="12" SizeMD="6">
-                                            <RadzenLabel Text="Exclusions" />
-                                            <RadzenTextArea @bind-Value="@scanConfig.ExcludedRanges" Placeholder="192.168.1.50/32" Style="width: 100%; height: 120px; font-family: monospace;" />
-                                            <small class="text-muted">Réseaux ou IPs à ignorer.</small>
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow>
-                                        <RadzenColumn Size="12">
-                                            <RadzenLabel Text="Sondes (Suffixes)" />
-                                            <RadzenTextBox @bind-Value="@scanConfig.ProbeTargets" Placeholder="254;1" Style="width: 100%;" />
-                                            <small class="text-muted">Dernier octet testé pour valider un réseau (ex: 254 teste .254).</small>
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenRow AlignItems="AlignItems.End" Class="rz-mt-3">
-                                        <RadzenColumn Size="12" SizeMD="4" Class="rz-display-flex rz-align-items-center">
-                                            <RadzenSwitch @bind-Value="@scanConfig.SendEmailReport" />
-                                            <RadzenLabel Text="Rapport par Email" Class="rz-ml-2" Style="@(scanConfig.SendEmailReport ? "font-weight:bold" : "")" />
-                                        </RadzenColumn>
-                                        <RadzenColumn Size="12" SizeMD="8">
-                                            <RadzenLabel Text="Destinataires" />
-                                            <RadzenTextBox @bind-Value="@scanConfig.EmailRecipients" Placeholder="admin@societe.com; support@societe.com" Style="width: 100%;" Disabled="@(!scanConfig.SendEmailReport)" />
-                                            <small class="text-muted">Séparez les adresses par un point-virgule (;)</small>
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <hr class="rz-my-4" />
-
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.H3" Class="rz-mb-0">Planification</RadzenText>
-
-                                    <RadzenRow>
-                                        <RadzenColumn Size="12" SizeMD="3">
-                                            <RadzenLabel Text="Heure (0-23h)" />
-                                            <RadzenNumeric @bind-Value="@scanConfig.ScheduleHour" Min="0" Max="23" Style="width: 100%;" />
-                                        </RadzenColumn>
-
-                                        <RadzenColumn Size="12" SizeMD="9">
-                                            <RadzenLabel Text="Jours d'exécution" Class="rz-mb-2" />
-                                            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap">
-                                                @{
-                                                    var joursFr = new Dictionary<ScanDays, string> {
-                                                                                        { ScanDays.Monday, "LUN" }, { ScanDays.Tuesday, "MAR" }, { ScanDays.Wednesday, "MER" },
-                                                                                        { ScanDays.Thursday, "JEU" }, { ScanDays.Friday, "VEN" }, { ScanDays.Saturday, "SAM" },
-                                                                                        { ScanDays.Sunday, "DIM" }
-                                                                                        };
-                                                }
-                                                @foreach (var kvp in joursFr)
-                                                {
-                                                    <div style="display: flex; align-items: center;">
-                                                        <RadzenCheckBox TValue="bool" Value="@HasDay(kvp.Key)" Change="@(args => ToggleDay(args, kvp.Key))" Name="@kvp.Key.ToString()" />
-                                                        <RadzenLabel Text="@kvp.Value" Component="@kvp.Key.ToString()" Class="rz-ml-1" Style="cursor:pointer" />
-                                                    </div>
-                                                }
-                                            </RadzenStack>
-                                        </RadzenColumn>
-                                    </RadzenRow>
-
-                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Class="rz-mt-4">
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                            <RadzenSwitch @bind-Value="@scanConfig.IsEnabled" />
-                                            <RadzenLabel Text="Activer la planification" Style="@(scanConfig.IsEnabled ? "color: var(--rz-success); font-weight:bold" : null)" />
-                                        </RadzenStack>
-
-                                        <RadzenButton Text="Enregistrer la Configuration" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@SaveScanConfig" />
-                                    </RadzenStack>
-
-                                </RadzenStack>
-                            </RadzenFieldset>
-                        </RadzenColumn>
-
-                        <RadzenColumn Size="12" SizeLG="4">
-                            <RadzenCard Variant="Variant.Outlined" Style="border-top: 4px solid var(--rz-primary);">
-                                <RadzenStack Gap="1rem">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                        <RadzenIcon Icon="play_circle" Style="color: var(--rz-primary);" />
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0 rz-color-primary">Scan Manuel</RadzenText>
-                                    </RadzenStack>
-
-                                    <RadzenText TextStyle="TextStyle.Body2">
-                                        Lancez une analyse immédiate avec ces paramètres.
-                                    </RadzenText>
-
-                                    <RadzenButton Text="Lancer maintenant" Icon="radar" ButtonStyle="ButtonStyle.Success" Click="@RunManualScan" IsBusy="@isScanning" BusyText="Analyse en cours..." Style="width: 100%;" />
-
-                                    @if (!string.IsNullOrEmpty(scanConfig.LastRunResult))
+            @* --- SCANNER RÉSEAU --- (enregistré avec la barre commune, plus de bouton à part) *@
+            @if (section == "Scanner le réseau")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Réseaux à analyser</h3><p>Une plage CIDR par ligne (ou séparées par ;), /16 au maximum.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-field"><RadzenLabel Text="Plages" Component="ScanRanges" /><RadzenTextArea Name="ScanRanges" @bind-Value="@scanConfig.TargetRanges" Placeholder="10.12.0.0/16" Style="width: 100%; height: 96px;" Class="ap-mono" /></div>
+                                <div class="ap-field"><RadzenLabel Component="ScanExcl"><ChildContent>Exclusions <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel><RadzenTextArea Name="ScanExcl" @bind-Value="@scanConfig.ExcludedRanges" Placeholder="10.12.1.50/32" Style="width: 100%; height: 72px;" Class="ap-mono" /></div>
+                                <div class="ap-field">
+                                    <RadzenLabel Text="Adresses de test" Component="ScanProbe" />
+                                    <RadzenTextBox Name="ScanProbe" @bind-Value="@scanConfig.ProbeTargets" Placeholder="254;1" Style="width: 100%;" Class="ap-mono" />
+                                    <span class="ap-help">Dernier octet testé pour savoir si un sous-réseau répond (254 teste .254)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Analyse planifiée</h3><p>Lance l'analyse automatiquement aux jours et à l'heure choisis.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Activée</div></div>
+                                    <RadzenSwitch @bind-Value="@scanConfig.IsEnabled" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Analyse planifiée" } })" />
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <span>À</span><RadzenNumeric @bind-Value="@scanConfig.ScheduleHour" Min="0" Max="23" Style="width: 90px;" Disabled="@(!scanConfig.IsEnabled)" aria-label="Heure de l'analyse" /><span>h</span>
+                                </div>
+                                <div class="ap-chips" role="group" aria-label="Jours de l'analyse">
+                                    @foreach (var kvp in JoursScan)
                                     {
-                                        <RadzenAlert AlertStyle="@(scanConfig.LastRunResult.Contains("R.A.S") ? AlertStyle.Info : AlertStyle.Success)" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false" Class="rz-mt-2">
-                                            <div><strong>Résultat :</strong></div>
-                                            <div>@scanConfig.LastRunResult</div>
-                                            @if (scanConfig.LastRunDate.HasValue)
-                                            {
-                                                <small class="text-muted">@scanConfig.LastRunDate.Value.ToLocalTime().ToString("g")</small>
-                                            }
-                                        </RadzenAlert>
+                                        <button type="button" class="@(HasDay(kvp.Key) ? "ap-chip is-on" : "ap-chip")" aria-pressed="@(HasDay(kvp.Key) ? "true" : "false")" disabled="@(!scanConfig.IsEnabled)" @onclick="@(() => ToggleDay(!HasDay(kvp.Key), kvp.Key))">@kvp.Value</button>
                                     }
-                                </RadzenStack>
-                            </RadzenCard>
-                        </RadzenColumn>
-                    </RadzenRow>
-                </ChildContent>
-            </RadzenTabsItem>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Rapport par e-mail</h3><p>Liste des imprimantes trouvées, envoyée après chaque analyse.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-opt-row" style="padding: 0;">
+                                    <div class="txt"><div class="t">Envoyer le rapport</div></div>
+                                    <RadzenSwitch @bind-Value="@scanConfig.SendEmailReport" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Envoyer le rapport par e-mail" } })" />
+                                </div>
+                                <RadzenTextBox @bind-Value="@scanConfig.EmailRecipients" Placeholder="admin@mondomaine.fr; support@mondomaine.fr" Style="width: 100%;" Disabled="@(!scanConfig.SendEmailReport)" aria-label="Destinataires du rapport" />
+                                <span class="ap-help">Séparez les adresses par un point-virgule</span>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Analyser maintenant</h3><p>Lance une analyse immédiate avec les réglages enregistrés.</p></div>
+                            <div class="ap-ctrl">
+                                <div><RadzenButton Text="Lancer l'analyse" Icon="radar" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@RunManualScan" IsBusy="@isScanning" BusyText="Analyse en cours…" Disabled="@ScanDirty" /></div>
+                                @if (ScanDirty)
+                                {
+                                    <span class="ap-help">Enregistrez d'abord les modifications</span>
+                                }
+                                @if (!string.IsNullOrEmpty(scanConfig.LastRunResult))
+                                {
+                                    <span class="ap-help">Dernière analyse@(scanConfig.LastRunDate.HasValue ? $" le {scanConfig.LastRunDate.Value.ToLocalTime():dd/MM/yyyy HH:mm}" : "") : @scanConfig.LastRunResult</span>
+                                }
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
 
             @* --- SECURITE --- *@
-            <RadzenTabsItem Text="Sécurité">
-                <Template><RadzenIcon Icon="security" /> Sécurité</Template>
-                <ChildContent>
-                    <RadzenStack Gap="2rem" Class="rz-p-2">
-                        <RadzenCard Variant="Variant.Outlined" Style="border-color: var(--rz-warning);">
-                            <RadzenStack Gap="1rem">
-                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                    <RadzenIcon Icon="vpn_key" Style="color: var(--rz-warning); font-size: 2rem;" />
-                                    <RadzenStack Gap="0">
-                                        <RadzenText TextStyle="TextStyle.H6" Class="rz-mb-0" Style="color: var(--rz-warning);">Clé d'API Agent (Machine-to-Machine)</RadzenText>
-                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">Cette clé permet aux postes clients de s'identifier. Elle est demandée à l'installation du MSI client (APIKEY=...).</RadzenText>
-                                    </RadzenStack>
-                                </RadzenStack>
-
-                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
-                                    <RadzenTextBox Value="@model.AgentApiKey" Disabled="true" Style="width: 100%; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;" />
-                                    <RadzenButton Icon="content_copy" Text="Copier la clé" ButtonStyle="ButtonStyle.Secondary" Click="@CopyAgentKey" Tooltip="Copie la clé en clair dans le presse-papiers (action tracée dans l'audit)" />
-                                </RadzenStack>
-                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                                    La clé n'est jamais affichée en clair. Chaque copie est enregistrée dans le journal d'audit.
-                                </RadzenText>
-
-                                @* Changement de clé (backlog B18) *@
-                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap" Class="rz-mt-2">
+            @if (section == "Sécurité")
+            {
+                <div class="ap-settings">
+                    <section class="ap-card">
+                        <div class="ap-set-row">
+                            <div><h3>Clé d'API des postes clients</h3><p>Les postes s'identifient avec cette clé, demandée à l'installation du client (<span class="ap-mono">APIKEY=…</span>).</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; gap: var(--ap-s2);">
+                                    <RadzenTextBox Value="@model.AgentApiKey" Disabled="true" Style="flex: 1;" Class="ap-mono" aria-label="Clé d'API masquée" />
+                                    <RadzenButton Icon="content_copy" Text="Copier" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@CopyAgentKey" />
+                                </div>
+                                <span class="ap-help">La clé n'est jamais affichée ; chaque copie est inscrite au journal d'audit</span>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Mots de passe locaux</h3><p>Durée de validité des mots de passe des comptes locaux Autoprint.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Min="0" Max="999" Style="width: 120px;" aria-label="Validité en jours" />
+                                    <span class="ap-muted">jours</span>
+                                </div>
+                                <span class="ap-help">0 : jamais d'expiration</span>
+                            </div>
+                        </div>
+                        <div class="ap-set-row">
+                            <div><h3>Déconnexion après inactivité</h3><p>La console se ferme quand personne ne l'a utilisée pendant ce délai, dans aucun onglet.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <RadzenNumeric @bind-Value="@model.IdleTimeoutMinutes" Min="0" Max="1440" Style="width: 120px;" aria-label="Délai d'inactivité en minutes" />
+                                    <span class="ap-muted">minutes</span>
+                                </div>
+                                <span class="ap-help">0 : jamais ; s'applique à la prochaine connexion des utilisateurs</span>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card">
+                        <div class="ap-set-row is-stack">
+                            <div>
+                                <h3>Noms acceptés par le serveur</h3>
+                                <p>Le serveur ne répond qu'aux adresses de cette liste (console et postes clients), plus localhost. Pendant un changement de nom, gardez l'ancien et le nouveau, puis retirez l'ancien quand tous les postes utilisent le nouveau.</p>
+                            </div>
+                            <div class="ap-ctrl">
+                                <div class="ap-chips" role="list" aria-label="Noms acceptés">
+                                    @foreach (var h in allowedHosts)
+                                    {
+                                        bool isCurrent = string.Equals(h, allowedHostsCurrent, StringComparison.OrdinalIgnoreCase);
+                                        <span class="ap-chip is-host" role="listitem" style="cursor: default;" title="@h">
+                                            @h
+                                            @if (isCurrent)
+                                            {
+                                                <RadzenIcon Icon="lock" title="Nom de la console ouverte : ne peut pas être retiré" Style="color: var(--ap-text-muted);" />
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="ap-chip-x" title="Retirer @h" aria-label="Retirer @h" disabled="@allowedHostsBusy" @onclick="@(() => RetirerNomAccepte(h))"><RadzenIcon Icon="close" /></button>
+                                            }
+                                        </span>
+                                    }
+                                    @if (allowedHosts.Count == 0)
+                                    {
+                                        <span class="ap-help is-warn">Tous les noms sont acceptés (serveur mis à jour sans nom public) : ajoutez le nom de la console.</span>
+                                    }
+                                </div>
+                                <div style="display: flex; gap: var(--ap-s2); margin-top: var(--ap-s2); max-width: 520px;">
+                                    <RadzenTextBox @bind-Value="@nouveauNomAccepte" Placeholder="autoprint.mondomaine.fr" Style="flex: 1; min-width: 0;" Class="ap-mono" aria-label="Nom à ajouter" />
+                                    <RadzenButton Icon="add" Text="Ajouter" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AjouterNomAccepte" IsBusy="@allowedHostsBusy" Disabled="@string.IsNullOrWhiteSpace(nouveauNomAccepte)" />
+                                </div>
+                                <span class="ap-help">Pris en compte immédiatement, sans redémarrage ; chaque modification est inscrite au journal d'audit. Le nom doit aussi avoir sa liaison HTTPS (certificat) dans IIS.</span>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ap-card ap-zone-sensible">
+                        <div class="ap-set-row">
+                            <div><span class="ap-zone-label"><RadzenIcon Icon="warning" Style="font-size: 14px;" />Zone sensible</span><h3 style="margin-top: 6px;">Nouvelle clé d'API</h3><p>Remplace la clé des postes clients. Ils devront recevoir la nouvelle clé avant la fin de la transition.</p></div>
+                            <div class="ap-ctrl">
+                                <div class="ap-field">
                                     <RadzenLabel Text="Ancienne clé encore acceptée pendant" Component="Transition" />
-                                    <RadzenDropDown Name="Transition" TValue="int" @bind-Value="@agentKeyTransitionDays" Data="@agentKeyTransitions" TextProperty="Text" ValueProperty="Value" Style="width: 170px;" />
-                                    <RadzenButton Icon="autorenew" Text="Générer une nouvelle clé" ButtonStyle="ButtonStyle.Warning" Click="@RotateAgentKey" IsBusy="@rotatingAgentKey" />
-                                </RadzenStack>
+                                    <RadzenDropDown Name="Transition" TValue="int" @bind-Value="@agentKeyTransitionDays" Data="@agentKeyTransitions" TextProperty="Text" ValueProperty="Value" Style="width: 200px;" />
+                                </div>
+                                <div><RadzenButton Icon="autorenew" Text="Générer une nouvelle clé" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined" Click="@RotateAgentKey" IsBusy="@rotatingAgentKey" /></div>
                                 @if (agentKeyPreviousUntil != null && agentKeyPreviousUntil > DateTime.UtcNow)
                                 {
-                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Size="AlertSize.Small" AllowClose="false">
-                                        Période de transition : l'ancienne clé est encore acceptée jusqu'au @agentKeyPreviousUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm").
-                                        Redéployez la nouvelle clé sur les postes (MSI <code>APIKEY=…</code> ou GPO sur <code>HKLM\SOFTWARE\Autoprint\APIKEY</code>) avant cette date.
-                                    </RadzenAlert>
+                                    <div class="ap-name-note"><RadzenIcon Icon="info" />Transition en cours : l'ancienne clé reste acceptée jusqu'au @agentKeyPreviousUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"). Redéployez la nouvelle clé (MSI APIKEY=… ou GPO HKLM\SOFTWARE\Autoprint\APIKEY) avant.</div>
                                 }
-                            </RadzenStack>
-                        </RadzenCard>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            }
 
-                        <RadzenFieldset Text="Politique de Mots de Passe" Icon="password">
-                            <RadzenRow AlignItems="AlignItems.Center">
-                                <RadzenColumn Size="12" SizeMD="8">
-                                    <RadzenStack Gap="0">
-                                        <RadzenLabel Text="Expiration des mots de passe locaux" Style="font-weight: 600;" />
-                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="4px">
-                                            <RadzenIcon Icon="info" Style="font-size: 1rem; color: var(--rz-secondary);" />
-                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-secondary); margin: 0;">
-                                                Mettre <strong>0</strong> pour désactiver (Toujours valide).
-                                            </RadzenText>
-                                        </RadzenStack>
-                                    </RadzenStack>
-                                </RadzenColumn>
-                                <RadzenColumn Size="12" SizeMD="4">
-                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" JustifyContent="JustifyContent.End">
-                                        <RadzenNumeric @bind-Value="@model.PasswordExpirationDays" Min="0" Max="999" Style="width: 100px;" />
-                                        <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">jours</RadzenText>
-                                    </RadzenStack>
-                                </RadzenColumn>
-                            </RadzenRow>
-                        </RadzenFieldset>
-
-
-                    </RadzenStack>
-                </ChildContent>
-            </RadzenTabsItem>
-
-        </Tabs>
-    </RadzenTabs>
+            @if (IsDirty)
+            {
+                <div class="ap-savebar" role="region" aria-label="Modifications en attente">
+                    <RadzenIcon Icon="edit_note" />
+                    <span>Modifications non enregistrées</span>
+                    <span class="ap-grow"></span>
+                    <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AnnulerModifications" />
+                    <RadzenButton Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="@Sauvegarder" IsBusy="@sauvegardeEnCours" />
+                </div>
+            }
+        </div>
+    </div>
 }
 
 @code {
@@ -734,31 +682,120 @@ else
 
     private async Task RotateAgentKey()
     {
-        var message = agentKeyTransitionDays > 0
-            ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
-            : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
-        if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
-
+        if (rotatingAgentKey) return; // double clic : une seule rotation à la fois
         rotatingAgentKey = true;
         try
         {
-            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays });
-            if (!response.IsSuccessStatusCode)
+            // Transition déjà en cours (recette du 12/11, double clic) : une seule « ancienne » clé est gardée, la clé d'origine
+            // serait refusée tout de suite. Le serveur refuse alors la rotation (409) sauf confirmation explicite (Force).
+            bool transitionEnCours = agentKeyPreviousUntil != null && agentKeyPreviousUntil > DateTime.UtcNow;
+            if (transitionEnCours)
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Erreur", await response.Content.ReadAsStringAsync());
-                return;
+                if (!await ConfirmerRotationForcee(agentKeyPreviousUntil!.Value)) return;
             }
+            else
+            {
+                var message = agentKeyTransitionDays > 0
+                    ? $"Une nouvelle clé va être générée. L'ancienne restera acceptée {agentKeyTransitionDays} jour(s) : redéployez la nouvelle clé sur tous les postes pendant ce délai. Continuer ?"
+                    : "Une nouvelle clé va être générée et l'ancienne sera REFUSÉE IMMÉDIATEMENT : tous les postes non mis à jour perdront l'accès au serveur. Continuer ?";
+                if (await DialogService.Confirm(message, "Nouvelle clé d'API agent", new ConfirmOptions { OkButtonText = "Générer", CancelButtonText = "Annuler" }) != true) return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays, Force = transitionEnCours });
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                // Transition lancée entre-temps (autre onglet, autre administrateur) : on demande la confirmation explicite
+                var conflict = await response.Content.ReadFromJsonAsync<RotationConflict>();
+                if (!await ConfirmerRotationForcee(conflict?.TransitionUntil ?? DateTime.UtcNow)) return;
+                response = await Http.PostAsJsonAsync("api/Settings/agent-key/rotate", new { TransitionDays = agentKeyTransitionDays, Force = true });
+            }
+            if (!await response.CheckAsync(NotificationService, "Nouvelle clé refusée")) return;
+
             var result = await response.Content.ReadFromJsonAsync<AgentKeyRotationResult>();
             agentKeyPreviousUntil = result?.PreviousValidUntil;
-            await DialogService.Alert(
-                $"Nouvelle clé : {result?.Key}\n\nCopiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier la clé ».",
-                "Nouvelle clé d'API agent", new AlertOptions { OkButtonText = "J'ai copié la clé" });
+            var key = result?.Key ?? "";
+            await DialogService.OpenAsync("Nouvelle clé d'API agent", ds =>
+                @<div style="display: flex; flex-direction: column; gap: var(--ap-s3);">
+                    <div>Nouvelle clé :</div>
+                    <div class="ap-mono" style="font-size: 15px; user-select: all; word-break: break-all;">@key</div>
+                    <div class="ap-muted">Copiez-la maintenant pour la déployer sur les postes. Elle reste récupérable plus tard avec « Copier ».</div>
+                    <div style="display: flex; justify-content: flex-end;"><RadzenButton Text="J'ai copié la clé" ButtonStyle="ButtonStyle.Primary" Click="@(() => ds.Close(true))" /></div>
+                </div>, new DialogOptions { Width = "460px" });
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
         finally { rotatingAgentKey = false; }
     }
 
+    private async Task<bool> ConfirmerRotationForcee(DateTime until)
+        => await DialogService.Confirm(
+            $"Une transition de clé est déjà en cours (jusqu'au {until.ToLocalTime():dd/MM/yyyy HH:mm}). Générer encore une clé REFUSERA IMMÉDIATEMENT la clé d'origine : les postes qui ne l'ont pas encore remplacée perdront l'accès au serveur. Forcer quand même ?",
+            "Transition déjà en cours", new ConfirmOptions { OkButtonText = "Forcer une nouvelle clé", CancelButtonText = "Annuler" }) == true;
+
+    private class RotationConflict { public string? Message { get; set; } public DateTime? TransitionUntil { get; set; } }
+
     private class AgentKeyRotationResult { public string Key { get; set; } = ""; public DateTime? PreviousValidUntil { get; set; } }
+
+    // ---------- Noms acceptés par le serveur (B82) ----------
+    private List<string> allowedHosts = new();
+    private string? allowedHostsCurrent;
+    private string? nouveauNomAccepte;
+    private bool allowedHostsBusy;
+
+    private class AllowedHostsDto { public List<string> Hosts { get; set; } = new(); public string? CurrentHost { get; set; } }
+
+    private async Task ChargerNomsAcceptes()
+    {
+        try
+        {
+            var dto = await Http.GetFromJsonAsync<AllowedHostsDto>("api/Settings/allowed-hosts");
+            allowedHosts = dto?.Hosts ?? new();
+            allowedHostsCurrent = dto?.CurrentHost;
+        }
+        catch { }
+    }
+
+    private async Task AjouterNomAccepte()
+    {
+        var nom = (nouveauNomAccepte ?? "").Trim().Replace("https://", "", StringComparison.OrdinalIgnoreCase).Replace("http://", "", StringComparison.OrdinalIgnoreCase).TrimEnd('/');
+        if (nom.Length == 0) return;
+        if (allowedHosts.Any(h => string.Equals(h, nom, StringComparison.OrdinalIgnoreCase))) { nouveauNomAccepte = ""; return; }
+        // Liste vide (tout accepté) : on y met aussi le nom de la console ouverte, pour ne pas s'en couper
+        var liste = new List<string>(allowedHosts);
+        if (liste.Count == 0 && !string.IsNullOrEmpty(allowedHostsCurrent) && !IsLocalHost(allowedHostsCurrent)) liste.Add(allowedHostsCurrent);
+        liste.Add(nom);
+        if (await EnregistrerNomsAcceptes(liste)) nouveauNomAccepte = "";
+    }
+
+    private async Task RetirerNomAccepte(string nom)
+    {
+        var ok = await DialogService.Confirm(
+            $"Retirer « {nom} » ? Les postes clients et les navigateurs qui utilisent encore ce nom ne pourront plus joindre le serveur.",
+            "Noms acceptés par le serveur", new ConfirmOptions { OkButtonText = "Retirer", CancelButtonText = "Annuler" });
+        if (ok != true) return;
+        await EnregistrerNomsAcceptes(allowedHosts.Where(h => !string.Equals(h, nom, StringComparison.OrdinalIgnoreCase)).ToList());
+    }
+
+    private async Task<bool> EnregistrerNomsAcceptes(List<string> liste)
+    {
+        allowedHostsBusy = true;
+        try
+        {
+            var response = await Http.PutAsJsonAsync("api/Settings/allowed-hosts", new AllowedHostsDto { Hosts = liste });
+            if (!response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Noms acceptés", await response.Content.ReadAsStringAsync());
+                return false;
+            }
+            var dto = await response.Content.ReadFromJsonAsync<AllowedHostsDto>();
+            allowedHosts = dto?.Hosts ?? liste;
+            NotificationService.Notify(NotificationSeverity.Success, "Noms acceptés", "Liste enregistrée.");
+            return true;
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Noms acceptés", ex.Message); return false; }
+        finally { allowedHostsBusy = false; }
+    }
+
+    private static bool IsLocalHost(string h) => h.Equals("localhost", StringComparison.OrdinalIgnoreCase) || h == "127.0.0.1" || h == "::1" || h == "[::1]";
 
     private async Task CopyAgentKey()
     {
@@ -788,9 +825,31 @@ else
     private string builderGroupName = "";
     private BackupRootDto? uploadedBackup;
     private bool isRestoring = false;
-    private string testLieu = "Bur", testLieuCode = "B", testImpCode = "P1", testIp = "1.1.1.1", previewResult = "";
-    private string testMarque = "HP";
-    private string testModele = "LaserJet";
+    // --- Nommage (aperçu en direct sur une imprimante du parc, changements avant application) ---
+    private sealed record NamingToken(string Key, string Label);
+    private static readonly NamingToken[] NamingTokens =
+    {
+        new("LIEU", "Lieu"), new("LIEU_CODE", "Code du lieu"), new("MARQUE", "Marque"), new("MODELE", "Modèle"),
+        new("IMP_CODE", "Code inventaire"), new("IP", "Adresse IP"), new("IP_LAST", "Fin de l'IP")
+    };
+    private List<Imprimante> namingSamples = new();
+    private int namingSampleId;
+    private string namingPreview = "";
+    private string namingCheck = "";
+    private bool namingCheckOk = true;
+    private List<NamingChangeView>? namingChanges;
+    private bool showNamingDiff;
+    private bool namingApplying;
+    private CancellationTokenSource? namingCts;
+    private sealed class NamingChangeView
+    {
+        public int Id { get; set; }
+        public string CurrentName { get; set; } = "";
+        public string NewName { get; set; } = "";
+        public string? CurrentShare { get; set; }
+        public string? NewShare { get; set; }
+        public bool IsArchived { get; set; }
+    }
 
     private DiscoveryProfile scanConfig = new DiscoveryProfile();
     private bool isScanning = false;
@@ -811,13 +870,13 @@ else
         public bool NamingSameShare { get; set; } = false;
         public bool Printer_DefaultDirectModeEnabled { get; set; } = false;
         public int PasswordExpirationDays { get; set; } = 90;
+        public int IdleTimeoutMinutes { get; set; } = 30;
         public string AdDomain { get; set; } = "";
         public string AdBaseDn { get; set; } = "";
         public string AdLdapFilter { get; set; } = "";
         public bool AdUseServiceAccount { get; set; } = false;
         public string AdServiceUser { get; set; } = "";
         public string AdServicePassword { get; set; } = "";
-        public string AdAdminEmails { get; set; } = "";
         public bool Monitoring_Enabled { get; set; } = true;
         public int Monitoring_IntervalMinutes { get; set; } = 60;
         public int Monitoring_StartHour { get; set; } = 8;
@@ -829,8 +888,11 @@ else
         public bool Monitoring_IncludeArchived { get; set; } = false;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => ChargerParametres();
+
+    private async Task ChargerParametres()
     {
+        isLoading = true;
         try
         {
             var s = await Http.GetFromJsonAsync<List<Autoprint.Shared.ServerSetting>>("api/Settings");
@@ -848,12 +910,12 @@ else
             model.NamingSameShare = bool.Parse(GV(s, "NamingSameShare", "false"));
             model.Printer_DefaultDirectModeEnabled = bool.Parse(GV(s, "Printer_DefaultDirectModeEnabled", "false"));
             model.PasswordExpirationDays = int.Parse(GV(s, "PasswordExpirationDays", "90"));
+            model.IdleTimeoutMinutes = int.TryParse(GV(s, "Security_IdleTimeoutMinutes", "30"), out var idle) ? idle : 30;
             model.AdDomain = GV(s, "AdDomain");
             model.AdBaseDn = GV(s, "AdBaseDn");
             model.AdLdapFilter = GV(s, "AdLdapFilter");
             model.AdUseServiceAccount = bool.Parse(GV(s, "AdUseServiceAccount", "false"));
             model.AdServiceUser = GV(s, "AdServiceUser");
-            model.AdAdminEmails = GV(s, "AdAdminEmails");
             model.Monitoring_Enabled = bool.Parse(GV(s, "Monitoring_Enabled", "true"));
             model.Monitoring_IntervalMinutes = int.Parse(GV(s, "Monitoring_IntervalMinutes", "60"));
             model.Monitoring_StartHour = int.Parse(GV(s, "Monitoring_StartHour", "8"));
@@ -865,10 +927,53 @@ else
             model.Monitoring_IncludeArchived = bool.Parse(GV(s, "Monitoring_IncludeArchived", "false"));
 
             await LoadScanProfile();
+            savedScanSnapshot = ScanSnapshot();
             await LoadTokens();
+            await ChargerNomsAcceptes();
+            savedSnapshot = Snapshot();
+            if (section == "Nommage") await ChargerNommage();
         }
         catch { }
         finally { isLoading = false; }
+    }
+
+    // --- Menu des sections et barre d'enregistrement (charte B77) ---
+    private string section = "Nommage";
+    private sealed record SettingsSection(string Group, string Key, string Title, string Icon, string Description);
+    private static readonly SettingsSection[] Sections =
+    {
+        new("Imprimantes", "Nommage", "Nommage", "badge", "Nom des imprimantes et des partages Windows créés par Autoprint"),
+        new("Imprimantes", "Defauts", "Valeurs par défaut", "tune", "Réglages proposés à la création d'une imprimante"),
+        new("Imprimantes", "Supervision", "Supervision", "monitor_heart", "Fréquence et plages horaires de la supervision SNMP"),
+        new("Imprimantes", "Scanner le réseau", "Scanner réseau", "radar", "Découverte automatique des imprimantes sur le réseau"),
+        new("Connexions", "Active Directory", "Active Directory", "domain", "Connexion des comptes AD et rôles attribués par groupe"),
+        new("Connexions", "SMTP", "Messagerie (SMTP)", "mail", "Serveur d'envoi des alertes et des rapports par e-mail"),
+        new("Connexions", "Monitoring", "Intégration monitoring", "hub", "Jetons d'accès pour Zabbix, PRTG, Centreon et alertes exportées"),
+        new("Serveur", "Sécurité", "Sécurité", "shield", "Mots de passe, clé d'API des postes clients"),
+        new("Serveur", "Maintenance", "Maintenance", "build", "Rétention du journal d'audit, sauvegarde et restauration de la configuration")
+    };
+
+    private async Task OuvrirSection(string key)
+    {
+        section = key;
+        if (key == "Nommage") await ChargerNommage();
+    }
+
+    private string? savedSnapshot;
+    private string Snapshot() => System.Text.Json.JsonSerializer.Serialize(model);
+    private bool IsDirty => !isLoading && savedSnapshot != null && (Snapshot() != savedSnapshot || ScanDirty);
+
+    // Réglages du scanner : enregistrés par la même barre que le reste (avant : un bouton à part dans la section)
+    private string? savedScanSnapshot;
+    private string ScanSnapshot() => System.Text.Json.JsonSerializer.Serialize(new { scanConfig.TargetRanges, scanConfig.ExcludedRanges, scanConfig.ProbeTargets, scanConfig.ScheduleHour, scanConfig.ScheduleDays, scanConfig.IsEnabled, scanConfig.SendEmailReport, scanConfig.EmailRecipients });
+    private bool ScanDirty => savedScanSnapshot != null && ScanSnapshot() != savedScanSnapshot;
+
+    private void AnnulerModifications()
+    {
+        if (savedSnapshot == null) return;
+        model = System.Text.Json.JsonSerializer.Deserialize<SettingsModel>(savedSnapshot) ?? model;
+        if (ScanDirty) _ = RechargerScanner();
+        if (section == "Nommage") _ = RecalculerNommage(CancellationToken.None);
     }
 
     private string GV(List<Autoprint.Shared.ServerSetting>? l, string k, string d = "") => l?.FirstOrDefault(s => s.Key == k)?.Value ?? d;
@@ -880,7 +985,12 @@ else
         try
         {
             var r = await Http.PostAsJsonAsync("api/Settings/Save", model);
-            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Sauvegardé", "Configuration mise à jour.");
+            if (r.IsSuccessStatusCode && ScanDirty)
+            {
+                await ScannerService.SaveProfileAsync(scanConfig);
+                await RechargerScanner();
+            }
+            if (r.IsSuccessStatusCode) { savedSnapshot = Snapshot(); NotificationService.Notify(NotificationSeverity.Success, "Enregistré", "Configuration mise à jour."); }
             else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
@@ -960,7 +1070,7 @@ else
     private async Task ExecuteRestore()
     {
         if (uploadedBackup == null) return;
-        var confirm = await DialogService.Confirm("⛔ ATTENTION : Toutes les données seront remplacées.\nContinuer ?", "Danger", new ConfirmOptions() { OkButtonText = "Oui, écraser", CancelButtonText = "Non" });
+        var confirm = await DialogService.Confirm("Toutes les données du serveur seront remplacées par celles de la sauvegarde. Continuer ?", "Restaurer la configuration", new ConfirmOptions() { OkButtonText = "Oui, écraser", CancelButtonText = "Non" });
         if (confirm == true)
         {
             isRestoring = true;
@@ -980,19 +1090,105 @@ else
         }
     }
 
-    private async Task RenommerToutesImprimantes() => await ActionNaming("api/Naming/ApplyToNames");
-    private async Task RenommerTousPartages() => await ActionNaming("api/Naming/ApplyToShares");
-
-    private async Task ActionNaming(string url)
+    private async Task ChargerNommage()
     {
-        var confirm = await DialogService.Confirm("Confirmer l'opération de renommage en masse ?", "Confirmation");
-        if (confirm == true)
+        if (!namingSamples.Any())
         {
-            await Http.PostAsJsonAsync("api/Settings/Save", model);
-            var r = await Http.PostAsync(url, null);
-            if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès");
-            else NotificationService.Notify(NotificationSeverity.Error, "Erreur");
+            try { namingSamples = (await Http.GetFromJsonAsync<List<Imprimante>>("api/Imprimantes") ?? new()).OrderBy(i => i.NomAffiche).ToList(); }
+            catch { namingSamples = new(); }
+            namingSampleId = namingSamples.FirstOrDefault()?.Id ?? 0;
         }
+        await RecalculerNommage(CancellationToken.None);
+    }
+
+    private async Task InsererToken(string key)
+    {
+        // Insertion à l'emplacement du curseur (app.js), puis recalcul de l'aperçu
+        var value = await JS.InvokeAsync<string>("apInsertAtCursor", "naming-pattern", "{" + key + "}");
+        model.NamingTemplate = value;
+        await OnPatternChanged();
+    }
+
+    // Aperçu et liste des changements recalculés 300 ms après la dernière frappe
+    private async Task OnPatternChanged()
+    {
+        namingCts?.Cancel();
+        var cts = namingCts = new CancellationTokenSource();
+        try { await Task.Delay(300, cts.Token); } catch (TaskCanceledException) { return; }
+        await RecalculerNommage(cts.Token);
+    }
+
+    private async Task RecalculerNommage(CancellationToken ct)
+    {
+        var template = model.NamingTemplate ?? "";
+        var sample = namingSamples.FirstOrDefault(i => i.Id == namingSampleId);
+        var dto = new
+        {
+            Template = template,
+            Ip = sample?.AdresseIp ?? "10.12.4.30",
+            LieuNom = sample?.Emplacement?.Nom ?? "Siège",
+            LieuCode = sample?.Emplacement?.Code ?? "SIEGE",
+            ImpCode = sample?.Code ?? "P0042",
+            ModeleNom = sample?.Modele?.Nom ?? "IM C3000",
+            MarqueNom = sample?.Modele?.Marque?.Nom ?? "Ricoh"
+        };
+        try
+        {
+            var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto, ct);
+            if (r.IsSuccessStatusCode)
+            {
+                var json = await r.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+                namingPreview = json.TryGetProperty("generatedName", out var p) ? p.GetString() ?? "" : "";
+            }
+        }
+        catch (OperationCanceledException) { return; }
+        catch { namingPreview = ""; }
+
+        var unknown = System.Text.RegularExpressions.Regex.Matches(template, @"\{[^}]*\}").Select(m => m.Value)
+            .Where(v => !NamingTokens.Any(k => string.Equals("{" + k.Key + "}", v, StringComparison.OrdinalIgnoreCase))).Distinct().ToList();
+        if (string.IsNullOrWhiteSpace(template)) { namingCheckOk = false; namingCheck = "Saisissez une règle"; }
+        else if (unknown.Any()) { namingCheckOk = false; namingCheck = $"Variable inconnue : {string.Join(", ", unknown)}"; }
+        else if (string.IsNullOrEmpty(namingPreview)) { namingCheckOk = false; namingCheck = "La règle donne un nom vide"; }
+        else if (namingPreview.IndexOfAny(new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|', ',' }) >= 0) { namingCheckOk = false; namingCheck = "Caractère interdit dans un nom Windows (\\ / : * ? \" < > | ,)"; }
+        else if (model.NamingSameShare && namingPreview.Length > 80) { namingCheckOk = false; namingCheck = $"{namingPreview.Length} caractères : 80 au maximum pour un nom de partage"; }
+        else { namingCheckOk = true; namingCheck = $"{namingPreview.Length} caractères, valide pour une file et un partage Windows"; }
+
+        if (model.NamingEnabled && namingCheckOk)
+        {
+            try
+            {
+                var r = await Http.PostAsJsonAsync("api/Naming/PreviewChanges", new { Template = template, SameShare = model.NamingSameShare }, ct);
+                namingChanges = r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<NamingChangeView>>(cancellationToken: ct) ?? new() : new();
+            }
+            catch (OperationCanceledException) { return; }
+            catch { namingChanges = new(); }
+        }
+        else namingChanges = new();
+        if (namingChanges.Count == 0) showNamingDiff = false;
+        StateHasChanged();
+    }
+
+    private async Task AppliquerNommageAuParc()
+    {
+        namingApplying = true;
+        try
+        {
+            var save = await Http.PostAsJsonAsync("api/Settings/Save", model);
+            if (!save.IsSuccessStatusCode) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", await save.Content.ReadAsStringAsync()); return; }
+            savedSnapshot = Snapshot();
+            var r = await Http.PostAsync("api/Naming/ApplyToNames", null);
+            if (r.IsSuccessStatusCode && model.NamingSameShare) r = await Http.PostAsync("api/Naming/ApplyToShares", null);
+            if (r.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Imprimantes renommées", $"{namingChanges?.Count ?? 0} imprimante(s) renommée(s), à synchroniser.");
+                showNamingDiff = false;
+                namingSamples.Clear();
+                await ChargerNommage();
+            }
+            else NotificationService.Notify(NotificationSeverity.Error, "Erreur", await r.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); }
+        finally { namingApplying = false; }
     }
 
     private async Task TesterEmail()
@@ -1009,33 +1205,31 @@ else
         finally { testEnCours = false; }
     }
 
-    private void AddGroupFilter()
+    // Recherche d'un groupe dans l'annuaire (réglages enregistrés) : son DN exact, échappé côté serveur, est ajouté au filtre.
+    // Remplace l'ancien assistant qui écrivait un DN inventé (CN=…,CN=Users,DC=mondomaine,DC=lan).
+    private List<AdSearchResultDto>? adGroupResults;
+    private bool adGroupSearching;
+    private async Task ChercherGroupesAd()
     {
         if (string.IsNullOrWhiteSpace(builderGroupName)) return;
-        var filter = $"(memberOf=CN={builderGroupName},CN=Users,DC=mondomaine,DC=lan)";
-        if (string.IsNullOrWhiteSpace(model.AdLdapFilter)) model.AdLdapFilter = filter;
-        else model.AdLdapFilter += filter;
-        builderGroupName = "";
+        adGroupSearching = true;
+        try { adGroupResults = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={Uri.EscapeDataString(builderGroupName)}&type={Autoprint.Shared.Enums.AdMappingType.Group}&sansFiltre=true") ?? new(); }
+        catch { adGroupResults = new(); }
+        finally { adGroupSearching = false; }
+    }
+    private void AjouterGroupeAuFiltre(AdSearchResultDto g)
+    {
+        if (g.MemberOfFilter == null) return;
+        var current = model.AdLdapFilter ?? "";
+        if (!current.Contains(g.MemberOfFilter, StringComparison.OrdinalIgnoreCase)) model.AdLdapFilter = current + g.MemberOfFilter;
+        adGroupResults = null; builderGroupName = "";
     }
 
-    private async Task SimulerNom()
+    private static readonly Dictionary<ScanDays, string> JoursScan = new()
     {
-        var dto = new {
-            Template = model.NamingTemplate,
-            Ip = testIp,
-            LieuNom = testLieu,
-            LieuCode = testLieuCode,
-            ImpCode = testImpCode,
-            ModeleNom = testModele,
-            MarqueNom = testMarque
-        };
-        var r = await Http.PostAsJsonAsync("api/Naming/Preview", dto);
-        if (r.IsSuccessStatusCode)
-        {
-            var json = await (r.Content.ReadFromJsonAsync<JsonElement>());
-            if (json.TryGetProperty("generatedName", out var p)) previewResult = p.GetString() ?? "";
-        }
-    }
+        { ScanDays.Monday, "Lun" }, { ScanDays.Tuesday, "Mar" }, { ScanDays.Wednesday, "Mer" }, { ScanDays.Thursday, "Jeu" },
+        { ScanDays.Friday, "Ven" }, { ScanDays.Saturday, "Sam" }, { ScanDays.Sunday, "Dim" }
+    };
 
     private async Task TesterFiltreAd()
     {
@@ -1064,7 +1258,8 @@ else
             sauvegardeEnCours = true;
             try
             {
-                await Http.PostAsJsonAsync("api/Settings/Save", model);
+                var save = await Http.PostAsJsonAsync("api/Settings/Save", model);
+                if (!await save.CheckAsync(NotificationService)) return;
                 var r = await Http.PostAsync("api/Imprimantes/ForceDirectMode", null);
 
                 if (r.IsSuccessStatusCode) NotificationService.Notify(NotificationSeverity.Success, "Succès", "Tout le parc est passé en Mode Direct.");
@@ -1107,25 +1302,18 @@ else
         }
     }
 
-    async Task SaveScanConfig()
+    private async Task RechargerScanner()
     {
-        try
-        {
-            await ScannerService.SaveProfileAsync(scanConfig);
-            NotificationService.Notify(NotificationSeverity.Success, "Scanner", "Configuration enregistrée.");
-            await LoadScanProfile();
-        }
-        catch
-        {
-            NotificationService.Notify(NotificationSeverity.Error, "Erreur", "Impossible de sauver le profil Scan.");
-        }
+        await LoadScanProfile();
+        savedScanSnapshot = ScanSnapshot();
+        StateHasChanged();
     }
 
     async Task RunManualScan()
     {
-        if (scanConfig.Id == 0)
+        if (scanConfig.Id == 0 || ScanDirty)
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Action requise", "Sauvegardez la configuration avant de scanner.");
+            NotificationService.Notify(NotificationSeverity.Warning, "Action requise", "Enregistrez les réglages du scanner avant de lancer l'analyse.");
             return;
         }
 
@@ -1139,7 +1327,7 @@ else
         if (result != null)
         {
             scanConfig = result;
-            NotificationService.Notify(NotificationSeverity.Success, "Terminé", result.LastRunResult);
+            NotificationService.Notify(NotificationSeverity.Success, "Terminé", result.LastRunResult ?? "");
         }
         else
         {
@@ -1161,14 +1349,14 @@ else
 
     private async Task OuvrirGenerationToken()
     {
-        var result = await DialogService.OpenAsync<TokenCreateModal>("Générer un Jeton d'Intégration",
+        var result = await DialogService.OpenAsync<TokenCreateModal>("Générer un jeton d'intégration",
             null,
             new DialogOptions { Width = "500px" });
 
         if (result is IntegrationTokenCreationResultDto creationResult)
         {
             await LoadTokens();
-            await DialogService.OpenAsync<TokenShowModal>("Jeton d'Intégration Généré",
+            await DialogService.OpenAsync<TokenShowModal>("Jeton d'intégration généré",
                 new Dictionary<string, object?> { { "RawToken", creationResult.RawToken } },
                 new DialogOptions { Width = "550px" });
         }

@@ -12,9 +12,9 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
-        FontFamily="{DynamicResource MaterialDesignFont}">
+        FontFamily="{StaticResource Autoprint.Font}">
 
-    <Border CornerRadius="8" Background="{DynamicResource MaterialDesignPaper}" 
+    <Border CornerRadius="8" Background="{DynamicResource Autoprint.Brush.Surface}" 
             BorderBrush="{DynamicResource PrimaryHueMidBrush}" BorderThickness="1"
             MouseLeftButtonDown="Border_MouseLeftButtonDown">
 

@@ -1,3 +1,4 @@
+﻿@using Autoprint.Web.Services
 @using Autoprint.Shared
 @using System.Text.Json
 @using Radzen
@@ -6,426 +7,191 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@* Maquette « modales » (retour de recette du 11/11) : étapes en en-tête compact et cliquable, sections sans cadre,
+   options en lignes de réglage (plus de cartes ni d'émoji), choix du périmètre en deux options exclusives *@
 <RadzenTemplateForm TItem="ReportSchedule" Data="@schedule" Submit="@OnSubmit">
-    <RadzenStack Gap="1.5rem" Class="rz-p-2">
-        
-        <!-- INDICATEUR DE PROGRESSION (WIZARD STEPS) -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; position: relative; padding: 0 2rem;">
-            <!-- Ligne de connexion arrière-plan -->
-            <div style="position: absolute; top: 18px; left: 10%; right: 10%; height: 2px; background-color: var(--rz-border-color); z-index: 1;"></div>
-            <!-- Ligne de progression active -->
-            <div style="position: absolute; top: 18px; left: 10%; width: @((currentStep - 1) * 40)%; height: 2px; background-color: var(--rz-primary); z-index: 1; transition: width 0.3s ease;"></div>
+    <div class="ap-dlg">
+        <nav class="ap-steps" aria-label="Étapes">
+            @foreach (var st in Etapes)
+            {
+                <button type="button" class="@(currentStep == st.N ? "ap-step is-current" : currentStep > st.N ? "ap-step is-done" : "ap-step")" aria-current="@(currentStep == st.N ? "step" : null)" @onclick="() => AllerStep(st.N)">
+                    <span class="n">@(currentStep > st.N ? "✓" : st.N.ToString())</span>@st.Label
+                </button>
+            }
+        </nav>
 
-            <!-- Étape 1 -->
-            <div style="display: flex; flex-direction: column; align-items: center; z-index: 2; cursor: pointer;" @onclick="() => AllerStep(1)">
-                <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease;
-                            background-color: @(currentStep >= 1 ? "var(--rz-primary)" : "var(--rz-background-color-content)");
-                            color: @(currentStep >= 1 ? "var(--rz-text-contrast-color)" : "var(--rz-text-secondary-color)");
-                            border: 2px solid @(currentStep >= 1 ? "var(--rz-primary)" : "var(--rz-border-color)");">
-                    @if (currentStep > 1) { <RadzenIcon Icon="check" Style="font-size: 1.2rem; color: white;" /> } else { <span>1</span> }
-                </div>
-                <span style="font-size: 0.8rem; font-weight: @(currentStep == 1 ? "bold" : "500"); color: @(currentStep == 1 ? "var(--rz-primary)" : "var(--rz-text-secondary-color)"); margin-top: 0.5rem;">Configuration</span>
-            </div>
-
-            <!-- Étape 2 -->
-            <div style="display: flex; flex-direction: column; align-items: center; z-index: 2; cursor: pointer;" @onclick="() => AllerStep(2)">
-                <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease;
-                            background-color: @(currentStep >= 2 ? "var(--rz-primary)" : "var(--rz-background-color-content)");
-                            color: @(currentStep >= 2 ? "var(--rz-text-contrast-color)" : "var(--rz-text-secondary-color)");
-                            border: 2px solid @(currentStep >= 2 ? "var(--rz-primary)" : "var(--rz-border-color)");">
-                    @if (currentStep > 2) { <RadzenIcon Icon="check" Style="font-size: 1.2rem; color: white;" /> } else { <span>2</span> }
-                </div>
-                <span style="font-size: 0.8rem; font-weight: @(currentStep == 2 ? "bold" : "500"); color: @(currentStep == 2 ? "var(--rz-primary)" : "var(--rz-text-secondary-color)"); margin-top: 0.5rem;">Contenu</span>
-            </div>
-
-            <!-- Étape 3 -->
-            <div style="display: flex; flex-direction: column; align-items: center; z-index: 2; cursor: pointer;" @onclick="() => AllerStep(3)">
-                <div style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease;
-                            background-color: @(currentStep >= 3 ? "var(--rz-primary)" : "var(--rz-background-color-content)");
-                            color: @(currentStep >= 3 ? "var(--rz-text-contrast-color)" : "var(--rz-text-secondary-color)");
-                            border: 2px solid @(currentStep >= 3 ? "var(--rz-primary)" : "var(--rz-border-color)");">
-                    <span>3</span>
-                </div>
-                <span style="font-size: 0.8rem; font-weight: @(currentStep == 3 ? "bold" : "500"); color: @(currentStep == 3 ? "var(--rz-primary)" : "var(--rz-text-secondary-color)"); margin-top: 0.5rem;">Ciblage</span>
-            </div>
-        </div>
-
-        <!-- CONTENU DES ÉTAPES -->
         @if (currentStep == 1)
         {
-            <!-- ÉTAPE 1 : CONFIGURATION GÉNÉRALE -->
-            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
-                    <RadzenIcon Icon="settings" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Configuration du Rapport
-                </RadzenText>
-                
-                <RadzenRow Gap="1.25rem">
-                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Nom du Rapport" Component="ReportName" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenTextBox Name="ReportName" @bind-Value="@schedule.ReportName" Style="width: 100%; border-radius: 6px;" Placeholder="Ex: Rapport Hebdo HP" />
-                        <RadzenRequiredValidator Component="ReportName" Text="Le nom du rapport est obligatoire" Popup="false" Style="display: block; color: var(--rz-danger); font-size: 0.8rem; margin-top: 0.25rem;" />
-                    </RadzenColumn>
-                    
-                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Format de Fichier" Component="Format" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenDropDown Name="Format" @bind-Value="@schedule.Format" Data="@formats" Style="width: 100%; border-radius: 6px;" />
-                    </RadzenColumn>
-                </RadzenRow>
-
-                <RadzenRow Gap="1.25rem" Class="rz-mt-4">
-                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Fréquence d'envoi" Component="Frequency" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenDropDown Name="Frequency" @bind-Value="@schedule.Frequency" Data="@frequencies" Style="width: 100%; border-radius: 6px;" />
-                        <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem; font-style: italic;">
-                            @if (schedule.Frequency == "Quotidien") { <span>Généré chaque jour à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
-                            else if (schedule.Frequency == "Hebdomadaire") { <span>Généré chaque @ObtenirNomJour(schedule.RunDayOfWeek) à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
-                            else if (schedule.Frequency == "Mensuel") { <span>Généré le @(schedule.RunDayOfMonth ?? 1) de chaque mois à @FormatHeure(schedule.RunHour, schedule.RunMinute).</span> }
-                        </span>
-                    </RadzenColumn>
-                    
-                    <RadzenColumn Size="12" SizeMD="6" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Destinataires" Component="EmailRecipients" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenTextBox Name="EmailRecipients" @bind-Value="@schedule.EmailRecipients" Style="width: 100%; border-radius: 6px;" Placeholder="admin@corp.com; manager@corp.com" />
-                        <RadzenRequiredValidator Component="EmailRecipients" Text="Au moins un destinataire est requis" Popup="false" Style="display: block; color: var(--rz-danger); font-size: 0.8rem; margin-top: 0.25rem;" />
-                        <RadzenRegexValidator Component="EmailRecipients" 
-                                               Text="Une ou plusieurs adresses email sont invalides (format attendu: nom@domaine.com)" 
-                                               Pattern=@(@"^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})(\s*;\s*([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5}))*\s*;?\s*$")
-                                               Popup="false" 
-                                               Style="display: block; color: var(--rz-danger); font-size: 0.8rem; margin-top: 0.25rem;" />
-                        <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">
-                            Séparez les adresses par un point-virgule (<code>;</code>).
-                        </span>
-                    </RadzenColumn>
-                </RadzenRow>
-
-                <!-- PLANIFICATION DÉTAILLÉE -->
-                <RadzenRow Gap="1.25rem" Class="rz-mt-4" Style="border-top: 1px dashed var(--rz-border-color); padding-top: 1.25rem;">
+            <div class="ap-dlg-group" style="padding-top: var(--ap-s2);">
+                <h3>Rapport</h3>
+                <div class="ap-dlg-grid" style="grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Nom" Component="ReportName" />
+                        <RadzenTextBox Name="ReportName" @bind-Value="@schedule.ReportName" Style="width: 100%;" Placeholder="État hebdomadaire du parc" />
+                        <RadzenRequiredValidator Component="ReportName" Text="Saisissez le nom du rapport" Popup="false" />
+                    </div>
+                    <div class="ap-field">
+                        <RadzenLabel Text="Format" Component="Format" />
+                        <RadzenDropDown Name="Format" @bind-Value="@schedule.Format" Data="@formats" Style="width: 100%;" />
+                    </div>
+                </div>
+                <div class="ap-field">
+                    <RadzenLabel Text="Destinataires" Component="EmailRecipients" />
+                    <RadzenTextBox Name="EmailRecipients" @bind-Value="@schedule.EmailRecipients" Style="width: 100%;" Placeholder="admin@mondomaine.fr; responsable@mondomaine.fr" />
+                    <RadzenRequiredValidator Component="EmailRecipients" Text="Indiquez au moins un destinataire" Popup="false" />
+                    <RadzenRegexValidator Component="EmailRecipients" Text="Une adresse est invalide (format attendu : nom@domaine.fr)"
+                                          Pattern=@(@"^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})(\s*;\s*([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5}))*\s*;?\s*$") Popup="false" />
+                    <span class="ap-help">Séparez les adresses par un point-virgule</span>
+                </div>
+            </div>
+            <div class="ap-dlg-group">
+                <h3>Envoi</h3>
+                <div class="ap-dlg-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Fréquence" Component="Frequency" />
+                        <RadzenDropDown Name="Frequency" @bind-Value="@schedule.Frequency" Data="@frequencies" Style="width: 100%;" />
+                    </div>
                     @if (schedule.Frequency == "Hebdomadaire")
                     {
-                        <RadzenColumn Size="12" SizeMD="4" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                            <RadzenLabel Text="Jour d'envoi" Component="RunDayOfWeek" Style="font-weight: 500; font-size: 0.9rem;" />
-                            <RadzenDropDown Name="RunDayOfWeek" @bind-Value="@schedule.RunDayOfWeek" 
-                                            Data="@joursSemaine" TextProperty="Label" ValueProperty="Value" 
-                                            Style="width: 100%; border-radius: 6px;" />
-                        </RadzenColumn>
+                        <div class="ap-field">
+                            <RadzenLabel Text="Jour" Component="RunDayOfWeek" />
+                            <RadzenDropDown Name="RunDayOfWeek" @bind-Value="@schedule.RunDayOfWeek" Data="@joursSemaine" TextProperty="Label" ValueProperty="Value" Style="width: 100%;" />
+                        </div>
                     }
                     else if (schedule.Frequency == "Mensuel")
                     {
-                        <RadzenColumn Size="12" SizeMD="4" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                            <RadzenLabel Text="Jour du mois" Component="RunDayOfMonth" Style="font-weight: 500; font-size: 0.9rem;" />
-                            <RadzenDropDown Name="RunDayOfMonth" @bind-Value="@schedule.RunDayOfMonth" 
-                                            Data="@joursMois" 
-                                            Style="width: 100%; border-radius: 6px;" />
-                        </RadzenColumn>
+                        <div class="ap-field">
+                            <RadzenLabel Text="Jour du mois" Component="RunDayOfMonth" />
+                            <RadzenDropDown Name="RunDayOfMonth" @bind-Value="@schedule.RunDayOfMonth" Data="@joursMois" Style="width: 100%;" />
+                        </div>
                     }
-                    
-                    <RadzenColumn Size="12" SizeMD="@(schedule.Frequency == "Quotidien" ? 6 : 4)" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Heure d'exécution" Component="RunHour" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenDropDown Name="RunHour" @bind-Value="@schedule.RunHour" Data="@heures" 
-                                        Format="00" Style="width: 100%; border-radius: 6px;" />
-                    </RadzenColumn>
-                    
-                    <RadzenColumn Size="12" SizeMD="@(schedule.Frequency == "Quotidien" ? 6 : 4)" Style="display: flex; flex-direction: column; gap: 0.25rem;">
-                        <RadzenLabel Text="Minute" Component="RunMinute" Style="font-weight: 500; font-size: 0.9rem;" />
-                        <RadzenDropDown Name="RunMinute" @bind-Value="@schedule.RunMinute" Data="@minutes" 
-                                        Format="00" Style="width: 100%; border-radius: 6px;" />
-                    </RadzenColumn>
-                </RadzenRow>
-            </RadzenCard>
+                    <div class="ap-field">
+                        <RadzenLabel Text="Heure" Component="RunHour" />
+                        <RadzenDropDown Name="RunHour" @bind-Value="@schedule.RunHour" Data="@heures" Format="00" Style="width: 100%;" />
+                    </div>
+                    <div class="ap-field">
+                        <RadzenLabel Text="Minute" Component="RunMinute" />
+                        <RadzenDropDown Name="RunMinute" @bind-Value="@schedule.RunMinute" Data="@minutes" Format="00" Style="width: 100%;" />
+                    </div>
+                </div>
+                <span class="ap-help">
+                    @if (schedule.Frequency == "Quotidien") { <text>Envoyé chaque jour à @FormatHeure(schedule.RunHour, schedule.RunMinute)</text> }
+                    else if (schedule.Frequency == "Hebdomadaire") { <text>Envoyé chaque @ObtenirNomJour(schedule.RunDayOfWeek) à @FormatHeure(schedule.RunHour, schedule.RunMinute)</text> }
+                    else if (schedule.Frequency == "Mensuel") { <text>Envoyé le @(schedule.RunDayOfMonth ?? 1) de chaque mois à @FormatHeure(schedule.RunHour, schedule.RunMinute)</text> }
+                </span>
+            </div>
         }
         else if (currentStep == 2)
         {
-            <!-- ÉTAPE 2 : CHOIX DES MÉTRIQUES & OPTIONS MODULAIRES -->
-            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-3">
-                    <RadzenIcon Icon="bar_chart" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Métriques par Imprimante (Colonnes)
-                </RadzenText>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-                    <!-- Compteur de pages -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📄</span>
-                            <div>
-                                <RadzenLabel Text="Compteur de pages" Component="Pages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Volume total de pages imprimées relevé sur la machine.</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includePages" Name="Pages" />
-                    </RadzenCard>
-                    
-                    <!-- Consommables -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">🧪</span>
-                            <div>
-                                <RadzenLabel Text="Consommables (Toners)" Component="Toner" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux d'encre et toners (Noir, Cyan, Magenta, Jaune).</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeToner" Name="Toner" />
-                    </RadzenCard>
-
-                    <!-- Bacs Papier -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📦</span>
-                            <div>
-                                <RadzenLabel Text="Bacs de Papier" Component="Trays" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Niveaux de papier par bac (feuilles ou %).</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeTrays" Name="Trays" />
-                    </RadzenCard>
-                    
-                    <!-- Disponibilité -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">⚡</span>
-                            <div>
-                                <RadzenLabel Text="Disponibilité réseau (Ping)" Component="Availability" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Statut En ligne / Hors ligne de chaque machine.</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeAvailability" Name="Availability" />
-                    </RadzenCard>
-                    
-                    <!-- Alertes -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">⚠️</span>
-                            <div>
-                                <RadzenLabel Text="Pannes & Alertes matérielles" Component="Alerts" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Codes erreurs, bourrages et capots ouverts.</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeAlerts" Name="Alerts" />
-                    </RadzenCard>
- 
-                    <!-- Prévisions d'épuisement -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">⏳</span>
-                            <div>
-                                <RadzenLabel Text="Prévision d'épuisement (Toner)" Component="Predictions" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Estimation en jours basée sur l'historique d'usage.</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includePredictions" Name="Predictions" />
-                    </RadzenCard>
+            <div class="ap-dlg-group" style="gap: 0; padding-top: var(--ap-s2);">
+                <h3 style="margin-bottom: var(--ap-s1);">Par imprimante</h3>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Compteur de pages</div><div class="d">Total des pages imprimées relevé sur la machine</div></div><RadzenSwitch @bind-Value="@includePages" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Compteur de pages" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Toners</div><div class="d">Niveaux noir, cyan, magenta et jaune</div></div><RadzenSwitch @bind-Value="@includeToner" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Toners" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Bacs papier</div><div class="d">Niveau de papier de chaque bac</div></div><RadzenSwitch @bind-Value="@includeTrays" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Bacs papier" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Disponibilité</div><div class="d">En ligne ou hors ligne au moment du rapport</div></div><RadzenSwitch @bind-Value="@includeAvailability" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Disponibilité" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Pannes et alertes</div><div class="d">Codes d'erreur, bourrages, capots ouverts</div></div><RadzenSwitch @bind-Value="@includeAlerts" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Pannes et alertes" } })" /></div>
+                <div class="ap-opt-row">
+                    <div class="txt"><div class="t">Prévision d'épuisement des toners</div><div class="d">Nombre de jours restants estimé d'après l'historique</div></div>
+                    <RadzenSwitch @bind-Value="@includePredictions" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Prévision d'épuisement des toners" } })" />
                 </div>
- 
                 @if (includePredictions)
                 {
-                    <RadzenCard Variant="Variant.Outlined" Style="border: 1px dashed var(--rz-primary); margin-top: 1rem; border-radius: 8px; background: rgba(67, 95, 222, 0.03);">
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="1.5rem">
-                            <RadzenStack Gap="0" Style="flex: 1;">
-                                <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-mb-0" Style="font-weight: bold; color: var(--rz-primary);">Plage d'alerte anticipée</RadzenText>
-                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-secondary-color); margin: 0;">
-                                    Recevez un avertissement si l'épuisement estimé est inférieur ou égal au seuil choisi.
-                                </RadzenText>
-                            </RadzenStack>
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                                <RadzenDropDown TValue="int" @bind-Value="@schedule.PredictionThresholdDays" Data="@thresholdOptions"
-                                                TextProperty="Label" ValueProperty="Value" Style="width: 140px; border-radius: 6px;" />
-                            </RadzenStack>
-                        </RadzenStack>
-                    </RadzenCard>
+                    <div class="ap-field" style="padding: 0 0 var(--ap-s3);">
+                        <RadzenLabel Text="Signaler les toners vides dans moins de" Component="Threshold" />
+                        <RadzenDropDown Name="Threshold" TValue="int" @bind-Value="@schedule.PredictionThresholdDays" Data="@thresholdOptions" TextProperty="Label" ValueProperty="Value" Style="width: 180px;" />
+                    </div>
                 }
-
-                <!-- OPTIONS DE SYNTHÈSE & TOTAUX GLOBAUX -->
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mt-4 rz-mb-3">
-                    <RadzenIcon Icon="functions" Style="font-size: 1.3rem; color: var(--rz-success);" /> Synthèse & Totaux du Parc
-                </RadzenText>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-                    <!-- Totalisation globale des pages -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; border-color: var(--rz-success-light); background: rgba(40, 167, 69, 0.03);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📊</span>
-                            <div>
-                                <RadzenLabel Text="Totalisation globale des impressions" Component="TotalPages" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block; color: var(--rz-success-darker);" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche la somme totale de toutes les pages imprimées sur le parc (en-tête PDF et pied CSV).</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeTotalPages" Name="TotalPages" />
-                    </RadzenCard>
-
-                    <!-- Synthèse globale du parc -->
-                    <RadzenCard Variant="Variant.Outlined" Style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border-radius: 8px; background: var(--rz-background-color-content);">
-                        <div style="display: flex; gap: 0.75rem; align-items: flex-start; max-width: 80%;">
-                            <span style="font-size: 1.4rem; line-height: 1;">📈</span>
-                            <div>
-                                <RadzenLabel Text="Statistiques globales du parc" Component="FleetSummary" Style="font-weight: 600; cursor:pointer; font-size: 0.9rem; display: block;" />
-                                <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color);">Affiche les compteurs d'imprimantes en ligne/hors ligne et alertes actives en en-tête.</span>
-                            </div>
-                        </div>
-                        <RadzenSwitch @bind-Value="@includeFleetSummary" Name="FleetSummary" />
-                    </RadzenCard>
-                </div>
-            </RadzenCard>
+            </div>
+            <div class="ap-dlg-group" style="gap: 0;">
+                <h3 style="margin-bottom: var(--ap-s1);">Synthèse du parc</h3>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Total des pages imprimées</div><div class="d">Somme sur tout le parc (en-tête du PDF, dernière ligne du CSV)</div></div><RadzenSwitch @bind-Value="@includeTotalPages" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Total des pages imprimées" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">État du parc</div><div class="d">Imprimantes en ligne, hors ligne et alertes actives, en en-tête</div></div><RadzenSwitch @bind-Value="@includeFleetSummary" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "État du parc" } })" /></div>
+            </div>
         }
         else if (currentStep == 3)
         {
-            <!-- ÉTAPE 3 : PÉRIMÈTRE (FILTRES NO-CODE) -->
-            <RadzenCard Variant="Variant.Outlined" Class="rz-p-4" Style="border-radius: 8px;">
-                <RadzenText TextStyle="TextStyle.Subtitle2" Style="font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;" Class="rz-mb-4">
-                    <RadzenIcon Icon="track_changes" Style="font-size: 1.3rem; color: var(--rz-primary);" /> Périmètre et Ciblage des Imprimantes
-                </RadzenText>
-
-                <!-- CHOIX DU MODE DE CIBLAGE -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                    <!-- Option Tout le parc -->
-                    <div @onclick="() => SetUseFilters(false)"
-                         style="@($"cursor: pointer; padding: 1rem; border-radius: 8px; border: 2px solid {(!useFilters ? "var(--rz-primary)" : "var(--rz-border-color)")}; background: {(!useFilters ? "var(--rz-background-color-content)" : "transparent")}; box-shadow: {(!useFilters ? "0 4px 12px rgba(67, 95, 222, 0.08)" : "none")}; transition: all 0.2s ease; display: flex; align-items: flex-start; gap: 0.75rem;")">
-                        <RadzenIcon Icon="print" Style="@($"font-size: 1.75rem; color: {(!useFilters ? "var(--rz-primary)" : "var(--rz-text-secondary-color)")};")" />
-                        <div>
-                            <div style="font-weight: bold; font-size: 0.95rem; color: var(--rz-text-color-primary);">Toutes les imprimantes</div>
-                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Le rapport s'appliquera sur l'ensemble de votre parc (1 seul mail / 1 seul fichier).</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Option Ciblage précis -->
-                    <div @onclick="() => SetUseFilters(true)"
-                         style="@($"cursor: pointer; padding: 1rem; border-radius: 8px; border: 2px solid {(useFilters ? "var(--rz-primary)" : "var(--rz-border-color)")}; background: {(useFilters ? "var(--rz-background-color-content)" : "transparent")}; box-shadow: {(useFilters ? "0 4px 12px rgba(67, 95, 222, 0.08)" : "none")}; transition: all 0.2s ease; display: flex; align-items: flex-start; gap: 0.75rem;")">
-                        <RadzenIcon Icon="filter_alt" Style="@($"font-size: 1.75rem; color: {(useFilters ? "var(--rz-primary)" : "var(--rz-text-secondary-color)")};")" />
-                        <div>
-                            <div style="font-weight: bold; font-size: 0.95rem; color: var(--rz-text-color-primary);">Filtrer par critères</div>
-                            <div style="font-size: 0.75rem; color: var(--rz-text-secondary-color); margin-top: 0.25rem;">Définir des règles d'inclusion (lieu, marque, modèle, profil SNMP, etc.).</div>
-                        </div>
-                    </div>
+            <div class="ap-dlg-group" style="padding-top: var(--ap-s2);">
+                <h3>Imprimantes concernées</h3>
+                <div class="ap-choice" role="radiogroup" aria-label="Imprimantes concernées">
+                    <button type="button" role="radio" aria-checked="@(!useFilters ? "true" : "false")" class="@(!useFilters ? "ap-choice-item is-on" : "ap-choice-item")" @onclick="() => SetUseFilters(false)">
+                        <span class="t">Tout le parc</span><span class="d">Un seul rapport pour toutes les imprimantes</span>
+                    </button>
+                    <button type="button" role="radio" aria-checked="@(useFilters ? "true" : "false")" class="@(useFilters ? "ap-choice-item is-on" : "ap-choice-item")" @onclick="() => SetUseFilters(true)">
+                        <span class="t">Une sélection</span><span class="d">Selon le lieu, la marque, le modèle ou le profil SNMP</span>
+                    </button>
                 </div>
+            </div>
 
-                @if (!useFilters)
-                {
-                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Style="border-radius: 8px; margin: 0;">
-                        Aucun filtre défini. Le rapport s'appliquera sur l'ensemble du parc d'imprimantes.
-                    </RadzenAlert>
-                }
-                else
-                {
-                    <!-- SECTION DES FILTRES ACTIFS -->
-                    <RadzenStack Gap="1rem">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--rz-border-color); padding-bottom: 0.5rem;">
-                            <span style="font-size: 0.85rem; font-weight: bold; color: var(--rz-text-secondary-color);">Règles actives</span>
-                            <RadzenButton Icon="add" Text="Ajouter une règle" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.ExtraSmall" Click="@AjouterRegle" Style="border-radius: 6px;" />
-                        </div>
-
-                        @if (scopeFilter.Rules == null || scopeFilter.Rules.Count == 0)
-                        {
-                            <div style="text-align: center; padding: 2rem; border: 2px dashed var(--rz-border-color); border-radius: 8px; color: var(--rz-text-secondary-color);">
-                                <span style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;">🔍</span>
-                                Aucun filtre créé. Cliquez sur "Ajouter une règle" pour commencer.
-                            </div>
-                        }
-                        else
-                        {
-                            @for (int i = 0; i < scopeFilter.Rules.Count; i++)
+            @if (useFilters)
+            {
+                <div class="ap-dlg-group">
+                    <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                        <h3 class="ap-grow" style="margin: 0;">Règles <span class="ap-opt" style="font-weight: 400;">(toutes doivent être vraies)</span></h3>
+                        <RadzenButton Icon="add" Text="Ajouter une règle" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@AjouterRegle" />
+                    </div>
+                    @if (scopeFilter.Rules == null || scopeFilter.Rules.Count == 0)
+                    {
+                        <div class="ap-name-note"><RadzenIcon Icon="info" />Aucune règle : ajoutez-en une, sinon le rapport porte sur tout le parc.</div>
+                    }
+                    else
+                    {
+                        <div class="ap-pick-list">
+                            @foreach (var rule in scopeFilter.Rules.ToList())
                             {
-                                var rule = scopeFilter.Rules[i];
-                                var ruleIndex = i + 1;
-
-                                @if (i > 0)
-                                {
-                                    <div style="display: flex; align-items: center; justify-content: center; margin: -0.25rem 0;">
-                                        <span style="font-size: 0.75rem; font-weight: bold; background: var(--rz-text-color-primary); color: var(--rz-background-color-content); padding: 0.15rem 0.6rem; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px;">ET</span>
-                                    </div>
-                                }
-
-                                <RadzenCard Variant="Variant.Outlined" Style="position: relative; background: var(--rz-background-color-content); padding: 1.25rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--rz-border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
-                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--rz-info); color: white; font-size: 0.8rem; font-weight: bold;">@ruleIndex</span>
-                                            <span style="font-size: 0.9rem; font-weight: 600; color: var(--rz-text-color-primary);">Règle de filtrage</span>
-                                        </div>
-                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" Click="@(() => SupprimerRegle(rule))" Tooltip="Supprimer cette règle" Style="color: var(--rz-danger);" />
-                                    </div>
-
-                                    <div style="display: grid; grid-template-columns: 2.2fr 2.2fr 3.6fr; gap: 0.75rem; align-items: center;">
-                                        <div>
-                                            <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); font-weight: 500; display: block; margin-bottom: 0.25rem;">Propriété</span>
-                                            <RadzenDropDown TValue="string" Value="@rule.Field" ValueChanged="@((val) => OnFieldChanged(rule, val))"
-                                                            Data="@champsDisponibles" TextProperty="Label" ValueProperty="Value"
-                                                            Style="width: 100%; border-radius: 6px;" />
-                                        </div>
-
-                                        <div>
-                                            <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); font-weight: 500; display: block; margin-bottom: 0.25rem;">Condition</span>
-                                            <RadzenDropDown TValue="string" @bind-Value="@rule.Operator"
-                                                            Data="@ObtenirOperateurs(rule.Field)" TextProperty="Label" ValueProperty="Value"
-                                                            Style="width: 100%; border-radius: 6px;" />
-                                        </div>
-
-                                        <div>
-                                            <span style="font-size: 0.75rem; color: var(--rz-text-secondary-color); font-weight: 500; display: block; margin-bottom: 0.25rem;">Valeur(s)</span>
-                                            @if (rule.Field == "LocationId")
-                                            {
-                                                <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
-                                                                Data="@locations" TextProperty="Nom" ValueProperty="Id"
-                                                                Placeholder="Sélectionner les lieux..." Style="width: 100%; border-radius: 6px;"
-                                                                Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
-                                                                SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
-                                            }
-                                            else if (rule.Field == "BrandId")
-                                            {
-                                                <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
-                                                                Data="@brands" TextProperty="Nom" ValueProperty="Id"
-                                                                Placeholder="Sélectionner les marques..." Style="width: 100%; border-radius: 6px;"
-                                                                Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
-                                                                SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
-                                            }
-                                            else if (rule.Field == "ModelId")
-                                            {
-                                                <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
-                                                                Data="@allModels" TextProperty="Nom" ValueProperty="Id"
-                                                                Placeholder="Sélectionner les modèles..." Style="width: 100%; border-radius: 6px;"
-                                                                Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
-                                                                SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
-                                            }
-                                            else if (rule.Field == "SnmpProfileId")
-                                            {
-                                                <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values"
-                                                                Data="@snmpProfiles" TextProperty="Name" ValueProperty="Id"
-                                                                Placeholder="Sélectionner les profils..." Style="width: 100%; border-radius: 6px;"
-                                                                Multiple="true" AllowFiltering="true" FilterCaseSensitive="false"
-                                                                SelectAllText="Sélectionner tout" MaxSelectedLabels="3" />
-                                            }
-                                            else
-                                            {
-                                                <RadzenTextBox @bind-Value="@rule.Value" Placeholder="Entrez une valeur..." Style="width: 100%; border-radius: 6px;" />
-                                            }
-                                        </div>
-                                    </div>
-                                </RadzenCard>
+                                <div class="ap-rule-row">
+                                    <RadzenDropDown TValue="string" Value="@rule.Field" ValueChanged="@((val) => OnFieldChanged(rule, val))" Data="@champsDisponibles" TextProperty="Label" ValueProperty="Value" Style="width: 100%;" aria-label="Propriété" />
+                                    <RadzenDropDown TValue="string" @bind-Value="@rule.Operator" Data="@ObtenirOperateurs(rule.Field)" TextProperty="Label" ValueProperty="Value" Style="width: 100%;" aria-label="Condition" />
+                                    @if (rule.Field == "LocationId")
+                                    {
+                                        <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values" Data="@locations" TextProperty="Nom" ValueProperty="Id" Placeholder="Choisir des lieux" Style="width: 100%;" Multiple="true" AllowFiltering="true" FilterCaseSensitive="false" SelectAllText="Tout sélectionner" MaxSelectedLabels="3" />
+                                    }
+                                    else if (rule.Field == "BrandId")
+                                    {
+                                        <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values" Data="@brands" TextProperty="Nom" ValueProperty="Id" Placeholder="Choisir des marques" Style="width: 100%;" Multiple="true" AllowFiltering="true" FilterCaseSensitive="false" SelectAllText="Tout sélectionner" MaxSelectedLabels="3" />
+                                    }
+                                    else if (rule.Field == "ModelId")
+                                    {
+                                        <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values" Data="@allModels" TextProperty="Nom" ValueProperty="Id" Placeholder="Choisir des modèles" Style="width: 100%;" Multiple="true" AllowFiltering="true" FilterCaseSensitive="false" SelectAllText="Tout sélectionner" MaxSelectedLabels="3" />
+                                    }
+                                    else if (rule.Field == "SnmpProfileId")
+                                    {
+                                        <RadzenDropDown TValue="List<int>" @bind-Value="@rule.Values" Data="@snmpProfiles" TextProperty="Name" ValueProperty="Id" Placeholder="Choisir des profils" Style="width: 100%;" Multiple="true" AllowFiltering="true" FilterCaseSensitive="false" SelectAllText="Tout sélectionner" MaxSelectedLabels="3" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenTextBox @bind-Value="@rule.Value" Placeholder="Valeur" Style="width: 100%;" />
+                                    }
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => SupprimerRegle(rule))" title="Retirer cette règle" aria-label="Retirer cette règle" />
+                                </div>
                             }
-                        }
-                    </RadzenStack>
-                }
-            </RadzenCard>
+                        </div>
+                    }
+                </div>
+            }
         }
 
-        <!-- BOUTONS DE NAVIGATION DU WIZARD -->
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem" Class="rz-mt-4">
-            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" Style="border-radius: 6px; padding: 0 1.5rem;" />
-            
+        <div class="ap-dlg-footer">
             @if (currentStep > 1)
             {
-                <RadzenButton Text="Précédent" Icon="navigate_before" ButtonStyle="ButtonStyle.Secondary" Click="@(() => AllerStep(currentStep - 1))" Style="border-radius: 6px; padding: 0 1.5rem;" />
+                <RadzenButton Text="Précédent" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@(() => AllerStep(currentStep - 1))" />
             }
-            
+            <span class="ap-grow"></span>
+            <RadzenButton Text="Annuler" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@(() => DialogService.Close(null))" />
             @if (currentStep < 3)
             {
-                <RadzenButton Text="Suivant" Icon="navigate_next" ButtonStyle="ButtonStyle.Primary" Click="@(() => AllerStep(currentStep + 1))" Style="border-radius: 6px; padding: 0 1.5rem;" />
+                <RadzenButton Text="Suivant" ButtonStyle="ButtonStyle.Primary" Click="@(() => AllerStep(currentStep + 1))" />
             }
             else
             {
-                <RadzenButton ButtonType="ButtonType.Submit" Text="Enregistrer" Icon="save" ButtonStyle="ButtonStyle.Primary" Style="border-radius: 6px; padding: 0 1.5rem;" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="@(schedule.Id == 0 ? "Planifier le rapport" : "Enregistrer les modifications")" ButtonStyle="ButtonStyle.Primary" />
             }
-        </RadzenStack>
-    </RadzenStack>
+        </div>
+    </div>
 </RadzenTemplateForm>
 
 @code {
+    private sealed record Etape(int N, string Label);
+    private static readonly Etape[] Etapes = { new(1, "Envoi"), new(2, "Contenu"), new(3, "Imprimantes") };
     private int currentStep = 1;
     private bool useFilters = false;
 

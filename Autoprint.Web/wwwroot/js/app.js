@@ -1,5 +1,14 @@
 // Fonctions JS appelées par Blazor (sorties de index.html pour permettre une CSP sans 'unsafe-inline')
 
+// Thème clair / sombre de la charte (B77) : attribut lu par autoprint-theme.css, posé avec ThemeService.SetTheme
+window.autoprintSetTheme = (dark) => {
+    if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+};
+
+// Menu principal réduit d'office sur les écrans étroits (charte B77)
+window.autoprintIsNarrow = () => window.innerWidth < 1024;
+
 window.setupChart = (id, labels, data) => {
     const ctx = document.getElementById(id);
     if (window.myChart instanceof Chart) {
@@ -34,3 +43,31 @@ window.downloadFileFromStream = async (fileName, contentStreamReference) => {
     anchorElement.remove();
     URL.revokeObjectURL(url);
 };
+
+// Insère un texte à l'emplacement du curseur d'un champ et renvoie la nouvelle valeur (règle de nommage, Paramètres)
+window.apInsertAtCursor = function (id, text) {
+    var el = document.getElementById(id);
+    if (!el) return text;
+    var s = el.selectionStart ?? el.value.length, e = el.selectionEnd ?? s;
+    el.value = el.value.slice(0, s) + text + el.value.slice(e);
+    el.focus();
+    el.setSelectionRange(s + text.length, s + text.length);
+    return el.value;
+};
+// Dernière activité de l'utilisateur, partagée entre les onglets de la console (déconnexion après inactivité, B35)
+(function () {
+    var KEY = 'ap.lastActivity', last = Date.now(), written = 0;
+    function mark() {
+        last = Date.now();
+        if (last - written > 15000) { written = last; try { localStorage.setItem(KEY, String(last)); } catch (e) { } }
+    }
+    ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (ev) {
+        window.addEventListener(ev, mark, { passive: true, capture: true });
+    });
+    mark();
+    window.apIdleSeconds = function () {
+        var shared = 0;
+        try { shared = parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) { }
+        return (Date.now() - Math.max(last, shared)) / 1000;
+    };
+})();

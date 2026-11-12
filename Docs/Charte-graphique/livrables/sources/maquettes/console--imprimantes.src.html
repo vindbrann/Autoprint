@@ -1,0 +1,13 @@
+{{> head title="Imprimantes · Console Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Console" ecran="Imprimantes" iface="console" note="Grille dense, plusieurs centaines de lignes en production"}}
+<div class="ap-app">
+  {{> sidebar active="imprimantes"}}
+  <main class="ap-main"><div class="ap-main-inner">
+{{> imprimantes-contenu}}
+  </div></main>
+</div>
+</body>
+</html>

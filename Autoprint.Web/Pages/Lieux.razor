@@ -8,23 +8,22 @@
 @inject NotificationService NotificationService
 @inject IJSRuntime JS
 
-<PageTitle>Gestion des Lieux</PageTitle>
+<PageTitle>Lieux</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" Class="rz-mb-0">
-        📍 Gestion des Lieux
-    </RadzenText>
+<div class="ap-page-header">
+    <div class="ap-titles"><h1>Lieux</h1></div>
+    <span class="ap-grow"></span>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-        <RadzenButton Icon="grid_on" Text="Export CSV" ButtonStyle="ButtonStyle.Secondary" Click="@ExporterEnCsv" Disabled="@(lieux == null || !lieux.Any())" />
+        <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Click="@ExporterEnCsv" Disabled="@(lieux == null || !lieux.Any())" />
 
         <AuthorizeView Policy="LOCATION_WRITE">
             <Authorized>
-                <RadzenButton Icon="add_circle" Text="Nouveau Lieu" ButtonStyle="ButtonStyle.Success" Click="@(() => OuvrirModal(new Emplacement()))" />
+                <RadzenButton Icon="add" Text="Nouveau lieu" ButtonStyle="ButtonStyle.Primary" Click="@(() => OuvrirModal(new Emplacement()))" />
             </Authorized>
         </AuthorizeView>
     </RadzenStack>
-</RadzenStack>
+</div>
 
 @if (isLoading)
 {
@@ -32,7 +31,7 @@
 }
 else
 {
-    <RadzenDataGrid Data="@lieux" TItem="Emplacement"
+    <div class="ap-grid-wrap"><RadzenDataGrid Data="@lieux" TItem="Emplacement"
                     AllowFiltering="true"
                     FilterMode="FilterMode.Advanced"
                     FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
@@ -100,7 +99,7 @@ else
                 </Template>
             </RadzenDataGridColumn>
 
-            <RadzenDataGridColumn TItem="Emplacement" Property="Status" Title="État" Width="140px" Sortable="true" Filterable="true">
+            <RadzenDataGridColumn TItem="Emplacement" Property="Status" Title="État" Width="140px" Sortable="true" Filterable="true" FilterMode="FilterMode.CheckBoxList">
                 <Template Context="l">
                     @if (l.Status == LieuStatus.Active)
                     {
@@ -121,7 +120,7 @@ else
                 <Template Context="l">
                     <AuthorizeView Policy="LOCATION_WRITE">
                         <Authorized>
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OuvrirModal(l))" />
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(l))" />
                         </Authorized>
                         <NotAuthorized>
                             <RadzenIcon Icon="lock" Style="color: var(--rz-text-disabled-color);" />
@@ -131,7 +130,7 @@ else
             </RadzenDataGridColumn>
 
         </Columns>
-    </RadzenDataGrid>
+    </RadzenDataGrid></div>
 }
 
 @code {
@@ -163,7 +162,7 @@ else
     private async Task OuvrirModal(Emplacement lieu)
     {
         var resultat = await DialogService.OpenAsync<LieuModal>(
-            lieu.Id == 0 ? "Nouveau Lieu" : "Modifier le Lieu",
+            lieu.Id == 0 ? "Nouveau lieu" : "Modifier le lieu",
             new Dictionary<string, object?> { { "LieuToEdit", lieu } },
             new DialogOptions() { Width = "550px", CloseDialogOnOverlayClick = true }
         );

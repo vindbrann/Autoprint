@@ -1,0 +1,18 @@
+{{> head title="Connexion · Console Autoprint" root="../"}}
+<body>
+{{> defs}}
+{{> theme}}
+{{> barre interface="Console" ecran="Connexion" iface="console" note="Écran plein, avant l'accès à la console"}}
+<main class="ap-login">
+  <form class="ap-login-card">
+    <div class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</div>
+    <h1>Connexion</h1>
+    <p class="lead">Console d'administration du serveur d'impression</p>
+    <div class="ap-field"><label class="ap-label" for="l-id">Identifiant</label><input id="l-id" class="ap-input" autocomplete="username" value="s.laurent"></div>
+    <div class="ap-field"><div class="row-between"><label class="ap-label" for="l-mdp">Mot de passe</label><a class="ap-link" href="#">Mot de passe oublié</a></div><input id="l-mdp" class="ap-input is-focus" type="password" autocomplete="current-password" value="motdepasse"></div>
+    <a class="ap-btn ap-btn--primary" href="tableau-de-bord.html">Se connecter</a>
+  </form>
+  <div class="ap-login-foot"><svg class="ic ic-sm"><use href="#i-lock"/></svg>Compte local ou Active Directory · <span class="ap-label-tag">26.11.9.1</span></div>
+</main>
+</body>
+</html>

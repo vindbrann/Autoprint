@@ -2,27 +2,42 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Installation Autoprint Server" Height="650" Width="800"
-        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
-        Background="#F5F5F5" FontFamily="Segoe UI">
+        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize" Icon="Assets/autoprint.ico"
+        Style="{StaticResource Autoprint.Installer.Window}">
 
+    <!-- Charte graphique (B77), maquette « Installeur » : étapes à gauche, page à droite, barre de boutons en bas -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="80"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="60"/>
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0" Background="#2D2D30">
-            <StackPanel VerticalAlignment="Center" Margin="25,0">
-                <TextBlock Text="AUTOPRINT SERVER" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                <TextBlock x:Name="TxtStepTitle" Text="Assistant d'Installation" FontSize="14" Foreground="#AAAAAA"/>
-            </StackPanel>
+        <Border Style="{StaticResource Autoprint.Installer.Rail}">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,0,0,24">
+                    <Image Source="Assets/autoprint-symbole.png" Width="28" Height="28" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Autoprint Server" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="TxtStepTitle" Text="Assistant d'installation" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" FontSize="{StaticResource Autoprint.FontSize.Sm}"/>
+                    </StackPanel>
+                </StackPanel>
+                <!-- Étapes, construites dans BuildRail() -->
+                <StackPanel x:Name="RailSteps" DockPanel.Dock="Top"/>
+                <TextBlock x:Name="TxtVersion" DockPanel.Dock="Bottom" Margin="8,0,0,0" FontFamily="{StaticResource Autoprint.FontMono}" FontSize="{StaticResource Autoprint.FontSize.Xs}" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
+            </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1" Margin="30,20">
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Style="{StaticResource Autoprint.Installer.Page}">
+            <Grid>
 
             <StackPanel x:Name="View1_Welcome">
-                <TextBlock x:Name="TxtWelcomeTitle" Text="Bienvenue" FontSize="24" FontWeight="Light" Margin="0,0,0,20"/>
+                <TextBlock x:Name="TxtWelcomeTitle" Text="Bienvenue" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="TxtWelcomeDesc" Text="Vous êtes sur le point d'installer Autoprint Server sur cet ordinateur." 
                            FontSize="16" Margin="0,0,0,20"/>
@@ -33,7 +48,7 @@
                     <TextBlock Text="• Le serveur Web IIS" Margin="0,2"/>
                     <TextBlock Text="• La base de données" Margin="0,2"/>
                 </StackPanel>
-                <TextBlock Text="Cliquez sur Suivant pour continuer." FontStyle="Italic" Foreground="Gray" Margin="0,30,0,0"/>
+                <TextBlock Text="Cliquez sur Suivant pour continuer." FontStyle="Italic" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,30,0,0"/>
             </StackPanel>
 
             <Grid x:Name="View2_License" Visibility="Collapsed">
@@ -43,10 +58,10 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Contrat de Licence" FontSize="20" Margin="0,0,0,10"/>
+                <TextBlock Text="Contrat de licence" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,10"/>
 
                 <RichTextBox x:Name="RtbLicense" Grid.Row="1" IsReadOnly="True" VerticalScrollBarVisibility="Auto" 
-                             BorderBrush="#DDD" BorderThickness="1" Padding="10">
+                             BorderBrush="{DynamicResource Autoprint.Brush.Border}" BorderThickness="1" Padding="10">
                     <FlowDocument />
                 </RichTextBox>
 
@@ -55,10 +70,10 @@
             </Grid>
 
             <StackPanel x:Name="View3_Prereqs" Visibility="Collapsed">
-                <TextBlock Text="Vérification du Système" FontSize="20" Margin="0,0,0,15"/>
-                <TextBlock Text="Le système vérifie la présence des composants nécessaires." Margin="0,0,0,10" Foreground="Gray"/>
+                <TextBlock Text="Vérification du système" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,15"/>
+                <TextBlock Text="Le système vérifie la présence des composants nécessaires." Margin="0,0,0,10" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
 
-                <Border Background="White" BorderBrush="#DDD" BorderThickness="1" CornerRadius="3" Padding="15">
+                <Border Style="{StaticResource Autoprint.CheckList}">
                     <StackPanel>
                         <Grid Margin="0,10">
                             <Grid.ColumnDefinitions>
@@ -69,13 +84,13 @@
                             <TextBlock x:Name="IconIis" Text="⏳" VerticalAlignment="Center" FontSize="16"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
                                 <TextBlock Text="Rôle Serveur Web (IIS)" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="MsgIis" Text="Analyse..." FontSize="12" Foreground="Gray"/>
+                                <TextBlock x:Name="MsgIis" TextWrapping="Wrap" Text="Analyse..." FontSize="12" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
                             </StackPanel>
                             <Button x:Name="BtnInstallIis" Grid.Column="2" Content="Installer" Padding="15,5" 
                                     Visibility="Collapsed" Click="BtnInstallIis_Click"/>
                         </Grid>
 
-                        <Separator Background="#EEE"/>
+                        <Separator Background="{DynamicResource Autoprint.Brush.Divider}"/>
 
                         <Grid Margin="0,10">
                             <Grid.ColumnDefinitions>
@@ -86,13 +101,13 @@
                             <TextBlock x:Name="IconPrint" Text="⏳" VerticalAlignment="Center" FontSize="16"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
                                 <TextBlock Text="Rôle Serveur d'Impression" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="MsgPrint" Text="Analyse..." FontSize="12" Foreground="Gray"/>
+                                <TextBlock x:Name="MsgPrint" TextWrapping="Wrap" Text="Analyse..." FontSize="12" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
                             </StackPanel>
                             <Button x:Name="BtnInstallPrint" Grid.Column="2" Content="Installer" Padding="15,5" 
                                     Visibility="Collapsed" Click="BtnInstallPrint_Click"/>
                         </Grid>
 
-                        <Separator Background="#EEE"/>
+                        <Separator Background="{DynamicResource Autoprint.Brush.Divider}"/>
 
                         <Grid Margin="0,10">
                             <Grid.ColumnDefinitions>
@@ -103,7 +118,7 @@
                             <TextBlock x:Name="IconNet" Text="⏳" VerticalAlignment="Center" FontSize="16"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
                                 <TextBlock Text="Runtime .NET 10 (Hosting Bundle)" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="MsgNet" Text="Analyse..." FontSize="12" Foreground="Gray"/>
+                                <TextBlock x:Name="MsgNet" TextWrapping="Wrap" Text="Analyse..." FontSize="12" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
                             </StackPanel>
                             <Button x:Name="BtnInstallNet" Grid.Column="2" Content="Installer" Padding="15,5" 
                                     Visibility="Collapsed" Click="BtnInstallNet_Click"/>
@@ -113,7 +128,7 @@
             </StackPanel>
 
             <StackPanel x:Name="View4_Sql" Visibility="Collapsed">
-                <TextBlock Text="Configuration Base de Données" FontSize="20" Margin="0,0,0,15"/>
+                <TextBlock Text="Base de données" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,15"/>
 
                 <RadioButton x:Name="RadioSqlite" GroupName="SqlGroup" Content="SQLite (Local - Fichier unique)" IsChecked="True" 
                              Margin="0,0,0,15" Checked="RadioSql_Changed"/>
@@ -121,11 +136,11 @@
                 <RadioButton x:Name="RadioSqlServer" GroupName="SqlGroup" Content="SQL Server" 
                              Margin="0,0,0,10" Checked="RadioSql_Changed"/>
 
-                <Border x:Name="PanelSqlServer" Background="White" BorderBrush="#DDD" BorderThickness="1" Padding="15" Margin="20,0,0,0" Visibility="Collapsed">
+                <Border x:Name="PanelSqlServer" Background="{DynamicResource Autoprint.Brush.Surface}" BorderBrush="{DynamicResource Autoprint.Brush.Border}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="20,0,0,0" Visibility="Collapsed">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="118"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
@@ -139,21 +154,21 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="60"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="TxtSqlServer" Text="localhost" Padding="3"/>
+                                    <TextBox x:Name="TxtSqlServer" Text="localhost"/>
                                     <TextBlock Grid.Column="1" Text="Port :" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" Padding="3" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
+                                    <TextBox Grid.Column="2" x:Name="TxtSqlPort" ToolTip="Facultatif (1433 par défaut ; vide pour une instance nommée)"/>
                                 </Grid>
                                 <TextBlock Text="Ex. : sqlsrv01 ou sqlsrv01\SQLEXPRESS. Port facultatif (vide = port par défaut ou instance nommée)."
-                                           Foreground="#777" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                                           Foreground="{DynamicResource Autoprint.Brush.TextMuted}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <TextBlock Grid.Row="1" Text="Nom de la base :" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb" Padding="3"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlDb" Text="AutoprintDb"/>
                         </Grid>
 
-                        <Separator Background="#EEE" Margin="0,5,0,10"/>
+                        <Separator Background="{DynamicResource Autoprint.Brush.Divider}" Margin="0,5,0,10"/>
 
                         <TextBlock Text="Mode d'authentification :" Margin="0,0,0,5" FontWeight="SemiBold"/>
                         <ComboBox x:Name="ComboAuth" SelectedIndex="0" Margin="0,0,0,10" Padding="5" SelectionChanged="ComboAuth_SelectionChanged">
@@ -161,7 +176,7 @@
                             <ComboBoxItem Content="Authentification SQL Server (User/Pass)"/>
                         </ComboBox>
 
-                        <Border x:Name="PanelSqlCreds" Visibility="Collapsed" Background="#F9F9F9" Padding="10" Margin="0,0,0,10" BorderBrush="#EEE" BorderThickness="1">
+                        <Border x:Name="PanelSqlCreds" Visibility="Collapsed" Background="{DynamicResource Autoprint.Brush.Background}" Padding="12" Margin="0,0,0,10" BorderBrush="{DynamicResource Autoprint.Brush.Border}" BorderThickness="1" CornerRadius="6">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="120"/>
@@ -173,10 +188,10 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Text="Utilisateur (SA) :" VerticalAlignment="Center" Margin="0,0,0,10"/>
-                                <TextBox Grid.Column="1" x:Name="TxtSqlUser" Text="sa" Padding="3" Margin="0,0,0,10"/>
+                                <TextBox Grid.Column="1" x:Name="TxtSqlUser" Text="sa" Margin="0,0,0,10"/>
 
                                 <TextBlock Grid.Row="1" Text="Mot de passe :" VerticalAlignment="Center"/>
-                                <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlPass" Padding="3"/>
+                                <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="TxtSqlPass"/>
                             </Grid>
                         </Border>
 
@@ -186,7 +201,7 @@
             </StackPanel>
 
             <StackPanel x:Name="View5_Iis" Visibility="Collapsed">
-                <TextBlock Text="Configuration Web (IIS)" FontSize="20" Margin="0,0,0,15"/>
+                <TextBlock Text="Configuration web (IIS)" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,15"/>
                 <TextBlock Text="Définissez le port d'écoute pour l'application." Margin="0,0,0,10"/>
 
                 <Grid>
@@ -195,28 +210,28 @@
                         <ColumnDefinition Width="100"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Port HTTP :" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" Padding="5" MaxLength="5"/>
+                    <TextBox x:Name="TxtWebPort" Grid.Column="1" Text="8080" MaxLength="5"/>
                 </Grid>
-                <TextBlock Text="Note : L'installeur configurera le pare-feu automatiquement." FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+                <TextBlock Text="Note : L'installeur configurera le pare-feu automatiquement." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0"/>
 
-                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5"/>
-                <TextBox x:Name="TxtPublicHost" Padding="5" Width="350" HorizontalAlignment="Left"/>
-                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé)." FontSize="11" Foreground="Gray" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="Nom public de la console (nom DNS utilisé par les navigateurs et les postes clients) :" Margin="0,20,0,5" TextWrapping="Wrap"/>
+                <TextBox x:Name="TxtPublicHost" MaxWidth="520" HorizontalAlignment="Stretch"/>
+                <TextBlock Text="Exemple : autoprint.maboite.fr. Le serveur refusera les requêtes adressées à un autre nom (localhost reste autorisé). Changement de nom en cours : saisissez les deux, séparés par « ; » (nouveau;ancien), et retirez l'ancien plus tard dans la console (Paramètres > Sécurité)." FontSize="11" Foreground="{DynamicResource Autoprint.Brush.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel x:Name="View6_Install" Visibility="Collapsed" VerticalAlignment="Center">
-                <TextBlock Text="Installation en cours..." FontSize="22" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <TextBlock Text="Installation en cours…" Style="{StaticResource Autoprint.Installer.Title}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
                 <ProgressBar x:Name="PrgInstall" Height="15" IsIndeterminate="True" Width="400"/>
-                <TextBlock x:Name="TxtInstallLog" Text="Préparation..." HorizontalAlignment="Center" Margin="0,10" Foreground="#666"/>
+                <TextBlock x:Name="TxtInstallLog" Text="Préparation..." HorizontalAlignment="Center" Margin="0,10" Foreground="{DynamicResource Autoprint.Brush.TextMuted}"/>
             </StackPanel>
 
             <StackPanel x:Name="View7_Finish" Visibility="Collapsed">
-                <TextBlock x:Name="TxtFinishTitle" Text="Installation Terminée" FontSize="24" Foreground="#2E7D32" Margin="0,0,0,20"/>
+                <TextBlock x:Name="TxtFinishTitle" Text="Installation terminée" Style="{StaticResource Autoprint.Installer.Title.Success}" Margin="0,0,0,20"/>
 
                 <TextBlock Text="Autoprint Server a été installé et configuré avec succès." FontSize="14"/>
 
-                <Border x:Name="PanelSqlAction" Visibility="Collapsed" Background="#FFF8E1" BorderBrush="#FFB300" BorderThickness="1" Padding="10" Margin="0,15,0,0">
-                    <TextBlock x:Name="TxtSqlAction" TextWrapping="Wrap" Foreground="#5D4037"/>
+                <Border x:Name="PanelSqlAction" Visibility="Collapsed" Style="{StaticResource Autoprint.Callout.Warning}" Margin="0,15,0,0">
+                    <TextBlock x:Name="TxtSqlAction" TextWrapping="Wrap" Style="{StaticResource Autoprint.Callout.Body}"/>
                 </Border>
 
                 <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
@@ -227,14 +242,15 @@
                 <Button x:Name="BtnOpenIis" Content="Ouvrir la console IIS" HorizontalAlignment="Left" Margin="0,20,0,0" Padding="15,8" Click="BtnOpenIis_Click"/>
             </StackPanel>
 
-        </Grid>
-
-        <Border Grid.Row="2" Background="#EFEFEF" BorderBrush="#DDD" BorderThickness="0,1,0,0">
-            <Grid Margin="20,0">
-                <Button x:Name="BtnPrev" Content="Précédent" HorizontalAlignment="Left" Width="100" Height="30" Click="BtnPrev_Click"/>
-                <Button x:Name="BtnNext" Content="Suivant" HorizontalAlignment="Right" Width="100" Height="30" Click="BtnNext_Click" 
-                        Background="#007ACC" Foreground="White" FontWeight="SemiBold"/>
             </Grid>
-        </Border>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource Autoprint.Installer.Footer}">
+                <Grid>
+                    <Button x:Name="BtnPrev" Content="Précédent" HorizontalAlignment="Left" MinWidth="100" Click="BtnPrev_Click"/>
+                    <Button x:Name="BtnNext" Content="Suivant" HorizontalAlignment="Right" MinWidth="100" Click="BtnNext_Click" Style="{StaticResource Autoprint.Button.Primary}"/>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

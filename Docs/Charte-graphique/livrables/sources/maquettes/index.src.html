@@ -1,0 +1,57 @@
+{{> head title="Maquettes Autoprint" root=""}}
+<body>
+{{> defs}}
+{{> theme}}
+<header class="mq-bar"><div class="mq-bar-inner">
+  <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg>Autoprint</span>
+  <span class="note">Charte graphique v1 · maquettes</span>
+  <span class="grow"></span>
+  {{> toggle}}
+</div></header>
+<main class="mq-index">
+  <h1>Maquettes des écrans clés</h1>
+  <p>La charte appliquée aux trois interfaces, avec les vrais libellés et des données de test plausibles. Chaque écran se consulte en clair et en sombre (sauf l'installeur, clair uniquement). Pages statiques, sans JavaScript ni ressource externe.</p>
+
+  <section class="mq-group">
+    <h2><svg class="ic"><use href="#i-dashboard"/></svg>Console d'administration</h2>
+    <p>Blazor WebAssembly et Radzen, pour les administrateurs et le support</p>
+    <div class="mq-links">
+      <a href="console/connexion.html"><b>Connexion<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Formulaire centré, identifiants locaux ou Active Directory</span></a>
+      <a href="console/tableau-de-bord.html"><b>Tableau de bord<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>État du service, indicateurs, répartition par modèle</span></a>
+      <a href="console/imprimantes.html"><b>Imprimantes<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Grille dense, filtres, sélection, pagination</span></a>
+      <a href="console/fiche-imprimante.html"><b>Fiche imprimante<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Modale de modification en sections</span></a>
+      <a href="console/parametres.html"><b>Paramètres<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>8 onglets, Maintenance, zone sensible</span></a>
+    </div>
+  </section>
+
+  <section class="mq-group">
+    <h2><svg class="ic"><use href="#i-desktop_windows"/></svg>Client de bureau</h2>
+    <p>WPF et MaterialDesignInXAML, pour tous les utilisateurs</p>
+    <div class="mq-links">
+      <a href="client/client.html#disponibles"><b>Disponibles<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Installée et favorite, en cours, à installer</span></a>
+      <a href="client/client.html#vide"><b>État vide<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Aucune imprimante, mode hors ligne</span></a>
+      <a href="client/client.html#options"><b>Options<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Préférences et zone technique</span></a>
+    </div>
+  </section>
+
+  <section class="mq-group">
+    <h2><svg class="ic"><use href="#i-dns"/></svg>Installeur du serveur</h2>
+    <p>Assistant WPF, une fois par serveur</p>
+    <div class="mq-links">
+      <a href="installeur/installeur.html#verification"><b>Vérification du système<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Installé, manquant, trop ancien</span></a>
+      <a href="installeur/installeur.html#base"><b>Base de données<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>SQL Server et authentification</span></a>
+      <a href="installeur/installeur.html#fin"><b>Fin<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Mise à jour terminée, action requise</span></a>
+    </div>
+  </section>
+
+  <section class="mq-group">
+    <h2><svg class="ic"><use href="#i-category"/></svg>Référence</h2>
+    <p>Couleurs, typographie et composants de base</p>
+    <div class="mq-links">
+      <a href="composants/planche-composants.html"><b>Planche de composants<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Tous les états, clair et sombre</span></a>
+      <a href="ressources/ressources.html"><b>Ressources graphiques<svg class="ic"><use href="#i-chevron_right"/></svg></b><span>Logo, icône, images MSI, polices, fichiers de thème</span></a>
+    </div>
+  </section>
+</main>
+</body>
+</html>
