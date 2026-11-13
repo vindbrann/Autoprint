@@ -32,7 +32,7 @@
 		<PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.15" />
 
 		<!-- Explicit package overrides to resolve security vulnerabilities in transitive dependencies -->
-		<PackageReference Include="Microsoft.OpenApi" Version="2.13.0" />
+		<PackageReference Include="Microsoft.OpenApi" Version="3.11.0" />
 		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
 	</ItemGroup>
 
