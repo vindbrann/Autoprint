@@ -30,6 +30,10 @@ Le message s'affiche en rouge sous l'imprimante.
 
 Le nom tapé dans le navigateur n'est pas dans la liste des noms acceptés. Ouvrez la console sur le serveur lui-même par `https://localhost/`, puis ajoutez le nom dans **Paramètres > Sécurité**.
 
+### Le navigateur force HTTPS alors que le serveur n'a pas encore de certificat
+
+Ce cas arrive après la réinstallation d'un serveur sous un nom déjà utilisé en HTTPS : le navigateur a mémorisé la règle HSTS et refuse de rester en HTTP. Dans Edge ou Chrome, ouvrez `edge://net-internals/#hsts` (ou `chrome://net-internals/#hsts`), puis supprimez le nom dans **Delete domain security policies**. Le mieux reste d'activer HTTPS tout de suite (voir [Installer le serveur](installation-serveur.md#2-activer-https)).
+
 ### Mot de passe du compte `admin` perdu
 
 Sur le serveur, en administrateur :

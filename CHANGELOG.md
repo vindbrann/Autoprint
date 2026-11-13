@@ -2,7 +2,7 @@
 
 Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la journée). Le détail technique de chaque correction est dans le [backlog](Docs/projet/BACKLOG_AMELIORATIONS.md).
 
-## 26.11 (à paraître)
+## 26.11.13.1 — 13/11/2026
 
 La plus grosse version depuis la 1.1 : nouvelle interface, nouveau client, sécurité revue de fond en comble. La mise à jour directe depuis 1.1.x est prise en charge (voir [Mettre à jour](Docs/guides/mise-a-jour.md)).
 
@@ -36,6 +36,7 @@ La plus grosse version depuis la 1.1 : nouvelle interface, nouveau client, sécu
 - Un refus du serveur s'affiche dans la console au lieu d'un faux « Succès ».
 - La synchronisation ne peut plus toucher la file Windows d'une autre imprimante.
 - La sauvegarde et la restauration conservent le réseau principal des lieux et les champs vides.
+- Toutes les actions du journal d'audit ont un libellé : plus de « CODE NON TRADUIT » pour les jetons, rapports et profils SNMP.
 
 ### Technique
 

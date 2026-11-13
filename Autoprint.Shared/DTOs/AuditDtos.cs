@@ -18,7 +18,10 @@ namespace Autoprint.Shared.DTOs
         public string? NewValues { get; set; }
 
         [JsonIgnore] // La colonne ActionLisible est calculée, pas besoin de la sérialiser
-        public string ActionLisible => GetActionDescription(Action, ResourceName);
+        public string ActionLisible => SansDeuxPointsFinal(GetActionDescription(Action, ResourceName));
+
+        // Ressource sans nom (ex. jeton sans description) : « Révocation du jeton d'intégration » plutôt que « … : »
+        private static string SansDeuxPointsFinal(string texte) => texte.TrimEnd().TrimEnd(':').TrimEnd();
 
         // Dans la classe AuditLogDto :
 
@@ -86,6 +89,18 @@ namespace Autoprint.Shared.DTOs
                 case "USER_PWD_RESET": return $"Mot de passe réinitialisé par lien e-mail : {resourceName}";
                 case "BULK_UPDATE": return "Modification groupée d'imprimantes";
                 case "IMPORT_DRIVERS": return "Importation de pilotes";
+
+                // Jetons d'intégration, rapports planifiés, profils SNMP (recette de la release 26.11.13.1 : « CODE NON TRADUIT »)
+                case "TOKEN_CREATE": return $"Création du jeton d'intégration : {resourceName}";
+                case "TOKEN_DELETE": return $"Révocation du jeton d'intégration : {resourceName}";
+                case "REPORT_CREATE": return $"Création du rapport planifié : {resourceName}";
+                case "REPORT_UPDATE": return $"Modification du rapport planifié : {resourceName}";
+                case "REPORT_DELETE": return $"Suppression du rapport planifié : {resourceName}";
+                case "REPORT_SEND_MANUAL": return $"Envoi immédiat du rapport : {resourceName}";
+                case "SNMP_PROFILE_CREATE": return $"Création du profil SNMP : {resourceName}";
+                case "SNMP_PROFILE_UPDATE": return $"Modification du profil SNMP : {resourceName}";
+                case "SNMP_PROFILE_DELETE": return $"Suppression du profil SNMP : {resourceName}";
+                case "SNMP_PROFILE_IMPORT": return $"Importation d'un profil SNMP : {resourceName}";
 
                 // 6. Actions Client/IPC (Affichées dans le log si le client écrit dans l'Audit)
                 case "INSTALL": return $"Installation de l'imprimante (Client M2M) : {resourceName}";

@@ -8,6 +8,12 @@ Autoprint gère le parc d'imprimantes d'une organisation multi-sites depuis une 
 [![Licence MIT](https://img.shields.io/github/license/vindbrann/Autoprint?label=licence)](LICENSE)
 [![.NET 10 LTS](https://img.shields.io/badge/.NET-10%20LTS-512BD4)](https://dotnet.microsoft.com/)
 
+<p align="center">
+  <img src="Docs/images/console-tableau-de-bord.png" alt="Tableau de bord de la console Autoprint" width="72%">
+  &nbsp;
+  <img src="Docs/images/client-panneau.png" alt="Panneau du client Autoprint sur un poste" width="24%">
+</p>
+
 ## Ce que fait Autoprint
 
 - **Les imprimantes suivent l'utilisateur.** Le client reconnaît le site à partir de l'adresse IP du poste, propose les imprimantes du site et rétablit l'imprimante par défaut choisie pour ce site. C'est fait pour les portables qui passent d'un bâtiment à l'autre.

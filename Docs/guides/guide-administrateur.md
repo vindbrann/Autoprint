@@ -6,6 +6,8 @@ La console s'ouvre dans un navigateur, à l'adresse de votre serveur (`https://a
 
 ## Tableau de bord
 
+![Tableau de bord, thème sombre](../images/console-tableau-de-bord-sombre.png)
+
 - **État du serveur** : le spouleur Windows et les erreurs de synchronisation en cours.
 - **Le parc en chiffres** : imprimantes, pilotes, lieux, imprimantes hors ligne, alertes actives.
 - **Répartition par modèle** et **dernières activités** du journal d'audit.
