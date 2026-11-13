@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Tests [API] de Docs/_PROCEDURE_TESTS_SECURITE.md, joués contre la console du labo (tools/lab).
+    Tests [API] de Docs/projet/PROCEDURE_TESTS_SECURITE.md, joués contre la console du labo (tools/lab).
 
 .DESCRIPTION
     Affiche « OK » / « ÉCHEC » par identifiant de test de la procédure. Les mots de passe de test (admin après le premier

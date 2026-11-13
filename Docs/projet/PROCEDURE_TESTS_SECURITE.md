@@ -1,6 +1,6 @@
 # 🧪 Procédure de Recette — Durcissement Sécurité
 
-Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur une installation complète. Elle est mise à jour à chaque modification ; chaque test indique la phase et le point de l'audit (`_AUDIT_SECURITE_2026-11.md`) qu'il couvre.
+Procédure à dérouler **une seule fois, à la fin de toutes les phases**, sur une installation complète. Elle est mise à jour à chaque modification ; chaque test indique la phase et le point de l'audit (`AUDIT_SECURITE_2026-11.md`) qu'il couvre.
 
 **Dernière mise à jour :** 04/11/2026 — Phase 3
 

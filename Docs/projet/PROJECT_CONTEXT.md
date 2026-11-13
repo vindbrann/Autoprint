@@ -23,7 +23,7 @@ Pour prévenir toute mauvaise supposition architecturale ou fonctionnelle :
 ## 2. Stack Technique & Dépendances
 
 ### Langages, Frameworks & Versions Cibles
-La version globale de l'ensemble de la solution est **26.11.8.2** (définie de manière centralisée dans [`Directory.Build.props`](file:///C:/Git/Developpement/Autoprint/Autoprint/Directory.Build.props)).
+La version globale de l'ensemble de la solution est **26.11.8.2** (définie de manière centralisée dans [`Directory.Build.props`](../../Directory.Build.props)).
 
 | Composant | Projet | Framework Cible | Type d'Application |
 | :--- | :--- | :--- | :--- |

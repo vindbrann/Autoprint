@@ -143,7 +143,7 @@ Invoke-InVM SRV-AD $credDomain {
             New-ADOrganizationalUnit -Name $sub -Path $ou -ProtectedFromAccidentalDeletion $false
         }
     }
-    # Noms attendus par Docs/_PROCEDURE_TESTS_SECURITE.md (§ 0.1)
+    # Noms attendus par Docs/projet/PROCEDURE_TESTS_SECURITE.md (§ 0.1)
     foreach ($g in 'GG_Autoprint_Admins', 'GG_Autoprint_Lecteurs', 'GG_Autoprint_Helpdesk') {
         if (-not (Get-ADGroup -Filter "Name -eq '$g'")) {
             New-ADGroup -Name $g -GroupScope Global -GroupCategory Security -Path "OU=Groupes,$ou"

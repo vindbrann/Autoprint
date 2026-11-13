@@ -14,7 +14,7 @@ L'agent client est une application Windows légère s'exécutant entièrement da
 ### 2.1 Contexte d'Exécution & Interface Fenêtre Unique
 * **Processus unique :** `Autoprint.Client.exe` (compilé en exécutable autonome .NET 10 *Single-File*).
 * **Contexte :** `User Session` (Privilèges utilisateur standard, sans service permanent).
-* **Panneau unique (B81) :** un panneau compact s'ouvre au clic sur l'icône près de l'horloge et se range dès qu'on clique ailleurs (ou Échap). Tout tient sur une page, sans popup pour les actions (maquette : `Docs/_MAQUETTE_CLIENT.html`) :
+* **Panneau unique (B81) :** un panneau compact s'ouvre au clic sur l'icône près de l'horloge et se range dès qu'on clique ailleurs (ou Échap). Tout tient sur une page, sans popup pour les actions (maquette : `Docs/projet/MAQUETTE_CLIENT.html`) :
   1. **En-tête :** site actuel et état du serveur (point vert ou orange), réglages, fermer.
   2. **Vos imprimantes :** celles du site installées sur le poste. Le bouton radio choisit l'imprimante par défaut du site (tag « Par défaut », bref surlignage). La corbeille retire l'imprimante tout de suite (roue pendant le retrait, puis la ligne disparaît).
   3. **Ajouter sur ce site :** tri alphabétique uniquement. Au-delà de 6 imprimantes, une ligne repliée « Ajouter une imprimante · N » ; dépliée, un champ filtre par nom, emplacement ou code inventaire.

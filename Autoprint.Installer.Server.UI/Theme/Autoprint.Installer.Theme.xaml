@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Autoprint : thème de l'installeur du serveur (WPF, sans bibliothèque tierce, clair uniquement)
-     Généré par Docs/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
+     Généré par Docs/projet/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
      Ne pas modifier à la main : modifier tokens.json ou le générateur, puis relancer le script.
      Autonome : couleurs, polices, styles et styles implicites. À fusionner dans App.xaml de Autoprint.Installer.Server.UI.
      Polices : dossier Fonts du projet, action de génération « Resource ».

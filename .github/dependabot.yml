@@ -1,5 +1,5 @@
 # Mises à jour automatiques des dépendances (audit 2026-11, phase 3)
-# Politique : Docs/_POLITIQUE_VERSIONS.md
+# Politique : Docs/projet/POLITIQUE_VERSIONS.md
 version: 2
 updates:
   - package-ecosystem: "nuget"

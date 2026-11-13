@@ -169,7 +169,7 @@ Pour garantir qu'aucune vulnérabilité ne soit introduite (notamment lors de l'
   - Suppression d'imprimante locale déployée (avec invite UAC).
 - [x] Contrôle de sécurité : vérification de l'absence de régression LPE et conformité avec les directives d'entreprise.
 - [x] Valider la résilience en mode hors-ligne.
-- [x] Mettre à jour `Docs/_Manuel_Client.md` pour refléter la nouvelle interface à fenêtre unique.
+- [x] Mettre à jour `Docs/guides/Manuel_Client.md` pour refléter la nouvelle interface à fenêtre unique.
 - [x] Packager l'installeur MSI en mode autonome *Single-File* avec gestion propre des raccourcis Bureau Public.
 
 ---

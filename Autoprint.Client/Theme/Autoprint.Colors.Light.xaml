@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Autoprint : couleurs du client, thème clair
-     Généré par Docs/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
+     Généré par Docs/projet/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
      Ne pas modifier à la main : modifier tokens.json ou le générateur, puis relancer le script.
      À fusionner AVANT Autoprint.Theme.xaml. Échanger ce dictionnaire contre l'autre quand Windows change de thème
      (voir ThemeWatcher.cs et LISEZMOI.md). Clés : Autoprint.Color.* (Color) et Autoprint.Brush.* (SolidColorBrush).

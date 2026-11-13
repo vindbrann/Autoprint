@@ -1,7 +1,7 @@
 """Réduit IBM Plex Sans aux caractères latins et la renomme « Autoprint Sans » (exigence OFL : « Plex » est un nom réservé).
 
 Usage : python make_autoprint_sans.py <dossier des TTF IBM Plex Sans> <dossier de sortie>
-Les TTF sont dans le dépôt (Docs/Charte-graphique/livrables/ressources/polices/ttf).
+Les TTF sont dans le dépôt (Docs/projet/Charte-graphique/livrables/ressources/polices/ttf).
 """
 import sys, os
 from fontTools import subset

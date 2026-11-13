@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Autoprint : thème du client de bureau (WPF + MaterialDesignInXAML 5)
-     Généré par Docs/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
+     Généré par Docs/projet/Charte-graphique/livrables/sources/build_theme.py à partir de tokens.json.
      Ne pas modifier à la main : modifier tokens.json ou le générateur, puis relancer le script.
      Contient les polices, tailles et styles. Les couleurs viennent de Autoprint.Colors.Light.xaml ou .Dark.xaml,
      fusionné juste avant ce fichier dans App.xaml. Polices : dossier Fonts du projet, action de génération « Resource ».
