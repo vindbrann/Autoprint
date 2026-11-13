@@ -33,7 +33,7 @@
 
 		<!-- Explicit package overrides to resolve security vulnerabilities in transitive dependencies -->
 		<PackageReference Include="Microsoft.OpenApi" Version="2.13.0" />
-		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
+		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
 	</ItemGroup>
 
 	<ItemGroup>
