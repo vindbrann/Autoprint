@@ -1,12 +1,14 @@
-# Plan de migration : serveur 1.1.2 vers la version 26.11 (B82)
+# Plan de migration : serveur 1.1.x vers 26.11 avec changement de l'adresse web (B82)
 
-## Situation
-- Serveur unique, **SQLite**, des postes gérés par Intune.
+## Cas couvert
+- Un serveur Autoprint 1.1.x (SQLite ou SQL Server) dont les postes sont gérés par Intune.
 - Le serveur ne change ni de machine ni de domaine AD :
   - les partages d'impression restent `\\SERVEUR\imprimante` ;
-  - seule l'adresse **web** change.
-- Aujourd'hui, l'adresse web est `https://autoprint.ancien.exemple`, avec un certificat auto-signé. Le client 1.1.x accepte n'importe quel certificat.
-- Demain, ce sera `https://autoprint.nouveau.exemple`, avec un certificat approuvé. Il est approuvé d'office par Windows.
+  - seule l'adresse **web** de la console change.
+- Exemple utilisé dans ce document :
+  - **ancien nom** : `https://autoprint.ancien.exemple`, avec un certificat auto-signé. Le client 1.1.x accepte n'importe quel certificat ;
+  - **nouveau nom** : `https://autoprint.nouveau.exemple`, avec un certificat approuvé par Windows (certificat d'une autorité publique ou de l'autorité interne, par exemple un wildcard).
+- Si l'adresse web ne change pas, ignorer tout ce qui concerne le nouveau nom : la mise à jour se résume aux étapes 2 et 3, puis au déploiement du nouveau client (étape 4) sans `SERVERURL`.
 
 Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveur 1.1.2.0, MSI client 1.1.3.0). Analyse du code faite le 11/11/2026.
 
@@ -15,7 +17,7 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
 - **Le serveur accepte plusieurs noms.** L'installeur prend `nouveau;ancien`, puis la liste se gère dans la console (Paramètres > Sécurité > « Noms acceptés par le serveur »). Elle est prise en compte immédiatement, sans redémarrage.
 - **Le client sépare deux adresses** :
   - `SERVERURL` : console, API et temps réel. Ce sera le nouveau nom ;
-  - `PRINTSERVER` : partages d'impression. Il reste l'ancien nom ;
+  - `PRINTSERVER` : partages d'impression. Il reste le nom du serveur ;
   - sans `SERVERURL`, le client se comporte comme avant (`https://PRINTSERVER`).
 - **Le MSI client applique les valeurs passées par Intune**, même lors d'une mise à jour. Avant, la valeur trouvée dans le registre l'emportait, ce qui aurait gêné aussi la rotation de la clé.
 - **Ce qui ne change pas pour un client 1.1.x** (vérifié dans le code) :
@@ -23,34 +25,37 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
   - les routes `api/emplacements` et `api/imprimantes`, et le hub `/hubs/events`, sans authentification ;
   - les champs utilisés, les énumérations envoyées en nombres, aucune limite de requêtes pour les postes.
 
-**Les clients 1.1.x et 26.11 cohabitent pendant toute la transition.**
+**Les clients 1.1.x et 26.11 cohabitent pendant toute la transition.** Le serveur peut donc être migré d'abord, les postes ensuite, à leur rythme.
 
 ---
 
-## Étape 0 : répétition en labo (obligatoire)
-- Instantané « Serveur en 1.1.2 », plus un client 1.1.x sur CLT-TEST.
-- Deux noms web pour le serveur du labo :
+## Étape 0 : répétition sur un environnement de test (recommandée)
+- Un serveur 1.1.x de test, plus un poste client 1.1.x.
+- Deux noms web pour ce serveur :
   - un « ancien » nom avec un certificat auto-signé ;
   - un « nouveau » nom avec un certificat approuvé par le poste.
-- Dérouler les étapes 1 à 5 et cocher la section « Migration 1.1.2 » de la checklist de fin de campagne.
+- Dérouler les étapes 1 à 5.
+
+Ce scénario a été validé dans le labo du projet le 12/11/2026 (section « Migration 1.1.2 » de la checklist, détail dans `_RESULTATS_RECETTE_LABO.md`).
 
 ## Étape 1 : préparer le nouveau nom (sans rien couper)
 1. **DNS** : `autoprint.nouveau.exemple` vers l'adresse du serveur. Les deux noms pointent alors vers la même machine.
-2. **Certificat** : importer le wildcard (`.pfx`) dans le magasin « Ordinateur local > Personnel » du serveur.
+2. **Certificat** : importer le certificat du nouveau nom (`.pfx`) dans le magasin « Ordinateur local > Personnel » du serveur.
 3. **IIS**, site « Autoprint », deux liaisons HTTPS sur le même port :
 
    | Nom d'hôte | Certificat | SNI |
    |---|---|---|
    | `autoprint.ancien.exemple` | auto-signé actuel (inchangé) | coché |
-   | `autoprint.nouveau.exemple` | wildcard | coché |
+   | `autoprint.nouveau.exemple` | certificat approuvé | coché |
 
    Si la liaison actuelle n'a pas de nom d'hôte, lui donner l'ancien nom et cocher SNI, ou la laisser comme liaison par défaut.
-4. **Test** : depuis un poste, `https://autoprint.nouveau.exemple/` s'ouvre dans Edge sans alerte. Le serveur 1.1.2 répond déjà, puisqu'il accepte encore tous les noms.
+4. **Test** : depuis un poste, `https://autoprint.nouveau.exemple/` s'ouvre dans Edge sans alerte. Le serveur 1.1.x répond déjà, puisqu'il accepte encore tous les noms.
 
 ## Étape 2 : sauvegarde
 - Instantané de la VM.
-- Copie de la base SQLite, serveur arrêté ou après « Arrêter » le site dans IIS :
-  - `C:\ProgramData\Autoprint\Data\Autoprint.db`, ou l'ancien emplacement dans `C:\Program Files\Autoprint Server`.
+- Copie de la base, serveur arrêté ou après « Arrêter » le site dans IIS :
+  - SQLite : `C:\ProgramData\Autoprint\Data\Autoprint.db`, ou l'ancien emplacement dans `C:\Program Files\Autoprint Server` ;
+  - SQL Server : sauvegarde complète de la base.
 - **On ne revient pas en arrière sans elle** : la mise à jour fait évoluer la base.
 
 ## Étape 3 : mise à jour du serveur en 26.11
@@ -104,6 +109,7 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
 
 ## Points de vigilance
 - **Ne pas retirer l'ancien nom trop tôt.** Tant qu'un poste 1.1.x existe, il appelle l'ancien nom. Le retirer coupe ces postes (erreur 400), mais cela se rattrape en le remettant dans la console.
+- **Garder le certificat de l'ancien nom** pendant toute la transition : les clients 1.1.x continuent de l'utiliser.
 - **Restauration d'une sauvegarde** : la liste des noms acceptés n'est jamais reprise d'une sauvegarde. Elle reste celle du serveur, pour ne pas se couper de la console.
 - **Pendant la mise à jour du serveur**, les postes 1.1.x affichent « Mode hors ligne » quelques minutes, puis se reconnectent seuls (contrôle toutes les 30 s).
 - **Support** : le nouveau client ne gère plus les imprimantes locales. Il renvoie vers « Imprimantes et scanners » de Windows.
