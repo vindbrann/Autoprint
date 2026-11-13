@@ -173,6 +173,12 @@
 				<!-- Service AutoprintService (26.08.24.1 et antérieures) : tube nommé ouvert à tous les utilisateurs, élévation de privilèges possible -->
 				<ServiceControl Id="StopOldAutoprintService" Name="AutoprintService" Stop="both" Remove="both" Wait="yes" />
 			</Component>
+
+			<!-- Licence d'Autoprint et licences des composants tiers embarqués dans le client (exigé par leurs licences) -->
+			<Component Id="LicenseFiles" Guid="{9D3B6A41-5E27-4C8F-B1A0-7F2E64C9D815}" Directory="INSTALLFOLDER">
+				<File Id="LicenseTxt" Source="..\LICENSE" Name="LICENSE.txt" KeyPath="yes" />
+				<File Id="ThirdPartyNotices" Source="..\THIRD-PARTY-NOTICES.txt" Name="THIRD-PARTY-NOTICES.txt" />
+			</Component>
 		</ComponentGroup>
 
 		<Feature Id="Main">

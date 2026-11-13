@@ -58,6 +58,12 @@
 		<EmbeddedResource Include="Resources\Fonts\AutoprintSans-Bold.ttf" LogicalName="Autoprint.Fonts.AutoprintSans-Bold.ttf" />
 		<None Include="Resources\Fonts\OFL-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\AutoprintSans-OFL-LICENSE.txt" />
 	</ItemGroup>
+	<!-- Licence d'Autoprint et licences des composants tiers, livrées dans Licenses\ (exigé par leurs licences) -->
+	<ItemGroup>
+		<None Include="..\LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\LICENSE.txt" />
+		<None Include="..\THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\THIRD-PARTY-NOTICES.txt" />
+		<None Include="..\Licenses\SkiaSharp-THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Licenses\SkiaSharp-THIRD-PARTY-NOTICES.txt" />
+	</ItemGroup>
 
 	<!-- SkiaSharp (rapports PDF) livre sa bibliothèque native pour toutes les plateformes, avec ~100 Mo de symboles chacune :
 	     le serveur étant x64 sous Windows, seul runtimes\win-x64

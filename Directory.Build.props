@@ -9,4 +9,11 @@
     <FileVersion>26.11.11.1</FileVersion>
     <InformationalVersion>26.11.11.1</InformationalVersion>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Métadonnées des exécutables (Propriétés > Détails) : même titulaire que LICENSE -->
+    <Authors>Nicolas CARUANA</Authors>
+    <Company>Autoprint</Company>
+    <Product>Autoprint</Product>
+    <Copyright>Copyright (c) 2025-2026 Nicolas CARUANA. Licence MIT.</Copyright>
+  </PropertyGroup>
 </Project>
