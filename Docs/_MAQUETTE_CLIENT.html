@@ -310,8 +310,10 @@ button, input { font: inherit; color: inherit; }
     var here = SITES[s].printers.filter(function (p) { return !isMine(p.id) && (!q || match(p, s, q)); });
     return here.length ? here.map(function (p) { return rowAdd(p, s, false); }).join('') : '<div class="hint">Aucune imprimante de ce site ne correspond.</div>';
   }
+  // Affectations explicites (pas de st[k] = …) : le texte saisi ne touche que st.q, st.q2 ou st.q3, qui ne vont jamais dans le HTML
+  function setQuery(k, v) { if (k === 'q') st.q = v; else if (k === 'q2') st.q2 = v; else if (k === 'q3') st.q3 = v; }
   function bindInputs() {
-    ['q', 'q2', 'q3'].forEach(function (k) { var qi = $(k); if (qi && qi.value !== st[k]) qi.value = st[k]; if (qi && !qi._b) { qi._b = 1; qi.oninput = function () { st[k] = qi.value; var pos = qi.selectionStart; render(); var n = $(k); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; } });
+    ['q', 'q2', 'q3'].forEach(function (k) { var qi = $(k); if (qi && qi.value !== st[k]) qi.value = st[k]; if (qi && !qi._b) { qi._b = 1; qi.oninput = function () { setQuery(k, qi.value); var pos = qi.selectionStart; render(); var n = $(k); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; } });
   }
   function sheetHead(title, back, close) {
     return '<header class="head"><button class="icon-btn" data-' + back + '="1" aria-label="Retour"><svg><use href="#i-back"/></svg></button><div class="site"><div class="v">' + esc(title) + '</div></div>' +
