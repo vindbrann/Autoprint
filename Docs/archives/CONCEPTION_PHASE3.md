@@ -1,7 +1,7 @@
 # 📐 Conception — Phase 3 : sortie de `LocalSystem` (#8) et SNMPv3 (#14)
 
 **Statut :** #8 et SNMPv3 développés sur la branche `feature/serveur-sans-localsystem` (version suivante) · **Date :** 04/11/2026
-Référence : `_AUDIT_SECURITE_2026-11.md`, points #8 et #14.
+Référence : `AUDIT_SECURITE_2026-11.md`, points #8 et #14.
 
 Ces deux points ne sont pas des correctifs mais des évolutions : ils changent l'installation (#8) ou ajoutent une fonctionnalité (#14). Ce document décrit ce qui serait fait, ce que cela change pour l'exploitation, et les décisions à prendre.
 

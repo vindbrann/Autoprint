@@ -6,8 +6,8 @@
 |---|---|
 | Dépôt GitHub | `vindbrann/Autoprint` |
 | Branche de travail | **`feature/charte-graphique`** (créée depuis `master` le 09/11/2026) |
-| Documentation | `Docs/Charte-graphique/` : ce dossier |
-| Dépôt du template | `Docs/Charte-graphique/livrables/` (arborescence dans [livrables/README.md](livrables/README.md)) |
+| Documentation | `Docs/projet/Charte-graphique/` : ce dossier |
+| Dépôt du template | `Docs/projet/Charte-graphique/livrables/` (arborescence dans [livrables/README.md](livrables/README.md)) |
 
 Cette branche ne sert qu'au design : **on n'y modifie pas le code de l'application** tant que l'intégration n'a pas commencé.
 
@@ -15,7 +15,7 @@ Cette branche ne sert qu'au design : **on n'y modifie pas le code de l'applicati
 
 **Sans Git** (personne extérieure, outil de maquettage) :
 1. Sur GitHub, ouvrir le dépôt, puis choisir la branche **`feature/charte-graphique`** dans la liste des branches.
-2. Ouvrir le dossier `Docs/Charte-graphique` pour lire en ligne.
+2. Ouvrir le dossier `Docs/projet/Charte-graphique` pour lire en ligne.
 3. Pour tout récupérer : **Code → Download ZIP**.
 
 **Avec Git** :
@@ -52,7 +52,7 @@ git switch feature/charte-graphique
 On peut déposer au fur et à mesure, il n'est pas nécessaire d'attendre que tout soit fini.
 
 **Sans Git (interface GitHub)** :
-1. Sur la branche `feature/charte-graphique`, ouvrir `Docs/Charte-graphique/livrables`.
+1. Sur la branche `feature/charte-graphique`, ouvrir `Docs/projet/Charte-graphique/livrables`.
 2. **Add file → Upload files**, puis glisser les fichiers en respectant les sous-dossiers.
 3. En bas de la page : un message court (ex. « Maquettes console v1 »), cocher **Commit directly to the `feature/charte-graphique` branch**, puis **Commit changes**.
 
@@ -66,10 +66,10 @@ git switch feature/charte-graphique
 git pull
 ```
 
-Copier les fichiers dans `Docs/Charte-graphique/livrables/`, puis :
+Copier les fichiers dans `Docs/projet/Charte-graphique/livrables/`, puis :
 
 ```bash
-git add Docs/Charte-graphique/livrables
+git add Docs/projet/Charte-graphique/livrables
 ```
 
 ```bash

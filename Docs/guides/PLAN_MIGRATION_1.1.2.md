@@ -36,7 +36,7 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
   - un « nouveau » nom avec un certificat approuvé par le poste.
 - Dérouler les étapes 1 à 5.
 
-Ce scénario a été validé dans le labo du projet le 12/11/2026 (section « Migration 1.1.2 » de la checklist, détail dans `_RESULTATS_RECETTE_LABO.md`).
+Ce scénario a été validé dans le labo du projet le 12/11/2026 (section « Migration 1.1.2 » de la checklist, détail dans `RESULTATS_RECETTE_LABO.md`).
 
 ## Étape 1 : préparer le nouveau nom (sans rien couper)
 1. **DNS** : `autoprint.nouveau.exemple` vers l'adresse du serveur. Les deux noms pointent alors vers la même machine.

@@ -24,7 +24,7 @@ L'administration est accessible via votre navigateur Web favori.
   1. ajouter le nouveau nom, avec sa liaison HTTPS dans IIS (SNI) et son DNS ;
   2. déployer les postes avec `SERVERURL=https://nouveau-nom` ;
   3. retirer l'ancien nom quand plus aucun poste ne l'utilise.
-  - Détail : `Docs/_PLAN_MIGRATION_1.1.2.md`.
+  - Détail : `Docs/guides/PLAN_MIGRATION_1.1.2.md`.
 
 ---
 

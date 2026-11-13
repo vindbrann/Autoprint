@@ -9,7 +9,7 @@
 
 Sous-ensemble d'**IBM Plex Sans 3.005** (IBM Corp.), la police de la charte graphique, sous licence **SIL Open Font License 1.1**.
 « Regular » vient d'`IBMPlexSans-Regular.ttf`, « Bold » d'`IBMPlexSans-SemiBold.ttf` (graisse 600, la graisse forte de la console).
-Fichiers source : `Docs/Charte-graphique/livrables/ressources/polices/ttf` (les mêmes que la console et les installeurs).
+Fichiers source : `Docs/projet/Charte-graphique/livrables/ressources/polices/ttf` (les mêmes que la console et les installeurs).
 
 Pourquoi un sous-ensemble : SkiaSharp intègre toujours la police **entière** dans le PDF. Avec Arial (~1 Mo par style), un rapport
 pesait 1,1 Mo ; avec ce sous-ensemble (caractères latins, ponctuation, €, flèches), il pèse quelques dizaines de Ko.
@@ -28,7 +28,7 @@ La police n'est jamais vendue seule.
 ```bash
 python -m venv venv-fonttools
 venv-fonttools/Scripts/python -m pip install fonttools
-venv-fonttools/Scripts/python tools/fonts/make_autoprint_sans.py Docs/Charte-graphique/livrables/ressources/polices/ttf Autoprint.Server/Resources/Fonts
+venv-fonttools/Scripts/python tools/fonts/make_autoprint_sans.py Docs/projet/Charte-graphique/livrables/ressources/polices/ttf Autoprint.Server/Resources/Fonts
 ```
 
 Pour ajouter des caractères (autre alphabet), compléter `UNICODES` dans le script.

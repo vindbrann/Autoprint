@@ -1,6 +1,6 @@
 ﻿# Labo de test Autoprint (Hyper-V, Windows en français)
 
-Labo local pour dérouler `Docs/_PROCEDURE_TESTS_SECURITE.md` dans des conditions proches de la production : serveur Windows **français** membre d'un domaine, poste client **hors domaine** (comme un poste géré par Intune).
+Labo local pour dérouler `Docs/projet/PROCEDURE_TESTS_SECURITE.md` dans des conditions proches de la production : serveur Windows **français** membre d'un domaine, poste client **hors domaine** (comme un poste géré par Intune).
 
 | VM | Adresse | Rôle |
 |---|---|---|

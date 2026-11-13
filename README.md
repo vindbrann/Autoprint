@@ -9,7 +9,7 @@
 [![WPF Client](https://img.shields.io/badge/Client-WPF%20Agent%20Desktop-0078D4.svg?style=for-the-badge&logo=windows)](https://github.com/dotnet/wpf)
 [![Windows Service](https://img.shields.io/badge/Service-Windows%20Service%20SYSTEM-0078D4.svg?style=for-the-badge&logo=windows-terminal)](https://learn.microsoft.com/windows/win32/services/services)
 [![Database](https://img.shields.io/badge/Database-SQL%20Server%20%7C%20SQLite-CC292B.svg?style=for-the-badge&logo=microsoft-sql-server)](https://www.microsoft.com/sql-server)
-[![Security](https://img.shields.io/badge/Security-RBAC%2029%20Perms%20%7C%20PBKDF2-success.svg?style=for-the-badge&logo=shield)](PROJECT_CONTEXT.md#4-modèle-de-sécurité--conformité)
+[![Security](https://img.shields.io/badge/Security-RBAC%2029%20Perms%20%7C%20PBKDF2-success.svg?style=for-the-badge&logo=shield)](Docs/projet/PROJECT_CONTEXT.md#4-modèle-de-sécurité--conformité)
 
 ---
 
@@ -178,8 +178,6 @@ Autoprint/
 ├── Docs/                                 # Manuels utilisateurs, guides d'installation et audits de sécurité
 ├── Directory.Build.props                 # Version globale centralisée de la solution (26.11.8.2)
 ├── Autoprint.sln                         # Solution unifiée Visual Studio 2026
-├── PROJECT_CONTEXT.md                    # Synthèse architecturale et fonctionnelle de référence
-├── PROJECT_MAP.md                        # Cadastre technique exhaustif de l'arborescence et des flux
 └── README.md                             # Présente documentation officielle du produit
 ```
 
@@ -391,11 +389,11 @@ L'application intègre des modules natifs de diagnostic et d'auto-test directeme
 
 Pour approfondir l'architecture, l'exploitation et la maintenance du projet, consultez les documents techniques de référence :
 
-- 📐 **[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)** : Vue d'ensemble architecturale, contexte métier, flux de données critiques et modèle de sécurité complet.
-- 🗺️ **[PROJECT_MAP.md](PROJECT_MAP.md)** : Cadastre technique exhaustif de l'ensemble des fichiers, composants, contrôleurs, tables BDD, DTOs et recettes d'intervention pas à pas.
-- 📖 **[Guide d'Installation Serveur (Docs/INSTALLATION_SERVER.MD)](Docs/INSTALLATION_SERVER.MD)** : Procédure pas à pas pour Windows Server et IIS.
-- 💻 **[Documentation Technique Client (Docs/_DOC_Client.md)](Docs/_DOC_Client.md)** : Fonctionnement interne de l'agent de bureau WPF et du cache local SQLite.
-- 🛡️ **[Dossier de Sécurité (Docs/_DOC_Securite.md)](Docs/_DOC_Securite.md)** : Détail des protections cryptographiques, anti-injections et règles d'audit.
+- 📐 **[PROJECT_CONTEXT.md](Docs/projet/PROJECT_CONTEXT.md)** : Vue d'ensemble architecturale, contexte métier, flux de données critiques et modèle de sécurité complet.
+- 🗺️ **[PROJECT_MAP.md](Docs/projet/PROJECT_MAP.md)** : Cadastre technique exhaustif de l'ensemble des fichiers, composants, contrôleurs, tables BDD, DTOs et recettes d'intervention pas à pas.
+- 📖 **[Guide d'Installation Serveur (Docs/guides/INSTALLATION_SERVER.md)](Docs/guides/INSTALLATION_SERVER.md)** : Procédure pas à pas pour Windows Server et IIS.
+- 💻 **[Documentation Technique Client (Docs/technique/DOC_Client.md)](Docs/technique/DOC_Client.md)** : Fonctionnement interne de l'agent de bureau WPF et du cache local SQLite.
+- 🛡️ **[Dossier de Sécurité (Docs/technique/DOC_Securite.md)](Docs/technique/DOC_Securite.md)** : Détail des protections cryptographiques, anti-injections et règles d'audit.
 
 ---
 
