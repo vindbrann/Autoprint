@@ -258,7 +258,7 @@ button, input { font: inherit; color: inherit; }
   for (var k0 in SITES) SITES[k0].printers.sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); });
 
   function find(id) { for (var k in SITES) { var p = SITES[k].printers.find(function (x) { return x.id === id; }); if (p) return { p: p, site: k }; } return null; }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var SHORT = 6; // au-delà, la liste à ajouter est repliée et se filtre
 
   var st;
@@ -299,9 +299,10 @@ button, input { font: inherit; color: inherit; }
   function match(p, s, q) { return norm(p.nom + ' ' + p.ou + ' ' + p.code).indexOf(q) >= 0; }
 
   // Un seul champ : filtre la liste du site et cherche aussi sur les autres sites (« imprimer ailleurs »)
+  // Le texte saisi n'est jamais réinjecté dans le HTML : bindInputs le remet dans le champ par la propriété value
   function searchField(ph, k) {
     var v = st[k];
-    return '<label class="search"><svg><use href="#i-search"/></svg><input id="' + k + '" placeholder="' + ph + '" value="' + esc(v) + '" aria-label="' + ph + '">' + (v ? '<button class="clear" data-clearq="' + k + '" aria-label="Effacer"><svg><use href="#i-x"/></svg></button>' : '') + '</label>';
+    return '<label class="search"><svg><use href="#i-search"/></svg><input id="' + k + '" placeholder="' + esc(ph) + '" aria-label="' + esc(ph) + '">' + (v ? '<button class="clear" data-clearq="' + k + '" aria-label="Effacer"><svg><use href="#i-x"/></svg></button>' : '') + '</label>';
   }
   function closeBtn(k, l) { return '<button class="icon-btn sm" data-' + k + '="1" title="' + l + '" aria-label="' + l + '"><svg><use href="#i-x"/></svg></button>'; }
   function resultsHere(s) {
@@ -309,8 +310,10 @@ button, input { font: inherit; color: inherit; }
     var here = SITES[s].printers.filter(function (p) { return !isMine(p.id) && (!q || match(p, s, q)); });
     return here.length ? here.map(function (p) { return rowAdd(p, s, false); }).join('') : '<div class="hint">Aucune imprimante de ce site ne correspond.</div>';
   }
+  // Affectations explicites (pas de st[k] = …) : le texte saisi ne touche que st.q, st.q2 ou st.q3, qui ne vont jamais dans le HTML
+  function setQuery(k, v) { if (k === 'q') st.q = v; else if (k === 'q2') st.q2 = v; else if (k === 'q3') st.q3 = v; }
   function bindInputs() {
-    ['q', 'q2', 'q3'].forEach(function (k) { var qi = $(k); if (qi && !qi._b) { qi._b = 1; qi.oninput = function () { st[k] = qi.value; var pos = qi.selectionStart; render(); var n = $(k); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; } });
+    ['q', 'q2', 'q3'].forEach(function (k) { var qi = $(k); if (qi && qi.value !== st[k]) qi.value = st[k]; if (qi && !qi._b) { qi._b = 1; qi.oninput = function () { setQuery(k, qi.value); var pos = qi.selectionStart; render(); var n = $(k); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; } });
   }
   function sheetHead(title, back, close) {
     return '<header class="head"><button class="icon-btn" data-' + back + '="1" aria-label="Retour"><svg><use href="#i-back"/></svg></button><div class="site"><div class="v">' + esc(title) + '</div></div>' +
@@ -427,10 +430,10 @@ button, input { font: inherit; color: inherit; }
     if (d.addclose) { st.addOpen = false; st.q = ''; return render(); }
     if (d.elsewhere) { st.elsewhere = true; render(); var q2 = $('q2'); if (q2) q2.focus(); return; }
     if (d.elseclose) { st.elsewhere = false; st.q2 = ''; st.q3 = ''; st.pickSite = null; return render(); }
-    if (d.site) { st.pickSite = d.site; st.q3 = ''; render(); var q4 = $('q3'); if (q4) q4.focus(); return; }
+    if (d.site && Object.prototype.hasOwnProperty.call(SITES, d.site)) { st.pickSite = d.site; st.q3 = ''; render(); var q4 = $('q3'); if (q4) q4.focus(); return; }
     if (d.sback) { st.pickSite = null; st.q3 = ''; render(); var q5 = $('q2'); if (q5) q5.focus(); return; }
     if (d.fold) { st.others = !st.others; return render(); }
-    if (d.clearq) { st[d.clearq] = ''; render(); var q3 = $(d.clearq); if (q3) q3.focus(); return; }
+    if (['q', 'q2', 'q3'].indexOf(d.clearq) >= 0) { st[d.clearq] = ''; render(); var q3 = $(d.clearq); if (q3) q3.focus(); return; }
     if (d.settings) { st.settings = true; return renderSheet(); }
     if (d.back) { st.settings = false; return renderSheet(); }
     if (d.itclose) { st.it = false; return renderSheet(); }
