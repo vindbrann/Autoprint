@@ -26,13 +26,19 @@ Lancez `Autoprint-Serveur-Installation-<version>.exe` en tant qu'administrateur.
 
 1. **Bienvenue.**
 2. **Contrat de licence** : la licence MIT. Cochez « J'accepte les termes du contrat de licence ».
-3. **Vérification du système** : IIS, le rôle Serveur d'impression et le runtime .NET 10 sont contrôlés. Pour un élément manquant, cliquez sur **Installer** en face, puis attendez qu'il passe au vert.
+3. **Vérification du système** : IIS, le rôle Serveur d'impression et le runtime .NET 10 sont contrôlés. Pour un élément manquant, cliquez sur **Installer** en face ; pour un runtime trop ancien, sur **Mettre à jour**. Attendez ensuite qu'il passe au vert.
+
+   ![Vérification du système : rôle manquant et runtime trop ancien](../images/installeur-verification.png)
+
 4. **Base de données** :
    - **SQLite** : rien à saisir. La base est créée dans `C:\ProgramData\Autoprint\Data`.
    - **SQL Server** : saisissez le serveur (`sqlsrv01` ou `sqlsrv01\SQLEXPRESS`), le port s'il n'est pas standard, le nom de la base (`AutoprintDb` par défaut) et le mode d'authentification. Cliquez sur **Tester la connexion** avant de continuer. La base est créée si elle n'existe pas.
 5. **Configuration web (IIS)** :
    - **Port HTTP** : `8080` par défaut. L'installeur ouvre ce port dans le pare-feu.
    - **Nom public de la console** : le nom DNS que les navigateurs et les postes utiliseront, par exemple `autoprint.mondomaine.fr`. Pour accepter plusieurs noms, séparez-les par `;`, le principal en premier.
+
+   ![Configuration web : port et nom public](../images/installeur-web.png)
+
 6. **Installation** : copie des fichiers, création du site et du pool IIS, du service d'impression et de la base.
 7. **Installation terminée.**
 

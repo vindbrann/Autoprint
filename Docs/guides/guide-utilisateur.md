@@ -10,6 +10,9 @@ Un panneau s'ouvre au-dessus de la barre des tâches. Pour le fermer, cliquez ai
 
 En haut du panneau : le site où vous êtes et l'état de la connexion au serveur.
 
+<img src="../images/client-panneau.png" alt="Le panneau Autoprint : vos imprimantes, l'imprimante par défaut, les imprimantes à ajouter sur le site" width="320">
+
+
 ## Vos imprimantes
 
 La section **Vos imprimantes** liste celles que vous avez déjà ajoutées sur ce site.

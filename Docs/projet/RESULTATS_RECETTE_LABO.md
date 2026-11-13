@@ -28,6 +28,24 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 3. Tests API : `tools\lab\Recette-Api.ps1 -BaseUrl https://srv-print.lab.autoprint.test -Profil sql -Lot <Lot>` (HTTP redirige vers HTTPS et perd l'authentification). Lots : `Comptes`, `Escalade`, `Sessions`, `Imprimantes`, `Web`, `AD`, `Cle`, `Donnees`, `Serveur`, `Email`, `Snmp`, `Divers`, `Infra`, `Limitation`. Les lots qui se connectent beaucoup peuvent atteindre la limite de 10 connexions / minute : rejouer le lot seul.
 
 **Fichiers locaux (hors dépôt, chiffrés pour le compte Windows)** dans `%USERPROFILE%\.autoprint-lab\` : `labadmin.cred`, `recette-secrets.xml` (comptes du labo, `sql.*`, `snmp.*`), `recette-secrets-sql.xml` / `-sqlauth.xml` / `-sqldistant.xml` / `-sm.xml` (comptes Autoprint par installation), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim, installeurs 1.1.0 / 1.1.2 / 26.08.24.2), `snmpsim-venv\`.
+## Release 26.11.13.1 — 13/11/2026
+
+Installeurs construits depuis `master` (branche `release/26.11.13.1`) : `Autoprint-Serveur-Installation-26.11.13.1.exe` et `Autoprint-Client-26.11.13.1.msi`, éditeur « Nicolas CARUANA ».
+
+| Test | Résultat | Détail |
+|---|---|---|
+| Mise à jour serveur 26.11.11.1 → 26.11.13.1 (SQL Server, données de recette) | ✅ | « Mise à jour détectée », licence MIT officielle + traduction, « Mise à jour terminée » ; version 26.11.13.1, `Licenses\` livré, service AutoprintSpooler et pool démarrés |
+| Mise à jour client 26.11.11.1 → 26.11.13.1 en SYSTEM (comme Intune) | ✅ | Une seule entrée, réglages du registre conservés, `LICENSE.txt` et `THIRD-PARTY-NOTICES.txt` installés |
+| Redéploiement du MSI avec une nouvelle `APIKEY` | ✅ | Clé du poste remplacée, `PRINTSERVER` conservé ; API agent acceptée avec la nouvelle clé, mauvaise clé refusée (401) |
+| Rapport PDF « Envoyer maintenant » | ✅ | 46 Ko, polices AutoprintSans-Regular/Bold intégrées |
+| Installation neuve (SQLite) sur serveur vierge avec runtime 10.0.0 | ✅ | Runtime signalé trop ancien puis mis à jour en 10.0.15, rôle Serveur d'impression ajouté, base et clés créées, pare-feu 8080, pool `ApplicationPoolIdentity` ; première connexion `admin` avec changement imposé |
+| Console après mise à jour | ✅ | Tableau de bord en clair et sombre (captures de la doc) |
+
+Trouvé et corrigé pendant ces tests :
+- **Écran « Mise à jour détectée »** : phrase coupée, retour à la ligne ajouté.
+- **Journal d'audit** : « CODE NON TRADUIT » pour 10 actions (jetons, rapports planifiés, profils SNMP). Libellés ajoutés, et plus de « : » final quand la ressource n'a pas de nom.
+- **Remarque** : sur un poste qui a déjà ouvert la console en HTTPS, Edge garde la règle HSTS et refuse le HTTP d'un serveur réinstallé sans certificat. Ce cas est ajouté au guide de dépannage.
+
 ## Derniers tests (09/11/2026, soir)
 
 | ID | Résultat | Remarque |

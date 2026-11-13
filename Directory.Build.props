@@ -4,10 +4,10 @@
     <!--  VERSION GLOBALE DE LA SOLUTION AUTOPRINT (Format: YY.M.D.REV)    -->
     <!--  Modifier UNIQUEMENT cette ligne pour mettre à jour la solution   -->
     <!-- ================================================================= -->
-    <Version>26.11.11.1</Version>
-    <AssemblyVersion>26.11.11.1</AssemblyVersion>
-    <FileVersion>26.11.11.1</FileVersion>
-    <InformationalVersion>26.11.11.1</InformationalVersion>
+    <Version>26.11.13.1</Version>
+    <AssemblyVersion>26.11.13.1</AssemblyVersion>
+    <FileVersion>26.11.13.1</FileVersion>
+    <InformationalVersion>26.11.13.1</InformationalVersion>
   </PropertyGroup>
   <PropertyGroup>
     <!-- Métadonnées des exécutables (Propriétés > Détails) : même titulaire que LICENSE -->

@@ -39,8 +39,8 @@
             <StackPanel x:Name="View1_Welcome">
                 <TextBlock x:Name="TxtWelcomeTitle" Text="Bienvenue" Style="{StaticResource Autoprint.Installer.Title}" Margin="0,0,0,20"/>
 
-                <TextBlock x:Name="TxtWelcomeDesc" Text="Vous êtes sur le point d'installer Autoprint Server sur cet ordinateur." 
-                           FontSize="16" Margin="0,0,0,20"/>
+                <TextBlock x:Name="TxtWelcomeDesc" Text="Vous êtes sur le point d'installer Autoprint Server sur cet ordinateur."
+                           FontSize="16" TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <TextBlock Text="Cet assistant va configurer :" FontWeight="Bold" Margin="0,10,0,5"/>
                 <StackPanel Margin="20,0,0,0">
