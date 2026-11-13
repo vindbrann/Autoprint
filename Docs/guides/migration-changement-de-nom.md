@@ -1,4 +1,4 @@
-# Plan de migration : serveur 1.1.x vers 26.11 avec changement de l'adresse web (B82)
+# Migration avec changement de l'adresse de la console
 
 ## Cas couvert
 - Un serveur Autoprint 1.1.x (SQLite ou SQL Server) dont les postes sont gérés par Intune.
@@ -36,7 +36,7 @@ Référence 1.1.2 utilisée pour l'analyse : commit `bb5a2d0` (installeur serveu
   - un « nouveau » nom avec un certificat approuvé par le poste.
 - Dérouler les étapes 1 à 5.
 
-Ce scénario a été validé dans le labo du projet le 12/11/2026 (section « Migration 1.1.2 » de la checklist, détail dans `RESULTATS_RECETTE_LABO.md`).
+Ce scénario a été validé dans le labo du projet le 12/11/2026 (détail dans [les résultats de recette](../projet/RESULTATS_RECETTE_LABO.md)).
 
 ## Étape 1 : préparer le nouveau nom (sans rien couper)
 1. **DNS** : `autoprint.nouveau.exemple` vers l'adresse du serveur. Les deux noms pointent alors vers la même machine.
@@ -63,7 +63,7 @@ Ce scénario a été validé dans le labo du projet le 12/11/2026 (section « Mi
    `autoprint.nouveau.exemple;autoprint.ancien.exemple`
    Le premier nom sert aux liens envoyés par courriel (mot de passe oublié).
 2. Après l'installation :
-   - sauvegarder les clés de chiffrement (manuel serveur) ;
+   - sauvegarder les clés de chiffrement (voir le [guide administrateur](guide-administrateur.md#sauvegarde-et-restauration)) ;
    - faire une sauvegarde protégée depuis la console.
 3. Contrôles :
    - la console s'ouvre par **les deux** adresses ;

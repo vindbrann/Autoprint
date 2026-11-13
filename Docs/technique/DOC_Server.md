@@ -4,8 +4,10 @@
 Le module **Autoprint.Server** est une application **ASP.NET Core Web API** (.NET 10) agissant comme point central de configuration, de supervision et d'orchestration. Il assure l'interface entre la base de données relationnelle, le sous-système d'impression Windows (Spouleur), les agents clients déployés et les outils tiers de supervision.
 
 * **Rôle :** Contrôleur de domaine d'impression, API Rest, Console de supervision web, Interface d'administration.
-* **Hébergement :** IIS (Internet Information Services) sur Windows Server 2019/2022.
-* **Exécution :** Pool d'application en mode "No Managed Code" avec identité de service (`NetworkService`).
+* **Hébergement :** IIS (Internet Information Services) sur Windows Server 2019, 2022 ou 2025.
+* **Exécution :** pool d'application « Autoprint » en mode « No Managed Code », sous son identité de pool (`ApplicationPoolIdentity`), sans privilège particulier. Le pool ne s'arrête pas par inactivité.
+* **Opérations sur le spouleur :** le site ne les fait pas lui-même. Il les demande au service Windows **`AutoprintSpooler`** (projet `Autoprint.SpoolerService`), seul composant exécuté en `LocalSystem`. Ce service écoute un tube nommé local dont l'ACL n'autorise que l'identité du pool et SYSTEM, sans accès réseau. Il n'accepte que cinq opérations bornées, une à la fois, et inscrit chaque commande dans le journal Windows.
+* **Données :** base SQLite dans `C:\ProgramData\Autoprint\Data` ou base SQL Server ; clés de chiffrement des secrets (Data Protection, DPAPI machine) dans `C:\ProgramData\Autoprint\Keys`.
 
 ---
 
