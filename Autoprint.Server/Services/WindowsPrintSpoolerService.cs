@@ -61,42 +61,38 @@ namespace Autoprint.Server.Services
 
         private List<PRINTER_INFO_2> GetAllPrintersNative()
         {
+            try { return EnumererFilesNatives(); }
+            catch { return new List<PRINTER_INFO_2>(); }
+        }
+
+        /// <summary>Files locales via EnumPrinters (niveau 2), sans WMI ni privilège. Lève une exception si Windows refuse la lecture.</summary>
+        private static List<PRINTER_INFO_2> EnumererFilesNatives()
+        {
             var results = new List<PRINTER_INFO_2>();
             IntPtr pPrinters = IntPtr.Zero;
-            int bytesNeeded = 0;
-            int countReturned = 0;
-
             try
             {
-                EnumPrinters(PRINTER_ENUM_LOCAL, null, 2, IntPtr.Zero, 0, out bytesNeeded, out countReturned);
-
-                if (bytesNeeded > 0)
+                // Premier appel : taille nécessaire. Sans aucune file, il réussit avec 0 octet (parc réellement vide).
+                if (!EnumPrinters(PRINTER_ENUM_LOCAL, null, 2, IntPtr.Zero, 0, out int bytesNeeded, out _))
                 {
-                    pPrinters = Marshal.AllocHGlobal(bytesNeeded);
-                    if (EnumPrinters(PRINTER_ENUM_LOCAL, null, 2, pPrinters, bytesNeeded, out bytesNeeded, out countReturned))
-                    {
-                        IntPtr currentPtr = pPrinters;
-                        int stride = Marshal.SizeOf(typeof(PRINTER_INFO_2));
-
-                        for (int i = 0; i < countReturned; i++)
-                        {
-                            IntPtr itemPtr = IntPtr.Add(pPrinters, i * stride);
-
-                            var info = Marshal.PtrToStructure<PRINTER_INFO_2>(itemPtr);
-                            results.Add(info);
-                        }
-                    }
+                    int err = Marshal.GetLastWin32Error();
+                    if (err != ERROR_INSUFFICIENT_BUFFER) throw new System.ComponentModel.Win32Exception(err);
                 }
-            }
-            catch
-            {
+                if (bytesNeeded <= 0) return results;
+
+                pPrinters = Marshal.AllocHGlobal(bytesNeeded);
+                if (!EnumPrinters(PRINTER_ENUM_LOCAL, null, 2, pPrinters, bytesNeeded, out _, out int countReturned))
+                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+
+                int stride = Marshal.SizeOf<PRINTER_INFO_2>();
+                for (int i = 0; i < countReturned; i++)
+                    results.Add(Marshal.PtrToStructure<PRINTER_INFO_2>(IntPtr.Add(pPrinters, i * stride)));
+                return results;
             }
             finally
             {
                 if (pPrinters != IntPtr.Zero) Marshal.FreeHGlobal(pPrinters);
             }
-
-            return results;
         }
 
         public Task<bool> VerifierModeDirect(string nomImprimante, bool modeAttendu)
@@ -190,42 +186,19 @@ namespace Autoprint.Server.Services
             return Task.FromResult(results);
         }
 
-        public Task<ServerAuditSnapshot> GetServerSnapshotAsync()
+        public Task<List<WinPrinterInfo>> ListerFilesPourAudit()
         {
-            return Task.Run(() =>
-            {
-                var snapshot = new ServerAuditSnapshot();
-                try
+            // #41 : même lecture que la synchro (EnumPrinters), qui fonctionne sous le compte limité du pool IIS en mode Service.
+            // L'ancienne lecture WMI y échouait en silence et renvoyait un parc vide : toutes les imprimantes passaient en erreur.
+            return Task.Run(() => EnumererFilesNatives()
+                .Where(p => !string.IsNullOrEmpty(p.pPrinterName))
+                .Select(p => new WinPrinterInfo
                 {
-                    using var searcherPorts = new ManagementObjectSearcher("SELECT Name, HostAddress FROM Win32_TCPIPPrinterPort");
-                    foreach (ManagementObject port in searcherPorts.Get())
-                    {
-                        string ip = port["HostAddress"]?.ToString()?.Trim() ?? "";
-                        string name = port["Name"]?.ToString()?.Trim() ?? "";
-                        if (!string.IsNullOrEmpty(ip) && !snapshot.PortsByIp.ContainsKey(ip)) snapshot.PortsByIp[ip] = name;
-                    }
-
-                    using var searcherPrinters = new ManagementObjectSearcher("SELECT Name, PortName, Attributes FROM Win32_Printer");
-                    foreach (ManagementObject printer in searcherPrinters.Get())
-                    {
-                        string pName = printer["Name"]?.ToString() ?? "";
-                        string pPort = printer["PortName"]?.ToString() ?? "";
-                        uint attributes = (uint)(printer["Attributes"] ?? 0);
-                        bool isDirect = (attributes & 2) == 2;
-                        var ports = pPort.Split(',');
-                        foreach (var port in ports)
-                        {
-                            string cleanPort = port.Trim();
-                            if (!string.IsNullOrEmpty(cleanPort) && !snapshot.PrintersByPort.ContainsKey(cleanPort))
-                            {
-                                snapshot.PrintersByPort[cleanPort] = new WinPrinterInfo { Name = pName, IsDirect = isDirect, PortName = pPort };
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex) { Console.WriteLine("Erreur Snapshot: " + ex.Message); }
-                return snapshot;
-            });
+                    Name = p.pPrinterName,
+                    PortName = p.pPortName ?? "",
+                    IsDirect = (p.Attributes & PRINTER_ATTRIBUTE_DIRECT) == PRINTER_ATTRIBUTE_DIRECT
+                })
+                .ToList());
         }
 
         public Task<List<Pilote>> GetInstalledDriversAsync()

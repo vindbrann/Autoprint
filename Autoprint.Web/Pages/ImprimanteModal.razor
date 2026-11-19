@@ -16,9 +16,25 @@
 
         <p class="ap-dlg-lead">@(imprimanteEdit.Id == 0 ? "Elle sera créée sur le serveur à la prochaine synchronisation." : "Les changements s'appliquent sur le serveur à la prochaine synchronisation.")</p>
 
+        @* #42 : plus de « \\serveur\ » en dur (pris pour un réglage oublié) ; avec « Même nom pour le partage », un seul nom affiché *@
+        @{
+            var nomAffiche = string.IsNullOrWhiteSpace(imprimanteEdit.NomAffiche) ? "à définir" : imprimanteEdit.NomAffiche;
+            var memeNomPartage = namingEnabled && namingSameShare;
+        }
         <div class="ap-dlg-strip" aria-live="polite">
-            <span><span class="k">Nom</span><span class="ap-label-tag">@(string.IsNullOrWhiteSpace(imprimanteEdit.NomAffiche) ? "à définir" : imprimanteEdit.NomAffiche)</span></span>
-            <span><span class="k">Partage Windows</span><span class="ap-label-tag">@(imprimanteEdit.EstPartagee ? $@"\\serveur\{(string.IsNullOrWhiteSpace(imprimanteEdit.NomPartage) ? imprimanteEdit.NomAffiche : imprimanteEdit.NomPartage)}" : "non partagée")</span></span>
+            @if (memeNomPartage)
+            {
+                <span><span class="k">Nom de l'imprimante</span><span class="ap-label-tag">@nomAffiche</span></span>
+                @if (!imprimanteEdit.EstPartagee)
+                {
+                    <span><span class="k">Partage</span><span class="ap-label-tag">non partagée</span></span>
+                }
+            }
+            else
+            {
+                <span><span class="k">Nom</span><span class="ap-label-tag">@nomAffiche</span></span>
+                <span><span class="k">Nom partage</span><span class="ap-label-tag">@(imprimanteEdit.EstPartagee ? (string.IsNullOrWhiteSpace(imprimanteEdit.NomPartage) ? nomAffiche : imprimanteEdit.NomPartage) : "non partagée")</span></span>
+            }
         </div>
 
         <div class="ap-dlg-group">
@@ -139,7 +155,7 @@
             <div class="ap-opt-row">
                 <div class="txt">
                     <div class="t">Partager sur le réseau Windows</div>
-                    <div class="d">Les postes pourront s'y connecter par \\serveur\nom du partage</div>
+                    <div class="d">Les postes pourront s'y connecter avec le nom du partage</div>
                 </div>
                 <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Partager sur le réseau Windows" } })" />
             </div>

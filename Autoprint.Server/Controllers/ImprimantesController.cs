@@ -263,30 +263,49 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_SYNC")]
         public async Task<IActionResult> AuditConfiguration()
         {
-            var snapshot = await _spooler.GetServerSnapshotAsync();
+            // #41 : lecture par EnumPrinters ; en cas d'échec, l'audit s'arrête sans toucher à aucun statut
+            List<WinPrinterInfo> files;
+            try
+            {
+                files = await _spooler.ListerFilesPourAudit();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ApiErrors.LogAndDescribe(HttpContext, ex, "Lecture des files Windows impossible : audit interrompu, aucun statut modifié.") });
+            }
 
             var printers = await _context.Imprimantes.ToListAsync();
             int errorsFound = 0;
             int corrections = 0;
 
+            // Garde-fou : aucune file lue alors que des imprimantes sont synchronisées = lecture suspecte, pas « tout a disparu »
+            int synchronisees = printers.Count(p => p.Status == PrinterStatus.Synchronized);
+            if (files.Count == 0 && synchronisees > 0)
+            {
+                return StatusCode(500, new { message = ApiErrors.LogAndDescribe(HttpContext,
+                    new InvalidOperationException($"EnumPrinters n'a renvoyé aucune file alors que {synchronisees} imprimantes sont synchronisées."),
+                    "Aucune file lue sur Windows : audit interrompu, aucun statut modifié.") });
+            }
+
+            // Correspondance par port exact « IP_<adresse> » (B66), puis par nom pour signaler une file sur un autre port
+            var parPort = new Dictionary<string, WinPrinterInfo>(StringComparer.OrdinalIgnoreCase);
+            var parNom = new Dictionary<string, WinPrinterInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in files)
+            {
+                parNom.TryAdd(f.Name, f);
+                foreach (var port in f.PortName.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    parPort.TryAdd(port, f);
+            }
+
             foreach (var imp in printers)
             {
                 if (imp.Status == PrinterStatus.PendingDelete) continue;
 
-                string? windowsName = null;
+                string portAttendu = $"IP_{imp.AdresseIp?.Trim()}";
                 WinPrinterInfo? winInfo = null;
-
-                if (!string.IsNullOrEmpty(imp.AdresseIp) && snapshot.PortsByIp.TryGetValue(imp.AdresseIp, out string? portName))
-                {
-                    if (snapshot.PrintersByPort.TryGetValue(portName, out winInfo))
-                    {
-                        windowsName = winInfo.Name;
-                    }
-                }
-                if (windowsName == null && snapshot.PrintersByPort.TryGetValue(imp.AdresseIp, out winInfo))
-                {
-                    windowsName = winInfo.Name;
-                }
+                if (!string.IsNullOrWhiteSpace(imp.AdresseIp)) parPort.TryGetValue(portAttendu, out winInfo);
+                if (winInfo == null && !string.IsNullOrWhiteSpace(imp.NomAffiche)) parNom.TryGetValue(imp.NomAffiche, out winInfo);
+                string? windowsName = winInfo?.Name;
 
                 if (imp.Status == PrinterStatus.PendingCreation)
                 {
@@ -306,16 +325,16 @@ namespace Autoprint.Server.Controllers
                     if (imp.Status != PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.SyncError;
-                        imp.Commentaire = "[AUDIT] Introuvable sur Windows (IP non mappée).";
+                        imp.Commentaire = $"[AUDIT] Introuvable sur Windows (ni port '{portAttendu}', ni file '{imp.NomAffiche}').";
                         errorsFound++;
                     }
                     continue;
                 }
 
-                string portAttendu = $"IP_{imp.AdresseIp}";
                 string portReel = winInfo!.PortName ?? "";
 
-                if (!portReel.Equals(portAttendu, StringComparison.OrdinalIgnoreCase))
+                if (!portReel.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Contains(portAttendu, StringComparer.OrdinalIgnoreCase))
                 {
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[AUDIT] Nom de port non standard : '{portReel}' (Attendu : '{portAttendu}').";
@@ -328,7 +347,7 @@ namespace Autoprint.Server.Controllers
                     imp.Commentaire = $"[AUDIT] Mode Direct incorrect (Win: {winInfo.IsDirect}).";
                     errorsFound++;
                 }
-                else if (windowsName != imp.NomAffiche)
+                else if (!string.Equals(windowsName, imp.NomAffiche, StringComparison.OrdinalIgnoreCase))
                 {
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[AUDIT] Nom incorrect: '{windowsName}'.";

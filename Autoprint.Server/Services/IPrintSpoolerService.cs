@@ -16,13 +16,8 @@ namespace Autoprint.Server.Services
         Task<List<DiscoveredPrinterDto>> ScanLocalPrintersAsync();
         Task<List<Pilote>> GetInstalledDriversAsync();
         Task<bool> VerifierModeDirect(string nomImprimante, bool modeAttendu);
-        Task<ServerAuditSnapshot> GetServerSnapshotAsync();
-    }
-
-    public class ServerAuditSnapshot
-    {
-        public Dictionary<string, string> PortsByIp { get; set; } = new();
-        public Dictionary<string, WinPrinterInfo> PrintersByPort { get; set; } = new();
+        /// <summary>Files locales pour l'audit : nom, port(s), mode direct. Lève une exception si la lecture échoue (jamais de liste vide par défaut).</summary>
+        Task<List<WinPrinterInfo>> ListerFilesPourAudit();
     }
 
     public class WinPrinterInfo

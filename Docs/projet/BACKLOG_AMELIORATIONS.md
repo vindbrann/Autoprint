@@ -4,7 +4,30 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (13/11/2026)
+## ▶️ Point de reprise (19/11/2026)
+
+**Lot en cours : issues GitHub #40 à #43**, branche `feature/issues-40-43`. Décisions prises avec l'utilisateur le 19/11, en commentaire de chaque issue.
+- [x] #43 : diagnostic en icône teintée devant le nom (maquette validée)
+- [x] #42 : bandeau de la fiche imprimante sans « \serveur\ »
+- [x] #41 : audit par `EnumPrinters` (plus de WMI), arrêt sans rien modifier si la lecture échoue
+- [ ] #40 : connexion SNMP dans le profil, suppression de l'identifiant SNMP du modèle
+
+### ✅ Tests à faire en fin de campagne (lot #40 à #43)
+
+1. **Console : parc d'imprimantes (#43)** (clair et sombre, Ctrl+F5)
+   - [ ] Icône stéthoscope teintée devant le nom sur chaque ligne, même style quel que soit l'état ; clic : ouvre le diagnostic ; colonne Actions : Modifier et Archiver/Restaurer seulement
+   - [ ] Clavier : case à cocher, puis diagnostic, puis le reste de la ligne ; lecteur d'écran : « Diagnostic <nom> » ; utilisateur sans droit d'écriture : diagnostic toujours présent
+   - [ ] Imprimante en erreur de synchro : le message rouge sous le nom reste lisible ; largeur réduite : l'icône ne disparaît pas
+2. **Console : fiche imprimante (#42)**
+   - [ ] Plus aucun « \serveur\ » ; nommage sans « Même nom pour le partage » : « Nom » et « Nom partage » (ou « non partagée ») ; avec l'option : « Nom de l'imprimante » seul, plus « Partage : non partagée » si elle n'est pas partagée ; aperçu mis à jour en direct
+3. **Audit serveur (#41)**, sur SRV-PRINT en mode Service
+   - [ ] Parc synchronisé : aucune erreur
+   - [ ] File supprimée, renommée, passée sur un autre port, mode direct inversé (à la main dans Windows) : chacune signalée avec le bon message
+   - [ ] Service `AutoprintSpooler` arrêté : l'audit fonctionne quand même (lecture sans le service)
+   - [ ] Lecture impossible (simuler en arrêtant le spouleur Windows) : « Audit interrompu », aucun statut modifié, erreur avec référence dans les journaux du serveur
+   - [ ] Mode InProcess : même résultat
+
+## ⏹️ Campagne précédente (12/11/2026, terminée)
 
 **Campagne de tests terminée le 12/11/2026** : toute la liste ci-dessous a été jouée et validée (détail dans `RESULTATS_RECETTE_LABO.md`). Fusionné dans `master` : charte graphique, refonte du client et migration 1.1.2 (PR #24, version 26.11.11.1, avec B83 à B86), puis rapports PDF en IBM Plex Sans (B87, PR #25) et, le 13/11, Radzen 13, SkiaSharp 4.156 et Swashbuckle UI 11 (PR Dependabot n° 21, 22, 23, testées avant fusion).
 
