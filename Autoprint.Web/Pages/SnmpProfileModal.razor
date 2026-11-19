@@ -34,6 +34,44 @@
         </div>
     </div>
 
+    @* #40 : connexion SNMP du profil, utilisée par le scan, « Lire les valeurs », « Lire cet OID » et la supervision des imprimantes du modèle *@
+    <div class="ap-dlg-group">
+        <h3>Connexion SNMP</h3>
+        <div class="ap-dlg-grid">
+            <div class="ap-field">
+                <span class="rz-label">Version</span>
+                <RadzenSelectBar TValue="int" @bind-Value="@profileEdit.SnmpVersion" Style="width: 100%;" Disabled="@(!canWrite)">
+                    <Items>
+                        <RadzenSelectBarItem Text="v1" Value="1" />
+                        <RadzenSelectBarItem Text="v2c" Value="2" />
+                        <RadzenSelectBarItem Text="v3" Value="3" />
+                    </Items>
+                </RadzenSelectBar>
+            </div>
+            @if (profileEdit.SnmpVersion == 3)
+            {
+                <div class="ap-field">
+                    <RadzenLabel Text="Identifiant SNMP v3" Component="ProfileCred" />
+                    <RadzenDropDown Name="ProfileCred" TValue="int?" @bind-Value="@profileEdit.SnmpCredentialId" Data="@CredentialsV3(profileEdit.SnmpCredentialId)" TextProperty="Name" ValueProperty="Id"
+                                    Placeholder="Choisir un identifiant" Style="width: 100%;" Disabled="@(!canWrite)" />
+                    @if (!CredentialsV3(null).Any())
+                    {
+                        <span class="ap-help is-warn">Aucun identifiant v3 : créez-en un dans Identifiants SNMP</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="ap-field">
+                    <RadzenLabel Text="Communauté" Component="ProfileCommunity" />
+                    <RadzenPassword Name="ProfileCommunity" @bind-Value="@profileEdit.SnmpCommunity" Style="width: 100%;" AutoComplete="false" Disabled="@(!canWrite)"
+                                    Placeholder="@(profileEdit.HasSnmpCommunity ? "Enregistrée : laisser vide pour la garder" : "public")" />
+                </div>
+            }
+        </div>
+        <span class="ap-help">Connexion par défaut des imprimantes de ce modèle ; une imprimante peut avoir sa propre connexion (fiche imprimante, SNMP avancé)</span>
+    </div>
+
     <div class="ap-dlg-group">
         <h3>Imprimante d'essai</h3>
         <p class="ap-dlg-lead" style="margin: 0;">Sert à lire les valeurs en direct et à détecter les champs ; rien n'est modifié sur l'imprimante.</p>
@@ -52,14 +90,6 @@
             <div class="ap-field">
                 <RadzenLabel Text="Port" Component="TestPort" />
                 <RadzenNumeric Name="TestPort" @bind-Value="@testRequest.Port" Style="width: 100%;" Placeholder="161" />
-            </div>
-            <div class="ap-field">
-                <RadzenLabel Text="Identifiants" Component="TestCred" />
-                <RadzenDropDown Name="TestCred" @bind-Value="@testRequest.CredentialId" Data="@listeCredentials" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Communauté" Style="width: 100%;" />
-                @if (testRequest.CredentialId == null)
-                {
-                    <RadzenTextBox @bind-Value="@testRequest.Community" Style="width: 100%;" Class="ap-mono" Placeholder="public" aria-label="Communauté SNMP" />
-                }
             </div>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: var(--ap-s2); align-items: center;">
@@ -186,6 +216,9 @@
             OidTonerMagenta = ProfileToEdit.OidTonerMagenta,
             OidTonerYellow = ProfileToEdit.OidTonerYellow,
             OidPageCounter = ProfileToEdit.OidPageCounter,
+            SnmpVersion = ProfileToEdit.SnmpVersion is 1 or 2 or 3 ? ProfileToEdit.SnmpVersion : 2,
+            SnmpCredentialId = ProfileToEdit.SnmpCredentialId,
+            HasSnmpCommunity = ProfileToEdit.HasSnmpCommunity,
             Items = ProfileToEdit.Items != null ? ProfileToEdit.Items.ToList() : new List<SnmpProfileItem>()
         };
 
@@ -253,14 +286,31 @@
             var imp = imprimantesDisponibles.FirstOrDefault(i => i.Id == impId.Value);
             if (imp != null && !string.IsNullOrEmpty(imp.AdresseIp))
             {
+                // Adresse et port seulement : la connexion est celle du profil (#40 ; la communauté de l'imprimante n'est jamais renvoyée, B32)
                 testRequest.IpAddress = imp.AdresseIp;
                 testRequest.Port = imp.SnmpPort > 0 ? imp.SnmpPort : 161;
-                testRequest.Community = !string.IsNullOrEmpty(imp.SnmpCommunity) ? imp.SnmpCommunity : "public";
-                testRequest.Version = imp.SnmpVersion > 0 ? imp.SnmpVersion : 2;
-                // Mêmes identifiants que la supervision : profil de l'imprimante, sinon celui de son modèle
-                testRequest.CredentialId = imp.SnmpCredentialId ?? imp.Modele?.SnmpCredentialId;
             }
         }
+    }
+
+    // Identifiants v3 proposés (plus celui déjà choisi, quelle que soit sa version)
+    private IEnumerable<SnmpCredentialViewDto> CredentialsV3(int? current)
+        => listeCredentials.Where(c => c.Version == 3 || c.Id == current);
+
+    // Connexion du profil en cours d'édition : communauté vide = celle enregistrée (ProfileId), sinon « public »
+    private void AppliquerConnexion()
+    {
+        testRequest.Version = profileEdit.SnmpVersion;
+        testRequest.CredentialId = profileEdit.SnmpVersion == 3 ? profileEdit.SnmpCredentialId : null;
+        testRequest.Community = profileEdit.SnmpCommunity?.Trim() ?? "";
+        testRequest.ProfileId = profileEdit.Id != 0 ? profileEdit.Id : null;
+    }
+
+    private bool ConnexionIncomplete()
+    {
+        if (profileEdit.SnmpVersion != 3 || profileEdit.SnmpCredentialId != null) return false;
+        NotificationService.Notify(NotificationSeverity.Warning, "Connexion SNMP", "En v3, choisissez l'identifiant SNMP du profil.");
+        return true;
     }
 
     private void OnColorModeChanged(bool isColor)
@@ -380,11 +430,11 @@
             return;
         }
 
+        if (ConnexionIncomplete()) return;
         isTesting = true;
         testRequest.Items = profileEdit.Items.ToList();
         testRequest.Port = testRequest.Port > 0 ? testRequest.Port : 161;
-        testRequest.Community = !string.IsNullOrWhiteSpace(testRequest.Community) ? testRequest.Community.Trim() : "public";
-        testRequest.Version = testRequest.Version > 0 ? testRequest.Version : 2;
+        AppliquerConnexion();
 
         try
         {
@@ -434,14 +484,17 @@
             return;
         }
 
+        if (ConnexionIncomplete()) return;
         isScanning = true;
+        AppliquerConnexion();
         var scanReq = new SnmpScanRequestDto
         {
             IpAddress = testRequest.IpAddress.Trim(),
             Port = testRequest.Port > 0 ? testRequest.Port : 161,
-            Community = !string.IsNullOrWhiteSpace(testRequest.Community) ? testRequest.Community.Trim() : "public",
-            Version = testRequest.Version > 0 ? testRequest.Version : 2,
-            CredentialId = testRequest.CredentialId
+            Community = testRequest.Community,
+            Version = testRequest.Version,
+            CredentialId = testRequest.CredentialId,
+            ProfileId = testRequest.ProfileId
         };
 
         try
@@ -528,8 +581,10 @@
                 { "ItemToEdit", item },
                 { "TestIpAddress", testRequest.IpAddress },
                 { "TestPort", testRequest.Port },
-                { "TestCommunity", testRequest.Community },
-                { "TestVersion", testRequest.Version }
+                { "TestCommunity", profileEdit.SnmpCommunity?.Trim() ?? "" },
+                { "TestVersion", profileEdit.SnmpVersion },
+                { "TestCredentialId", profileEdit.SnmpVersion == 3 ? profileEdit.SnmpCredentialId : null },
+                { "TestProfileId", profileEdit.Id != 0 ? profileEdit.Id : (int?)null }
             },
             new DialogOptions { Width = "560px" });
 
@@ -561,8 +616,10 @@
                 { "ItemToEdit", itemCopy },
                 { "TestIpAddress", testRequest.IpAddress },
                 { "TestPort", testRequest.Port },
-                { "TestCommunity", testRequest.Community },
-                { "TestVersion", testRequest.Version }
+                { "TestCommunity", profileEdit.SnmpCommunity?.Trim() ?? "" },
+                { "TestVersion", profileEdit.SnmpVersion },
+                { "TestCredentialId", profileEdit.SnmpVersion == 3 ? profileEdit.SnmpCredentialId : null },
+                { "TestProfileId", profileEdit.Id != 0 ? profileEdit.Id : (int?)null }
             },
             new DialogOptions { Width = "560px" });
 

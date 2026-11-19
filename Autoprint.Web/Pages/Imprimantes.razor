@@ -151,7 +151,7 @@ else
                     <Template Context="imp">
                         @* #43 : diagnostic en tête de ligne, icône teintée distincte des actions de gestion, ouvert à tout utilisateur qui voit le parc *@
                         <span class="ap-name-cell">
-                            <RadzenButton Icon="stethoscope" Variant="Variant.Text" Size="ButtonSize.Small" CssClass="ap-diag" Click="@(() => OuvrirDiagnosticModal(imp))" title="Diagnostic" aria-label="@($"Diagnostic {imp.NomAffiche}")" />
+                            <RadzenButton Icon="stethoscope" Variant="Variant.Text" Size="ButtonSize.Small" class="ap-diag" Click="@(() => OuvrirDiagnosticModal(imp))" title="Diagnostic" aria-label="@($"Diagnostic {imp.NomAffiche}")" />
                             <span class="ap-name-text">
                                 <strong style="font-weight: 500;">@imp.NomAffiche</strong>
                                 @if (imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
@@ -566,6 +566,7 @@ else
             SnmpPort = imp.SnmpPort,
             SnmpCommunity = imp.SnmpCommunity,
             SnmpVersion = imp.SnmpVersion,
+            SnmpConnexionPropre = imp.SnmpConnexionPropre, // #40 : sinon l'enregistrement repasserait sur la connexion du profil
             // Sans lui, enregistrer la fiche retirait le profil d'identifiants SNMP propre à l'imprimante (vu avec B32)
             SnmpCredentialId = imp.SnmpCredentialId
         };

@@ -277,6 +277,7 @@ if (args.Contains("--migrate-only"))
             DatabaseSchema.Ensure(context, scope.ServiceProvider.GetRequiredService<ILogger<Program>>());
             DbInitializer.Initialize(context);
             scope.ServiceProvider.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
+            scope.ServiceProvider.GetRequiredService<SecretProtector>().InitialiserConnexionSnmpPropre(context);
 
             Console.WriteLine("[MIGRATION_SUCCESS]");
             Environment.Exit(0);
@@ -415,6 +416,8 @@ using (var scope = app.Services.CreateScope())
 
         int encrypted = services.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
         if (encrypted > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} secret(s) chiffré(s) en base.", encrypted);
+        int propres = services.GetRequiredService<SecretProtector>().InitialiserConnexionSnmpPropre(context);
+        if (propres > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} imprimante(s) gardent leur connexion SNMP propre (#40).", propres);
     }
     catch (Exception ex)
     {

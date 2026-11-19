@@ -10,7 +10,7 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 - [x] #43 : diagnostic en icône teintée devant le nom (maquette validée)
 - [x] #42 : bandeau de la fiche imprimante sans « \serveur\ »
 - [x] #41 : audit par `EnumPrinters` (plus de WMI), arrêt sans rien modifier si la lecture échoue
-- [ ] #40 : connexion SNMP dans le profil, suppression de l'identifiant SNMP du modèle
+- [x] #40 : connexion SNMP dans le profil, suppression de l'identifiant SNMP du modèle. Choix technique : au lieu de rendre nullables les champs SNMP de l'imprimante (impossible proprement sous SQLite), indicateur `SnmpConnexionPropre` ; schéma fait par `DbInitializer` (scripts idempotents), migration EF d'alignement seulement
 
 ### ✅ Tests à faire en fin de campagne (lot #40 à #43)
 
@@ -26,6 +26,16 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
    - [ ] Service `AutoprintSpooler` arrêté : l'audit fonctionne quand même (lecture sans le service)
    - [ ] Lecture impossible (simuler en arrêtant le spouleur Windows) : « Audit interrompu », aucun statut modifié, erreur avec référence dans les journaux du serveur
    - [ ] Mode InProcess : même résultat
+4. **Connexion SNMP dans le profil (#40)** (simulateurs SIM-V2 / SIM-V3 ; ajouter une imprimante SNMP v1 si possible)
+   - [ ] Profil v1 : choisir v1, saisir la communauté, « Détecter les champs » et « Lire les valeurs » fonctionnent, sans créer d'identifiant ; « Lire cet OID » aussi
+   - [ ] Profil v3 : choisir v3 et un identifiant : détection et lecture fonctionnent ; v3 sans identifiant : message, rien n'est envoyé ; enregistrement refusé
+   - [ ] Profil existant : communauté laissée vide = communauté enregistrée conservée et utilisée par les tests
+   - [ ] Modèle : plus de champ « Identifiants » ; imprimante sans connexion propre : supervisée et diagnostiquée avec la connexion du profil (texte « Connexion utilisée : profil SNMP … » dans la fiche)
+   - [ ] Imprimante à connexion propre (v1/v2c + communauté, ou v3 + identifiant) : garde ses réglages ; enregistrer la fiche ne la remet pas sur le profil
+   - [ ] **Mise à jour depuis la 1.1.2 (SQL Server)** et depuis 26.11.13.1 (SQLite) : démarrage sans erreur, colonnes ajoutées, `Modeles.SnmpCredentialId` supprimée (SQL Server) ; imprimante 1.1.2 avec une communauté autre que « public » : connexion propre conservée ; les autres prennent le profil
+   - [ ] Aucune communauté en clair : API (profils, imprimantes, modèles), journal d'audit, base (préfixe `enc:v1:`)
+   - [ ] Sauvegarde puis restauration : connexion des profils (version, communauté, identifiant v3) et connexion propre des imprimantes conservées ; ancienne sauvegarde : restaurée sans erreur
+   - [ ] Identifiants SNMP : colonne « profil(s) SNMP, imprimante(s) » ; suppression d'un identifiant utilisé : profils et imprimantes concernés n'ont plus d'identifiant
 
 ## ⏹️ Campagne précédente (12/11/2026, terminée)
 

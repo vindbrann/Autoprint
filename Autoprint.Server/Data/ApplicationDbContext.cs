@@ -163,11 +163,11 @@ namespace Autoprint.Server.Data
                 .HasForeignKey(m => m.SnmpProfileId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Identifiants SNMP : supprimer un profil remet le modèle / l'imprimante sur la valeur par défaut
-            modelBuilder.Entity<Modele>()
+            // Identifiants SNMP (v3) des profils SNMP et des imprimantes à connexion propre (#40) : supprimer l'identifiant le retire
+            modelBuilder.Entity<SnmpProfile>()
                 .HasOne<SnmpCredential>()
                 .WithMany()
-                .HasForeignKey(m => m.SnmpCredentialId)
+                .HasForeignKey(p => p.SnmpCredentialId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Imprimante>()

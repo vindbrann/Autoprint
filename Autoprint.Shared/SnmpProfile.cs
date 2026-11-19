@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Autoprint.Shared
 {
@@ -25,6 +27,26 @@ namespace Autoprint.Shared
         public string? OidPageCounter { get; set; }
 
         public bool IsColor { get; set; } = false;
+
+        // #40 : connexion SNMP du profil. Elle sert au scan et aux tests, et c'est la connexion par défaut des imprimantes
+        // du modèle (sauf connexion propre de l'imprimante). 1 = v1, 2 = v2c, 3 = v3 (identifiant SNMP enregistré).
+        public int SnmpVersion { get; set; } = 2;
+
+        // Communauté v1 / v2c chiffrée en base (B32) : jamais sérialisée, ni dans l'API, ni dans le journal d'audit
+        [JsonIgnore]
+        [Column("SnmpCommunity")]
+        public string? SnmpCommunityChiffree { get; set; }
+
+        // Saisie seulement (jamais renvoyée) : vide à l'enregistrement = valeur actuelle conservée
+        [NotMapped]
+        public string? SnmpCommunity { get; set; }
+
+        // Renseigné par l'API (la communauté elle-même n'est jamais renvoyée)
+        [NotMapped]
+        public bool HasSnmpCommunity { get; set; }
+
+        // Identifiant SNMP enregistré (v3)
+        public int? SnmpCredentialId { get; set; }
 
         public List<SnmpProfileItem> Items { get; set; } = new();
     }

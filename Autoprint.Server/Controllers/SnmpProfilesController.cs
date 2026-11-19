@@ -36,10 +36,12 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SNMP_PROFILE_READ")]
         public async Task<ActionResult<IEnumerable<SnmpProfile>>> GetSnmpProfiles()
         {
-            return await _context.SnmpProfiles
+            var profiles = await _context.SnmpProfiles
                 .Include(p => p.Items)
                 .AsNoTracking()
                 .ToListAsync();
+            foreach (var p in profiles) p.HasSnmpCommunity = !string.IsNullOrEmpty(p.SnmpCommunityChiffree);
+            return profiles;
         }
 
         [HttpGet("{id:int}")]
@@ -51,6 +53,7 @@ namespace Autoprint.Server.Controllers
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (profile == null) return NotFound();
+            profile.HasSnmpCommunity = !string.IsNullOrEmpty(profile.SnmpCommunityChiffree);
             return profile;
         }
 
@@ -66,7 +69,7 @@ namespace Autoprint.Server.Controllers
 
             try
             {
-                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
+                var discoveredOids = await _snmpService.ScanPrinterOidsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version, request.ProfileId));
                 _logger.LogInformation("[SNMP_SCAN_API] Scan réussi pour IP={Ip}, OIDs={Count}", ForLog(request.IpAddress), discoveredOids.Count);
                 return Ok(discoveredOids);
             }
@@ -91,7 +94,7 @@ namespace Autoprint.Server.Controllers
 
             try
             {
-                var testResults = await _snmpService.TestProfileItemsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version));
+                var testResults = await _snmpService.TestProfileItemsAsync(request, await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version, request.ProfileId));
                 _logger.LogInformation("[SNMP_TEST_API] Succès test-profile pour IP={Ip}, Résultats={Count}", ForLog(request.IpAddress), testResults.Count);
                 return Ok(testResults);
             }
@@ -121,6 +124,8 @@ namespace Autoprint.Server.Controllers
             existingProfile.OidTonerCyan = profile.OidTonerCyan;
             existingProfile.OidTonerMagenta = profile.OidTonerMagenta;
             existingProfile.OidTonerYellow = profile.OidTonerYellow;
+            var connexionError = await AppliquerConnexionAsync(existingProfile, profile);
+            if (connexionError != null) return BadRequest(connexionError);
 
             // Remplacement des items
             _context.SnmpProfileItems.RemoveRange(existingProfile.Items);
@@ -148,6 +153,8 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "SNMP_PROFILE_WRITE")]
         public async Task<ActionResult<SnmpProfile>> PostSnmpProfile(SnmpProfile profile)
         {
+            var connexionError = await AppliquerConnexionAsync(profile, profile);
+            if (connexionError != null) return BadRequest(connexionError);
             _context.SnmpProfiles.Add(profile);
 
             _auditService.LogAction(
@@ -157,6 +164,8 @@ namespace Autoprint.Server.Controllers
                 resourceName: profile.Name);
 
             await _context.SaveChangesAsync();
+            profile.HasSnmpCommunity = !string.IsNullOrEmpty(profile.SnmpCommunityChiffree);
+            profile.SnmpCommunity = null; // jamais renvoyée (B32)
             return CreatedAtAction("GetSnmpProfile", new { id = profile.Id }, profile);
         }
 
@@ -273,14 +282,38 @@ namespace Autoprint.Server.Controllers
             return _context.SnmpProfiles.Any(e => e.Id == id);
         }
 
-        // Profil d'identifiants enregistré (SNMPv3 possible) ou communauté saisie dans l'écran de test
-        private async Task<SnmpCredentials> ResolveRequestCredentialsAsync(int? credentialId, string community, int version)
+        // #40 : connexion du profil (version, communauté chiffrée, identifiant v3). Communauté vide = valeur actuelle conservée.
+        private async Task<string?> AppliquerConnexionAsync(SnmpProfile target, SnmpProfile input)
         {
+            int version = input.SnmpVersion is 1 or 2 or 3 ? input.SnmpVersion : 2;
+            int? credentialId = version == 3 ? input.SnmpCredentialId : null;
+            if (version == 3 && credentialId == null) return "Connexion SNMP v3 : choisissez l'identifiant SNMP du profil.";
+            if (credentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == credentialId)) return "Identifiant SNMP introuvable.";
+
+            target.SnmpVersion = version;
+            target.SnmpCredentialId = credentialId;
+            if (!string.IsNullOrWhiteSpace(input.SnmpCommunity))
+                target.SnmpCommunityChiffree = HttpContext.RequestServices.GetRequiredService<SecretProtector>().Protect(input.SnmpCommunity.Trim()); // B32
+            target.SnmpCommunity = null;
+            return null;
+        }
+
+        // Connexion de l'écran de test : identifiant enregistré (v3), communauté saisie, ou communauté enregistrée du profil
+        // (jamais renvoyée au navigateur, d'où le ProfileId quand le champ est laissé vide)
+        private async Task<SnmpCredentials> ResolveRequestCredentialsAsync(int? credentialId, string? community, int version, int? profileId)
+        {
+            var secrets = HttpContext.RequestServices.GetRequiredService<SecretProtector>();
             if (credentialId != null)
             {
                 var profile = await _context.SnmpCredentials.AsNoTracking().FirstOrDefaultAsync(c => c.Id == credentialId.Value)
-                              ?? throw new InvalidOperationException("Profil d'identifiants SNMP introuvable.");
-                return SnmpCredentials.FromProfile(profile, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
+                              ?? throw new InvalidOperationException("Identifiant SNMP introuvable.");
+                return SnmpCredentials.FromProfile(profile, secrets);
+            }
+            if (version == 3) throw new InvalidOperationException("Connexion SNMP v3 : choisissez un identifiant SNMP.");
+            if (string.IsNullOrWhiteSpace(community) && profileId != null)
+            {
+                var stored = await _context.SnmpProfiles.AsNoTracking().Where(p => p.Id == profileId.Value).Select(p => p.SnmpCommunityChiffree).FirstOrDefaultAsync();
+                if (!string.IsNullOrEmpty(stored)) community = secrets.Unprotect(stored);
             }
             return SnmpCredentials.Legacy(community, version);
         }

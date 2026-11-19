@@ -312,5 +312,5 @@ code {
 /* #43 : diagnostic en tête de la cellule Nom (icône teintée, 28 px), comme la maquette de la charte */
 .ap-name-cell { display: flex; align-items: center; gap: var(--ap-s2); min-width: 0; }
 .ap-name-cell .ap-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ap-name-cell .rz-button.ap-diag { flex: none; width: 28px; height: 28px; min-width: 28px; padding: 0; color: var(--ap-primary); background: var(--ap-primary-subtle); border-radius: var(--ap-r-md); }
-.ap-name-cell .rz-button.ap-diag:hover { background: color-mix(in srgb, var(--ap-primary) 18%, transparent); }
+.ap-name-cell .rz-button.rz-variant-text.ap-diag { flex: none; width: 28px; height: 28px; min-width: 28px; padding: 0; color: var(--ap-primary); background: var(--ap-primary-subtle); border-radius: var(--ap-r-md); }
+.ap-name-cell .rz-button.rz-variant-text.ap-diag:hover { background: color-mix(in srgb, var(--ap-primary) 18%, transparent); }

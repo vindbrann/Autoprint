@@ -109,6 +109,16 @@ namespace Autoprint.Server.Controllers
 
         // Communauté SNMP « ancien mode » : chiffrée en base et jamais renvoyée, comme les autres secrets (B32) ;
         // une valeur vide à l'enregistrement conserve la communauté actuelle.
+        // #40 : version 1 / 2 / 3 ; identifiant SNMP seulement pour une connexion propre en v3 (et obligatoire dans ce cas)
+        private async Task<string?> NormaliserConnexionSnmpAsync(Imprimante imp)
+        {
+            if (imp.SnmpVersion is not (1 or 2 or 3)) imp.SnmpVersion = 2;
+            if (!imp.SnmpConnexionPropre || imp.SnmpVersion != 3) { imp.SnmpCredentialId = null; return null; }
+            if (imp.SnmpCredentialId == null) return "Connexion SNMP v3 : choisissez l'identifiant SNMP de l'imprimante.";
+            if (!await _context.SnmpCredentials.AnyAsync(c => c.Id == imp.SnmpCredentialId)) return "Identifiant SNMP introuvable.";
+            return null;
+        }
+
         private static List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
         {
             foreach (var p in printers) p.SnmpCommunity = string.Empty;
@@ -126,6 +136,8 @@ namespace Autoprint.Server.Controllers
 
             if (!await _context.Modeles.AnyAsync(m => m.Id == imprimante.ModeleId)) return BadRequest("Modèle introuvable.");
             if (!await _context.Emplacements.AnyAsync(e => e.Id == imprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
+            var snmpError = await NormaliserConnexionSnmpAsync(imprimante);
+            if (snmpError != null) return BadRequest(snmpError);
 
             imprimante.Status = PrinterStatus.PendingCreation;
             if (string.IsNullOrWhiteSpace(imprimante.NomPartage))
@@ -212,9 +224,10 @@ namespace Autoprint.Server.Controllers
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
             dbImprimante.SerialNumber = inputImprimante.SerialNumber;
-            // Profil d'identifiants SNMP propre à l'imprimante (vide = celui du modèle)
-            if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
-                return BadRequest("Profil d'identifiants SNMP introuvable.");
+            // Connexion SNMP propre à l'imprimante, sinon celle du profil du modèle (#40)
+            var snmpError = await NormaliserConnexionSnmpAsync(inputImprimante);
+            if (snmpError != null) return BadRequest(snmpError);
+            dbImprimante.SnmpConnexionPropre = inputImprimante.SnmpConnexionPropre;
             dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
             // Communauté jamais renvoyée par l'API : vide = valeur actuelle conservée ; sinon chiffrée avant enregistrement (B32)
             if (!string.IsNullOrWhiteSpace(inputImprimante.SnmpCommunity))

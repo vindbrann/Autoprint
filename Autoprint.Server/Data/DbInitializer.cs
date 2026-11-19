@@ -157,20 +157,12 @@ namespace Autoprint.Server.Data
                             );
                         END
 
-                        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Modeles') AND name = 'SnmpCredentialId')
-                        BEGIN
-                            ALTER TABLE Modeles ADD SnmpCredentialId int NULL
-                                CONSTRAINT FK_Modeles_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
-                        END
-
                         IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Imprimantes') AND name = 'SnmpCredentialId')
                         BEGIN
                             ALTER TABLE Imprimantes ADD SnmpCredentialId int NULL
                                 CONSTRAINT FK_Imprimantes_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
                         END
 
-                        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Modeles_SnmpCredentialId')
-                            EXEC('CREATE INDEX IX_Modeles_SnmpCredentialId ON Modeles(SnmpCredentialId)');
                         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Imprimantes_SnmpCredentialId')
                             EXEC('CREATE INDEX IX_Imprimantes_SnmpCredentialId ON Imprimantes(SnmpCredentialId)');
                     ");
@@ -178,6 +170,37 @@ namespace Autoprint.Server.Data
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[DbInitializer] Création des identifiants SNMP (SQL Server) en échec : {ex.Message}");
+                }
+
+                // #40 : connexion SNMP portée par le profil, connexion propre de l'imprimante, plus d'identifiant sur le modèle. Idempotent.
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'SnmpVersion') IS NULL
+                            ALTER TABLE SnmpProfiles ADD SnmpVersion int NOT NULL CONSTRAINT DF_SnmpProfiles_SnmpVersion DEFAULT 2;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'SnmpCommunity') IS NULL
+                            ALTER TABLE SnmpProfiles ADD SnmpCommunity nvarchar(max) NULL;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'SnmpCredentialId') IS NULL
+                            ALTER TABLE SnmpProfiles ADD SnmpCredentialId int NULL
+                                CONSTRAINT FK_SnmpProfiles_SnmpCredentials_SnmpCredentialId REFERENCES SnmpCredentials(Id) ON DELETE SET NULL;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SnmpProfiles_SnmpCredentialId')
+                            EXEC('CREATE INDEX IX_SnmpProfiles_SnmpCredentialId ON SnmpProfiles(SnmpCredentialId)');
+                        IF COL_LENGTH('Imprimantes', 'SnmpConnexionPropre') IS NULL
+                            ALTER TABLE Imprimantes ADD SnmpConnexionPropre bit NOT NULL CONSTRAINT DF_Imprimantes_SnmpConnexionPropre DEFAULT 0;
+
+                        IF COL_LENGTH('Modeles', 'SnmpCredentialId') IS NOT NULL
+                        BEGIN
+                            IF OBJECT_ID('FK_Modeles_SnmpCredentials_SnmpCredentialId') IS NOT NULL
+                                ALTER TABLE Modeles DROP CONSTRAINT FK_Modeles_SnmpCredentials_SnmpCredentialId;
+                            IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Modeles_SnmpCredentialId' AND object_id = OBJECT_ID('Modeles'))
+                                DROP INDEX IX_Modeles_SnmpCredentialId ON Modeles;
+                            EXEC('ALTER TABLE Modeles DROP COLUMN SnmpCredentialId');
+                        END
+                    ");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DbInitializer] Connexion SNMP des profils (SQL Server) en échec : {ex.Message}");
                 }
 
                 // Colonnes des migrations du 16/07/2026 (sans attribut [Migration], jamais appliquées par EF sur SQL Server)
@@ -379,9 +402,9 @@ namespace Autoprint.Server.Data
                         );");
                 }
                 catch (Exception ex) { LogSchemaError(ex); }
-                try { SqliteAddColumn(context, "Modeles", "SnmpCredentialId", "INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL"); } catch (Exception ex) { LogSchemaError(ex); }
+                // #40 : Modeles.SnmpCredentialId n'est plus créé (colonne laissée en place sur les anciennes bases : SQLite refuse de
+                // supprimer une colonne de clé étrangère ; EF l'ignore). Colonnes des profils et des imprimantes ajoutées par SqliteSchemaReconciler.
                 try { SqliteAddColumn(context, "Imprimantes", "SnmpCredentialId", "INTEGER NULL REFERENCES SnmpCredentials(Id) ON DELETE SET NULL"); } catch (Exception ex) { LogSchemaError(ex); }
-                try { context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Modeles_SnmpCredentialId ON Modeles(SnmpCredentialId);"); } catch (Exception ex) { LogSchemaError(ex); }
                 try { context.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_Imprimantes_SnmpCredentialId ON Imprimantes(SnmpCredentialId);"); } catch (Exception ex) { LogSchemaError(ex); }
 
                 // Origine des rôles (AD / manuel) : la mise à jour ne s'exécute que si l'ajout de colonne réussit (première fois)
