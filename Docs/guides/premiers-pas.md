@@ -29,8 +29,7 @@ Un lieu est un site ou un bâtiment, avec ses réseaux. C'est grâce à eux que 
 2. **Modèles > Nouveau modèle** :
    - **Marque** et **Nom du modèle** : « IM C3000 » ;
    - **Pilote d'impression** : le pilote installé à l'étape 1 ;
-   - **Profil de lecture** SNMP : laissez **Valeurs standard**, qui conviennent à la plupart des imprimantes réseau (toner, compteur de pages, état, numéro de série). Un profil sur mesure n'est utile que pour un modèle qui n'expose pas ces valeurs standard (voir **Profils SNMP**) ;
-   - **Identifiants** SNMP : laissez **Ceux de chaque imprimante**, ou choisissez un profil d'**Identifiants SNMP** commun (communauté v2c, ou compte SNMPv3).
+   - **Profil SNMP** : laissez **Valeurs standard**, qui conviennent à la plupart des imprimantes réseau (toner, compteur de pages, état, numéro de série), lues en v2c avec la communauté « public ». Choisissez un profil pour lire d'autres valeurs, ou pour une autre connexion : le profil porte aussi la version (v1, v2c ou v3) et la communauté, ou l'identifiant SNMPv3 (voir **Profils SNMP**).
 
 ## 4. Déclarer l'imprimante
 
@@ -40,7 +39,7 @@ Un lieu est un site ou un bâtiment, avec ses réseaux. C'est grâce à eux que 
 4. **Nom affiché** et **Nom du partage** se remplissent selon la règle de nommage (**Paramètres > Nommage**). Vous pouvez les modifier, ou cliquer sur **Recalculer**.
 5. **Emplacement** (« Bureau 204 ») et **Code inventaire** sont facultatifs. Ils aident les utilisateurs à trouver la bonne imprimante.
 6. **Impression directe** : à activer pour une imprimante d'un site distant. Les postes impriment alors directement vers l'imprimante, sans passer par le serveur central ni charger le lien entre les sites.
-7. **Supervision SNMP** : la communauté ou les identifiants, si le modèle ne les fournit pas.
+7. **Supervision SNMP** : l'imprimante utilise la connexion du profil SNMP de son modèle, affichée dans la fiche. Pour une imprimante particulière, activez **Connexion propre à cette imprimante** et choisissez sa version et sa communauté, ou son identifiant SNMPv3.
 
 L'imprimante apparaît « en attente » : elle n'existe pas encore dans Windows.
 

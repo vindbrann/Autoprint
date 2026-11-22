@@ -2,6 +2,23 @@
 
 Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la journée). Le détail technique de chaque correction est dans le [backlog](Docs/projet/BACKLOG_AMELIORATIONS.md).
 
+## 26.11.22.1 — 22/11/2026
+
+### Nouveautés
+
+- **Connexion SNMP dans le profil** (#40) : le profil SNMP définit maintenant tout ce qu'il faut pour lire un modèle : la version (v1, v2c ou v3), la communauté ou l'identifiant SNMPv3, et les OID. Une imprimante peut avoir sa propre connexion (**Connexion propre à cette imprimante**). L'identifiant SNMP du modèle disparaît.
+- **Diagnostic plus accessible** (#43) : une icône devant le nom de chaque imprimante, au lieu d'un bouton en bout de ligne.
+- **Fiche imprimante** (#42) : le bandeau affiche le nom et le nom du partage, sans `\\serveur\`, et suit la règle « Même nom pour le partage ».
+
+### Corrections
+
+- **Audit serveur** (#41) : il ne signale plus toutes les imprimantes « Introuvable » en mode Service. Il lit les files Windows comme la synchronisation, et s'arrête sans rien modifier s'il ne peut pas les lire. Plusieurs imprimantes sur la même adresse IP ne sont plus signalées « Nom incorrect ».
+
+### À savoir pour la mise à jour
+
+- Une imprimante dont la communauté n'est pas « public », ou réglée autrement qu'en v2c, garde sa propre connexion. Les autres prennent celle du profil SNMP de leur modèle.
+- Un identifiant SNMPv3 choisi sur un **modèle** n'est pas repris : choisissez-le dans le profil SNMP du modèle.
+
 ## 26.11.13.1 — 13/11/2026
 
 La plus grosse version depuis la 1.1 : nouvelle interface, nouveau client, sécurité revue de fond en comble. La mise à jour directe depuis 1.1.x est prise en charge (voir [Mettre à jour](Docs/guides/mise-a-jour.md)).

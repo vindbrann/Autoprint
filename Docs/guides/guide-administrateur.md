@@ -19,9 +19,9 @@ La console s'ouvre dans un navigateur, à l'adresse de votre serveur (`https://a
 La liste se filtre et se trie sur chaque colonne. Ses réglages (colonnes, tri) sont retenus.
 
 - **Ajouter**, ou un clic sur une ligne pour la modifier. Le détail des champs est dans [Premiers pas](premiers-pas.md#4-déclarer-limprimante).
-- **Diagnostic** (bouton de la ligne) : un ping et une lecture SNMP immédiats. Il affiche l'état, les toners, les bacs, le compteur et les alertes. Une imprimante dont le modèle n'a pas de profil SNMP est lue avec les valeurs standard.
+- **Diagnostic** (icône devant le nom de l'imprimante) : un ping et une lecture SNMP immédiats. Il affiche l'état, les toners, les bacs, le compteur et les alertes. Une imprimante dont le modèle n'a pas de profil SNMP est lue avec les valeurs standard.
 - **Synchroniser** : une création, une modification ou une suppression ne s'applique à Windows qu'à la synchronisation. Un aperçu indique ce qui va changer avant que vous validiez.
-- **Audit serveur** : compare la console et le spouleur Windows, et signale les écarts, par exemple une imprimante supprimée à la main dans Windows.
+- **Audit serveur** : compare la console et le spouleur Windows, et signale les écarts, par exemple une imprimante supprimée, renommée ou changée de port à la main dans Windows. Si les files Windows ne peuvent pas être lues (spouleur arrêté), l'audit s'arrête sans rien modifier.
 - **Scanner le réseau** : découvre les imprimantes d'une plage d'adresses et propose de les ajouter.
 - **Exporter en CSV**.
 - **Archivage** : une imprimante injoignable depuis 30 jours est archivée automatiquement, pour ne plus encombrer la liste ni les rapports.
@@ -29,13 +29,13 @@ La liste se filtre et se trie sur chaque colonne. Ses réglages (colonnes, tri) 
 ### Lieux, marques, modèles, pilotes
 
 - **Lieux** : le nom, le code, le réseau principal et les réseaux secondaires. Un lieu **inactif** n'est plus proposé à la création d'imprimantes. Supprimer un lieu qui a encore des imprimantes dans Windows les marque « à supprimer » : synchronisez, puis supprimez le lieu.
-- **Marques** et **Modèles** : deux marques du même nom, ou deux modèles du même nom pour une marque, sont refusés. Le modèle porte le pilote, le profil de lecture SNMP et éventuellement des identifiants SNMP communs.
+- **Marques** et **Modèles** : deux marques du même nom, ou deux modèles du même nom pour une marque, sont refusés. Le modèle porte le pilote et le profil SNMP.
 - **Pilotes** : les pilotes installés sur le serveur. **Scanner le serveur** met la liste à jour après l'installation d'un nouveau pilote.
 
 ### Supervision SNMP
 
-- **Profils SNMP** : pour un modèle qui n'expose pas les valeurs standard, un profil liste les OID à lire. L'assistant interroge une imprimante d'essai, lit ses valeurs, détecte les champs et propose des modèles d'OID courants.
-- **Identifiants SNMP** : des profils réutilisables, avec une communauté v2c ou un compte SNMPv3 (authentification et chiffrement). Les secrets sont chiffrés en base.
+- **Profils SNMP** : un profil définit tout ce qu'il faut pour lire les imprimantes d'un modèle : la connexion (v1, v2c ou v3, avec la communauté ou l'identifiant SNMPv3) et les OID à lire. L'assistant interroge une imprimante d'essai, lit ses valeurs, détecte les champs et propose des modèles d'OID courants. Une imprimante peut avoir sa propre connexion (**Connexion propre à cette imprimante** dans sa fiche).
+- **Identifiants SNMP** : les comptes SNMPv3 (authentification et chiffrement) utilisés par les profils et les imprimantes. Les secrets sont chiffrés en base.
 - La fréquence et les plages horaires de la supervision se règlent dans **Paramètres > Supervision**.
 - **Prévision** : à partir de la consommation observée, Autoprint estime le nombre de jours avant l'épuisement de chaque toner.
 
