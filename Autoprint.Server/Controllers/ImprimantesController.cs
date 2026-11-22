@@ -290,6 +290,7 @@ namespace Autoprint.Server.Controllers
             var printers = await _context.Imprimantes.ToListAsync();
             int errorsFound = 0;
             int corrections = 0;
+            bool changed = false;
 
             // Garde-fou : aucune file lue alors que des imprimantes sont synchronisées = lecture suspecte, pas « tout a disparu »
             int synchronisees = printers.Count(p => p.Status == PrinterStatus.Synchronized);
@@ -300,15 +301,29 @@ namespace Autoprint.Server.Controllers
                     "Aucune file lue sur Windows : audit interrompu, aucun statut modifié.") });
             }
 
-            // Correspondance par port exact « IP_<adresse> » (B66), puis par nom pour signaler une file sur un autre port
-            var parPort = new Dictionary<string, WinPrinterInfo>(StringComparer.OrdinalIgnoreCase);
+            // Correspondance par nom de file d'abord : plusieurs imprimantes peuvent partager une adresse IP, donc un port (B66).
+            // Sinon, par port « IP_<adresse> » seulement s'il porte une seule file qu'aucune autre imprimante ne réclame par son nom
+            // (file renommée à la main) et une seule imprimante de ce port sans file ; sinon introuvable, plutôt qu'un rapprochement au hasard.
             var parNom = new Dictionary<string, WinPrinterInfo>(StringComparer.OrdinalIgnoreCase);
+            var parPort = new Dictionary<string, List<WinPrinterInfo>>(StringComparer.OrdinalIgnoreCase);
             foreach (var f in files)
             {
                 parNom.TryAdd(f.Name, f);
                 foreach (var port in f.PortName.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                    parPort.TryAdd(port, f);
+                {
+                    if (!parPort.TryGetValue(port, out var liste)) parPort[port] = liste = new List<WinPrinterInfo>();
+                    liste.Add(f);
+                }
             }
+            var actives = printers.Where(p => p.Status != PrinterStatus.PendingDelete).ToList();
+            var nomsReclames = new HashSet<string>(actives
+                .Where(p => !string.IsNullOrWhiteSpace(p.NomAffiche))
+                .Select(p => p.NomAffiche!), StringComparer.OrdinalIgnoreCase);
+            // Imprimantes sans file à leur nom, par port attendu : la file libre n'est attribuée que s'il n'y en a qu'une à départager
+            var sansFileParPort = actives
+                .Where(p => !string.IsNullOrWhiteSpace(p.AdresseIp) && (string.IsNullOrWhiteSpace(p.NomAffiche) || !parNom.ContainsKey(p.NomAffiche)))
+                .GroupBy(p => $"IP_{p.AdresseIp!.Trim()}", StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
 
             foreach (var imp in printers)
             {
@@ -316,8 +331,12 @@ namespace Autoprint.Server.Controllers
 
                 string portAttendu = $"IP_{imp.AdresseIp?.Trim()}";
                 WinPrinterInfo? winInfo = null;
-                if (!string.IsNullOrWhiteSpace(imp.AdresseIp)) parPort.TryGetValue(portAttendu, out winInfo);
-                if (winInfo == null && !string.IsNullOrWhiteSpace(imp.NomAffiche)) parNom.TryGetValue(imp.NomAffiche, out winInfo);
+                if (!string.IsNullOrWhiteSpace(imp.NomAffiche)) parNom.TryGetValue(imp.NomAffiche, out winInfo);
+                if (winInfo == null && !string.IsNullOrWhiteSpace(imp.AdresseIp) && parPort.TryGetValue(portAttendu, out var surLePort))
+                {
+                    var libres = surLePort.Where(f => !nomsReclames.Contains(f.Name)).ToList();
+                    if (libres.Count == 1 && sansFileParPort.GetValueOrDefault(portAttendu) == 1) winInfo = libres[0];
+                }
                 string? windowsName = winInfo?.Name;
 
                 if (imp.Status == PrinterStatus.PendingCreation)
@@ -335,12 +354,16 @@ namespace Autoprint.Server.Controllers
 
                 if (windowsName == null)
                 {
+                    // Message toujours remis à jour (un ancien « Nom incorrect » ne doit pas rester), erreur comptée une seule fois
+                    string introuvable = parPort.ContainsKey(portAttendu)
+                        ? $"[AUDIT] Introuvable sur Windows : pas de file '{imp.NomAffiche}' (file supprimée ou renommée ; le port '{portAttendu}' ne permet pas de la retrouver)."
+                        : $"[AUDIT] Introuvable sur Windows (ni port '{portAttendu}', ni file '{imp.NomAffiche}').";
                     if (imp.Status != PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.SyncError;
-                        imp.Commentaire = $"[AUDIT] Introuvable sur Windows (ni port '{portAttendu}', ni file '{imp.NomAffiche}').";
                         errorsFound++;
                     }
+                    if (imp.Commentaire != introuvable) { imp.Commentaire = introuvable; changed = true; }
                     continue;
                 }
 
@@ -377,7 +400,7 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            if (errorsFound > 0 || corrections > 0) await _context.SaveChangesAsync();
+            if (errorsFound > 0 || corrections > 0 || changed) await _context.SaveChangesAsync();
 
             return Ok(new { message = $"Audit terminé. {errorsFound} erreurs, {corrections} corrections." });
         }
