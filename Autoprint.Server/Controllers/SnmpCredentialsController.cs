@@ -32,7 +32,8 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<List<SnmpCredentialViewDto>>> GetAll()
         {
             var profiles = await _context.SnmpCredentials.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
-            var modelCounts = await _context.Modeles.Where(m => m.SnmpCredentialId != null)
+            // #40 : un identifiant est utilisé par des profils SNMP (v3) et par des imprimantes à connexion propre
+            var modelCounts = await _context.SnmpProfiles.Where(m => m.SnmpCredentialId != null)
                 .GroupBy(m => m.SnmpCredentialId!.Value).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count);
             var printerCounts = await _context.Imprimantes.Where(i => i.SnmpCredentialId != null)
                 .GroupBy(i => i.SnmpCredentialId!.Value).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count);
@@ -86,14 +87,17 @@ namespace Autoprint.Server.Controllers
             var profile = await _context.SnmpCredentials.FirstOrDefaultAsync(c => c.Id == id);
             if (profile == null) return NotFound();
 
-            // Les modèles et imprimantes qui l'utilisaient reviennent à la valeur par défaut (clé étrangère ON DELETE SET NULL)
-            int models = await _context.Modeles.CountAsync(m => m.SnmpCredentialId == id);
+            // Les profils SNMP et imprimantes qui l'utilisaient perdent leur identifiant (clé étrangère ON DELETE SET NULL)
+            int models = await _context.SnmpProfiles.CountAsync(m => m.SnmpCredentialId == id);
             int printers = await _context.Imprimantes.CountAsync(i => i.SnmpCredentialId == id);
+            // Explicite : sur SQLite, les colonnes ajoutées après coup n'ont pas la clé étrangère ON DELETE SET NULL
+            foreach (var p in await _context.SnmpProfiles.Where(p => p.SnmpCredentialId == id).ToListAsync()) p.SnmpCredentialId = null;
+            foreach (var i in await _context.Imprimantes.Where(i => i.SnmpCredentialId == id).ToListAsync()) i.SnmpCredentialId = null;
 
             _context.SnmpCredentials.Remove(profile);
-            _auditService.LogAction("SNMP_CREDENTIAL_DELETE", $"Suppression du profil d'identifiants SNMP « {profile.Name} » ({models} modèle(s), {printers} imprimante(s) concernés)", User.Identity?.Name, "WARNING", resourceName: profile.Name);
+            _auditService.LogAction("SNMP_CREDENTIAL_DELETE", $"Suppression du profil d'identifiants SNMP « {profile.Name} » ({models} profil(s) SNMP, {printers} imprimante(s) concernés)", User.Identity?.Name, "WARNING", resourceName: profile.Name);
             await _context.SaveChangesAsync();
-            return Ok(new { message = $"Profil supprimé. {models} modèle(s) et {printers} imprimante(s) utilisent désormais leurs paramètres par défaut." });
+            return Ok(new { message = $"Identifiant supprimé. {models} profil(s) SNMP et {printers} imprimante(s) n'ont plus d'identifiant v3 : à corriger." });
         }
 
         private string? Apply(SnmpCredential profile, SnmpCredentialEditDto dto, bool isNew)

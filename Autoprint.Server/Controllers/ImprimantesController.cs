@@ -109,6 +109,16 @@ namespace Autoprint.Server.Controllers
 
         // Communauté SNMP « ancien mode » : chiffrée en base et jamais renvoyée, comme les autres secrets (B32) ;
         // une valeur vide à l'enregistrement conserve la communauté actuelle.
+        // #40 : version 1 / 2 / 3 ; identifiant SNMP seulement pour une connexion propre en v3 (et obligatoire dans ce cas)
+        private async Task<string?> NormaliserConnexionSnmpAsync(Imprimante imp)
+        {
+            if (imp.SnmpVersion is not (1 or 2 or 3)) imp.SnmpVersion = 2;
+            if (!imp.SnmpConnexionPropre || imp.SnmpVersion != 3) { imp.SnmpCredentialId = null; return null; }
+            if (imp.SnmpCredentialId == null) return "Connexion SNMP v3 : choisissez l'identifiant SNMP de l'imprimante.";
+            if (!await _context.SnmpCredentials.AnyAsync(c => c.Id == imp.SnmpCredentialId)) return "Identifiant SNMP introuvable.";
+            return null;
+        }
+
         private static List<Imprimante> HideSnmpCommunity(List<Imprimante> printers)
         {
             foreach (var p in printers) p.SnmpCommunity = string.Empty;
@@ -126,6 +136,8 @@ namespace Autoprint.Server.Controllers
 
             if (!await _context.Modeles.AnyAsync(m => m.Id == imprimante.ModeleId)) return BadRequest("Modèle introuvable.");
             if (!await _context.Emplacements.AnyAsync(e => e.Id == imprimante.EmplacementId)) return BadRequest("Emplacement introuvable.");
+            var snmpError = await NormaliserConnexionSnmpAsync(imprimante);
+            if (snmpError != null) return BadRequest(snmpError);
 
             imprimante.Status = PrinterStatus.PendingCreation;
             if (string.IsNullOrWhiteSpace(imprimante.NomPartage))
@@ -212,9 +224,10 @@ namespace Autoprint.Server.Controllers
             dbImprimante.ModeleId = inputImprimante.ModeleId;
             dbImprimante.EmplacementId = inputImprimante.EmplacementId;
             dbImprimante.SerialNumber = inputImprimante.SerialNumber;
-            // Profil d'identifiants SNMP propre à l'imprimante (vide = celui du modèle)
-            if (inputImprimante.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputImprimante.SnmpCredentialId))
-                return BadRequest("Profil d'identifiants SNMP introuvable.");
+            // Connexion SNMP propre à l'imprimante, sinon celle du profil du modèle (#40)
+            var snmpError = await NormaliserConnexionSnmpAsync(inputImprimante);
+            if (snmpError != null) return BadRequest(snmpError);
+            dbImprimante.SnmpConnexionPropre = inputImprimante.SnmpConnexionPropre;
             dbImprimante.SnmpCredentialId = inputImprimante.SnmpCredentialId;
             // Communauté jamais renvoyée par l'API : vide = valeur actuelle conservée ; sinon chiffrée avant enregistrement (B32)
             if (!string.IsNullOrWhiteSpace(inputImprimante.SnmpCommunity))
@@ -263,30 +276,68 @@ namespace Autoprint.Server.Controllers
         [Authorize(Policy = "PRINTER_SYNC")]
         public async Task<IActionResult> AuditConfiguration()
         {
-            var snapshot = await _spooler.GetServerSnapshotAsync();
+            // #41 : lecture par EnumPrinters ; en cas d'échec, l'audit s'arrête sans toucher à aucun statut
+            List<WinPrinterInfo> files;
+            try
+            {
+                files = await _spooler.ListerFilesPourAudit();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ApiErrors.LogAndDescribe(HttpContext, ex, "Lecture des files Windows impossible : audit interrompu, aucun statut modifié.") });
+            }
 
             var printers = await _context.Imprimantes.ToListAsync();
             int errorsFound = 0;
             int corrections = 0;
+            bool changed = false;
+
+            // Garde-fou : aucune file lue alors que des imprimantes sont synchronisées = lecture suspecte, pas « tout a disparu »
+            int synchronisees = printers.Count(p => p.Status == PrinterStatus.Synchronized);
+            if (files.Count == 0 && synchronisees > 0)
+            {
+                return StatusCode(500, new { message = ApiErrors.LogAndDescribe(HttpContext,
+                    new InvalidOperationException($"EnumPrinters n'a renvoyé aucune file alors que {synchronisees} imprimantes sont synchronisées."),
+                    "Aucune file lue sur Windows : audit interrompu, aucun statut modifié.") });
+            }
+
+            // Correspondance par nom de file d'abord : plusieurs imprimantes peuvent partager une adresse IP, donc un port (B66).
+            // Sinon, par port « IP_<adresse> » seulement s'il porte une seule file qu'aucune autre imprimante ne réclame par son nom
+            // (file renommée à la main) et une seule imprimante de ce port sans file ; sinon introuvable, plutôt qu'un rapprochement au hasard.
+            var parNom = new Dictionary<string, WinPrinterInfo>(StringComparer.OrdinalIgnoreCase);
+            var parPort = new Dictionary<string, List<WinPrinterInfo>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in files)
+            {
+                parNom.TryAdd(f.Name, f);
+                foreach (var port in f.PortName.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (!parPort.TryGetValue(port, out var liste)) parPort[port] = liste = new List<WinPrinterInfo>();
+                    liste.Add(f);
+                }
+            }
+            var actives = printers.Where(p => p.Status != PrinterStatus.PendingDelete).ToList();
+            var nomsReclames = new HashSet<string>(actives
+                .Where(p => !string.IsNullOrWhiteSpace(p.NomAffiche))
+                .Select(p => p.NomAffiche!), StringComparer.OrdinalIgnoreCase);
+            // Imprimantes sans file à leur nom, par port attendu : la file libre n'est attribuée que s'il n'y en a qu'une à départager
+            var sansFileParPort = actives
+                .Where(p => !string.IsNullOrWhiteSpace(p.AdresseIp) && (string.IsNullOrWhiteSpace(p.NomAffiche) || !parNom.ContainsKey(p.NomAffiche)))
+                .GroupBy(p => $"IP_{p.AdresseIp!.Trim()}", StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
 
             foreach (var imp in printers)
             {
                 if (imp.Status == PrinterStatus.PendingDelete) continue;
 
-                string? windowsName = null;
+                string portAttendu = $"IP_{imp.AdresseIp?.Trim()}";
                 WinPrinterInfo? winInfo = null;
-
-                if (!string.IsNullOrEmpty(imp.AdresseIp) && snapshot.PortsByIp.TryGetValue(imp.AdresseIp, out string? portName))
+                if (!string.IsNullOrWhiteSpace(imp.NomAffiche)) parNom.TryGetValue(imp.NomAffiche, out winInfo);
+                if (winInfo == null && !string.IsNullOrWhiteSpace(imp.AdresseIp) && parPort.TryGetValue(portAttendu, out var surLePort))
                 {
-                    if (snapshot.PrintersByPort.TryGetValue(portName, out winInfo))
-                    {
-                        windowsName = winInfo.Name;
-                    }
+                    var libres = surLePort.Where(f => !nomsReclames.Contains(f.Name)).ToList();
+                    if (libres.Count == 1 && sansFileParPort.GetValueOrDefault(portAttendu) == 1) winInfo = libres[0];
                 }
-                if (windowsName == null && snapshot.PrintersByPort.TryGetValue(imp.AdresseIp, out winInfo))
-                {
-                    windowsName = winInfo.Name;
-                }
+                string? windowsName = winInfo?.Name;
 
                 if (imp.Status == PrinterStatus.PendingCreation)
                 {
@@ -303,19 +354,23 @@ namespace Autoprint.Server.Controllers
 
                 if (windowsName == null)
                 {
+                    // Message toujours remis à jour (un ancien « Nom incorrect » ne doit pas rester), erreur comptée une seule fois
+                    string introuvable = parPort.ContainsKey(portAttendu)
+                        ? $"[AUDIT] Introuvable sur Windows : pas de file '{imp.NomAffiche}' (file supprimée ou renommée ; le port '{portAttendu}' ne permet pas de la retrouver)."
+                        : $"[AUDIT] Introuvable sur Windows (ni port '{portAttendu}', ni file '{imp.NomAffiche}').";
                     if (imp.Status != PrinterStatus.SyncError)
                     {
                         imp.Status = PrinterStatus.SyncError;
-                        imp.Commentaire = "[AUDIT] Introuvable sur Windows (IP non mappée).";
                         errorsFound++;
                     }
+                    if (imp.Commentaire != introuvable) { imp.Commentaire = introuvable; changed = true; }
                     continue;
                 }
 
-                string portAttendu = $"IP_{imp.AdresseIp}";
                 string portReel = winInfo!.PortName ?? "";
 
-                if (!portReel.Equals(portAttendu, StringComparison.OrdinalIgnoreCase))
+                if (!portReel.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Contains(portAttendu, StringComparer.OrdinalIgnoreCase))
                 {
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[AUDIT] Nom de port non standard : '{portReel}' (Attendu : '{portAttendu}').";
@@ -328,7 +383,7 @@ namespace Autoprint.Server.Controllers
                     imp.Commentaire = $"[AUDIT] Mode Direct incorrect (Win: {winInfo.IsDirect}).";
                     errorsFound++;
                 }
-                else if (windowsName != imp.NomAffiche)
+                else if (!string.Equals(windowsName, imp.NomAffiche, StringComparison.OrdinalIgnoreCase))
                 {
                     imp.Status = PrinterStatus.SyncError;
                     imp.Commentaire = $"[AUDIT] Nom incorrect: '{windowsName}'.";
@@ -345,7 +400,7 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
-            if (errorsFound > 0 || corrections > 0) await _context.SaveChangesAsync();
+            if (errorsFound > 0 || corrections > 0 || changed) await _context.SaveChangesAsync();
 
             return Ok(new { message = $"Audit terminé. {errorsFound} erreurs, {corrections} corrections." });
         }

@@ -147,13 +147,19 @@ else
                     </Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Property="NomAffiche" Title="Nom" MinWidth="140px" Width="220px">
+                <RadzenDataGridColumn TItem="Imprimante" Property="NomAffiche" Title="Nom" MinWidth="170px" Width="250px">
                     <Template Context="imp">
-                        <strong style="font-weight: 500;">@imp.NomAffiche</strong>
-                        @if (imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
-                        {
-                            <span class="ap-cell-sub" style="color: var(--ap-danger);">@imp.Commentaire</span>
-                        }
+                        @* #43 : diagnostic en tête de ligne, icône teintée distincte des actions de gestion, ouvert à tout utilisateur qui voit le parc *@
+                        <span class="ap-name-cell">
+                            <RadzenButton Icon="stethoscope" Variant="Variant.Text" Size="ButtonSize.Small" class="ap-diag" Click="@(() => OuvrirDiagnosticModal(imp))" title="Diagnostic" aria-label="@($"Diagnostic {imp.NomAffiche}")" />
+                            <span class="ap-name-text">
+                                <strong style="font-weight: 500;">@imp.NomAffiche</strong>
+                                @if (imp.Status == PrinterStatus.SyncError && !string.IsNullOrEmpty(imp.Commentaire))
+                                {
+                                    <span class="ap-cell-sub" style="color: var(--ap-danger);">@imp.Commentaire</span>
+                                }
+                            </span>
+                        </span>
                     </Template>
                 </RadzenDataGridColumn>
 
@@ -221,7 +227,7 @@ else
                     <Template Context="imp">@(imp.LastSeen?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="140px" Sortable="false" Filterable="false" Pickable="false" Resizable="false" TextAlign="TextAlign.Center"
+                <RadzenDataGridColumn TItem="Imprimante" Title="Actions" Width="104px" Sortable="false" Filterable="false" Pickable="false" Resizable="false" TextAlign="TextAlign.Center"
                                       Frozen="true" FrozenPosition="FrozenColumnPosition.Right" CssClass="ap-col-actions" HeaderCssClass="ap-col-actions">
                     <Template Context="imp">
                         <span class="ap-row-actions">
@@ -230,7 +236,6 @@ else
                                     <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirModal(imp))" title="Modifier" aria-label="@($"Modifier {imp.NomAffiche}")" />
                                 </Authorized>
                             </AuthorizeView>
-                            <RadzenButton Icon="stethoscope" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => OuvrirDiagnosticModal(imp))" title="Diagnostic" aria-label="@($"Diagnostic {imp.NomAffiche}")" />
                             <AuthorizeView Policy="PRINTER_ARCHIVE">
                                 <Authorized Context="archiveAuth">
                                     <RadzenButton Icon="@(imp.IsArchived ? "unarchive" : "archive")" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => ToggleArchive(imp))"
@@ -515,7 +520,11 @@ else
             }
             else
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Erreur Audit", await response.Content.ReadAsStringAsync());
+                // #41 : message clair du serveur (audit interrompu, aucun statut modifié) plutôt que le JSON brut
+                string body = await response.Content.ReadAsStringAsync();
+                string msg = body;
+                try { var err = System.Text.Json.JsonDocument.Parse(body).RootElement; if (err.TryGetProperty("message", out var m)) msg = m.GetString() ?? body; } catch { }
+                NotificationService.Notify(NotificationSeverity.Error, "Audit interrompu", msg);
             }
         }
         catch (Exception ex)
@@ -557,6 +566,7 @@ else
             SnmpPort = imp.SnmpPort,
             SnmpCommunity = imp.SnmpCommunity,
             SnmpVersion = imp.SnmpVersion,
+            SnmpConnexionPropre = imp.SnmpConnexionPropre, // #40 : sinon l'enregistrement repasserait sur la connexion du profil
             // Sans lui, enregistrer la fiche retirait le profil d'identifiants SNMP propre à l'imprimante (vu avec B32)
             SnmpCredentialId = imp.SnmpCredentialId
         };

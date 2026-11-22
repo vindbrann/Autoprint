@@ -28,11 +28,9 @@ namespace Autoprint.Shared
         [NotMapped]
         public int PrinterCount { get; set; }
 
+        // Profil SNMP : OID lus et connexion SNMP par défaut des imprimantes de ce modèle (#40)
         public int? SnmpProfileId { get; set; }
         public SnmpProfile? SnmpProfile { get; set; }
-
-        // Identifiants SNMP par défaut des imprimantes de ce modèle (SNMPv3 ou communauté v1 / v2c)
-        public int? SnmpCredentialId { get; set; }
     }
 
     public class EmplacementNetwork : BaseEntity

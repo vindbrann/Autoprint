@@ -64,22 +64,14 @@
 
         <div class="ap-dlg-group">
             <h3>Supervision SNMP <span class="ap-opt" style="font-size: 13px;">(facultatif)</span></h3>
-            <div class="ap-dlg-grid">
-                <div class="ap-field">
-                    <RadzenLabel Text="Profil de lecture" Component="SnmpProfile" />
-                    <RadzenDropDown Name="SnmpProfile" @bind-Value="@modeleEdit.SnmpProfileId"
-                                    Data="@listeProfiles" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Valeurs standard"
-                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
-                                    Style="width: 100%;" />
-                    <span class="ap-help">OID propres à ce modèle pour les consommables et compteurs</span>
-                </div>
-                <div class="ap-field">
-                    <RadzenLabel Text="Identifiants" Component="SnmpCredential" />
-                    <RadzenDropDown Name="SnmpCredential" @bind-Value="@modeleEdit.SnmpCredentialId"
-                                    Data="@listeCredentials" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Ceux de chaque imprimante"
-                                    Style="width: 100%;" />
-                    <span class="ap-help">Utilisés par toutes les imprimantes de ce modèle, sauf exception sur l'une d'elles</span>
-                </div>
+            @* #40 : le profil porte les OID et la connexion SNMP ; plus d'identifiant SNMP sur le modèle *@
+            <div class="ap-field">
+                <RadzenLabel Text="Profil SNMP" Component="SnmpProfile" />
+                <RadzenDropDown Name="SnmpProfile" @bind-Value="@modeleEdit.SnmpProfileId"
+                                Data="@listeProfiles" TextProperty="Name" ValueProperty="Id" AllowClear="true" Placeholder="Valeurs standard, en v2c « public »"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                                Style="width: 100%;" />
+                <span class="ap-help">Valeurs lues (consommables, compteurs) et connexion SNMP des imprimantes de ce modèle, sauf réglage propre sur l'une d'elles</span>
             </div>
         </div>
 
@@ -118,8 +110,7 @@
             Nom = ModeleToEdit.Nom,
             MarqueId = ModeleToEdit.MarqueId,
             PiloteId = ModeleToEdit.PiloteId,
-            SnmpProfileId = ModeleToEdit.SnmpProfileId,
-            SnmpCredentialId = ModeleToEdit.SnmpCredentialId
+            SnmpProfileId = ModeleToEdit.SnmpProfileId
         };
 
         canReadMarques = await AuthProvider.HasPermission("Permission", "BRAND_READ");
@@ -129,20 +120,8 @@
         if (canReadMarques) tasks.Add(LoadMarques());
         if (canReadPilotes) tasks.Add(LoadPilotes());
         tasks.Add(LoadSnmpProfiles());
-        tasks.Add(LoadSnmpCredentials());
 
         if (tasks.Any()) await Task.WhenAll(tasks);
-    }
-
-    private List<Autoprint.Shared.DTOs.SnmpCredentialViewDto> listeCredentials = new();
-
-    private async Task LoadSnmpCredentials()
-    {
-        try
-        {
-            listeCredentials = await Http.GetFromJsonAsync<List<Autoprint.Shared.DTOs.SnmpCredentialViewDto>>("api/SnmpCredentials") ?? new();
-        }
-        catch { }
     }
 
     private async Task LoadSnmpProfiles()

@@ -30,9 +30,13 @@ namespace Autoprint.Shared
         // Chiffrée en base (préfixe enc:v1:, B32) : longueur libre, une valeur chiffrée dépasse 100 caractères.
         // Jamais renvoyée par l'API : vide à l'enregistrement = valeur actuelle conservée.
         public string SnmpCommunity { get; set; } = "public";
-        public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c (ancien mode, sans profil d'identifiants)
+        public int SnmpVersion { get; set; } = 2; // 1 = v1, 2 = v2c, 3 = v3 (identifiant SNMP enregistré)
 
-        // Profil d'identifiants SNMP propre à cette imprimante ; vide = celui du modèle (cas particuliers)
+        // #40 : false = connexion du profil SNMP du modèle ; true = connexion propre à cette imprimante
+        // (SnmpVersion + SnmpCommunity, ou SnmpCredentialId en v3), pour les cas particuliers
+        public bool SnmpConnexionPropre { get; set; } = false;
+
+        // Identifiant SNMP enregistré (v3) de la connexion propre
         public int? SnmpCredentialId { get; set; }
 
         [MaxLength(20)]

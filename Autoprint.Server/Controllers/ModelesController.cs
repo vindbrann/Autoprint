@@ -36,7 +36,6 @@ namespace Autoprint.Server.Controllers
                     MarqueId = m.MarqueId,
                     PiloteId = m.PiloteId,
                     SnmpProfileId = m.SnmpProfileId,
-                    SnmpCredentialId = m.SnmpCredentialId,
                     Marque = m.Marque,
                     Pilote = m.Pilote,
                     SnmpProfile = m.SnmpProfile,
@@ -61,7 +60,6 @@ namespace Autoprint.Server.Controllers
                                 MarqueId = m.MarqueId,
                                 PiloteId = m.PiloteId,
                                 SnmpProfileId = m.SnmpProfileId,
-                    SnmpCredentialId = m.SnmpCredentialId,
                                 Marque = m.Marque,
                                 Pilote = m.Pilote,
                                 SnmpProfile = m.SnmpProfile,
@@ -108,9 +106,6 @@ namespace Autoprint.Server.Controllers
             dbModele.MarqueId = inputModele.MarqueId;
             dbModele.PiloteId = inputModele.PiloteId;
             dbModele.SnmpProfileId = inputModele.SnmpProfileId;
-            if (inputModele.SnmpCredentialId != null && !await _context.SnmpCredentials.AnyAsync(c => c.Id == inputModele.SnmpCredentialId))
-                return BadRequest("Profil d'identifiants SNMP introuvable.");
-            dbModele.SnmpCredentialId = inputModele.SnmpCredentialId;
 
             var nomMarque = await _context.Marques
                 .AsNoTracking()

@@ -16,9 +16,25 @@
 
         <p class="ap-dlg-lead">@(imprimanteEdit.Id == 0 ? "Elle sera créée sur le serveur à la prochaine synchronisation." : "Les changements s'appliquent sur le serveur à la prochaine synchronisation.")</p>
 
+        @* #42 : plus de « \\serveur\ » en dur (pris pour un réglage oublié) ; avec « Même nom pour le partage », un seul nom affiché *@
+        @{
+            var nomAffiche = string.IsNullOrWhiteSpace(imprimanteEdit.NomAffiche) ? "à définir" : imprimanteEdit.NomAffiche;
+            var memeNomPartage = namingEnabled && namingSameShare;
+        }
         <div class="ap-dlg-strip" aria-live="polite">
-            <span><span class="k">Nom</span><span class="ap-label-tag">@(string.IsNullOrWhiteSpace(imprimanteEdit.NomAffiche) ? "à définir" : imprimanteEdit.NomAffiche)</span></span>
-            <span><span class="k">Partage Windows</span><span class="ap-label-tag">@(imprimanteEdit.EstPartagee ? $@"\\serveur\{(string.IsNullOrWhiteSpace(imprimanteEdit.NomPartage) ? imprimanteEdit.NomAffiche : imprimanteEdit.NomPartage)}" : "non partagée")</span></span>
+            @if (memeNomPartage)
+            {
+                <span><span class="k">Nom de l'imprimante</span><span class="ap-label-tag">@nomAffiche</span></span>
+                @if (!imprimanteEdit.EstPartagee)
+                {
+                    <span><span class="k">Partage</span><span class="ap-label-tag">non partagée</span></span>
+                }
+            }
+            else
+            {
+                <span><span class="k">Nom</span><span class="ap-label-tag">@nomAffiche</span></span>
+                <span><span class="k">Nom partage</span><span class="ap-label-tag">@(imprimanteEdit.EstPartagee ? (string.IsNullOrWhiteSpace(imprimanteEdit.NomPartage) ? nomAffiche : imprimanteEdit.NomPartage) : "non partagée")</span></span>
+            }
         </div>
 
         <div class="ap-dlg-group">
@@ -139,7 +155,7 @@
             <div class="ap-opt-row">
                 <div class="txt">
                     <div class="t">Partager sur le réseau Windows</div>
-                    <div class="d">Les postes pourront s'y connecter par \\serveur\nom du partage</div>
+                    <div class="d">Les postes pourront s'y connecter avec le nom du partage</div>
                 </div>
                 <RadzenSwitch @bind-Value="@imprimanteEdit.EstPartagee" Name="Partage" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Partager sur le réseau Windows" } })" />
             </div>
@@ -157,23 +173,39 @@
             }
         </div>
 
-        <div class="ap-dlg-group">
-            <h3>Supervision SNMP</h3>
-            <div class="ap-field">
-                <RadzenLabel Text="Identifiants" Component="SnmpCredential" />
-                <RadzenDropDown Name="SnmpCredential" @bind-Value="@imprimanteEdit.SnmpCredentialId"
-                                Data="@listeCredentials" TextProperty="Name" ValueProperty="Id"
-                                AllowClear="true" Placeholder="@CredentialPlaceholder" Style="width: 100%;" />
-                <span class="ap-help">Laissez vide pour utiliser ceux du modèle ; choisissez un profil seulement pour une imprimante particulière</span>
+        @* #40 : connexion du profil SNMP du modèle par défaut ; connexion propre à l'imprimante pour les cas particuliers *@
+        <div class="ap-dlg-group" style="gap: 0;">
+            <h3 style="margin-bottom: var(--ap-s1);">Supervision SNMP</h3>
+            <div class="ap-opt-row">
+                <div class="txt">
+                    <div class="t">Connexion propre à cette imprimante</div>
+                    <div class="d">@(imprimanteEdit.SnmpConnexionPropre ? "Réglée ci-dessous, à la place de celle du profil" : $"Connexion utilisée : {ConnexionHeritee}")</div>
+                </div>
+                <RadzenSwitch @bind-Value="@imprimanteEdit.SnmpConnexionPropre" Name="SnmpPropre" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Connexion SNMP propre à cette imprimante" } })" />
             </div>
-            <details class="ap-adv" open="@(imprimanteEdit.SnmpPort != 161 || UsesLegacyFields && imprimanteEdit.Id != 0 && imprimanteEdit.SnmpVersion != 2)">
-                <summary><RadzenIcon Icon="chevron_right" />Réglages SNMP avancés</summary>
-                <div class="ap-dlg-grid cols-3">
+            @if (imprimanteEdit.SnmpConnexionPropre)
+            {
+                <div class="ap-dlg-grid" style="padding-bottom: var(--ap-s2);">
                     <div class="ap-field">
-                        <RadzenLabel Text="Port" Component="SnmpPort" />
-                        <RadzenNumeric Name="SnmpPort" TValue="int" @bind-Value="@imprimanteEdit.SnmpPort" Style="width: 100%;" Min="1" Max="65535" />
+                        <span class="rz-label">Version</span>
+                        <RadzenSelectBar TValue="int" @bind-Value="@imprimanteEdit.SnmpVersion" Style="width: 100%;">
+                            <Items>
+                                <RadzenSelectBarItem Text="v1" Value="1" />
+                                <RadzenSelectBarItem Text="v2c" Value="2" />
+                                <RadzenSelectBarItem Text="v3" Value="3" />
+                            </Items>
+                        </RadzenSelectBar>
                     </div>
-                    @if (UsesLegacyFields)
+                    @if (imprimanteEdit.SnmpVersion == 3)
+                    {
+                        <div class="ap-field">
+                            <RadzenLabel Text="Identifiant SNMP v3" Component="SnmpCredential" />
+                            <RadzenDropDown Name="SnmpCredential" TValue="int?" @bind-Value="@imprimanteEdit.SnmpCredentialId"
+                                            Data="@listeCredentials.Where(c => c.Version == 3 || c.Id == imprimanteEdit.SnmpCredentialId)" TextProperty="Name" ValueProperty="Id"
+                                            Placeholder="Choisir un identifiant" Style="width: 100%;" />
+                        </div>
+                    }
+                    else
                     {
                         <div class="ap-field">
                             <RadzenLabel Text="Communauté" Component="SnmpCommunity" />
@@ -181,18 +213,17 @@
                             <RadzenPassword Name="SnmpCommunity" @bind-Value="@imprimanteEdit.SnmpCommunity" Style="width: 100%;" AutoComplete="false"
                                             Placeholder="@(imprimanteEdit.Id != 0 ? "Inchangée si vide" : "public")" />
                         </div>
-                        <div class="ap-field">
-                            <RadzenLabel Text="Version" Component="SnmpVersion" />
-                            <RadzenDropDown Name="SnmpVersion" TValue="int" @bind-Value="@imprimanteEdit.SnmpVersion" Style="width: 100%;"
-                                            Data="@(new[] { new { Text = "v1", Value = 1 }, new { Text = "v2c", Value = 2 } })"
-                                            TextProperty="Text" ValueProperty="Value" />
-                        </div>
                     }
                 </div>
-                @if (!UsesLegacyFields)
-                {
-                    <span class="ap-help">La communauté et la version viennent du profil d'identifiants</span>
-                }
+            }
+            <details class="ap-adv" open="@(imprimanteEdit.SnmpPort != 161)">
+                <summary><RadzenIcon Icon="chevron_right" />Réglages SNMP avancés</summary>
+                <div class="ap-dlg-grid cols-3">
+                    <div class="ap-field">
+                        <RadzenLabel Text="Port" Component="SnmpPort" />
+                        <RadzenNumeric Name="SnmpPort" TValue="int" @bind-Value="@imprimanteEdit.SnmpPort" Style="width: 100%;" Min="1" Max="65535" />
+                    </div>
+                </div>
             </details>
         </div>
 
@@ -234,22 +265,22 @@
 
     private List<Autoprint.Shared.DTOs.SnmpCredentialViewDto> listeCredentials = new();
 
-    // Profil du modèle sélectionné (valeur par défaut de l'imprimante)
-    private Autoprint.Shared.DTOs.SnmpCredentialViewDto? ModelCredential
+    // #40 : connexion héritée, celle du profil SNMP du modèle choisi (sinon v2c « public »)
+    private string ConnexionHeritee
     {
         get
         {
-            var modelCredentialId = listeTousModeles?.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId)?.SnmpCredentialId;
-            return modelCredentialId == null ? null : listeCredentials.FirstOrDefault(c => c.Id == modelCredentialId);
+            var profil = listeTousModeles?.FirstOrDefault(m => m.Id == imprimanteEdit.ModeleId)?.SnmpProfile;
+            if (profil == null) return imprimanteEdit.ModeleId == 0 ? "celle du profil SNMP du modèle" : "v2c, communauté « public » (le modèle n'a pas de profil SNMP)";
+            string version = profil.SnmpVersion switch
+            {
+                3 => $"v3, identifiant « {listeCredentials.FirstOrDefault(c => c.Id == profil.SnmpCredentialId)?.Name ?? "à choisir"} »",
+                1 => "v1",
+                _ => "v2c"
+            };
+            return $"profil SNMP « {profil.Name} » ({version})";
         }
     }
-
-    private string CredentialPlaceholder => ModelCredential != null
-        ? $"Identifiants du modèle : {ModelCredential.Name}"
-        : "Aucun profil (communauté / version ci-dessous)";
-
-    // Les anciens champs communauté / version ne servent que sans profil (ni sur l'imprimante, ni sur le modèle)
-    private bool UsesLegacyFields => imprimanteEdit.SnmpCredentialId == null && ModelCredential == null;
 
     private bool IsComplete => imprimanteEdit.EmplacementId != 0 && imprimanteEdit.ModeleId != 0;
 
@@ -271,7 +302,8 @@
             Status = ImprimanteToEdit.Status,
             SnmpPort = ImprimanteToEdit.SnmpPort,
             SnmpCommunity = ImprimanteToEdit.Id != 0 ? "" : (string.IsNullOrEmpty(ImprimanteToEdit.SnmpCommunity) ? "public" : ImprimanteToEdit.SnmpCommunity),
-            SnmpVersion = ImprimanteToEdit.SnmpVersion == 0 ? 2 : ImprimanteToEdit.SnmpVersion,
+            SnmpVersion = ImprimanteToEdit.SnmpVersion is 1 or 2 or 3 ? ImprimanteToEdit.SnmpVersion : 2,
+            SnmpConnexionPropre = ImprimanteToEdit.SnmpConnexionPropre,
             SnmpCredentialId = ImprimanteToEdit.SnmpCredentialId
         };
 
@@ -288,7 +320,7 @@
             tasks.Add(Task.Run(async () =>
             {
                 try { listeCredentials = await Http.GetFromJsonAsync<List<Autoprint.Shared.DTOs.SnmpCredentialViewDto>>("api/SnmpCredentials") ?? new(); }
-                catch { /* pas de droit SNMP_PROFILE_READ : seuls les anciens champs restent disponibles */ }
+                catch { /* pas de droit de lecture des identifiants : liste vide */ }
             }));
             tasks.Add(LoadSettingsAsync());
 

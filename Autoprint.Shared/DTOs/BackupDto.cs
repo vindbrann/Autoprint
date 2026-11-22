@@ -46,7 +46,7 @@ namespace Autoprint.Shared.DTOs
     }
 
     public class BackupMarqueDto { public int Id { get; set; } public string Nom { get; set; } = ""; }
-    public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } public int? SnmpCredentialId { get; set; } }
+    public class BackupModeleDto { public int Id { get; set; } public string Nom { get; set; } = ""; public int MarqueId { get; set; } public int? PiloteId { get; set; } public int? SnmpProfileId { get; set; } }
     public class BackupLieuDto
     {
         public int Id { get; set; }
@@ -68,6 +68,10 @@ namespace Autoprint.Shared.DTOs
         public string? OidTonerMagenta { get; set; }
         public string? OidTonerYellow { get; set; }
         public string? OidPageCounter { get; set; }
+        // #40 : connexion du profil (absente des sauvegardes antérieures : v2c / « public »). Communauté traitée comme un secret.
+        public int SnmpVersion { get; set; } = 2;
+        public string? SnmpCommunity { get; set; }
+        public int? SnmpCredentialId { get; set; }
         public List<BackupSnmpProfileItemDto> Items { get; set; } = new();
     }
 
@@ -127,6 +131,8 @@ namespace Autoprint.Shared.DTOs
         // Communauté (ancien mode) : traitée comme un secret (chiffrée avec le mot de passe de la sauvegarde, ou absente)
         public string? SnmpCommunity { get; set; }
         public int? SnmpCredentialId { get; set; }
+        // #40 : absent des sauvegardes antérieures, déduit des réglages (voir la restauration)
+        public bool? SnmpConnexionPropre { get; set; }
     }
 
     /// <summary>Profil d'identifiants SNMP. Les secrets sont chiffrés avec le mot de passe de la sauvegarde, ou absents.</summary>

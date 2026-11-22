@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Autoprint.Server.Data;
+using Autoprint.Shared;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace Autoprint.Server.Services
@@ -82,6 +83,31 @@ namespace Autoprint.Server.Services
                 count++;
             }
             if (count > 0) context.SaveChanges();
+            return count;
+        }
+
+        /// <summary>
+        /// #40, une seule fois (réglage Snmp_ConnexionPropreInitialisee) : les imprimantes dont la connexion SNMP diffère du défaut
+        /// (identifiant, version autre que v2c, communauté autre que « public ») gardent leurs réglages en connexion propre ;
+        /// les autres prennent la connexion du profil SNMP de leur modèle. À appeler après le chiffrement des communautés.
+        /// </summary>
+        public int InitialiserConnexionSnmpPropre(ApplicationDbContext context)
+        {
+            const string flag = "Snmp_ConnexionPropreInitialisee";
+            if (context.ServerSettings.Any(s => s.Key == flag)) return 0;
+            int count = 0;
+            foreach (var printer in context.Imprimantes.Where(i => !i.SnmpConnexionPropre).ToList())
+            {
+                string community = Unprotect(printer.SnmpCommunity).Trim();
+                if (printer.SnmpCredentialId != null || printer.SnmpVersion != 2 || (community != "" && community != "public"))
+                {
+                    printer.SnmpConnexionPropre = true;
+                    if (printer.SnmpCredentialId != null) printer.SnmpVersion = 3; // identifiant enregistré : connexion v3 de l'écran
+                    count++;
+                }
+            }
+            context.ServerSettings.Add(new ServerSetting { Key = flag, Value = "true", Description = "Connexion SNMP propre des imprimantes initialisée (#40)", Type = "BOOL" });
+            context.SaveChanges();
             return count;
         }
 

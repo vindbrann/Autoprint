@@ -42,13 +42,30 @@ namespace Autoprint.Server.Services
         };
 
         /// <summary>
-        /// Règle de priorité : profil de l'imprimante (cas particulier) → profil du modèle → anciens champs de l'imprimante.
+        /// Règle de priorité (#40) : connexion propre de l'imprimante → connexion du profil SNMP du modèle → v2c / « public ».
+        /// <paramref name="printer"/>.Modele.SnmpProfile doit être chargé.
         /// </summary>
         public static SnmpCredentials Resolve(Imprimante printer, IReadOnlyDictionary<int, SnmpCredential> profiles, SecretProtector secrets)
         {
-            int? id = printer.SnmpCredentialId ?? printer.Modele?.SnmpCredentialId;
-            if (id != null && profiles.TryGetValue(id.Value, out var profile)) return FromProfile(profile, secrets);
-            return Legacy(secrets.Unprotect(printer.SnmpCommunity), printer.SnmpVersion); // chiffrée en base (B32)
+            if (printer.SnmpConnexionPropre)
+                return FromSettings(printer.SnmpVersion, secrets.Unprotect(printer.SnmpCommunity), printer.SnmpCredentialId, profiles, secrets); // chiffrée en base (B32)
+            var snmpProfile = printer.Modele?.SnmpProfile;
+            if (snmpProfile != null) return FromSnmpProfile(snmpProfile, profiles, secrets);
+            return Legacy(null, 2);
+        }
+
+        /// <summary>Connexion d'un profil SNMP (scan, tests, supervision des imprimantes du modèle).</summary>
+        public static SnmpCredentials FromSnmpProfile(SnmpProfile snmpProfile, IReadOnlyDictionary<int, SnmpCredential> profiles, SecretProtector secrets)
+            => FromSettings(snmpProfile.SnmpVersion, secrets.Unprotect(snmpProfile.SnmpCommunityChiffree), snmpProfile.SnmpCredentialId, profiles, secrets);
+
+        // v3 : identifiant SNMP enregistré (absent = profil v3 incomplet, signalé à l'interrogation) ; v1 / v2c : communauté
+        private static SnmpCredentials FromSettings(int version, string? community, int? credentialId, IReadOnlyDictionary<int, SnmpCredential> profiles, SecretProtector secrets)
+        {
+            if (version == 3)
+                return credentialId != null && profiles.TryGetValue(credentialId.Value, out var credential)
+                    ? FromProfile(credential, secrets)
+                    : new SnmpCredentials { Version = 3 };
+            return Legacy(community, version);
         }
 
         public static async Task<Dictionary<int, SnmpCredential>> LoadProfilesAsync(ApplicationDbContext context, CancellationToken token = default)

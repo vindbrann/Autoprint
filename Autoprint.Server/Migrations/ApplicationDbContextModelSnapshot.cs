@@ -756,6 +756,9 @@ namespace Autoprint.Server.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("SnmpConnexionPropre")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("SnmpCredentialId")
                         .HasColumnType("int");
 
@@ -887,9 +890,6 @@ namespace Autoprint.Server.Migrations
                     b.Property<int?>("PiloteId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("SnmpCredentialId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("SnmpProfileId")
                         .HasColumnType("int");
 
@@ -898,8 +898,6 @@ namespace Autoprint.Server.Migrations
                     b.HasIndex("MarqueId");
 
                     b.HasIndex("PiloteId");
-
-                    b.HasIndex("SnmpCredentialId");
 
                     b.HasIndex("SnmpProfileId");
 
@@ -1304,7 +1302,19 @@ namespace Autoprint.Server.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("SnmpCommunityChiffree")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("SnmpCommunity");
+
+                    b.Property<int?>("SnmpCredentialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SnmpVersion")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("SnmpCredentialId");
 
                     b.ToTable("SnmpProfiles");
                 });
@@ -1538,11 +1548,6 @@ namespace Autoprint.Server.Migrations
                         .WithMany()
                         .HasForeignKey("PiloteId");
 
-                    b.HasOne("Autoprint.Shared.SnmpCredential", null)
-                        .WithMany()
-                        .HasForeignKey("SnmpCredentialId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Autoprint.Shared.SnmpProfile", "SnmpProfile")
                         .WithMany()
                         .HasForeignKey("SnmpProfileId")
@@ -1553,6 +1558,14 @@ namespace Autoprint.Server.Migrations
                     b.Navigation("Pilote");
 
                     b.Navigation("SnmpProfile");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.SnmpProfile", b =>
+                {
+                    b.HasOne("Autoprint.Shared.SnmpCredential", null)
+                        .WithMany()
+                        .HasForeignKey("SnmpCredentialId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Autoprint.Shared.SnmpProfileItem", b =>

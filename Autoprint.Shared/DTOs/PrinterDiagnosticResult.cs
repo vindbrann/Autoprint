@@ -40,6 +40,8 @@ namespace Autoprint.Shared.DTOs
         public int Version { get; set; } = 2; // 1 = v1, 2 = v2c
         // Si renseigné, le profil d'identifiants SNMP enregistré est utilisé à la place de Community / Version
         public int? CredentialId { get; set; }
+        // Profil en cours de modification : sa communauté enregistrée sert si Community est vide (#40)
+        public int? ProfileId { get; set; }
         public List<string> CustomOidBranches { get; set; } = new List<string>();
         public bool ScanEnterpriseMib { get; set; } = false;
         public List<SnmpProfileItem>? ItemsToTest { get; set; }
@@ -63,6 +65,7 @@ namespace Autoprint.Shared.DTOs
         public string Community { get; set; } = "public";
         public int Version { get; set; } = 2;
         public int? CredentialId { get; set; }
+        public int? ProfileId { get; set; }
         public List<SnmpProfileItem> Items { get; set; } = new();
     }
 

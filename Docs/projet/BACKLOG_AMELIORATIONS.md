@@ -4,7 +4,42 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (13/11/2026)
+## ▶️ Point de reprise (19/11/2026)
+
+**Lot en cours : issues GitHub #40 à #43**, branche `feature/issues-40-43`. Décisions prises avec l'utilisateur le 19/11, en commentaire de chaque issue.
+- [x] #43 : diagnostic en icône teintée devant le nom (maquette validée)
+- [x] #42 : bandeau de la fiche imprimante sans « \serveur\ »
+- [x] #41 : audit par `EnumPrinters` (plus de WMI), arrêt sans rien modifier si la lecture échoue
+- [x] #40 : connexion SNMP dans le profil, suppression de l'identifiant SNMP du modèle. Choix technique : au lieu de rendre nullables les champs SNMP de l'imprimante (impossible proprement sous SQLite), indicateur `SnmpConnexionPropre` ; schéma fait par `DbInitializer` (scripts idempotents), migration EF d'alignement seulement
+
+### ✅ Tests à faire en fin de campagne (lot #40 à #43)
+
+1. **Console : parc d'imprimantes (#43)** (clair et sombre, Ctrl+F5)
+   - [ ] Icône stéthoscope teintée devant le nom sur chaque ligne, même style quel que soit l'état ; clic : ouvre le diagnostic ; colonne Actions : Modifier et Archiver/Restaurer seulement
+   - [ ] Clavier : case à cocher, puis diagnostic, puis le reste de la ligne ; lecteur d'écran : « Diagnostic <nom> » ; utilisateur sans droit d'écriture : diagnostic toujours présent
+   - [ ] Imprimante en erreur de synchro : le message rouge sous le nom reste lisible ; largeur réduite : l'icône ne disparaît pas
+2. **Console : fiche imprimante (#42)**
+   - [ ] Plus aucun « \serveur\ » ; nommage sans « Même nom pour le partage » : « Nom » et « Nom partage » (ou « non partagée ») ; avec l'option : « Nom de l'imprimante » seul, plus « Partage : non partagée » si elle n'est pas partagée ; aperçu mis à jour en direct
+3. **Audit serveur (#41)**, sur SRV-PRINT en mode Service
+   - [x] Parc synchronisé : aucune erreur
+   - [x] File supprimée, renommée, passée sur un autre port, mode direct inversé (à la main dans Windows) : chacune signalée avec le bon message
+   - [x] Service `AutoprintSpooler` arrêté : l'audit fonctionne quand même (lecture sans le service)
+   - [x] Lecture impossible (simuler en arrêtant le spouleur Windows) : « Audit interrompu », aucun statut modifié, erreur avec référence dans les journaux du serveur
+   - [x] Mode InProcess : même résultat
+4. **Connexion SNMP dans le profil (#40)** (simulateurs SIM-V2 / SIM-V3 ; ajouter une imprimante SNMP v1 si possible)
+   - [x] Profil v1 : choisir v1, saisir la communauté, « Détecter les champs » et « Lire les valeurs » fonctionnent, sans créer d'identifiant ; « Lire cet OID » aussi
+   - [x] Profil v3 : choisir v3 et un identifiant : détection et lecture fonctionnent ; v3 sans identifiant : message, rien n'est envoyé ; enregistrement refusé
+   - [x] Profil existant : communauté laissée vide = communauté enregistrée conservée et utilisée par les tests
+   - [x] Modèle : plus de champ « Identifiants » ; imprimante sans connexion propre : supervisée et diagnostiquée avec la connexion du profil (texte « Connexion utilisée : profil SNMP … » dans la fiche)
+   - [x] Imprimante à connexion propre (v1/v2c + communauté, ou v3 + identifiant) : garde ses réglages ; enregistrer la fiche ne la remet pas sur le profil
+   - [x] **Mise à jour depuis la 1.1.2 (SQL Server)** et depuis 26.11.13.1 (SQLite) : démarrage sans erreur, colonnes ajoutées, `Modeles.SnmpCredentialId` supprimée (SQL Server) ; imprimante 1.1.2 avec une communauté autre que « public » : connexion propre conservée ; les autres prennent le profil
+   - [x] Aucune communauté en clair : API (profils, imprimantes, modèles), journal d'audit, base (préfixe `enc:v1:`)
+   - [x] Sauvegarde puis restauration : connexion des profils (version, communauté, identifiant v3) et connexion propre des imprimantes conservées ; ancienne sauvegarde : restaurée sans erreur
+   - [x] Identifiants SNMP : colonne « profil(s) SNMP, imprimante(s) » ; suppression d'un identifiant utilisé : profils et imprimantes concernés n'ont plus d'identifiant
+
+   Résultats du 22/11 : `RESULTATS_RECETTE_LABO.md`. Anomalie de l'audit corrigée (plusieurs imprimantes sur la même IP, `dd23688`). Mise à jour 1.1.x testée en SQLite ; 1.1.2 SQL Server non rejouée (la 1.1.x n'avait pas de SNMP, ordre des scripts vérifié). Les cases 1 et 2 (écrans #43, #42) ont été vérifiées sur la console locale, à revoir à l'écran si besoin.
+
+## ⏹️ Campagne précédente (12/11/2026, terminée)
 
 **Campagne de tests terminée le 12/11/2026** : toute la liste ci-dessous a été jouée et validée (détail dans `RESULTATS_RECETTE_LABO.md`). Fusionné dans `master` : charte graphique, refonte du client et migration 1.1.2 (PR #24, version 26.11.11.1, avec B83 à B86), puis rapports PDF en IBM Plex Sans (B87, PR #25) et, le 13/11, Radzen 13, SkiaSharp 4.156 et Swashbuckle UI 11 (PR Dependabot n° 21, 22, 23, testées avant fusion).
 

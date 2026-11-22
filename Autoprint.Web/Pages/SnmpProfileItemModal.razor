@@ -94,6 +94,9 @@
     [Parameter] public int TestPort { get; set; } = 161;
     [Parameter] public string TestCommunity { get; set; } = "public";
     [Parameter] public int TestVersion { get; set; } = 2;
+    // #40 : même connexion que le scan du profil (identifiant v3, communauté enregistrée du profil si le champ est vide)
+    [Parameter] public int? TestCredentialId { get; set; }
+    [Parameter] public int? TestProfileId { get; set; }
 
     // Libellés français (avant : noms d'énumération anglais « RawWithMax », « PageCounter »…)
     private static readonly object[] categories =
@@ -139,8 +142,10 @@
         {
             IpAddress = TestIpAddress.Trim(),
             Port = TestPort > 0 ? TestPort : 161,
-            Community = !string.IsNullOrWhiteSpace(TestCommunity) ? TestCommunity.Trim() : "public",
+            Community = TestCommunity?.Trim() ?? "",
             Version = TestVersion > 0 ? TestVersion : 2,
+            CredentialId = TestCredentialId,
+            ProfileId = TestProfileId,
             Items = new List<SnmpProfileItem> { ItemToEdit }
         };
 
