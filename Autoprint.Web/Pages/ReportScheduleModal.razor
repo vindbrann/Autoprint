@@ -101,6 +101,8 @@
                         <RadzenDropDown Name="Threshold" TValue="int" @bind-Value="@schedule.PredictionThresholdDays" Data="@thresholdOptions" TextProperty="Label" ValueProperty="Value" Style="width: 180px;" />
                     </div>
                 }
+                <div class="ap-opt-row"><div class="txt"><div class="t">Consommables à commander</div><div class="d">Sous le seuil « bas », ou fin prévue dans moins que le délai d'approvisionnement</div></div><RadzenSwitch @bind-Value="@includeToOrder" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Consommables à commander" } })" /></div>
+                <div class="ap-opt-row"><div class="txt"><div class="t">Changements de consommables</div><div class="d">Nombre sur les 90 derniers jours et durée moyenne observée</div></div><RadzenSwitch @bind-Value="@includeReplacements" InputAttributes="@(new Dictionary<string, object> { { "aria-label", "Changements de consommables" } })" /></div>
             </div>
             <div class="ap-dlg-group" style="gap: 0;">
                 <h3 style="margin-bottom: var(--ap-s1);">Synthèse du parc</h3>
@@ -240,6 +242,8 @@
     private bool includeAvailability = true;
     private bool includeAlerts = true;
     private bool includePredictions = false;
+    private bool includeToOrder = false;
+    private bool includeReplacements = false;
     private bool includeTotalPages = true;
     private bool includeFleetSummary = true;
 
@@ -305,6 +309,8 @@
                 includeAvailability = list.Contains("Availability");
                 includeAlerts = list.Contains("Alerts");
                 includePredictions = list.Contains("Predictions");
+                includeToOrder = list.Contains("ToOrder");
+                includeReplacements = list.Contains("Replacements");
                 includeTotalPages = list.Contains("TotalPages");
                 includeFleetSummary = list.Contains("FleetSummary");
             }
@@ -477,6 +483,8 @@
         if (includeAvailability) metrics.Add("Availability");
         if (includeAlerts) metrics.Add("Alerts");
         if (includePredictions) metrics.Add("Predictions");
+        if (includeToOrder) metrics.Add("ToOrder");
+        if (includeReplacements) metrics.Add("Replacements");
         if (includeTotalPages) metrics.Add("TotalPages");
         if (includeFleetSummary) metrics.Add("FleetSummary");
 

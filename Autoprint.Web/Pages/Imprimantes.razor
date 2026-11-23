@@ -98,11 +98,52 @@
     <button class="@(selectedTab == 1 ? "ap-tab is-active" : "ap-tab")" role="tab" aria-selected="@(selectedTab == 1)" @onclick="@(() => OnTabChanged(1))">
         Archives, inactives depuis 30 jours <span class="ap-tab-count">@ArchivedCount</span>
     </button>
+    <button class="@(selectedTab == 2 ? "ap-tab is-active" : "ap-tab")" role="tab" aria-selected="@(selectedTab == 2)" @onclick="@(() => OnTabChanged(2))">
+        Consommables à commander <span class="ap-tab-count">@ToOrderCount</span>
+    </button>
 </div>
 
 @if (isLoading)
 {
     <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else if (selectedTab == 2)
+{
+    @* #52 : consommables à commander sur tout le parc (état de la dernière supervision), exportable pour préparer une commande *@
+    <div class="ap-grid-wrap">
+        <div class="ap-toolbar">
+            <span class="ap-caption">Niveau sous le seuil « bas », ou fin prévue dans moins que le délai d'approvisionnement. État relevé à la dernière supervision.</span>
+            <span class="ap-grow"></span>
+            <RadzenButton Icon="download" Text="Exporter en CSV" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@ExporterACommander" Disabled="@(aCommander == null || !aCommander.Any())" />
+        </div>
+        <RadzenDataGrid Data="@aCommander" TItem="SupplyToOrderDto" AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Advanced"
+                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowPaging="true" PageSize="50" PagerHorizontalAlign="HorizontalAlign.Left"
+                        IsLoading="@isLoadingOrders" EmptyText="Aucun consommable à commander" Style="width: 100%;">
+            <Columns>
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="Imprimante" Title="Imprimante" MinWidth="160px" Width="220px">
+                    <Template Context="r">
+                        <span class="ap-name-cell">
+                            <RadzenButton Icon="stethoscope" Variant="Variant.Text" Size="ButtonSize.Small" class="ap-diag" Click="@(() => OuvrirDiagnosticDepuisCommande(r))" title="Diagnostic" aria-label="@($"Diagnostic {r.Imprimante}")" />
+                            <strong style="font-weight: 500;">@r.Imprimante</strong>
+                        </span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="Lieu" Title="Lieu" Width="180px" FilterMode="FilterMode.CheckBoxList" />
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="Modele" Title="Modèle" Width="180px" FilterMode="FilterMode.CheckBoxList" />
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="Consommable" Title="Consommable" Width="180px" />
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="Level" Title="Niveau" Width="130px">
+                    <Template Context="r">@LevelText(r)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="DaysRemaining" Title="Fin estimée" Width="170px">
+                    <Template Context="r">@EndText(r)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="AdresseIp" Title="Adresse IP" Width="130px" Visible="false" />
+                <RadzenDataGridColumn TItem="SupplyToOrderDto" Property="UpdatedAt" Title="Relevé" Width="140px">
+                    <Template Context="r">@r.UpdatedAt.ToLocalTime().ToString("dd/MM HH:mm")</Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
 }
 else
 {
@@ -185,6 +226,27 @@ else
                     <Template Context="imp">
                         @{ var st = Statut(imp); }
                         <span class="@($"ap-status-badge ap-status-badge--{st.Css}")" title="@st.Detail"><RadzenIcon Icon="@st.Icon" />@st.Text</span>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                @* #52 : consommable qui finira le plus tôt (état de la dernière supervision), tri par urgence *@
+                <RadzenDataGridColumn TItem="Imprimante" Property="NextSupplyName" SortProperty="NextSupplyUrgency" Title="Prochain consommable" MinWidth="150px" Width="200px">
+                    <Template Context="imp">
+                        @if (imp.NextSupplyName != null)
+                        {
+                            <span style="font-weight: 500;">@imp.NextSupplyName</span>
+                            <span class="ap-cell-sub">
+                                @imp.NextSupplyDetail
+                                @if (imp.SuppliesToOrder > 0)
+                                {
+                                    <span class="ap-order-pill">À commander@(imp.SuppliesToOrder > 1 ? $" ({imp.SuppliesToOrder})" : "")</span>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="ap-muted">—</span>
+                        }
                     </Template>
                 </RadzenDataGridColumn>
 
@@ -351,12 +413,66 @@ else
         }
     }
 
-    private Task OnTabChanged(int index)
+    private async Task OnTabChanged(int index)
     {
         selectedTab = index;
         selected = null;
         AppliquerFiltres();
-        return Task.CompletedTask;
+        if (index == 2) await ChargerACommander();
+    }
+
+    // #52 : vue « Consommables à commander »
+    private List<SupplyToOrderDto>? aCommander;
+    private bool isLoadingOrders;
+    private int ToOrderCount => aCommander?.Count ?? (imprimantes ?? new()).Where(i => !i.IsArchived).Sum(i => i.SuppliesToOrder);
+
+    private async Task ChargerACommander()
+    {
+        isLoadingOrders = true;
+        try { aCommander = await Http.GetFromJsonAsync<List<SupplyToOrderDto>>("api/Imprimantes/supplies-to-order") ?? new(); }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Erreur", ex.Message); aCommander = new(); }
+        finally { isLoadingOrders = false; }
+    }
+
+    private static string LevelText(SupplyToOrderDto r) => r.Level >= 0
+        ? $"{r.Level} %{(r.IsReceptacle ? " libre" : "")}"
+        : r.State switch
+        {
+            SupplyState.Low => r.IsReceptacle ? "Presque plein" : "Bas",
+            SupplyState.Empty => r.IsReceptacle ? "Plein" : "Vide",
+            SupplyState.Ok => "OK",
+            _ => "Inconnu"
+        };
+
+    private static string EndText(SupplyToOrderDto r)
+    {
+        if (r.DaysRemaining is int d)
+        {
+            string text = d <= 0 ? "Imminente" : $"≈ {d} j, vers le {DateTime.Today.AddDays(d):dd/MM}";
+            return r.Confidence == ForecastConfidence.Low ? text + " (peu fiable)" : text;
+        }
+        return r.LowSince is DateTime since ? $"{LevelText(r)} depuis le {since.ToLocalTime():dd/MM}" : "—";
+    }
+
+    private async Task OuvrirDiagnosticDepuisCommande(SupplyToOrderDto r)
+    {
+        var imp = imprimantes?.FirstOrDefault(i => i.Id == r.ImprimanteId);
+        if (imp != null) await OuvrirDiagnosticModal(imp);
+    }
+
+    private async Task ExporterACommander()
+    {
+        if (aCommander == null || !aCommander.Any()) return;
+        static string C(string? v) => (v ?? "").Replace(";", ",").Replace("\r", " ").Replace("\n", " ");
+        var sb = new StringBuilder();
+        sb.AppendLine("Imprimante;Lieu;Modèle;Adresse IP;Consommable;Niveau;Fin estimée;Relevé");
+        foreach (var r in aCommander)
+            sb.AppendLine($"{C(r.Imprimante)};{C(r.Lieu)};{C(r.Modele)};{C(r.AdresseIp)};{C(r.Consommable)};{C(LevelText(r))};{C(EndText(r))};{r.UpdatedAt.ToLocalTime():dd/MM/yyyy HH:mm}");
+
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+        using var stream = new MemoryStream(bytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("downloadFileFromStream", $"Consommables_a_commander_{DateTime.Now:yyyyMMdd}.csv", streamRef);
     }
 
     private void MettreAJourFiltre()
@@ -595,7 +711,7 @@ else
     {
         if (imprimantes == null || !imprimantes.Any()) return;
         var csvBuilder = new StringBuilder();
-        csvBuilder.AppendLine("Id;Nom;Code;N° Série;Modele;IP;Lieu;Emplacement;Partage;modeDirect");
+        csvBuilder.AppendLine("Id;Nom;Code;N° Série;Modele;IP;Lieu;Emplacement;Partage;modeDirect;Prochain consommable");
 
         foreach (var i in imprimantes)
         {
@@ -604,7 +720,8 @@ else
             var modele = i.Modele?.Nom?.Replace(";", ",") ?? "";
             var lieu = i.Emplacement?.Nom?.Replace(";", ",") ?? "";
             var modeDirect = i.IsDirectPrintingEnabled ? "Oui" : "Non";
-            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{sn};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect}");
+            var prochain = i.NextSupplyName != null ? $"{i.NextSupplyName} ({i.NextSupplyDetail}){(i.SuppliesToOrder > 0 ? " - à commander" : "")}".Replace(";", ",") : "";
+            csvBuilder.AppendLine($"{i.Id};{nom};{i.Code};{sn};{modele};{i.AdresseIp};{lieu};{i.Localisation};{i.EstPartagee};{modeDirect};{prochain}");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csvBuilder.ToString())).ToArray();

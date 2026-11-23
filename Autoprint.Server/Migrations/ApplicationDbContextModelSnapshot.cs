@@ -1487,6 +1487,71 @@ namespace Autoprint.Server.Migrations
                     b.ToTable("SupplyHistories");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.SupplySnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Confidence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DaysRemaining")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ImprimanteId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsReceptacle")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LowSince")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("NeedsOrder")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("State")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupplyKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImprimanteId", "SupplyKey");
+
+                    b.ToTable("SupplySnapshots");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.SystemError", b =>
                 {
                     b.Property<int>("Id")
@@ -1703,6 +1768,17 @@ namespace Autoprint.Server.Migrations
                 });
 
             modelBuilder.Entity("Autoprint.Shared.SupplyHistory", b =>
+                {
+                    b.HasOne("Autoprint.Shared.Imprimante", "Imprimante")
+                        .WithMany()
+                        .HasForeignKey("ImprimanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Imprimante");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.SupplySnapshot", b =>
                 {
                     b.HasOne("Autoprint.Shared.Imprimante", "Imprimante")
                         .WithMany()
