@@ -105,6 +105,36 @@ namespace Autoprint.Server.Services
 
         public Task<IList<Variable>> GetAsync(IList<Variable> variables, int timeoutMs) => Task.Run(() => Get(variables, timeoutMs));
 
+        /// <summary>1, 2 (v2c) ou 3.</summary>
+        public int Version => _credentials.Version;
+
+        /// <summary>
+        /// Parcourt une table : requêtes groupées (GETBULK) en v2c, élément par élément (GETNEXT) en v1 et v3.
+        /// En cas d'échec du GETBULK (agent qui le gère mal), repli sur le parcours élément par élément.
+        /// </summary>
+        public void WalkTable(ObjectIdentifier root, IList<Variable> results, int timeoutMs)
+        {
+            if (_versionCode == VersionCode.V2)
+            {
+                var bulk = new List<Variable>();
+                try
+                {
+                    Messenger.BulkWalk(VersionCode.V2, _endpoint, _community, OctetString.Empty, root, bulk, timeoutMs, 10, WalkMode.WithinSubtree, null, null);
+                    foreach (var v in bulk) results.Add(v);
+                    return;
+                }
+                catch (Lextm.SharpSnmpLib.Messaging.TimeoutException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // repli GETNEXT ci-dessous
+                }
+            }
+            Walk(root, results, timeoutMs);
+        }
+
         /// <summary>Parcourt le sous-arbre <paramref name="root"/> et ajoute les valeurs trouvées à <paramref name="results"/>.</summary>
         public void Walk(ObjectIdentifier root, IList<Variable> results, int timeoutMs)
         {

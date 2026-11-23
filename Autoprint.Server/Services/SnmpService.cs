@@ -13,21 +13,8 @@ using Lextm.SharpSnmpLib.Messaging;
 
 namespace Autoprint.Server.Services
 {
-    public class SnmpService : ISnmpService
+    public partial class SnmpService : ISnmpService
     {
-        // OID standard (RFC 3805 / RFC 2790) présents sur la plupart des imprimantes réseau. Volontairement réduits au
-        // premier toner : en SNMPv1, un seul OID absent fait échouer toute la requête.
-        private static readonly SnmpProfile StandardProfile = new()
-        {
-            Name = "Valeurs standard",
-            Items = new List<SnmpProfileItem>
-            {
-                new() { Name = "Toner", Category = SnmpItemCategory.Toner, Oid = "1.3.6.1.2.1.43.11.1.1.9.1.1", OidMaxCapacity = "1.3.6.1.2.1.43.11.1.1.8.1.1", ValueType = SnmpValueType.RawWithMax, ColorHex = "#212529", SortOrder = 1 },
-                new() { Name = "Compteur total", Category = SnmpItemCategory.PageCounter, Oid = "1.3.6.1.2.1.43.10.2.1.4.1.1", ValueType = SnmpValueType.Counter, SortOrder = 2 },
-                new() { Name = "État", Category = SnmpItemCategory.Status, Oid = "1.3.6.1.2.1.25.3.5.1.1.1", ValueType = SnmpValueType.String, SortOrder = 3 }
-            }
-        };
-
         public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, SnmpCredentials credentials, SnmpProfile? profile = null, int lowThresholdPercent = MonitoringSettings.DefaultLowThresholdPercent)
         {
             var result = new PrinterDiagnosticResult { LowThresholdPercent = lowThresholdPercent };
@@ -87,10 +74,20 @@ namespace Autoprint.Server.Services
             // 3. Traitement SNMP
             try
             {
-                // Sans profil d'OID sur le modèle : OID standard de la Printer MIB (B33), pour vérifier les identifiants
-                // et remonter l'essentiel ; HasSnmpProfile reste faux pour que la console le signale
+                // Sans profil d'OID sur le modèle : détection automatique par la Printer MIB (#50, remplace les « valeurs
+                // standard » limitées au premier toner de B33) ; HasSnmpProfile reste faux pour que la console le signale
                 result.HasSnmpProfile = profile != null;
-                profile ??= StandardProfile;
+                if (profile == null)
+                {
+                    if (await CollectFromPrinterMibAsync(client, StructureCacheKey(ipAddress, port, credentials), result, lowThresholdPercent))
+                    {
+                        await AddStandardAlertsAsync(client, result);
+                        return result;
+                    }
+
+                    result.Status = pingOk ? "En Ligne (SNMP muet)" : "Éteint / Hors Ligne";
+                    return result;
+                }
 
                 // Préparation du lot de variables à interroger en une seule requête SNMP
                 var requestedVariables = new List<Variable>();
@@ -847,14 +844,14 @@ namespace Autoprint.Server.Services
 
         #region Helper Methods
 
-        private bool IsNullOrNoSuch(ISnmpData data)
+        private static bool IsNullOrNoSuch(ISnmpData data)
         {
             if (data == null) return true;
             if (data is NoSuchInstance || data is NoSuchObject || data is EndOfMibView) return true;
             return false;
         }
 
-        private int ExtractInt(ISnmpData data)
+        private static int ExtractInt(ISnmpData data)
         {
             if (data is Integer32 int32) return int32.ToInt32();
             if (data is Counter32 c32) return (int)c32.ToUInt32();
@@ -867,7 +864,7 @@ namespace Autoprint.Server.Services
             return -1;
         }
 
-        private string ExtractString(ISnmpData data)
+        private static string ExtractString(ISnmpData data)
         {
             if (data == null || IsNullOrNoSuch(data)) return string.Empty;
             if (data is OctetString octet) return DecodeOctetString(octet);
@@ -877,7 +874,7 @@ namespace Autoprint.Server.Services
             return data.ToString();
         }
 
-        private string GetOidIndex(ObjectIdentifier oid)
+        private static string GetOidIndex(ObjectIdentifier oid)
         {
             string str = oid.ToString();
             int lastDot = str.LastIndexOf('.');
@@ -1092,7 +1089,7 @@ namespace Autoprint.Server.Services
 
         #endregion
 
-        private string MapSnmpStatus(int statusCode)
+        private static string MapSnmpStatus(int statusCode)
         {
             return statusCode switch
             {
@@ -1128,7 +1125,7 @@ namespace Autoprint.Server.Services
             return "#6c757d";
         }
 
-        private string DecodeOctetString(OctetString octetString)
+        private static string DecodeOctetString(OctetString octetString)
         {
             if (octetString == null) return string.Empty;
             var bytes = octetString.GetRaw();

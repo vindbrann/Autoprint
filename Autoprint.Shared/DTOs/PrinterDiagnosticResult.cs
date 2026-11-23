@@ -62,6 +62,13 @@ namespace Autoprint.Shared.DTOs
         public string ColorHex { get; set; } = "#212529";
         public SupplyState State { get; set; } = SupplyState.Unknown;
         public SupplyKind Kind { get; set; } = SupplyKind.Toner;
+        /// <summary>Clé stable de l'élément dans la Printer MIB (« supply:1.2 »), vide pour un élément de profil manuel (#50).</summary>
+        public string? Key { get; set; }
+        /// <summary>
+        /// Réceptacle qui se remplit (bac de récupération de toner…) : le niveau est l'espace restant (RFC 3805),
+        /// Low = presque plein, Empty = plein.
+        /// </summary>
+        public bool IsReceptacle { get; set; }
 
         public bool HasLevel => CurrentLevel >= 0;
         public bool NeedsAttention => State is SupplyState.Low or SupplyState.Empty;
@@ -74,6 +81,8 @@ namespace Autoprint.Shared.DTOs
         public int CurrentLevel { get; set; } = -1;
         public int MaxCapacity { get; set; }
         public SupplyState State { get; set; } = SupplyState.Unknown;
+        /// <summary>Clé stable du bac dans la Printer MIB (« input:1.2 »), vide pour un élément de profil manuel (#50).</summary>
+        public string? Key { get; set; }
 
         public bool HasLevel => CurrentLevel >= 0;
     }

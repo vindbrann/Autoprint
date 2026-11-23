@@ -48,7 +48,7 @@
         @* B33 : sans profil d'OID sur le modèle, l'imprimante est quand même interrogée avec les OID standard *@
         @if (!diagnostic.HasSnmpProfile)
         {
-            <div class="ap-name-note"><RadzenIcon Icon="info" />Valeurs standard (Printer MIB) : le modèle n'a pas de profil SNMP. Associez-lui un profil (Modèles) pour suivre toutes les couleurs et les bacs.</div>
+            <div class="ap-name-note"><RadzenIcon Icon="info" />Détection automatique : le modèle n'a pas de profil SNMP, les consommables et les bacs sont lus directement dans l'imprimante.</div>
         }
         @if (diagnostic.PingSuccess)
         {
@@ -356,14 +356,14 @@
                                  style="--fill: @hex; width: @(Math.Clamp(supply.CurrentLevel, 0, 100))%;"></div>
                         </div>
                         <span class="diag-gauge-value @(supply.State == SupplyState.Empty ? "is-empty" : supply.State == SupplyState.Low ? "is-low" : "")">
-                            @($"{supply.CurrentLevel} %")
+                            @(supply.IsReceptacle ? $"{supply.CurrentLevel} % libre" : $"{supply.CurrentLevel} %")
                         </span>
                     </div>
                 }
                 else
                 {
                     <div class="diag-state-line">
-                        <span class="diag-pill diag-pill-@(supply.State.ToString().ToLowerInvariant())">@SupplyStateLabel(supply.State)</span>
+                        <span class="diag-pill diag-pill-@(supply.State.ToString().ToLowerInvariant())">@SupplyStateLabel(supply)</span>
                         <span class="diag-state-hint">Niveau non communiqué par l'imprimante</span>
                     </div>
                 }
@@ -375,11 +375,12 @@
         </RadzenRow>
     };
 
-    private static string SupplyStateLabel(SupplyState state) => state switch
+    // Réceptacle (bac de récupération) : le niveau est l'espace restant, « bas » veut dire presque plein
+    private static string SupplyStateLabel(TonerLevelResult supply) => supply.State switch
     {
         SupplyState.Ok => "OK",
-        SupplyState.Low => "Bas",
-        SupplyState.Empty => "Vide",
+        SupplyState.Low => supply.IsReceptacle ? "Presque plein" : "Bas",
+        SupplyState.Empty => supply.IsReceptacle ? "Plein" : "Vide",
         _ => "Inconnu"
     };
 
