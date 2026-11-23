@@ -28,9 +28,9 @@ namespace Autoprint.Server.Services
             }
         };
 
-        public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, SnmpCredentials credentials, SnmpProfile? profile = null)
+        public async Task<PrinterDiagnosticResult> GetPrinterDiagnosticAsync(string ipAddress, int port, SnmpCredentials credentials, SnmpProfile? profile = null, int lowThresholdPercent = MonitoringSettings.DefaultLowThresholdPercent)
         {
-            var result = new PrinterDiagnosticResult();
+            var result = new PrinterDiagnosticResult { LowThresholdPercent = lowThresholdPercent };
 
             if (string.IsNullOrWhiteSpace(ipAddress))
             {
@@ -148,78 +148,26 @@ namespace Autoprint.Server.Services
                             switch (item.Category)
                             {
                                 case SnmpItemCategory.Toner:
-                                    int computedLevel = rawVal;
-                                    if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrEmpty(item.OidMaxCapacity))
-                                    {
-                                        int maxCap = -1;
-                                        if (responseDict.TryGetValue(item.OidMaxCapacity, out var maxData))
-                                        {
-                                            maxCap = ExtractInt(maxData);
-                                        }
-
-                                        if (rawVal == -3)
-                                        {
-                                            computedLevel = 100; // RFC 3805: -3 = Some remaining (OK)
-                                        }
-                                        else if (rawVal == -2)
-                                        {
-                                            computedLevel = -1; // RFC 3805: -2 = Unknown
-                                        }
-                                        else if (maxCap > 0 && rawVal >= 0)
-                                        {
-                                            computedLevel = (int)Math.Round((double)rawVal / maxCap * 100);
-                                            if (computedLevel > 100) computedLevel = 100;
-                                        }
-                                        else if (maxCap <= 0 && rawVal >= 0)
-                                        {
-                                            computedLevel = rawVal <= 100 ? rawVal : 100;
-                                        }
-                                    }
-                                    else if (item.ValueType == SnmpValueType.Percentage)
-                                    {
-                                        computedLevel = rawVal >= 0 ? (rawVal <= 100 ? rawVal : 100) : (rawVal == -3 ? 100 : -1);
-                                    }
-
-                                    result.Toners.Add(new TonerLevelResult
-                                    {
-                                        Color = SnmpText.Repair(item.Name),
-                                        CurrentLevel = computedLevel,
-                                        MaxCapacity = 100,
-                                        ColorHex = !string.IsNullOrWhiteSpace(item.ColorHex) ? item.ColorHex : GetDefaultColorHex(item.Name)
-                                    });
+                                    AddSupply(result, item, rawVal, responseDict, InferSupplyKind(item.Name), lowThresholdPercent);
                                     break;
 
                                 case SnmpItemCategory.Tray:
-                                    int trayComputed = 0;
-                                    if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(item.OidMaxCapacity))
                                     {
                                         int maxCap = -1;
-                                        if (responseDict.TryGetValue(item.OidMaxCapacity.Trim(), out var maxData))
+                                        if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(item.OidMaxCapacity)
+                                            && responseDict.TryGetValue(item.OidMaxCapacity.Trim(), out var maxData))
                                         {
                                             maxCap = ExtractInt(maxData);
                                         }
-
-                                        if (maxCap > 0 && rawVal >= 0)
+                                        var (trayLevel, trayState) = InterpretTrayLevel(rawVal, maxCap);
+                                        result.Trays.Add(new PaperTrayResult
                                         {
-                                            trayComputed = (int)Math.Round((double)rawVal / maxCap * 100);
-                                            if (trayComputed > 100) trayComputed = 100;
-                                        }
-                                        else
-                                        {
-                                            trayComputed = rawVal >= 0 ? (rawVal <= 100 ? rawVal : 100) : (rawVal == -3 || rawVal == -1 ? 100 : 0);
-                                        }
+                                            Name = SnmpText.FormatTrayName(item.Name, item.Oid),
+                                            CurrentLevel = trayLevel,
+                                            MaxCapacity = 100,
+                                            State = trayState
+                                        });
                                     }
-                                    else
-                                    {
-                                        trayComputed = rawVal >= 0 ? (rawVal <= 100 ? rawVal : 100) : (rawVal == -3 || rawVal == -1 ? 100 : 0);
-                                    }
-
-                                    result.Trays.Add(new PaperTrayResult
-                                    {
-                                        Name = SnmpText.FormatTrayName(item.Name, item.Oid),
-                                        CurrentLevel = trayComputed,
-                                        MaxCapacity = 100
-                                    });
                                     break;
 
                                 case SnmpItemCategory.PageCounter:
@@ -247,11 +195,16 @@ namespace Autoprint.Server.Services
                                     }
                                     break;
 
+                                case SnmpItemCategory.Maintenance when item.ValueType != SnmpValueType.String:
+                                    // #49 : un élément de maintenance qui a un niveau (photoconducteur, kit…) a une jauge, pas une alerte
+                                    AddSupply(result, item, rawVal, responseDict, SupplyKind.Maintenance, lowThresholdPercent);
+                                    break;
+
                                 case SnmpItemCategory.Console:
                                 case SnmpItemCategory.Maintenance:
                                     if (!string.IsNullOrWhiteSpace(strVal))
                                     {
-                                        result.Alerts.Add($"{SnmpText.Repair(item.Name)} : {strVal}");
+                                        AddAlert(result, AlertSeverity.Info, $"{SnmpText.Repair(item.Name)} : {strVal}");
                                     }
                                     break;
                             }
@@ -278,6 +231,7 @@ namespace Autoprint.Server.Services
                             result.Status = "En Ligne";
                         }
 
+                        await AddStandardAlertsAsync(client, result);
                         return result;
                     }
                 }
@@ -308,13 +262,14 @@ namespace Autoprint.Server.Services
                         {
                             if (!string.IsNullOrEmpty(oid) && dict.TryGetValue(oid, out var data) && !IsNullOrNoSuch(data))
                             {
-                                int val = ExtractInt(data);
+                                var (level, state) = InterpretSupplyLevel(ExtractInt(data), -1, SnmpValueType.Percentage, lowThresholdPercent);
                                 result.Toners.Add(new TonerLevelResult
                                 {
                                     Color = color,
-                                    CurrentLevel = val >= 0 ? val : (val == -3 ? 100 : -1),
+                                    CurrentLevel = level,
                                     MaxCapacity = 100,
-                                    ColorHex = GetDefaultColorHex(color)
+                                    ColorHex = GetDefaultColorHex(color),
+                                    State = state
                                 });
                             }
                         }
@@ -339,6 +294,7 @@ namespace Autoprint.Server.Services
                         }
 
                         result.Status = "En Ligne";
+                        await AddStandardAlertsAsync(client, result);
                         return result;
                     }
                 }
@@ -472,7 +428,7 @@ namespace Autoprint.Server.Services
 
                     if (rawVal == -3)
                     {
-                        formatted = "Niveau OK";
+                        formatted = "Il en reste (niveau non communiqué)";
                     }
                     else if (rawVal == -2)
                     {
@@ -495,8 +451,8 @@ namespace Autoprint.Server.Services
                 }
                 else if (item.ValueType == SnmpValueType.Percentage)
                 {
-                    if (rawVal == -3) formatted = "Niveau OK";
-                    else if (rawVal == -1) formatted = "Plein (100 %)";
+                    if (rawVal == -3) formatted = "Il en reste (niveau non communiqué)";
+                    else if (rawVal == -1 || rawVal == -2) formatted = "Niveau inconnu";
                     else if (rawVal == 0) formatted = "Vide (0 %)";
                     else if (rawVal >= 0)
                     {
@@ -635,7 +591,7 @@ namespace Autoprint.Server.Services
                     int maxVal = maxVar != null ? ExtractInt(maxVar.Data) : -1;
 
                     string levelFormatted = "Inconnu";
-                    if (levelVal == -3) levelFormatted = "Niveau OK (≥ 50%)";
+                    if (levelVal == -3) levelFormatted = "Il en reste (niveau non communiqué)";
                     else if (levelVal >= 0 && maxVal > 0)
                     {
                         int pct = (int)Math.Round((double)levelVal / maxVal * 100);
@@ -752,8 +708,8 @@ namespace Autoprint.Server.Services
                     int maxVal = maxVar != null ? ExtractInt(maxVar.Data) : -1;
 
                     string levelStr = "Inconnu";
-                    if (levelVal == -3) levelStr = "Niveau OK";
-                    else if (levelVal == -1) levelStr = "Plein (100 %)";
+                    if (levelVal == -3) levelStr = "Papier présent (niveau non communiqué)";
+                    else if (levelVal == -1 || levelVal == -2) levelStr = "Inconnu";
                     else if (levelVal == 0) levelStr = "Vide (0 %)";
                     else if (levelVal >= 0 && maxVal > 0)
                     {
@@ -931,6 +887,192 @@ namespace Autoprint.Server.Services
             }
             return "";
         }
+
+        #region Niveaux, états et alertes (#49)
+
+        /// <summary>Ajoute un consommable (toner ou maintenance) : niveau en % quand il est connu, état dans tous les cas.</summary>
+        private void AddSupply(PrinterDiagnosticResult result, SnmpProfileItem item, int rawVal, IDictionary<string, ISnmpData> responseDict, SupplyKind kind, int lowThresholdPercent)
+        {
+            int maxCap = -1;
+            if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(item.OidMaxCapacity)
+                && responseDict.TryGetValue(item.OidMaxCapacity.Trim(), out var maxData))
+            {
+                maxCap = ExtractInt(maxData);
+            }
+
+            var (level, state) = InterpretSupplyLevel(rawVal, maxCap, item.ValueType, lowThresholdPercent);
+            var name = SnmpText.Repair(item.Name);
+            result.Toners.Add(new TonerLevelResult
+            {
+                Color = name,
+                CurrentLevel = level,
+                MaxCapacity = 100,
+                ColorHex = !string.IsNullOrWhiteSpace(item.ColorHex) ? item.ColorHex : GetDefaultColorHex(name),
+                State = state,
+                Kind = kind
+            });
+        }
+
+        /// <summary>
+        /// Niveau d'un consommable (prtMarkerSuppliesLevel, RFC 3805) : -3 = « il en reste » (niveau non communiqué),
+        /// -2 = inconnu, -1 = autre. Aucun pourcentage n'est inventé : le niveau vaut alors -1 et seul l'état est connu.
+        /// </summary>
+        internal static (int Level, SupplyState State) InterpretSupplyLevel(int raw, int maxCapacity, SnmpValueType valueType, int lowThresholdPercent)
+        {
+            if (raw == -3) return (-1, SupplyState.Ok);
+            if (raw < 0) return (-1, SupplyState.Unknown);
+
+            int level;
+            if (valueType == SnmpValueType.RawWithMax && maxCapacity > 0)
+            {
+                level = (int)Math.Round((double)raw / maxCapacity * 100);
+            }
+            else if (raw <= 100)
+            {
+                level = raw;
+            }
+            else
+            {
+                // Valeur brute sans capacité connue (pages, grammes…) : pas de pourcentage possible
+                return (-1, SupplyState.Ok);
+            }
+
+            level = Math.Clamp(level, 0, 100);
+            var state = level == 0 ? SupplyState.Empty : level <= lowThresholdPercent ? SupplyState.Low : SupplyState.Ok;
+            return (level, state);
+        }
+
+        /// <summary>Niveau d'un bac (prtInputCurrentLevel) : mêmes valeurs spéciales ; sans capacité, une valeur > 100 est un nombre de feuilles.</summary>
+        internal static (int Level, SupplyState State) InterpretTrayLevel(int raw, int maxCapacity)
+        {
+            if (raw == -3) return (-1, SupplyState.Ok);
+            if (raw < 0) return (-1, SupplyState.Unknown);
+            if (raw == 0) return (0, SupplyState.Empty);
+            if (maxCapacity > 0) return (Math.Clamp((int)Math.Round((double)raw / maxCapacity * 100), 0, 100), SupplyState.Ok);
+            return (raw, SupplyState.Ok);
+        }
+
+        private static readonly string[] MaintenanceWords =
+        {
+            "fuser", "fusion", "four", "drum", "tambour", "photocond", "photoconductor", "imaging", "unité d'image", "image unit",
+            "kit", "maintenance", "waste", "récup", "recup", "collect", "transfer", "transfert", "belt", "courroie", "roller", "rouleau", "developer", "développeur"
+        };
+
+        /// <summary>Un élément « Toner » dont le nom désigne une pièce d'usure (unité de fusion, kit, photoconducteur…) va dans la section Maintenance.</summary>
+        internal static SupplyKind InferSupplyKind(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return SupplyKind.Toner;
+            var n = name.ToLowerInvariant();
+            if (MaintenanceWords.Any(n.Contains)) return SupplyKind.Maintenance;
+            if (System.Text.RegularExpressions.Regex.IsMatch(n, @"(^|[^a-z])o?pc([^a-z]|$)")) return SupplyKind.Maintenance;
+            return SupplyKind.Toner;
+        }
+
+        private static void AddAlert(PrinterDiagnosticResult result, AlertSeverity severity, string text)
+        {
+            text = text.Trim();
+            if (text.Length == 0) return;
+            var existing = result.Alerts.FirstOrDefault(a => string.Equals(a.Text, text, StringComparison.OrdinalIgnoreCase));
+            if (existing == null) result.Alerts.Add(new PrinterAlert(severity, text));
+            else if (severity > existing.Severity) existing.Severity = severity;
+        }
+
+        private const string HrPrinterDetectedErrorStateOid = "1.3.6.1.2.1.25.3.5.1.2.1";
+        private const string PrtAlertSeverityPrefix = "1.3.6.1.2.1.43.18.1.1.2.";
+        private const string PrtAlertDescriptionPrefix = "1.3.6.1.2.1.43.18.1.1.8.";
+
+        /// <summary>
+        /// État d'erreur (hrPrinterDetectedErrorState) et alertes actives (prtAlertTable), interrogés à part : en SNMPv1,
+        /// un OID absent dans la requête principale ferait échouer toute la requête.
+        /// </summary>
+        private async Task AddStandardAlertsAsync(SnmpClient client, PrinterDiagnosticResult result)
+        {
+            try
+            {
+                var res = await client.GetAsync(new List<Variable> { new(new ObjectIdentifier(HrPrinterDetectedErrorStateOid)) }, 1000);
+                var data = res?.FirstOrDefault()?.Data;
+                if (data is OctetString octet) ApplyDetectedErrorState(result, octet.GetRaw());
+            }
+            catch { }
+
+            try
+            {
+                var severities = new List<Variable>();
+                var descriptions = new List<Variable>();
+                await Task.Run(() =>
+                {
+                    try { client.Walk(new ObjectIdentifier(PrtAlertSeverityPrefix.TrimEnd('.')), severities, 1000); } catch { }
+                    try { client.Walk(new ObjectIdentifier(PrtAlertDescriptionPrefix.TrimEnd('.')), descriptions, 1000); } catch { }
+                });
+
+                foreach (var desc in descriptions.Where(v => v.Id.ToString().StartsWith(PrtAlertDescriptionPrefix)).Take(20))
+                {
+                    var text = ExtractString(desc.Data);
+                    if (string.IsNullOrWhiteSpace(text)) continue;
+
+                    var index = desc.Id.ToString().Substring(PrtAlertDescriptionPrefix.Length);
+                    var sevVar = severities.FirstOrDefault(v => v.Id.ToString() == PrtAlertSeverityPrefix + index);
+                    // prtAlertSeverityLevel : 1 = autre, 3 = critique, 4 = avertissement, 5 = avertissement ponctuel
+                    var severity = (sevVar != null ? ExtractInt(sevVar.Data) : 1) switch
+                    {
+                        3 => AlertSeverity.Critical,
+                        4 or 5 => AlertSeverity.Warning,
+                        _ => AlertSeverity.Info
+                    };
+                    AddAlert(result, severity, text);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// hrPrinterDetectedErrorState (RFC 2790/3805), bits du premier octet de poids fort à faible : lowPaper, noPaper,
+        /// lowToner, noToner, doorOpen, jammed, offline, serviceRequested ; second octet : inputTrayMissing,
+        /// outputTrayMissing, markerSupplyMissing, outputNearFull, outputFull, inputTrayEmpty, overduePreventMaint.
+        /// </summary>
+        internal static void ApplyDetectedErrorState(PrinterDiagnosticResult result, byte[]? bytes)
+        {
+            if (bytes == null || bytes.Length == 0) return;
+            byte b0 = bytes[0];
+            byte b1 = bytes.Length > 1 ? bytes[1] : (byte)0;
+
+            bool lowToner = (b0 & 0x20) != 0;
+            bool noToner = (b0 & 0x10) != 0;
+
+            if (lowToner || noToner)
+            {
+                var toners = result.Toners.Where(t => t.Kind == SupplyKind.Toner).ToList();
+                if (toners.Count == 1)
+                {
+                    // Monochrome : l'indicateur concerne forcément le seul toner
+                    var t = toners[0];
+                    if (noToner) t.State = SupplyState.Empty;
+                    else if (t.State is SupplyState.Ok or SupplyState.Unknown) t.State = SupplyState.Low;
+                }
+                else if (!toners.Any(t => noToner ? t.State == SupplyState.Empty : t.NeedsAttention))
+                {
+                    // Couleur : on ne sait pas quelle cartouche est concernée
+                    AddAlert(result, noToner ? AlertSeverity.Critical : AlertSeverity.Warning,
+                        noToner ? "Toner vide signalé par l'imprimante" : "Toner bas signalé par l'imprimante");
+                }
+            }
+
+            if ((b0 & 0x80) != 0) AddAlert(result, AlertSeverity.Info, "Papier bas");
+            if ((b0 & 0x40) != 0) AddAlert(result, AlertSeverity.Warning, "Plus de papier");
+            if ((b0 & 0x08) != 0) AddAlert(result, AlertSeverity.Critical, "Capot ouvert");
+            if ((b0 & 0x04) != 0) AddAlert(result, AlertSeverity.Critical, "Bourrage papier");
+            if ((b0 & 0x02) != 0) AddAlert(result, AlertSeverity.Info, "Imprimante hors ligne"); // levé par certaines imprimantes en veille
+            if ((b0 & 0x01) != 0) AddAlert(result, AlertSeverity.Warning, "Intervention demandée");
+            if ((b1 & 0x80) != 0) AddAlert(result, AlertSeverity.Info, "Bac d'alimentation absent"); // bac optionnel non installé
+            if ((b1 & 0x40) != 0) AddAlert(result, AlertSeverity.Warning, "Bac de sortie absent");
+            if ((b1 & 0x20) != 0) AddAlert(result, AlertSeverity.Critical, "Consommable absent");
+            if ((b1 & 0x10) != 0) AddAlert(result, AlertSeverity.Info, "Bac de sortie presque plein");
+            if ((b1 & 0x08) != 0) AddAlert(result, AlertSeverity.Warning, "Bac de sortie plein");
+            if ((b1 & 0x04) != 0) AddAlert(result, AlertSeverity.Info, "Bac d'alimentation vide"); // souvent le bac manuel, vide en temps normal
+            if ((b1 & 0x02) != 0) AddAlert(result, AlertSeverity.Warning, "Maintenance préventive dépassée");
+        }
+
+        #endregion
 
         private string MapSnmpStatus(int statusCode)
         {

@@ -115,6 +115,7 @@ namespace Autoprint.Server.Services
 
             // Profils d'identifiants SNMP chargés une fois par cycle
             var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(context, stoppingToken);
+            var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(context, stoppingToken);
 
             foreach (var printer in activePrinters)
             {
@@ -128,14 +129,12 @@ namespace Autoprint.Server.Services
                         printer.AdresseIp,
                         printer.SnmpPort,
                         SnmpCredentials.Resolve(printer, snmpProfiles, secrets),
-                        printer.Modele?.SnmpProfile
+                        printer.Modele?.SnmpProfile,
+                        lowThreshold
                     );
 
-                    if (!diagnostic.PingSuccess)
-                    {
-                        printer.MonitoringStatus = "Offline";
-                    }
-                    else
+                    // Statut calculé par PrinterHealth.Evaluate (Offline si la machine ne répond pas)
+                    if (diagnostic.PingSuccess)
                     {
                         printer.LastSeen = DateTime.UtcNow;
 
@@ -144,56 +143,10 @@ namespace Autoprint.Server.Services
                             printer.SerialNumber = diagnostic.SerialNumber;
                         }
 
-                        bool tonerLow = false;
-                        if (diagnostic.Toners != null)
-                        {
-                            var todayUtc = DateTime.UtcNow.Date;
-                            foreach (var toner in diagnostic.Toners)
-                            {
-                                if (toner.CurrentLevel >= 0)
-                                {
-                                    if (toner.CurrentLevel <= 10)
-                                    {
-                                        tonerLow = true;
-                                    }
-
-                                    bool alreadyLoggedToday = await context.TonerHistories
-                                        .AnyAsync(h => h.ImprimanteId == printer.Id 
-                                                       && h.ComponentColor == toner.Color 
-                                                       && h.RecordedAt >= todayUtc, 
-                                                  stoppingToken);
-
-                                    if (!alreadyLoggedToday)
-                                    {
-                                        context.TonerHistories.Add(new TonerHistory
-                                        {
-                                            ImprimanteId = printer.Id,
-                                            ComponentColor = toner.Color,
-                                            LevelPercent = toner.CurrentLevel,
-                                            RecordedAt = DateTime.UtcNow
-                                        });
-                                    }
-                                }
-                            }
-                        }
-
-                        if (diagnostic.Status.Contains("Alerte") || diagnostic.Status.Contains("Inconnu"))
-                        {
-                            printer.MonitoringStatus = "Warning";
-                        }
-                        else if (tonerLow)
-                        {
-                            printer.MonitoringStatus = "Warning";
-                        }
-                        else if (diagnostic.Alerts.Any(a => a.ToLower().Contains("erreur") || a.ToLower().Contains("bourrage") || a.ToLower().Contains("ouvert")))
-                        {
-                            printer.MonitoringStatus = "Critical";
-                        }
-                        else
-                        {
-                            printer.MonitoringStatus = "Ok";
-                        }
+                        await PrinterHealth.AddDailyHistoryAsync(context, printer.Id, diagnostic.Toners, stoppingToken);
                     }
+
+                    printer.MonitoringStatus = PrinterHealth.Evaluate(diagnostic);
                 }
                 catch (Exception ex)
                 {

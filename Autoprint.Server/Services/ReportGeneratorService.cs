@@ -154,6 +154,7 @@ namespace Autoprint.Server.Services
             var printers = await query.ToListAsync();
             var printerIds = printers.Select(p => p.Id).ToList();
             var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(_context);
+            var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(_context);
 
             // Load toner history for all target printers in a single batch query
             var histories = await _context.TonerHistories
@@ -172,7 +173,8 @@ namespace Autoprint.Server.Services
                         printer.AdresseIp,
                         printer.SnmpPort,
                         SnmpCredentials.Resolve(printer, snmpProfiles, _secrets),
-                        printer.Modele?.SnmpProfile
+                        printer.Modele?.SnmpProfile,
+                        lowThreshold
                     );
 
                     var toners = diagnostic.Toners ?? new List<TonerLevelResult>();
@@ -215,7 +217,7 @@ namespace Autoprint.Server.Services
                         PingSuccess = false,
                         PageCounter = 0,
                         Status = "Erreur SNMP",
-                        Alerts = new List<string> { "Impossible d'interroger la machine en SNMP." },
+                        Alerts = new List<PrinterAlert> { new(AlertSeverity.Warning, "Impossible d'interroger la machine en SNMP.") },
                         Toners = new List<TonerLevelResult>(),
                         Trays = new List<PaperTrayResult>(),
                         SerialNumber = printer.SerialNumber ?? ""
@@ -283,7 +285,7 @@ namespace Autoprint.Server.Services
                 {
                     if (item.PingSuccess && item.Toners.Any())
                     {
-                        var tonerParts = item.Toners.Select(t => $"{t.Color}: {(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "Niveau OK")}");
+                        var tonerParts = item.Toners.Select(t => $"{t.Color}: {SupplyText(t)}");
                         row.Add(string.Join(" | ", tonerParts));
                     }
                     else
@@ -295,7 +297,7 @@ namespace Autoprint.Server.Services
                 {
                     if (item.PingSuccess && item.Trays.Any())
                     {
-                        var trayParts = item.Trays.Select(t => $"{t.Name}: {(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel} f.") : "Inconnu")}");
+                        var trayParts = item.Trays.Select(t => $"{t.Name}: {TrayText(t)}");
                         row.Add(string.Join(" | ", trayParts));
                     }
                     else
@@ -309,7 +311,7 @@ namespace Autoprint.Server.Services
                 }
                 if (metrics.Contains("Alerts"))
                 {
-                    row.Add(item.Alerts.Any() ? string.Join(" , ", item.Alerts) : "Aucune panne");
+                    row.Add(item.Alerts.Any() ? string.Join(" , ", item.Alerts.Select(a => a.Text)) : "Aucune panne");
                 }
                 if (metrics.Contains("Predictions"))
                 {
@@ -501,11 +503,11 @@ namespace Autoprint.Server.Services
                     values.Add(item.PingSuccess ? item.PageCounter.ToString("N0") : "-");
                 if (metrics.Contains("Toner"))
                     values.Add(item.PingSuccess && item.Toners.Any()
-                        ? string.Join(" ", item.Toners.Select(t => $"{t.Color.Substring(0, 1)}:{(t.CurrentLevel >= 0 ? $"{t.CurrentLevel}%" : "OK")}"))
+                        ? string.Join(" ", item.Toners.Select(t => $"{t.Color.Substring(0, 1)}:{SupplyText(t, compact: true)}"))
                         : "-");
                 if (metrics.Contains("Trays"))
                     values.Add(item.PingSuccess && item.Trays.Any()
-                        ? string.Join(" ", item.Trays.Select(t => $"{t.Name.Replace("Bac", "B").Trim()}:{(t.CurrentLevel >= 0 ? (t.CurrentLevel <= 100 ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel}f") : "?")}"))
+                        ? string.Join(" ", item.Trays.Select(t => $"{t.Name.Replace("Bac", "B").Trim()}:{TrayText(t, compact: true)}"))
                         : "-");
                 if (metrics.Contains("Availability"))
                     values.Add(item.PingSuccess ? "100%" : "0%");
@@ -592,9 +594,35 @@ namespace Autoprint.Server.Services
             public long PageCounter { get; set; }
             public string Status { get; set; } = string.Empty;
             public string SerialNumber { get; set; } = string.Empty;
-            public List<string> Alerts { get; set; } = new();
+            public List<PrinterAlert> Alerts { get; set; } = new();
             public List<TonerLevelResult> Toners { get; set; } = new();
             public List<PaperTrayResult> Trays { get; set; } = new();
+        }
+
+        // #49 : niveau quand il est connu, sinon l'état (jamais un pourcentage inventé)
+        private static string SupplyText(TonerLevelResult t, bool compact = false)
+        {
+            string state = t.State switch
+            {
+                SupplyState.Ok => "OK",
+                SupplyState.Low => "Bas",
+                SupplyState.Empty => "Vide",
+                _ => compact ? "?" : "Inconnu"
+            };
+            if (!t.HasLevel) return state;
+            string level = compact ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel} %";
+            return t.State is SupplyState.Low or SupplyState.Empty ? $"{level} ({state})" : level;
+        }
+
+        private static string TrayText(PaperTrayResult t, bool compact = false)
+        {
+            if (t.HasLevel) return t.CurrentLevel <= 100 ? (compact ? $"{t.CurrentLevel}%" : $"{t.CurrentLevel} %") : (compact ? $"{t.CurrentLevel}f" : $"{t.CurrentLevel} f.");
+            return t.State switch
+            {
+                SupplyState.Ok => "OK",
+                SupplyState.Empty => "Vide",
+                _ => compact ? "?" : "Inconnu"
+            };
         }
     }
 }

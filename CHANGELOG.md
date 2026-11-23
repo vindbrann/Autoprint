@@ -4,10 +4,20 @@ Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la jou
 
 ## Non publié
 
+### Nouveautés
+
+- **Consommables : des états au lieu de pourcentages inventés** (#49) : une imprimante qui ne communique pas son niveau (« il en reste ») affichait 100 %. Le diagnostic affiche maintenant OK, Bas, Vide ou Inconnu, et le niveau seulement quand l'imprimante le donne.
+- **Toner bas détecté par l'indicateur d'erreurs standard** (#49) : sur une imprimante monochrome, le toner passe à « Bas » ou « Vide » quand l'imprimante le signale, même sans niveau. Sur une couleur, une alerte l'indique.
+- **Alertes avec gravité** (#49) : en plus de l'écran de l'imprimante, le diagnostic lit les alertes standard (bourrage, capot ouvert, consommable absent…) avec leur gravité. Le statut de supervision (Avertissement, Critique) s'appuie dessus.
+- **Section Maintenance** (#49) : unité de fusion, photoconducteur et kits ont leur jauge, au lieu de passer dans les alertes ou d'être mélangés aux toners.
+- **Prévision affichée** (#49) : le nombre de jours restants estimé s'affiche sous la jauge, quand il y a assez de relevés.
+- **Seuil « bas » réglable** (#49) : **Paramètres > Supervision**, 20 % par défaut (au lieu de 10 % codé en dur), pour avoir le temps de commander.
+
 ### Corrections
 
 - **Diagnostic SNMP en thème sombre** (#46) : les messages de l'imprimante sont de nouveau lisibles, la carte des alertes suit le thème, et la jauge du toner noir se distingue du fond. Le pourcentage s'affiche à côté de la jauge, lisible quelle que soit la couleur.
 - **Libellés SNMP accentués** (#46) : les textes envoyés par l'imprimante dans une page de code DOS ou Windows sont décodés correctement (« Unité de fusion » au lieu de « Unit� De Fusion »), y compris dans les profils déjà enregistrés.
+- **Uptime** : « 1 heure », « 1 jour » au singulier.
 - **Noms proposés par l'auto-découverte** (#46) : l'unité de fusion ou le kit de maintenance ne prennent plus le préfixe « Toner ». Les bacs portent leur nom et leur format (« Tray 1 – A4 ») au lieu du code brut `iso-a4-white`. Dans le diagnostic, les bacs déjà enregistrés avec ce code s'affichent « Bac 1 – A4 ».
 
 ## 26.11.22.1 — 22/11/2026

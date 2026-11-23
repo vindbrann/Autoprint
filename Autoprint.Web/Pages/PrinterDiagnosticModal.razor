@@ -115,12 +115,12 @@
                             }
                             else
                             {
-                                @foreach (var alert in diagnostic.Alerts)
+                                @foreach (var alert in diagnostic.Alerts.OrderByDescending(a => a.Severity))
                                 {
-                                    <div class="alert-item">
-                                        <RadzenIcon Icon="warning" IconColor="var(--rz-warning)" Style="font-size: 1.1rem; margin-right: 5px;" />
+                                    <div class="alert-item alert-@(alert.Severity.ToString().ToLowerInvariant())">
+                                        <RadzenIcon Icon="@AlertIcon(alert.Severity)" Style="font-size: 1.1rem; margin-right: 6px;" />
                                         <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; display: inline;">
-                                            @alert
+                                            @alert.Text
                                         </RadzenText>
                                     </div>
                                 }
@@ -130,36 +130,41 @@
                 </RadzenColumn>
             </RadzenRow>
 
-            <!-- Consommables & Cartouches -->
-            @if (diagnostic.Toners != null && diagnostic.Toners.Any())
+            var consumables = diagnostic.Toners?.Where(t => t.Kind == SupplyKind.Toner).ToList() ?? new();
+            var maintenance = diagnostic.Toners?.Where(t => t.Kind == SupplyKind.Maintenance).ToList() ?? new();
+
+            <!-- Consommables -->
+            @if (consumables.Any())
             {
                 <RadzenCard>
-                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
-                        Niveaux des Consommables &amp; Toners
-                    </RadzenText>
-
+                    <div class="diag-section-head">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin: 0;">
+                            Consommables
+                        </RadzenText>
+                        <span class="diag-section-note">Seuil bas : @diagnostic.LowThresholdPercent %</span>
+                    </div>
                     <RadzenStack Gap="1rem">
-                        @foreach (var toner in diagnostic.Toners)
+                        @foreach (var supply in consumables)
                         {
-                            <RadzenRow AlignItems="AlignItems.Center">
-                                <RadzenColumn Size="4">
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0; overflow-wrap: anywhere;">
-                                        @toner.Color
-                                    </RadzenText>
-                                </RadzenColumn>
-                                <RadzenColumn Size="8">
-                                    @{ var tonerHex = !string.IsNullOrEmpty(toner.ColorHex) ? toner.ColorHex : GetColorHex(toner.Color); }
-                                    <div class="diag-gauge">
-                                        <div class="diag-gauge-track">
-                                            <div class="diag-gauge-fill @(IsDarkInk(tonerHex) ? "is-dark-ink" : "")"
-                                                 style="--fill: @tonerHex; width: @(Math.Clamp(toner.CurrentLevel, 0, 100))%;"></div>
-                                        </div>
-                                        <span class="diag-gauge-value @(toner.CurrentLevel < 0 ? "is-unknown" : "")">
-                                            @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel} %" : "Inconnu")
-                                        </span>
-                                    </div>
-                                </RadzenColumn>
-                            </RadzenRow>
+                            @SupplyRow(supply)
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
+            <!-- Maintenance (unité de fusion, photoconducteur, kits…) -->
+            @if (maintenance.Any())
+            {
+                <RadzenCard>
+                    <div class="diag-section-head">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin: 0;">
+                            Maintenance
+                        </RadzenText>
+                    </div>
+                    <RadzenStack Gap="1rem">
+                        @foreach (var supply in maintenance)
+                        {
+                            @SupplyRow(supply)
                         }
                     </RadzenStack>
                 </RadzenCard>
@@ -169,10 +174,11 @@
             @if (diagnostic.Trays != null && diagnostic.Trays.Any())
             {
                 <RadzenCard>
-                    <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin-bottom: 1rem;">
-                        Bacs de Papier
-                    </RadzenText>
-
+                    <div class="diag-section-head">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin: 0;">
+                            Bacs de papier
+                        </RadzenText>
+                    </div>
                     <RadzenStack Gap="1rem">
                         @foreach (var tray in diagnostic.Trays)
                         {
@@ -183,14 +189,24 @@
                                     </RadzenText>
                                 </RadzenColumn>
                                 <RadzenColumn Size="8">
-                                    <div class="diag-gauge">
-                                        <div class="diag-gauge-track">
-                                            <div class="diag-gauge-fill" style="--fill: var(--ap-info); width: @(Math.Clamp(tray.CurrentLevel, 0, 100))%;"></div>
+                                    @if (tray.HasLevel)
+                                    {
+                                        <div class="diag-gauge">
+                                            <div class="diag-gauge-track">
+                                                <div class="diag-gauge-fill" style="--fill: var(--ap-info); width: @(Math.Clamp(tray.CurrentLevel, 0, 100))%;"></div>
+                                            </div>
+                                            <span class="diag-gauge-value @(tray.State == SupplyState.Empty ? "is-empty" : "")">
+                                                @(tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel} %" : $"{tray.CurrentLevel} f.")
+                                            </span>
                                         </div>
-                                        <span class="diag-gauge-value @(tray.CurrentLevel < 0 ? "is-unknown" : "")">
-                                            @(tray.CurrentLevel >= 0 ? (tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel} %" : $"{tray.CurrentLevel} f.") : "Inconnu")
-                                        </span>
-                                    </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="diag-state-line">
+                                            <span class="diag-pill diag-pill-@(tray.State.ToString().ToLowerInvariant())">@TrayStateLabel(tray.State)</span>
+                                            <span class="diag-state-hint">Niveau non communiqué par l'imprimante</span>
+                                        </div>
+                                    }
                                 </RadzenColumn>
                             </RadzenRow>
                         }
@@ -237,6 +253,24 @@
         align-items: center;
     }
     .alert-item .rz-text-body2 { color: var(--ap-text); }
+    .alert-item .rzi { color: var(--ap-warning); }
+    .alert-item.alert-critical { background-color: var(--ap-danger-subtle); border-left-color: var(--ap-danger); }
+    .alert-item.alert-critical .rzi { color: var(--ap-danger); }
+    .alert-item.alert-info { background-color: var(--ap-info-subtle); border-left-color: var(--ap-info); }
+    .alert-item.alert-info .rzi { color: var(--ap-info); }
+
+    .diag-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+    .diag-section-note { font-size: 12px; color: var(--ap-text-muted); }
+
+    /* Consommable sans niveau communiqué : pastille d'état (#49) */
+    .diag-state-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+    .diag-state-hint { font-size: 12px; color: var(--ap-text-muted); }
+    .diag-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .diag-pill-ok { background: var(--ap-success-subtle); color: var(--ap-success); }
+    .diag-pill-low { background: var(--ap-warning-subtle); color: var(--ap-warning); }
+    .diag-pill-empty { background: var(--ap-danger-subtle); color: var(--ap-danger); }
+    .diag-pill-unknown { background: var(--ap-surface-raised); color: var(--ap-text-muted); }
+    .diag-forecast { margin-top: 4px; font-size: 12px; color: var(--ap-text-muted); }
 
     /* Jauge : barre + valeur à côté (pas superposée), lisible quelle que soit la couleur du consommable */
     .diag-gauge { display: flex; align-items: center; gap: 0.75rem; }
@@ -263,7 +297,8 @@
         font-variant-numeric: tabular-nums;
         color: var(--ap-text);
     }
-    .diag-gauge-value.is-unknown { font-weight: 400; font-style: italic; color: var(--ap-text-muted); }
+    .diag-gauge-value.is-low { color: var(--ap-warning); }
+    .diag-gauge-value.is-empty { color: var(--ap-danger); }
 </style>
 
 @code {
@@ -293,9 +328,81 @@
     {
         if (totalSeconds <= 0) return "Indisponible";
         var t = TimeSpan.FromSeconds(totalSeconds);
-        if (t.Days > 0) return $"{t.Days} jours, {t.Hours} heures et {t.Minutes} minutes";
-        if (t.Hours > 0) return $"{t.Hours} heures et {t.Minutes} minutes";
-        return $"{t.Minutes} minutes";
+        static string N(int n, string unit) => $"{n} {unit}{(n > 1 ? "s" : "")}";
+        if (t.Days > 0) return $"{N(t.Days, "jour")}, {N(t.Hours, "heure")} et {N(t.Minutes, "minute")}";
+        if (t.Hours > 0) return $"{N(t.Hours, "heure")} et {N(t.Minutes, "minute")}";
+        return N(t.Minutes, "minute");
+    }
+
+    // Ligne d'un consommable : jauge si le niveau est connu, pastille d'état sinon ; prévision en dessous (#49)
+    private RenderFragment SupplyRow(TonerLevelResult supply) => __builder =>
+    {
+        var hex = !string.IsNullOrEmpty(supply.ColorHex) ? supply.ColorHex : GetColorHex(supply.Color);
+        var forecast = ForecastText(supply.EstimatedDaysRemaining);
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4">
+                <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0; overflow-wrap: anywhere;">
+                    @supply.Color
+                </RadzenText>
+            </RadzenColumn>
+            <RadzenColumn Size="8">
+                @if (supply.HasLevel)
+                {
+                    <div class="diag-gauge">
+                        <div class="diag-gauge-track">
+                            <div class="diag-gauge-fill @(IsDarkInk(hex) ? "is-dark-ink" : "")"
+                                 style="--fill: @hex; width: @(Math.Clamp(supply.CurrentLevel, 0, 100))%;"></div>
+                        </div>
+                        <span class="diag-gauge-value @(supply.State == SupplyState.Empty ? "is-empty" : supply.State == SupplyState.Low ? "is-low" : "")">
+                            @($"{supply.CurrentLevel} %")
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <div class="diag-state-line">
+                        <span class="diag-pill diag-pill-@(supply.State.ToString().ToLowerInvariant())">@SupplyStateLabel(supply.State)</span>
+                        <span class="diag-state-hint">Niveau non communiqué par l'imprimante</span>
+                    </div>
+                }
+                @if (forecast != null)
+                {
+                    <div class="diag-forecast">@forecast</div>
+                }
+            </RadzenColumn>
+        </RadzenRow>
+    };
+
+    private static string SupplyStateLabel(SupplyState state) => state switch
+    {
+        SupplyState.Ok => "OK",
+        SupplyState.Low => "Bas",
+        SupplyState.Empty => "Vide",
+        _ => "Inconnu"
+    };
+
+    private static string TrayStateLabel(SupplyState state) => state switch
+    {
+        SupplyState.Ok => "Papier présent",
+        SupplyState.Low => "Bas",
+        SupplyState.Empty => "Vide",
+        _ => "Inconnu"
+    };
+
+    private static string AlertIcon(AlertSeverity severity) => severity switch
+    {
+        AlertSeverity.Critical => "error",
+        AlertSeverity.Warning => "warning",
+        _ => "info"
+    };
+
+    /// <summary>Prévision de PredictiveService : null = pas assez de relevés, -99 = pas de baisse mesurable.</summary>
+    private static string? ForecastText(int? days)
+    {
+        if (days == null || days == -99) return null;
+        if (days <= 0) return "Épuisement imminent d'après les relevés";
+        var date = DateTime.Today.AddDays(days.Value);
+        return $"Environ {days} jour{(days > 1 ? "s" : "")} restant{(days > 1 ? "s" : "")}, vers le {date:dd/MM}";
     }
 
     private string GetColorHex(string colorName)

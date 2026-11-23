@@ -204,6 +204,7 @@ namespace Autoprint.Server.Controllers
             Check("Monitoring_StartHour", dto.Monitoring_StartHour.ToString(), "Heure de début du scan", "Supervision");
             Check("Monitoring_EndHour", dto.Monitoring_EndHour.ToString(), "Heure de fin du scan", "Supervision");
             Check("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString(), "Scan le week-end", "Supervision");
+            if (dto.Monitoring_LowThresholdPercent is >= 1 and <= 99) Check("Monitoring_LowThresholdPercent", dto.Monitoring_LowThresholdPercent.ToString(), "Seuil « bas » des consommables (%)", "Supervision");
             Check("Monitoring_IncludeOffline", dto.Monitoring_IncludeOffline.ToString(), "Inclure Offline dans export API", "Monitoring");
             Check("Monitoring_IncludeWarning", dto.Monitoring_IncludeWarning.ToString(), "Inclure Warning dans export API", "Monitoring");
             Check("Monitoring_IncludeCritical", dto.Monitoring_IncludeCritical.ToString(), "Inclure Critical dans export API", "Monitoring");
@@ -236,6 +237,7 @@ namespace Autoprint.Server.Controllers
             await UpdateSetting("Monitoring_StartHour", dto.Monitoring_StartHour.ToString());
             await UpdateSetting("Monitoring_EndHour", dto.Monitoring_EndHour.ToString());
             await UpdateSetting("Monitoring_ScanOnWeekends", dto.Monitoring_ScanOnWeekends.ToString());
+            if (dto.Monitoring_LowThresholdPercent is >= 1 and <= 99) await UpdateSetting("Monitoring_LowThresholdPercent", dto.Monitoring_LowThresholdPercent.ToString());
             await UpdateSetting("Monitoring_IncludeOffline", dto.Monitoring_IncludeOffline.ToString());
             await UpdateSetting("Monitoring_IncludeWarning", dto.Monitoring_IncludeWarning.ToString());
             await UpdateSetting("Monitoring_IncludeCritical", dto.Monitoring_IncludeCritical.ToString());
@@ -437,6 +439,7 @@ namespace Autoprint.Server.Controllers
         public int Monitoring_StartHour { get; set; } = 8;
         public int Monitoring_EndHour { get; set; } = 18;
         public bool Monitoring_ScanOnWeekends { get; set; } = true;
+        public int Monitoring_LowThresholdPercent { get; set; } = 20;
         public bool Monitoring_IncludeOffline { get; set; } = true;
         public bool Monitoring_IncludeWarning { get; set; } = true;
         public bool Monitoring_IncludeCritical { get; set; } = true;

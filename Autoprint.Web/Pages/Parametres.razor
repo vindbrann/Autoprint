@@ -421,6 +421,15 @@ else
                                 }
                             </div>
                         </div>
+                        <div class="ap-set-row">
+                            <div><h3>Seuil « bas » des consommables</h3><p>En dessous de ce niveau, un toner ou un élément de maintenance est signalé « bas » et l'imprimante passe en avertissement. Prévoyez le délai de commande et d'envoi.</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_LowThresholdPercent" Min="1" Max="99" Style="width: 110px;" aria-label="Seuil bas en pourcentage" />
+                                    <span class="ap-muted">%</span>
+                                </div>
+                            </div>
+                        </div>
                     </section>
                 </div>
             }
@@ -882,6 +891,7 @@ else
         public int Monitoring_StartHour { get; set; } = 8;
         public int Monitoring_EndHour { get; set; } = 18;
         public bool Monitoring_ScanOnWeekends { get; set; } = true;
+        public int Monitoring_LowThresholdPercent { get; set; } = 20;
         public bool Monitoring_IncludeOffline { get; set; } = true;
         public bool Monitoring_IncludeWarning { get; set; } = true;
         public bool Monitoring_IncludeCritical { get; set; } = true;
@@ -921,6 +931,7 @@ else
             model.Monitoring_StartHour = int.Parse(GV(s, "Monitoring_StartHour", "8"));
             model.Monitoring_EndHour = int.Parse(GV(s, "Monitoring_EndHour", "18"));
             model.Monitoring_ScanOnWeekends = bool.Parse(GV(s, "Monitoring_ScanOnWeekends", "true"));
+            model.Monitoring_LowThresholdPercent = int.TryParse(GV(s, "Monitoring_LowThresholdPercent", "20"), out var lowPct) ? lowPct : 20;
             model.Monitoring_IncludeOffline = bool.Parse(GV(s, "Monitoring_IncludeOffline", "true"));
             model.Monitoring_IncludeWarning = bool.Parse(GV(s, "Monitoring_IncludeWarning", "true"));
             model.Monitoring_IncludeCritical = bool.Parse(GV(s, "Monitoring_IncludeCritical", "true"));

@@ -463,14 +463,12 @@ namespace Autoprint.Server.Controllers
             var profiles = await SnmpCredentials.LoadProfilesAsync(_context);
             var credentials = SnmpCredentials.Resolve(printer, profiles, HttpContext.RequestServices.GetRequiredService<SecretProtector>());
 
-            var result = await _snmpService.GetPrinterDiagnosticAsync(printer.AdresseIp, printer.SnmpPort, credentials, printer.Modele?.SnmpProfile);
+            var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(_context);
+            var result = await _snmpService.GetPrinterDiagnosticAsync(printer.AdresseIp, printer.SnmpPort, credentials, printer.Modele?.SnmpProfile, lowThreshold);
 
             // Update database status based on diagnostic results
-            if (!result.PingSuccess)
-            {
-                printer.MonitoringStatus = "Offline";
-            }
-            else
+            // Statut calculé par PrinterHealth.Evaluate (Offline si la machine ne répond pas)
+            if (result.PingSuccess)
             {
                 printer.LastSeen = DateTime.UtcNow;
 
@@ -479,55 +477,10 @@ namespace Autoprint.Server.Controllers
                     printer.SerialNumber = result.SerialNumber;
                 }
 
-                bool tonerLow = false;
-                if (result.Toners != null)
-                {
-                    var todayUtc = DateTime.UtcNow.Date;
-                    foreach (var toner in result.Toners)
-                    {
-                        if (toner.CurrentLevel >= 0)
-                        {
-                            if (toner.CurrentLevel <= 10)
-                            {
-                                tonerLow = true;
-                            }
-
-                            bool alreadyLoggedToday = await _context.TonerHistories
-                                .AnyAsync(h => h.ImprimanteId == printer.Id 
-                                               && h.ComponentColor == toner.Color 
-                                               && h.RecordedAt >= todayUtc);
-
-                            if (!alreadyLoggedToday)
-                            {
-                                _context.TonerHistories.Add(new TonerHistory
-                                {
-                                    ImprimanteId = printer.Id,
-                                    ComponentColor = toner.Color,
-                                    LevelPercent = toner.CurrentLevel,
-                                    RecordedAt = DateTime.UtcNow
-                                });
-                            }
-                        }
-                    }
-                }
-
-                if (result.Status != null && (result.Status.Contains("Alerte") || result.Status.Contains("Inconnu")))
-                {
-                    printer.MonitoringStatus = "Warning";
-                }
-                else if (tonerLow)
-                {
-                    printer.MonitoringStatus = "Warning";
-                }
-                else if (result.Alerts != null && result.Alerts.Any(a => a.ToLower().Contains("erreur") || a.ToLower().Contains("bourrage") || a.ToLower().Contains("ouvert")))
-                {
-                    printer.MonitoringStatus = "Critical";
-                }
-                else
-                {
-                    printer.MonitoringStatus = "Ok";
-                }
+                await PrinterHealth.AddDailyHistoryAsync(_context, printer.Id, result.Toners);
             }
+
+            printer.MonitoringStatus = PrinterHealth.Evaluate(result);
 
             await _context.SaveChangesAsync();
 
