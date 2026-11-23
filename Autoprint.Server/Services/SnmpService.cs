@@ -955,7 +955,7 @@ namespace Autoprint.Server.Services
         private static readonly string[] MaintenanceWords =
         {
             "fuser", "fusion", "four", "drum", "tambour", "photocond", "photoconductor", "imaging", "unité d'image", "image unit",
-            "kit", "maintenance", "waste", "récup", "recup", "collect", "transfer", "transfert", "belt", "courroie", "roller", "rouleau", "developer", "développeur"
+            "kit", "maintenance", "waste", "usagé", "used", "récup", "recup", "collect", "transfer", "transfert", "belt", "courroie", "roller", "rouleau", "developer", "développeur"
         };
 
         /// <summary>Un élément « Toner » dont le nom désigne une pièce d'usure (unité de fusion, kit, photoconducteur…) va dans la section Maintenance.</summary>
@@ -968,11 +968,29 @@ namespace Autoprint.Server.Services
             return SupplyKind.Toner;
         }
 
+        // Code constructeur en fin de message (« Mode économie d'énergie {10033} ») et ponctuation finale ignorés pour la comparaison
+        private static string NormalizeAlert(string text)
+        {
+            var t = System.Text.RegularExpressions.Regex.Replace(text, @"\s*\{\d+\}\s*$", "");
+            return t.Trim().TrimEnd('.', '!', ' ').ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Ajoute une alerte sans doublon : un même message lu sur l'écran (« Écran LCD Console : … ») et dans la table
+        /// d'alertes n'apparaît qu'une fois, avec la gravité la plus haute.
+        /// </summary>
         private static void AddAlert(PrinterDiagnosticResult result, AlertSeverity severity, string text)
         {
             text = text.Trim();
             if (text.Length == 0) return;
-            var existing = result.Alerts.FirstOrDefault(a => string.Equals(a.Text, text, StringComparison.OrdinalIgnoreCase));
+            var key = NormalizeAlert(text);
+            var existing = result.Alerts.FirstOrDefault(a =>
+            {
+                var other = NormalizeAlert(a.Text);
+                var sep = a.Text.IndexOf(" : ", StringComparison.Ordinal);
+                var otherMessage = sep >= 0 ? NormalizeAlert(a.Text[(sep + 3)..]) : other;
+                return other == key || otherMessage == key;
+            });
             if (existing == null) result.Alerts.Add(new PrinterAlert(severity, text));
             else if (severity > existing.Severity) existing.Severity = severity;
         }

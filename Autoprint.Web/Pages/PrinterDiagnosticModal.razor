@@ -195,7 +195,7 @@
                                             <div class="diag-gauge-track">
                                                 <div class="diag-gauge-fill" style="--fill: var(--ap-info); width: @(Math.Clamp(tray.CurrentLevel, 0, 100))%;"></div>
                                             </div>
-                                            <span class="diag-gauge-value @(tray.State == SupplyState.Empty ? "is-empty" : "")">
+                                            <span class="diag-gauge-value @(tray.State == SupplyState.Empty ? "is-tray-empty" : "")">
                                                 @(tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel} %" : $"{tray.CurrentLevel} f.")
                                             </span>
                                         </div>
@@ -299,6 +299,8 @@
     }
     .diag-gauge-value.is-low { color: var(--ap-warning); }
     .diag-gauge-value.is-empty { color: var(--ap-danger); }
+    /* Bac vide : souvent le bac manuel, vide en temps normal ; pas de rouge */
+    .diag-gauge-value.is-tray-empty { font-weight: 400; color: var(--ap-text-muted); }
 </style>
 
 @code {
