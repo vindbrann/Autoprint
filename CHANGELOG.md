@@ -2,6 +2,14 @@
 
 Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la journée). Le détail technique de chaque correction est dans le [backlog](Docs/projet/BACKLOG_AMELIORATIONS.md).
 
+## Non publié
+
+### Corrections
+
+- **Diagnostic SNMP en thème sombre** (#46) : les messages de l'imprimante sont de nouveau lisibles, la carte des alertes suit le thème, et la jauge du toner noir se distingue du fond. Le pourcentage s'affiche à côté de la jauge, lisible quelle que soit la couleur.
+- **Libellés SNMP accentués** (#46) : les textes envoyés par l'imprimante dans une page de code DOS ou Windows sont décodés correctement (« Unité de fusion » au lieu de « Unit� De Fusion »), y compris dans les profils déjà enregistrés.
+- **Noms proposés par l'auto-découverte** (#46) : l'unité de fusion ou le kit de maintenance ne prennent plus le préfixe « Toner ». Les bacs portent leur nom et leur format (« Tray 1 – A4 ») au lieu du code brut `iso-a4-white`. Dans le diagnostic, les bacs déjà enregistrés avec ce code s'affichent « Bac 1 – A4 ».
+
 ## 26.11.22.1 — 22/11/2026
 
 ### Nouveautés

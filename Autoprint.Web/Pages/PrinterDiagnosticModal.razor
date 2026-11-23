@@ -102,7 +102,7 @@
 
                 <!-- Alertes actives sur l'écran -->
                 <RadzenColumn Size="12" SizeMD="6">
-                    <RadzenCard Style="height: 100%; background-color: var(--rz-base-50);">
+                    <RadzenCard Style="height: 100%;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase;">
                             Messages &amp; Alertes Imprimante
                         </RadzenText>
@@ -142,16 +142,20 @@
                         @foreach (var toner in diagnostic.Toners)
                         {
                             <RadzenRow AlignItems="AlignItems.Center">
-                                <RadzenColumn Size="3">
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0;">
+                                <RadzenColumn Size="4">
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0; overflow-wrap: anywhere;">
                                         @toner.Color
                                     </RadzenText>
                                 </RadzenColumn>
-                                <RadzenColumn Size="9">
-                                    <div style="background-color: var(--rz-base-200); border-radius: 4px; height: 24px; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rz-base-300);">
-                                        <div style="width: @(toner.CurrentLevel >= 0 ? toner.CurrentLevel : 0)%; height: 100%; background-color: @(!string.IsNullOrEmpty(toner.ColorHex) ? toner.ColorHex : GetColorHex(toner.Color)); transition: width 0.5s ease-in-out;"></div>
-                                        <span style="position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 24px; font-weight: bold; color: @(GetTextColor(toner.Color)); font-size: 0.9em; text-shadow: @(GetTextShadow(toner.Color));">
-                                            @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel}%" : "Niveau inconnu")
+                                <RadzenColumn Size="8">
+                                    @{ var tonerHex = !string.IsNullOrEmpty(toner.ColorHex) ? toner.ColorHex : GetColorHex(toner.Color); }
+                                    <div class="diag-gauge">
+                                        <div class="diag-gauge-track">
+                                            <div class="diag-gauge-fill @(IsDarkInk(tonerHex) ? "is-dark-ink" : "")"
+                                                 style="--fill: @tonerHex; width: @(Math.Clamp(toner.CurrentLevel, 0, 100))%;"></div>
+                                        </div>
+                                        <span class="diag-gauge-value @(toner.CurrentLevel < 0 ? "is-unknown" : "")">
+                                            @(toner.CurrentLevel >= 0 ? $"{toner.CurrentLevel} %" : "Inconnu")
                                         </span>
                                     </div>
                                 </RadzenColumn>
@@ -173,16 +177,18 @@
                         @foreach (var tray in diagnostic.Trays)
                         {
                             <RadzenRow AlignItems="AlignItems.Center">
-                                <RadzenColumn Size="3">
-                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0;">
+                                <RadzenColumn Size="4">
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0; overflow-wrap: anywhere;">
                                         @tray.Name
                                     </RadzenText>
                                 </RadzenColumn>
-                                <RadzenColumn Size="9">
-                                    <div style="background-color: var(--rz-base-200); border-radius: 4px; height: 20px; width: 100%; position: relative; overflow: hidden; border: 1px solid var(--rz-base-300);">
-                                        <div style="width: @(tray.CurrentLevel >= 0 ? Math.Min(tray.CurrentLevel, 100) : 0)%; height: 100%; background-color: var(--rz-info); transition: width 0.5s ease-in-out;"></div>
-                                        <span style="position: absolute; width: 100%; text-align: center; top: 0; left: 0; line-height: 20px; font-weight: bold; color: #ffffff; font-size: 0.85em;">
-                                            @(tray.CurrentLevel >= 0 ? (tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel}%" : $"{tray.CurrentLevel} feuilles") : "Niveau inconnu")
+                                <RadzenColumn Size="8">
+                                    <div class="diag-gauge">
+                                        <div class="diag-gauge-track">
+                                            <div class="diag-gauge-fill" style="--fill: var(--ap-info); width: @(Math.Clamp(tray.CurrentLevel, 0, 100))%;"></div>
+                                        </div>
+                                        <span class="diag-gauge-value @(tray.CurrentLevel < 0 ? "is-unknown" : "")">
+                                            @(tray.CurrentLevel >= 0 ? (tray.CurrentLevel <= 100 ? $"{tray.CurrentLevel} %" : $"{tray.CurrentLevel} f.") : "Inconnu")
                                         </span>
                                     </div>
                                 </RadzenColumn>
@@ -211,22 +217,53 @@
 </RadzenStack>
 
 <style>
+    /* Jetons --ap-* uniquement : ils suivent le thème clair / sombre (issue #46). L'échelle --rz-base-* n'est pas
+       inversée en sombre (base-50 à base-200 restent des gris clairs) et ne doit pas servir de fond ici. */
     .ping-card-ok {
-        border-color: rgba(40, 167, 69, 0.3) !important;
-        background-color: rgba(40, 167, 69, 0.03) !important;
+        border-color: var(--ap-success) !important;
+        background-color: var(--ap-success-subtle) !important;
     }
     .ping-card-error {
-        border-color: rgba(220, 53, 69, 0.3) !important;
-        background-color: rgba(220, 53, 69, 0.03) !important;
+        border-color: var(--ap-danger) !important;
+        background-color: var(--ap-danger-subtle) !important;
     }
     .alert-item {
-        background-color: var(--rz-base-100);
+        background-color: var(--ap-warning-subtle);
+        color: var(--ap-text);
         border-radius: 4px;
         padding: 0.5rem;
-        border-left: 3px solid var(--rz-warning);
+        border-left: 3px solid var(--ap-warning);
         display: flex;
         align-items: center;
     }
+    .alert-item .rz-text-body2 { color: var(--ap-text); }
+
+    /* Jauge : barre + valeur à côté (pas superposée), lisible quelle que soit la couleur du consommable */
+    .diag-gauge { display: flex; align-items: center; gap: 0.75rem; }
+    .diag-gauge-track {
+        flex: 1;
+        height: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+        background-color: var(--ap-surface-raised);
+        box-shadow: inset 0 0 0 1px var(--ap-border);
+    }
+    .diag-gauge-fill {
+        height: 100%;
+        border-radius: 999px;
+        background-color: var(--fill);
+        transition: width 0.5s ease-in-out;
+    }
+    /* Toner noir sur fond sombre : la couleur réelle se confondrait avec la carte, on l'éclaircit */
+    html:root[data-theme="dark"] .diag-gauge-fill.is-dark-ink { background-color: var(--ap-text-secondary); }
+    .diag-gauge-value {
+        min-width: 4.5rem;
+        text-align: right;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--ap-text);
+    }
+    .diag-gauge-value.is-unknown { font-weight: 400; font-style: italic; color: var(--ap-text-muted); }
 </style>
 
 @code {
@@ -263,31 +300,24 @@
 
     private string GetColorHex(string colorName)
     {
-        return colorName.ToLower() switch
-        {
-            "noir" => "#212529",
-            "cyan" => "#17a2b8",
-            "magenta" => "#e83e8c",
-            "jaune" => "#ffc107",
-            _ => "#6c757d"
-        };
+        var name = colorName.ToLowerInvariant();
+        if (name.Contains("noir") || name.Contains("black")) return "#212529";
+        if (name.Contains("cyan")) return "#17a2b8";
+        if (name.Contains("magenta")) return "#e83e8c";
+        if (name.Contains("jaune") || name.Contains("yellow")) return "#ffc107";
+        return "#6c757d";
     }
 
-    private string GetTextColor(string colorName)
+    /// <summary>Couleur très sombre (luminance relative &lt; 0,08) : invisible sur la carte en thème sombre.</summary>
+    private static bool IsDarkInk(string? hex)
     {
-        return colorName.ToLower() switch
-        {
-            "jaune" => "#212529",
-            _ => "#ffffff"
-        };
-    }
+        if (string.IsNullOrWhiteSpace(hex)) return false;
+        var h = hex.Trim().TrimStart('#');
+        if (h.Length == 3) h = string.Concat(h.Select(c => $"{c}{c}"));
+        if (h.Length != 6 || !int.TryParse(h, System.Globalization.NumberStyles.HexNumber, null, out var rgb)) return false;
 
-    private string GetTextShadow(string colorName)
-    {
-        return colorName.ToLower() switch
-        {
-            "jaune" => "none",
-            _ => "1px 1px 2px rgba(0,0,0,0.8)"
-        };
+        static double Lin(int c) { var v = c / 255.0; return v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4); }
+        var lum = 0.2126 * Lin((rgb >> 16) & 0xFF) + 0.7152 * Lin((rgb >> 8) & 0xFF) + 0.0722 * Lin(rgb & 0xFF);
+        return lum < 0.08;
     }
 }
