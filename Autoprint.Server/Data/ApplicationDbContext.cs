@@ -30,6 +30,7 @@ namespace Autoprint.Server.Data
         public DbSet<DiscoveryProfile> DiscoveryProfiles { get; set; }
         public DbSet<TonerHistory> TonerHistories { get; set; }
         public DbSet<SupplyHistory> SupplyHistories { get; set; }
+        public DbSet<SupplySnapshot> SupplySnapshots { get; set; }
         public DbSet<SnmpProfile> SnmpProfiles { get; set; }
         public DbSet<SnmpProfileItem> SnmpProfileItems { get; set; }
         public DbSet<SnmpProfileOverride> SnmpProfileOverrides { get; set; }
@@ -192,6 +193,15 @@ namespace Autoprint.Server.Data
                 .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<SupplyHistory>()
                 .HasIndex(h => new { h.ImprimanteId, h.RecordedAt });
+
+            // #52 : état actuel des consommables (un par imprimante et par clé)
+            modelBuilder.Entity<SupplySnapshot>()
+                .HasOne(s => s.Imprimante)
+                .WithMany()
+                .HasForeignKey(s => s.ImprimanteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<SupplySnapshot>()
+                .HasIndex(s => new { s.ImprimanteId, s.SupplyKey });
 
             // #50 : modifications des éléments détectés automatiquement
             modelBuilder.Entity<SnmpProfile>()

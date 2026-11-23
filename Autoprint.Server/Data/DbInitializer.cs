@@ -234,6 +234,29 @@ namespace Autoprint.Server.Data
                             );
                             CREATE INDEX IX_SupplyHistories_ImprimanteId_RecordedAt ON SupplyHistories(ImprimanteId, RecordedAt);
                         END
+                        IF OBJECT_ID('Imprimantes') IS NOT NULL AND OBJECT_ID('SupplySnapshots') IS NULL
+                        BEGIN
+                            CREATE TABLE SupplySnapshots (
+                                Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                ImprimanteId int NOT NULL,
+                                SupplyKey nvarchar(120) NOT NULL,
+                                Name nvarchar(100) NOT NULL,
+                                Kind int NOT NULL,
+                                Level int NOT NULL,
+                                State int NOT NULL,
+                                IsReceptacle bit NOT NULL,
+                                DaysRemaining int NULL,
+                                Confidence int NOT NULL,
+                                NeedsOrder bit NOT NULL,
+                                LowSince datetime2 NULL,
+                                UpdatedAt datetime2 NOT NULL,
+                                DateModification datetime2 NOT NULL CONSTRAINT DF_SupplySnapshots_DateModification DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL CONSTRAINT DF_SupplySnapshots_EstSupprime DEFAULT 0,
+                                CONSTRAINT FK_SupplySnapshots_Imprimantes_ImprimanteId FOREIGN KEY (ImprimanteId) REFERENCES Imprimantes(Id) ON DELETE CASCADE
+                            );
+                            CREATE INDEX IX_SupplySnapshots_ImprimanteId_SupplyKey ON SupplySnapshots(ImprimanteId, SupplyKey);
+                        END
                         IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND OBJECT_ID('SnmpProfileOverrides') IS NULL
                         BEGIN
                             CREATE TABLE SnmpProfileOverrides (

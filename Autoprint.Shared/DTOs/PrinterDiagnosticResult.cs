@@ -91,9 +91,30 @@ namespace Autoprint.Shared.DTOs
         public int? AverageLifetimeDays { get; set; }
         /// <summary>À commander : Bas / Vide, ou fin prévue dans moins que le délai d'approvisionnement.</summary>
         public bool NeedsOrder { get; set; }
+        /// <summary>Date du dernier changement détecté de ce consommable (#52).</summary>
+        public DateTime? LastReplacedAt { get; set; }
 
         public bool HasLevel => CurrentLevel >= 0;
         public bool NeedsAttention => State is SupplyState.Low or SupplyState.Empty;
+    }
+
+    /// <summary>Ligne de la vue « Consommables à commander » (#52).</summary>
+    public class SupplyToOrderDto
+    {
+        public int ImprimanteId { get; set; }
+        public string Imprimante { get; set; } = string.Empty;
+        public string? Lieu { get; set; }
+        public string? Modele { get; set; }
+        public string? AdresseIp { get; set; }
+        public string Consommable { get; set; } = string.Empty;
+        public SupplyKind Kind { get; set; }
+        public int Level { get; set; } = -1;
+        public SupplyState State { get; set; }
+        public bool IsReceptacle { get; set; }
+        public int? DaysRemaining { get; set; }
+        public ForecastConfidence Confidence { get; set; }
+        public DateTime? LowSince { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 
     public class PaperTrayResult

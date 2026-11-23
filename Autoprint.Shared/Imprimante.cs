@@ -44,6 +44,17 @@ namespace Autoprint.Shared
         [MaxLength(100)]
         public string? SerialNumber { get; set; }
         public DateTime? LastSeen { get; set; }
+
+        // #52 : consommable qui finira le plus tôt (calculé par l'API depuis SupplySnapshots, pas en base)
+        [NotMapped]
+        public string? NextSupplyName { get; set; }
+        [NotMapped]
+        public string? NextSupplyDetail { get; set; }
+        /// <summary>Urgence pour le tri (plus petit = plus urgent), null sans relevé de consommable.</summary>
+        [NotMapped]
+        public int? NextSupplyUrgency { get; set; }
+        [NotMapped]
+        public int SuppliesToOrder { get; set; }
         public bool IsArchived { get; set; } = false;
     }
 }

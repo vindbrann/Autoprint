@@ -125,8 +125,87 @@ namespace Autoprint.Server.Services
                 t.ForecastMethod = forecast.Method;
                 t.LowSince = LowSince(history, t);
                 t.AverageLifetimeDays = AverageLifetime(history);
+                t.LastReplacedAt = history.LastOrDefault(h => h.IsReplacement)?.RecordedAt;
                 t.NeedsOrder = t.NeedsAttention
                                || (forecast.Days is int d && d <= leadTimeDays && forecast.Confidence >= ForecastConfidence.Medium);
+            }
+        }
+
+        /// <summary>
+        /// Met à jour l'état actuel des consommables de l'imprimante (#52) : une ligne par élément du diagnostic, les
+        /// éléments disparus (masqués, retirés) sont supprimés. Sans effet si l'imprimante n'a pas répondu.
+        /// </summary>
+        public static async Task SaveSnapshotsAsync(ApplicationDbContext context, int printerId, PrinterDiagnosticResult result, CancellationToken token = default)
+        {
+            if (!result.PingSuccess || result.Toners == null) return;
+            var existing = await context.SupplySnapshots.Where(s => s.ImprimanteId == printerId).ToListAsync(token);
+            var now = DateTime.UtcNow;
+            var seen = new HashSet<string>();
+
+            foreach (var t in result.Toners)
+            {
+                var key = KeyOf(t);
+                if (!seen.Add(key)) continue;
+                var snap = existing.FirstOrDefault(s => s.SupplyKey == key);
+                if (snap == null)
+                {
+                    snap = new SupplySnapshot { ImprimanteId = printerId, SupplyKey = key };
+                    context.SupplySnapshots.Add(snap);
+                }
+                snap.Name = Truncate(t.Color, 100);
+                snap.Kind = t.Kind;
+                snap.Level = t.CurrentLevel;
+                snap.State = t.State;
+                snap.IsReceptacle = t.IsReceptacle;
+                snap.DaysRemaining = t.EstimatedDaysRemaining;
+                snap.Confidence = t.ForecastConfidence;
+                snap.NeedsOrder = t.NeedsOrder;
+                snap.LowSince = t.LowSince;
+                snap.UpdatedAt = now;
+            }
+            context.SupplySnapshots.RemoveRange(existing.Where(s => !seen.Contains(s.SupplyKey)));
+        }
+
+        /// <summary>Urgence d'un consommable pour le tri (plus petit = plus urgent).</summary>
+        public static int Urgency(SupplySnapshot s)
+        {
+            if (s.State == SupplyState.Empty) return 0;
+            if (s.NeedsOrder) return 1000 + Math.Min(s.DaysRemaining ?? 0, 8999);
+            if (s.DaysRemaining is int d) return 10000 + Math.Min(d, 9999);
+            if (s.Level >= 0) return 20000 + s.Level;
+            return s.State == SupplyState.Ok ? 30000 : 40000;
+        }
+
+        /// <summary>Texte court : niveau ou état, et jours restants (« 12 % · ≈ 9 j »).</summary>
+        public static string Detail(SupplySnapshot s)
+        {
+            string level = s.Level >= 0 ? $"{s.Level} %{(s.IsReceptacle ? " libre" : "")}" : s.State switch
+            {
+                SupplyState.Ok => "OK",
+                SupplyState.Low => s.IsReceptacle ? "Presque plein" : "Bas",
+                SupplyState.Empty => s.IsReceptacle ? "Plein" : "Vide",
+                _ => "Inconnu"
+            };
+            return s.DaysRemaining is int d ? $"{level} · ≈ {d} j" : level;
+        }
+
+        /// <summary>Renseigne sur chaque imprimante le consommable qui finira le plus tôt (liste du parc, #52).</summary>
+        public static async Task FillNextSupplyAsync(ApplicationDbContext context, IList<Imprimante> printers, CancellationToken token = default)
+        {
+            var ids = printers.Select(p => p.Id).ToList();
+            var snaps = await context.SupplySnapshots.AsNoTracking()
+                .Where(s => ids.Contains(s.ImprimanteId) && (s.Kind == SupplyKind.Toner || s.NeedsOrder))
+                .ToListAsync(token);
+            var byPrinter = snaps.GroupBy(s => s.ImprimanteId).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var p in printers)
+            {
+                if (!byPrinter.TryGetValue(p.Id, out var list) || list.Count == 0) continue;
+                var next = list.OrderBy(Urgency).First();
+                p.NextSupplyName = next.Name;
+                p.NextSupplyDetail = Detail(next);
+                p.NextSupplyUrgency = Urgency(next);
+                p.SuppliesToOrder = list.Count(s => s.NeedsOrder);
             }
         }
 

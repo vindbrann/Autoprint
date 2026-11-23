@@ -33,7 +33,11 @@ namespace Autoprint.Server.Controllers
         public async Task<ActionResult<IEnumerable<Imprimante>>> GetImprimantes([FromQuery] bool includeArchived = false)
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
-                return HideSnmpCommunity(await GetImprimantesListWithIncludes(includeArchived));
+            {
+                var list = await GetImprimantesListWithIncludes(includeArchived);
+                await SupplyHistoryService.FillNextSupplyAsync(_context, list); // #52 : colonne « Prochain consommable »
+                return HideSnmpCommunity(list);
+            }
 
             if (await AgentAuth.IsValidAgentRequestAsync(Request, _context))
                 return await GetImprimantesForAgent();
@@ -447,6 +451,52 @@ namespace Autoprint.Server.Controllers
             return NoContent();
         }
 
+        /// <summary>#52 : consommables à commander sur tout le parc actif (état enregistré à la dernière supervision).</summary>
+        [HttpGet("supplies-to-order")]
+        [Authorize(Policy = "PRINTER_READ")]
+        public async Task<ActionResult<List<Autoprint.Shared.DTOs.SupplyToOrderDto>>> GetSuppliesToOrder()
+        {
+            // Requêtes séparées plutôt que des jointures sur le lieu et le modèle : une imprimante incomplète (sans lieu ou
+            // sans modèle) disparaîtrait de la liste avec une jointure interne
+            var snaps = await _context.SupplySnapshots.AsNoTracking().Where(s => s.NeedsOrder).ToListAsync();
+            var ids = snaps.Select(s => s.ImprimanteId).Distinct().ToList();
+            var printers = await _context.Imprimantes.AsNoTracking()
+                .Where(i => ids.Contains(i.Id) && !i.IsArchived)
+                .Select(i => new { i.Id, i.NomAffiche, i.AdresseIp, i.EmplacementId, i.ModeleId })
+                .ToDictionaryAsync(i => i.Id);
+            var lieux = await _context.Emplacements.AsNoTracking().ToDictionaryAsync(e => e.Id, e => e.Nom);
+            var modeles = await _context.Modeles.AsNoTracking().ToDictionaryAsync(m => m.Id, m => m.Nom);
+
+            var rows = snaps.Where(s => printers.ContainsKey(s.ImprimanteId)).Select(s =>
+            {
+                var p = printers[s.ImprimanteId];
+                return new Autoprint.Shared.DTOs.SupplyToOrderDto
+                {
+                    ImprimanteId = s.ImprimanteId,
+                    Imprimante = p.NomAffiche,
+                    Lieu = lieux.GetValueOrDefault(p.EmplacementId),
+                    Modele = modeles.GetValueOrDefault(p.ModeleId),
+                    AdresseIp = p.AdresseIp,
+                    Consommable = s.Name,
+                    Kind = s.Kind,
+                    Level = s.Level,
+                    State = s.State,
+                    IsReceptacle = s.IsReceptacle,
+                    DaysRemaining = s.DaysRemaining,
+                    Confidence = s.Confidence,
+                    LowSince = s.LowSince,
+                    UpdatedAt = s.UpdatedAt
+                };
+            }).ToList();
+
+            // Les plus urgents d'abord : vides, puis par jours restants, puis par niveau
+            return rows.OrderBy(r => r.State == Autoprint.Shared.DTOs.SupplyState.Empty ? 0 : 1)
+                       .ThenBy(r => r.DaysRemaining ?? int.MaxValue)
+                       .ThenBy(r => r.Level < 0 ? int.MaxValue : r.Level)
+                       .ThenBy(r => r.Imprimante)
+                       .ToList();
+        }
+
         [HttpGet("{id}/diagnostic")]
         [Authorize(Policy = "PRINTER_READ")]
         public async Task<ActionResult<Autoprint.Shared.DTOs.PrinterDiagnosticResult>> GetImprimanteDiagnostic(int id)
@@ -479,6 +529,7 @@ namespace Autoprint.Server.Controllers
 
                 await SupplyHistoryService.RecordAsync(_context, printer.Id, result, history);
                 SupplyHistoryService.Enrich(result, history, leadTime);
+                await SupplyHistoryService.SaveSnapshotsAsync(_context, printer.Id, result);
             }
 
             printer.MonitoringStatus = PrinterHealth.Evaluate(result);

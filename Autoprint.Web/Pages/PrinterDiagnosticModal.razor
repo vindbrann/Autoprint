@@ -411,6 +411,7 @@
     private static string? ForecastText(TonerLevelResult supply)
     {
         string? lifetime = supply.AverageLifetimeDays is int life ? $"durée moyenne observée : {life} jours" : null;
+        string? replaced = supply.LastReplacedAt is DateTime r ? $"changé le {r.ToLocalTime():dd/MM/yyyy}" : null;
 
         if (supply.EstimatedDaysRemaining is int days)
         {
@@ -423,16 +424,18 @@
                 ForecastConfidence.Medium => "fiabilité moyenne",
                 _ => null
             };
-            return string.Join(" · ", new[] { when, reliability }.Where(x => x != null));
+            return string.Join(" · ", new[] { when, reliability, replaced }.Where(x => x != null));
         }
 
         if (supply.LowSince is DateTime since)
         {
             string state = supply.State == SupplyState.Empty ? (supply.IsReceptacle ? "Plein" : "Vide") : (supply.IsReceptacle ? "Presque plein" : "Bas");
-            return string.Join(" · ", new[] { $"{state} depuis le {since.ToLocalTime():dd/MM}", lifetime }.Where(x => x != null));
+            return string.Join(" · ", new[] { $"{state} depuis le {since.ToLocalTime():dd/MM}", lifetime, replaced }.Where(x => x != null));
         }
 
-        return lifetime != null && !supply.HasLevel ? lifetime[0..1].ToUpper() + lifetime[1..] : null;
+        // Pas de prévision : dernier changement et durée moyenne, s'ils sont connus
+        var info = string.Join(" · ", new[] { replaced, supply.HasLevel ? null : lifetime }.Where(x => x != null));
+        return info.Length > 0 ? char.ToUpper(info[0]) + info[1..] : null;
     }
 
     private string GetColorHex(string colorName)

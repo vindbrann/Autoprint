@@ -175,6 +175,7 @@ namespace Autoprint.Server.Services
                         if (!histories.TryGetValue(printer.Id, out var history)) histories[printer.Id] = history = new List<SupplyHistory>();
                         await SupplyHistoryService.RecordAsync(context, printer.Id, diagnostic, history, stoppingToken);
                         SupplyHistoryService.Enrich(diagnostic, history, MonitoringSettings.EffectiveLeadTime(printer.Modele?.SnmpProfile, globalLeadTime));
+                        await SupplyHistoryService.SaveSnapshotsAsync(context, printer.Id, diagnostic, stoppingToken);
                     }
 
                     printer.MonitoringStatus = PrinterHealth.Evaluate(diagnostic);

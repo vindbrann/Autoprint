@@ -178,6 +178,8 @@ namespace Autoprint.Server.Services
                     var toners = diagnostic.Toners ?? new List<TonerLevelResult>();
                     if (diagnostic.PingSuccess)
                         SupplyHistoryService.Enrich(diagnostic, printerHistory, MonitoringSettings.EffectiveLeadTime(printer.Modele?.SnmpProfile, globalLeadTime));
+                    var since90 = DateTime.UtcNow.AddDays(-90);
+                    var lifetimes = toners.Where(t => t.AverageLifetimeDays.HasValue).Select(t => t.AverageLifetimeDays!.Value).ToList();
 
                     string resolvedSn = !string.IsNullOrWhiteSpace(diagnostic.SerialNumber)
                         ? diagnostic.SerialNumber.Trim()
@@ -199,7 +201,9 @@ namespace Autoprint.Server.Services
                         Alerts = diagnostic.Alerts,
                         Toners = toners,
                         Trays = diagnostic.Trays ?? new List<PaperTrayResult>(),
-                        SerialNumber = resolvedSn
+                        SerialNumber = resolvedSn,
+                        Replacements90 = printerHistory.Count(h => h.IsReplacement && h.RecordedAt >= since90),
+                        AverageLifetimeDays = lifetimes.Count > 0 ? (int)Math.Round(lifetimes.Average()) : null
                     };
                 }
                 catch
@@ -252,6 +256,8 @@ namespace Autoprint.Server.Services
             if (metrics.Contains("Availability")) headers.Add("Disponibilité");
             if (metrics.Contains("Alerts")) headers.Add("Pannes / Alertes");
             if (metrics.Contains("Predictions")) headers.Add("Prévision d'épuisement");
+            if (metrics.Contains("ToOrder")) headers.Add("Consommables à commander");
+            if (metrics.Contains("Replacements")) headers.Add("Changements de consommables (90 j)");
 
             sb.AppendLine(string.Join(";", headers.Select(EscapeCsv)));
 
@@ -321,6 +327,15 @@ namespace Autoprint.Server.Services
                         row.Add(item.PingSuccess ? "Aucune donnée de prévision" : "Hors ligne");
                     }
                 }
+                if (metrics.Contains("ToOrder"))
+                {
+                    var toOrder = item.Toners.Where(t => t.NeedsOrder).Select(t => $"{t.Color} ({SupplyText(t)})").ToList();
+                    row.Add(!item.PingSuccess ? "Hors ligne" : toOrder.Count > 0 ? string.Join(" | ", toOrder) : "Rien à commander");
+                }
+                if (metrics.Contains("Replacements"))
+                {
+                    row.Add(item.Replacements90 == 0 ? "Aucun" : $"{item.Replacements90}{(item.AverageLifetimeDays is int life ? $" (durée moyenne {life} j)" : "")}");
+                }
 
                 sb.AppendLine(string.Join(";", row.Select(EscapeCsv)));
             }
@@ -336,6 +351,8 @@ namespace Autoprint.Server.Services
                 if (metrics.Contains("Availability")) totalRow.Add($"{data.Count(d => d.PingSuccess)}/{data.Count} en ligne");
                 if (metrics.Contains("Alerts")) totalRow.Add($"{data.Count(d => d.Alerts.Any())} alerte(s)");
                 if (metrics.Contains("Predictions")) totalRow.Add("");
+                if (metrics.Contains("ToOrder")) totalRow.Add($"{data.Sum(d => d.Toners.Count(t => t.NeedsOrder))} à commander");
+                if (metrics.Contains("Replacements")) totalRow.Add($"{data.Sum(d => d.Replacements90)} changement(s)");
                 sb.AppendLine(string.Join(";", totalRow.Select(EscapeCsv)));
             }
 
@@ -426,6 +443,15 @@ namespace Autoprint.Server.Services
                 int predictionThreshold = schedule.PredictionThresholdDays;
                 int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.NeedsOrder || (t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold)));
                 extra.Add(($"Imprimantes avec un consommable à commander ou épuisé sous {predictionThreshold} jours", nearExhaustionCount.ToString("N0"), nearExhaustionCount > 0 ? danger : text));
+            }
+            if (metrics.Contains("ToOrder"))
+            {
+                int toOrder = data.Sum(d => d.Toners.Count(t => t.NeedsOrder));
+                extra.Add(("Consommables à commander", toOrder.ToString("N0"), toOrder > 0 ? danger : text));
+            }
+            if (metrics.Contains("Replacements"))
+            {
+                extra.Add(("Changements de consommables (90 jours)", data.Sum(d => d.Replacements90).ToString("N0"), primary));
             }
             if (extra.Count > 0) DrawTiles(extra);
             summaryY += 4;
@@ -520,6 +546,13 @@ namespace Autoprint.Server.Services
                     }
                     values.Add(val);
                 }
+                if (metrics.Contains("ToOrder"))
+                {
+                    var toOrder = item.Toners.Where(t => t.NeedsOrder).Select(t => t.Color).ToList();
+                    values.Add(!item.PingSuccess ? "-" : toOrder.Count > 0 ? string.Join(", ", toOrder) : "Rien");
+                }
+                if (metrics.Contains("Replacements"))
+                    values.Add(item.Replacements90 == 0 ? "Aucun" : $"{item.Replacements90} chgt");
                 if (values.Count > 0) pdf.Text(pdf.Fit(values[0], colMetric2 - colMetric1 - 6, sizeText), colMetric1, y, sizeText, black);
                 if (values.Count > 1) pdf.Text(pdf.Fit(values[1], right - colMetric2, sizeText), colMetric2, y, sizeText, black);
             }
@@ -579,6 +612,9 @@ namespace Autoprint.Server.Services
 
         private class PrinterReportItem
         {
+            // #52 : changements de consommables sur les 90 derniers jours et durée moyenne observée
+            public int Replacements90 { get; set; }
+            public int? AverageLifetimeDays { get; set; }
             public Imprimante Printer { get; set; } = null!;
             public bool PingSuccess { get; set; }
             public long PageCounter { get; set; }
