@@ -457,6 +457,10 @@ namespace Autoprint.Server.Data
             {
                 context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_ScanOnWeekends", Value = "true", Description = "Scanner pendant le week-end (true/false)", Type = "BOOL" });
             }
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_LowThresholdPercent"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_LowThresholdPercent", Value = "20", Description = "Seuil « bas » des consommables en % (1-99)", Type = "INT" });
+            }
             if (!context.ServerSettings.Any(s => s.Key == "Monitoring_Enabled"))
             {
                 context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_Enabled", Value = "true", Description = "Activer la supervision d'arrière-plan (true/false)", Type = "BOOL" });

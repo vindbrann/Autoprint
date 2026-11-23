@@ -7,29 +7,75 @@ namespace Autoprint.Shared.DTOs
         public bool PingSuccess { get; set; }
         public long PingRoundtripTimeMs { get; set; }
         public string Status { get; set; } = "Inconnu";
-        public List<string> Alerts { get; set; } = new List<string>();
+        public List<PrinterAlert> Alerts { get; set; } = new List<PrinterAlert>();
         public long UptimeSeconds { get; set; }
         public long PageCounter { get; set; }
+        /// <summary>Consommables : toners (Kind = Toner) et éléments de maintenance (unité de fusion, photoconducteur…).</summary>
         public List<TonerLevelResult> Toners { get; set; } = new List<TonerLevelResult>();
         public List<PaperTrayResult> Trays { get; set; } = new List<PaperTrayResult>();
         public string? SerialNumber { get; set; }
         public bool HasSnmpProfile { get; set; } = true;
+        /// <summary>Seuil « bas » appliqué (en %), pour l'affichage.</summary>
+        public int LowThresholdPercent { get; set; } = 20;
+    }
+
+    /// <summary>État d'un consommable ou d'un bac, indépendant du niveau (#49) : beaucoup d'imprimantes ne donnent qu'un état.</summary>
+    public enum SupplyState
+    {
+        Unknown = 0,
+        Ok = 1,
+        Low = 2,
+        Empty = 3
+    }
+
+    public enum SupplyKind
+    {
+        Toner = 0,
+        Maintenance = 1
+    }
+
+    public enum AlertSeverity
+    {
+        Info = 0,
+        Warning = 1,
+        Critical = 2
+    }
+
+    public class PrinterAlert
+    {
+        public AlertSeverity Severity { get; set; } = AlertSeverity.Info;
+        public string Text { get; set; } = string.Empty;
+
+        public PrinterAlert() { }
+        public PrinterAlert(AlertSeverity severity, string text) { Severity = severity; Text = text; }
+
+        public override string ToString() => Text;
     }
 
     public class TonerLevelResult
     {
         public string Color { get; set; } = "Noir";
-        public int CurrentLevel { get; set; }
+        /// <summary>Niveau en %, ou -1 si l'imprimante ne le communique pas (voir State).</summary>
+        public int CurrentLevel { get; set; } = -1;
         public int MaxCapacity { get; set; }
         public int? EstimatedDaysRemaining { get; set; }
         public string ColorHex { get; set; } = "#212529";
+        public SupplyState State { get; set; } = SupplyState.Unknown;
+        public SupplyKind Kind { get; set; } = SupplyKind.Toner;
+
+        public bool HasLevel => CurrentLevel >= 0;
+        public bool NeedsAttention => State is SupplyState.Low or SupplyState.Empty;
     }
 
     public class PaperTrayResult
     {
         public string Name { get; set; } = "Bac 1";
-        public int CurrentLevel { get; set; }
+        /// <summary>Niveau en % (ou en feuilles au-delà de 100), -1 si inconnu (voir State).</summary>
+        public int CurrentLevel { get; set; } = -1;
         public int MaxCapacity { get; set; }
+        public SupplyState State { get; set; } = SupplyState.Unknown;
+
+        public bool HasLevel => CurrentLevel >= 0;
     }
 
     public class SnmpScanRequestDto
