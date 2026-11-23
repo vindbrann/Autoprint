@@ -605,8 +605,8 @@ namespace Autoprint.Server.Services
             string state = t.State switch
             {
                 SupplyState.Ok => "OK",
-                SupplyState.Low => "Bas",
-                SupplyState.Empty => "Vide",
+                SupplyState.Low => t.IsReceptacle ? "Presque plein" : "Bas",
+                SupplyState.Empty => t.IsReceptacle ? "Plein" : "Vide",
                 _ => compact ? "?" : "Inconnu"
             };
             if (!t.HasLevel) return state;

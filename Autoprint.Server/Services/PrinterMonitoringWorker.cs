@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autoprint.Server.Data;
 using Autoprint.Shared;
+using Autoprint.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +18,9 @@ namespace Autoprint.Server.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PrinterMonitoringWorker> _logger;
         private DateTime? _lastArchivingSweep;
+
+        // Imprimantes interrogées en même temps : assez pour un grand parc, sans saturer le réseau ni le serveur
+        private const int MaxParallelQueries = 8;
 
         public PrinterMonitoringWorker(IServiceProvider serviceProvider, ILogger<PrinterMonitoringWorker> logger)
         {
@@ -117,22 +121,42 @@ namespace Autoprint.Server.Services
             var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(context, stoppingToken);
             var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(context, stoppingToken);
 
-            foreach (var printer in activePrinters)
+            // #50 : interrogations SNMP en parallèle (limitées), écritures en base ensuite, une imprimante après l'autre
+            // (le DbContext n'est pas utilisable depuis plusieurs tâches)
+            var jobs = activePrinters.Select(p => (Printer: p, Credentials: SnmpCredentials.Resolve(p, snmpProfiles, secrets))).ToList();
+            using var gate = new SemaphoreSlim(MaxParallelQueries);
+            var diagnostics = await Task.WhenAll(jobs.Select(async job =>
             {
-                if (stoppingToken.IsCancellationRequested) break;
+                await gate.WaitAsync(stoppingToken);
+                try
+                {
+                    _logger.LogInformation($"Supervision: Interrogation de {job.Printer.NomAffiche} ({job.Printer.AdresseIp})...");
+                    var diagnostic = await snmpService.GetPrinterDiagnosticAsync(
+                        job.Printer.AdresseIp,
+                        job.Printer.SnmpPort,
+                        job.Credentials,
+                        job.Printer.Modele?.SnmpProfile,
+                        lowThreshold
+                    );
+                    return (job.Printer, Diagnostic: (PrinterDiagnosticResult?)diagnostic);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Erreur lors de la supervision de {job.Printer.NomAffiche}");
+                    return (job.Printer, Diagnostic: (PrinterDiagnosticResult?)null);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }));
+
+            foreach (var (printer, diagnostic) in diagnostics)
+            {
+                if (diagnostic == null || stoppingToken.IsCancellationRequested) continue;
 
                 try
                 {
-                    _logger.LogInformation($"Supervision: Interrogation de {printer.NomAffiche} ({printer.AdresseIp})...");
-
-                    var diagnostic = await snmpService.GetPrinterDiagnosticAsync(
-                        printer.AdresseIp,
-                        printer.SnmpPort,
-                        SnmpCredentials.Resolve(printer, snmpProfiles, secrets),
-                        printer.Modele?.SnmpProfile,
-                        lowThreshold
-                    );
-
                     // Statut calculé par PrinterHealth.Evaluate (Offline si la machine ne répond pas)
                     if (diagnostic.PingSuccess)
                     {
@@ -150,7 +174,7 @@ namespace Autoprint.Server.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Erreur lors de la supervision de {printer.NomAffiche}");
+                    _logger.LogError(ex, $"Erreur lors de l'enregistrement de la supervision de {printer.NomAffiche}");
                 }
             }
 
