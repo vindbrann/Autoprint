@@ -17,16 +17,14 @@ namespace Autoprint.Server.Controllers
         private readonly AuditService _auditService;
         private readonly IPrintSpoolerService _spooler;
         private readonly ISnmpService _snmpService;
-        private readonly IPredictiveService _predictiveService;
         private readonly SecretProtector _secrets;
 
-        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService, IPredictiveService predictiveService, SecretProtector secrets)
+        public ImprimantesController(ApplicationDbContext context, AuditService auditService, IPrintSpoolerService spooler, ISnmpService snmpService, SecretProtector secrets)
         {
             _context = context;
             _auditService = auditService;
             _spooler = spooler;
             _snmpService = snmpService;
-            _predictiveService = predictiveService;
             _secrets = secrets;
         }
 
@@ -467,8 +465,9 @@ namespace Autoprint.Server.Controllers
             var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(_context);
             var result = await _snmpService.GetPrinterDiagnosticAsync(printer.AdresseIp, printer.SnmpPort, credentials, printer.Modele?.SnmpProfile, lowThreshold);
 
-            // Update database status based on diagnostic results
-            // Statut calculé par PrinterHealth.Evaluate (Offline si la machine ne répond pas)
+            // #51 : historique des consommables, prévision et « à commander », puis statut (Offline si la machine ne répond pas)
+            var leadTime = MonitoringSettings.EffectiveLeadTime(printer.Modele?.SnmpProfile, await MonitoringSettings.GetLeadTimeAsync(_context));
+            var history = (await SupplyHistoryService.LoadAsync(_context, new[] { printer.Id })).GetValueOrDefault(printer.Id) ?? new List<SupplyHistory>();
             if (result.PingSuccess)
             {
                 printer.LastSeen = DateTime.UtcNow;
@@ -478,29 +477,13 @@ namespace Autoprint.Server.Controllers
                     printer.SerialNumber = result.SerialNumber;
                 }
 
-                await PrinterHealth.AddDailyHistoryAsync(_context, printer.Id, result.Toners);
+                await SupplyHistoryService.RecordAsync(_context, printer.Id, result, history);
+                SupplyHistoryService.Enrich(result, history, leadTime);
             }
 
             printer.MonitoringStatus = PrinterHealth.Evaluate(result);
 
             await _context.SaveChangesAsync();
-
-            var history = await _context.TonerHistories
-                .Where(h => h.ImprimanteId == id)
-                .AsNoTracking()
-                .ToListAsync();
-
-            if (result.PingSuccess && result.Toners != null && result.Toners.Any())
-            {
-                foreach (var toner in result.Toners)
-                {
-                    var tonerHistory = history
-                        .Where(h => h.ComponentColor.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-
-                    toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
-                }
-            }
 
             return Ok(result);
         }

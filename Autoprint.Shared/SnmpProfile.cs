@@ -63,6 +63,9 @@ namespace Autoprint.Shared
         // Seuil « bas » propre au profil (1-99 %), sinon réglage global
         public int? LowThresholdPercent { get; set; }
 
+        // #51 : délai d'approvisionnement propre au profil (jours), sinon réglage global
+        public int? SupplyLeadTimeDays { get; set; }
+
         // Modifications des éléments détectés automatiquement (renommer, masquer, couleur, seuil)
         public List<SnmpProfileOverride> Overrides { get; set; } = new();
     }
@@ -144,6 +147,7 @@ namespace Autoprint.Shared
         // #50 : absents des exports antérieurs (profil alors converti comme au démarrage)
         public SnmpProfileMode? Mode { get; set; }
         public int? LowThresholdPercent { get; set; }
+        public int? SupplyLeadTimeDays { get; set; }
         public List<SnmpProfileOverrideDto>? Overrides { get; set; }
     }
 

@@ -17,6 +17,8 @@ namespace Autoprint.Shared.DTOs
         public bool HasSnmpProfile { get; set; } = true;
         /// <summary>Seuil « bas » appliqué (en %), pour l'affichage.</summary>
         public int LowThresholdPercent { get; set; } = 20;
+        /// <summary>Délai d'approvisionnement appliqué (en jours), pour l'affichage (#51).</summary>
+        public int SupplyLeadTimeDays { get; set; } = 14;
     }
 
     /// <summary>État d'un consommable ou d'un bac, indépendant du niveau (#49) : beaucoup d'imprimantes ne donnent qu'un état.</summary>
@@ -32,6 +34,15 @@ namespace Autoprint.Shared.DTOs
     {
         Toner = 0,
         Maintenance = 1
+    }
+
+    /// <summary>Fiabilité d'une prévision (#51) : selon la baisse observée et la durée des relevés.</summary>
+    public enum ForecastConfidence
+    {
+        None = 0,
+        Low = 1,
+        Medium = 2,
+        Good = 3
     }
 
     public enum AlertSeverity
@@ -69,6 +80,17 @@ namespace Autoprint.Shared.DTOs
         /// Low = presque plein, Empty = plein.
         /// </summary>
         public bool IsReceptacle { get; set; }
+
+        // #51 : prévision et approvisionnement
+        public ForecastConfidence ForecastConfidence { get; set; } = ForecastConfidence.None;
+        /// <summary>« pages » (consommation par page imprimée) ou « temps » (faute de compteur de pages).</summary>
+        public string? ForecastMethod { get; set; }
+        /// <summary>Date depuis laquelle l'élément est Bas / Vide (consommable sans niveau notamment).</summary>
+        public DateTime? LowSince { get; set; }
+        /// <summary>Durée moyenne observée entre deux changements de ce consommable.</summary>
+        public int? AverageLifetimeDays { get; set; }
+        /// <summary>À commander : Bas / Vide, ou fin prévue dans moins que le délai d'approvisionnement.</summary>
+        public bool NeedsOrder { get; set; }
 
         public bool HasLevel => CurrentLevel >= 0;
         public bool NeedsAttention => State is SupplyState.Low or SupplyState.Empty;
