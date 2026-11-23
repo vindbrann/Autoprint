@@ -31,6 +31,7 @@ namespace Autoprint.Server.Data
         public DbSet<TonerHistory> TonerHistories { get; set; }
         public DbSet<SnmpProfile> SnmpProfiles { get; set; }
         public DbSet<SnmpProfileItem> SnmpProfileItems { get; set; }
+        public DbSet<SnmpProfileOverride> SnmpProfileOverrides { get; set; }
         public DbSet<SnmpCredential> SnmpCredentials { get; set; }
         public DbSet<IntegrationToken> IntegrationTokens { get; set; }
         public DbSet<ReportSchedule> ReportSchedules { get; set; }
@@ -180,6 +181,13 @@ namespace Autoprint.Server.Data
                 .HasMany(s => s.Items)
                 .WithOne(i => i.SnmpProfile)
                 .HasForeignKey(i => i.SnmpProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // #50 : modifications des éléments détectés automatiquement
+            modelBuilder.Entity<SnmpProfile>()
+                .HasMany(s => s.Overrides)
+                .WithOne(o => o.SnmpProfile)
+                .HasForeignKey(o => o.SnmpProfileId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

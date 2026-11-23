@@ -48,18 +48,43 @@ else
                     AllowSorting="true" ColumnWidth="250px">
         <Columns>
             <RadzenDataGridColumn TItem="SnmpProfile" Property="Name" Title="Nom du Profil" Width="220px" Sortable="true" Filterable="true" />
-            <RadzenDataGridColumn TItem="SnmpProfile" Title="Champs SNMP Dynamiques" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="SnmpProfile" Title="Lecture" Width="130px" Sortable="true" Property="Mode">
                 <Template Context="p">
-                    @if (p.Items != null && p.Items.Any())
+                    @if (p.Mode == SnmpProfileMode.Automatique)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" Text="Automatique" />
+                    }
+                    else
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Variant="Variant.Flat" Text="Manuel" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="SnmpProfile" Title="Détail" Sortable="false" Filterable="false">
+                <Template Context="p">
+                    @{
+                        // #50 : en automatique, seuls comptent les modifications et les OID constructeur
+                        var shown = p.Mode == SnmpProfileMode.Automatique ? p.Items.Where(i => !SnmpStandardOids.IsCoveredByAuto(i.Oid)).ToList() : p.Items.ToList();
+                        int changes = p.Mode == SnmpProfileMode.Automatique ? (p.Overrides?.Count ?? 0) : 0;
+                    }
+                    @if (p.Mode == SnmpProfileMode.Automatique && !shown.Any())
+                    {
+                        <span style="color: var(--rz-text-tertiary-color);">@(changes > 0 ? $"{changes} élément(s) modifié(s)" : "Tout ce que l'imprimante décrit")</span>
+                    }
+                    else if (shown.Any())
                     {
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem" Style="flex-wrap: wrap;">
-                            @foreach (var item in p.Items.Take(6))
+                            @if (changes > 0)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"{changes} modification(s)")" />
+                            }
+                            @foreach (var item in shown.Take(6))
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@($"{item.Name} ({item.Category})")" />
                             }
-                            @if (p.Items.Count > 6)
+                            @if (shown.Count > 6)
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"+{p.Items.Count - 6} autres")" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"+{shown.Count - 6} autres")" />
                             }
                         </RadzenStack>
                     }

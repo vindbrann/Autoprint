@@ -114,6 +114,7 @@ namespace Autoprint.Server.Services
                 .Include(i => i.Modele)
                 .ThenInclude(m => m!.SnmpProfile)
                 .ThenInclude(p => p!.Items)
+                .Include(i => i.Modele).ThenInclude(m => m!.SnmpProfile).ThenInclude(p => p!.Overrides)
                 .Where(i => !i.IsArchived)
                 .ToListAsync(stoppingToken);
 

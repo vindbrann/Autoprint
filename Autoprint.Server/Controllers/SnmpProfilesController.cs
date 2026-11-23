@@ -38,6 +38,7 @@ namespace Autoprint.Server.Controllers
         {
             var profiles = await _context.SnmpProfiles
                 .Include(p => p.Items)
+                .Include(p => p.Overrides)
                 .AsNoTracking()
                 .ToListAsync();
             foreach (var p in profiles) p.HasSnmpCommunity = !string.IsNullOrEmpty(p.SnmpCommunityChiffree);
@@ -50,6 +51,7 @@ namespace Autoprint.Server.Controllers
         {
             var profile = await _context.SnmpProfiles
                 .Include(p => p.Items)
+                .Include(p => p.Overrides)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (profile == null) return NotFound();
@@ -76,6 +78,30 @@ namespace Autoprint.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[SNMP_SCAN_API] Échec scan IP={Ip}", ForLog(request.IpAddress));
+                return BadRequest(DescribeSnmpError(ex));
+            }
+        }
+
+        /// <summary>#50 : détection automatique sur une imprimante d'essai (éléments, clés, niveaux), sans les modifications du profil.</summary>
+        [HttpPost("detect")]
+        [Authorize(Policy = "SNMP_PROFILE_READ")]
+        public async Task<ActionResult<PrinterDiagnosticResult>> DetectPrinter([FromBody] SnmpScanRequestDto request)
+        {
+            if (request == null || !IsValidHost(request.IpAddress))
+            {
+                return BadRequest("Adresse IP ou nom d'hôte de l'imprimante invalide.");
+            }
+            _logger.LogInformation("[SNMP_DETECT_API] Détection demandée pour IP={Ip}", ForLog(request.IpAddress));
+
+            try
+            {
+                var credentials = await ResolveRequestCredentialsAsync(request.CredentialId, request.Community, request.Version, request.ProfileId);
+                var threshold = await MonitoringSettings.GetLowThresholdAsync(_context);
+                return Ok(await _snmpService.DetectPrinterAsync(request.IpAddress.Trim(), request.Port, credentials, threshold));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SNMP_DETECT_API] Échec détection IP={Ip}", ForLog(request.IpAddress));
                 return BadRequest(DescribeSnmpError(ex));
             }
         }
@@ -113,6 +139,7 @@ namespace Autoprint.Server.Controllers
 
             var existingProfile = await _context.SnmpProfiles
                 .Include(p => p.Items)
+                .Include(p => p.Overrides)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (existingProfile == null) return NotFound();
@@ -130,6 +157,12 @@ namespace Autoprint.Server.Controllers
             // Remplacement des items
             _context.SnmpProfileItems.RemoveRange(existingProfile.Items);
             existingProfile.Items = profile.Items ?? new List<SnmpProfileItem>();
+
+            // #50 : mode, seuil propre et modifications des éléments détectés
+            existingProfile.Mode = profile.Mode;
+            existingProfile.LowThresholdPercent = CleanThreshold(profile.LowThresholdPercent);
+            _context.SnmpProfileOverrides.RemoveRange(existingProfile.Overrides);
+            existingProfile.Overrides = CleanOverrides(profile.Overrides);
 
             try
             {
@@ -155,6 +188,8 @@ namespace Autoprint.Server.Controllers
         {
             var connexionError = await AppliquerConnexionAsync(profile, profile);
             if (connexionError != null) return BadRequest(connexionError);
+            profile.LowThresholdPercent = CleanThreshold(profile.LowThresholdPercent);
+            profile.Overrides = CleanOverrides(profile.Overrides);
             _context.SnmpProfiles.Add(profile);
 
             _auditService.LogAction(
@@ -200,6 +235,7 @@ namespace Autoprint.Server.Controllers
         {
             var profile = await _context.SnmpProfiles
                 .Include(p => p.Items)
+                .Include(p => p.Overrides)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (profile == null) return NotFound();
@@ -207,6 +243,9 @@ namespace Autoprint.Server.Controllers
             var exportData = new
             {
                 profile.Name,
+                profile.Mode,
+                profile.LowThresholdPercent,
+                Overrides = profile.Overrides.Select(o => new { o.Key, o.DisplayName, o.Hidden, o.ColorHex, o.LowThresholdPercent }),
                 profile.OidTonerBlack,
                 profile.OidTonerCyan,
                 profile.OidTonerMagenta,
@@ -245,7 +284,8 @@ namespace Autoprint.Server.Controllers
                 OidTonerCyan = importDto.OidTonerCyan,
                 OidTonerMagenta = importDto.OidTonerMagenta,
                 OidTonerYellow = importDto.OidTonerYellow,
-                OidPageCounter = importDto.OidPageCounter
+                OidPageCounter = importDto.OidPageCounter,
+                LowThresholdPercent = CleanThreshold(importDto.LowThresholdPercent)
             };
 
             if (importDto.Items != null)
@@ -265,6 +305,20 @@ namespace Autoprint.Server.Controllers
                 }
             }
 
+            // #50 : export récent = mode et modifications repris ; export antérieur = conversion comme au démarrage
+            if (importDto.Mode != null)
+            {
+                profile.Mode = importDto.Mode.Value;
+                profile.Overrides = CleanOverrides((importDto.Overrides ?? new()).Select(o => new SnmpProfileOverride
+                {
+                    Key = o.Key, DisplayName = o.DisplayName, Hidden = o.Hidden, ColorHex = o.ColorHex, LowThresholdPercent = o.LowThresholdPercent
+                }).ToList());
+            }
+            else
+            {
+                SnmpProfileConverter.Convert(profile);
+            }
+
             _context.SnmpProfiles.Add(profile);
 
             _auditService.LogAction(
@@ -275,6 +329,27 @@ namespace Autoprint.Server.Controllers
 
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetSnmpProfile", new { id = profile.Id }, profile);
+        }
+
+        private static int? CleanThreshold(int? value) => value is >= 1 and <= 99 ? value : null;
+
+        // Une seule modification par élément, sans les lignes vides ; longueurs bornées comme en base
+        private static List<SnmpProfileOverride> CleanOverrides(IEnumerable<SnmpProfileOverride>? overrides)
+        {
+            return (overrides ?? Enumerable.Empty<SnmpProfileOverride>())
+                .Where(o => !string.IsNullOrWhiteSpace(o.Key) && o.Key.Trim().Length <= 50)
+                .GroupBy(o => o.Key.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.Last())
+                .Select(o => new SnmpProfileOverride
+                {
+                    Key = o.Key.Trim(),
+                    DisplayName = string.IsNullOrWhiteSpace(o.DisplayName) ? null : o.DisplayName.Trim()[..Math.Min(100, o.DisplayName.Trim().Length)],
+                    Hidden = o.Hidden,
+                    ColorHex = string.IsNullOrWhiteSpace(o.ColorHex) ? null : o.ColorHex.Trim()[..Math.Min(20, o.ColorHex.Trim().Length)],
+                    LowThresholdPercent = CleanThreshold(o.LowThresholdPercent)
+                })
+                .Where(o => !o.IsEmpty)
+                .ToList();
         }
 
         private bool SnmpProfileExists(int id)

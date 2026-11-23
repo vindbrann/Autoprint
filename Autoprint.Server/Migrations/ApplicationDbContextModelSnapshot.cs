@@ -1273,6 +1273,12 @@ namespace Autoprint.Server.Migrations
                     b.Property<bool>("IsColor")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("LowThresholdPercent")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("int");
+
                     b.Property<string>("ModifiePar")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1373,6 +1379,53 @@ namespace Autoprint.Server.Migrations
                     b.HasIndex("SnmpProfileId");
 
                     b.ToTable("SnmpProfileItems");
+                });
+
+            modelBuilder.Entity("Autoprint.Shared.SnmpProfileOverride", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("DateModification")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("EstSupprime")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Hidden")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("LowThresholdPercent")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SnmpProfileId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SnmpProfileId");
+
+                    b.ToTable("SnmpProfileOverrides");
                 });
 
             modelBuilder.Entity("Autoprint.Shared.SystemError", b =>
@@ -1579,6 +1632,17 @@ namespace Autoprint.Server.Migrations
                     b.Navigation("SnmpProfile");
                 });
 
+            modelBuilder.Entity("Autoprint.Shared.SnmpProfileOverride", b =>
+                {
+                    b.HasOne("Autoprint.Shared.SnmpProfile", "SnmpProfile")
+                        .WithMany("Overrides")
+                        .HasForeignKey("SnmpProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SnmpProfile");
+                });
+
             modelBuilder.Entity("Autoprint.Shared.TonerHistory", b =>
                 {
                     b.HasOne("Autoprint.Shared.Imprimante", "Imprimante")
@@ -1615,6 +1679,8 @@ namespace Autoprint.Server.Migrations
             modelBuilder.Entity("Autoprint.Shared.SnmpProfile", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("Overrides");
                 });
 #pragma warning restore 612, 618
         }

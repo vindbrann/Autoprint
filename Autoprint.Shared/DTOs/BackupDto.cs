@@ -73,6 +73,10 @@ namespace Autoprint.Shared.DTOs
         public string? SnmpCommunity { get; set; }
         public int? SnmpCredentialId { get; set; }
         public List<BackupSnmpProfileItemDto> Items { get; set; } = new();
+        // #50 : null dans les sauvegardes antérieures (profil alors converti comme au démarrage)
+        public SnmpProfileMode? Mode { get; set; }
+        public int? LowThresholdPercent { get; set; }
+        public List<SnmpProfileOverrideDto> Overrides { get; set; } = new();
     }
 
     public class BackupSnmpProfileItemDto

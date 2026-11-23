@@ -12,8 +12,13 @@ Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la jou
 - **Section Maintenance** (#49) : unité de fusion, photoconducteur et kits ont leur jauge, au lieu de passer dans les alertes ou d'être mélangés aux toners.
 - **Prévision affichée** (#49) : le nombre de jours restants estimé s'affiche sous la jauge, quand il y a assez de relevés.
 - **Détection automatique des consommables et des bacs** (#50) : une imprimante dont le modèle n'a pas de profil SNMP affiche maintenant tous ses consommables, éléments de maintenance et bacs, avec leurs noms, couleurs et types lus directement dans l'imprimante, au lieu du seul premier toner. Les bacs de récupération sont reconnus (« % libre », « Presque plein », « Plein »). Compatible SNMPv1, v2c et v3 ; en v1, un élément absent ne bloque plus les autres.
+- **Profils SNMP automatiques** (#50) : un profil lit maintenant tout ce que l'imprimante décrit, et sert à **modifier** ce qui est détecté : renommer, masquer, changer la couleur ou le seuil « bas » d'un élément, et ajouter des OID propres au constructeur. Un seuil « bas » peut être fixé par profil. Le mode **Manuel** (seuls les champs déclarés) reste disponible pour les imprimantes qui ne décrivent pas leurs consommables de façon standard.
 - **Supervision plus rapide sur les grands parcs** (#50) : jusqu'à 8 imprimantes interrogées en même temps, et la description de chaque imprimante est mémorisée (relue après un redémarrage ou toutes les 24 h).
 - **Seuil « bas » réglable** (#49) : **Paramètres > Supervision**, 20 % par défaut (au lieu de 10 % codé en dur), pour avoir le temps de commander.
+
+### À savoir pour la mise à jour
+
+- **Profils SNMP** (#50) : au premier démarrage, chaque profil passe en mode automatique s'il lit ses consommables et ses bacs aux emplacements standard. Les noms et couleurs personnalisés sont repris, et rien n'est supprimé : repasser un profil en manuel retrouve l'ancien comportement. Un profil qui lit ses toners ou ses bacs à des emplacements propres au constructeur reste en manuel. La colonne **Lecture** de la liste des profils indique le mode de chacun.
 
 ### Corrections
 
