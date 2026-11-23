@@ -152,6 +152,10 @@ namespace Autoprint.Server.Services
                 }
             }));
 
+            // #51 : historique des consommables du parc chargé en une requête
+            var globalLeadTime = await MonitoringSettings.GetLeadTimeAsync(context, stoppingToken);
+            var histories = await SupplyHistoryService.LoadAsync(context, activePrinters.Select(p => p.Id), stoppingToken);
+
             foreach (var (printer, diagnostic) in diagnostics)
             {
                 if (diagnostic == null || stoppingToken.IsCancellationRequested) continue;
@@ -168,7 +172,9 @@ namespace Autoprint.Server.Services
                             printer.SerialNumber = diagnostic.SerialNumber;
                         }
 
-                        await PrinterHealth.AddDailyHistoryAsync(context, printer.Id, diagnostic.Toners, stoppingToken);
+                        if (!histories.TryGetValue(printer.Id, out var history)) histories[printer.Id] = history = new List<SupplyHistory>();
+                        await SupplyHistoryService.RecordAsync(context, printer.Id, diagnostic, history, stoppingToken);
+                        SupplyHistoryService.Enrich(diagnostic, history, MonitoringSettings.EffectiveLeadTime(printer.Modele?.SnmpProfile, globalLeadTime));
                     }
 
                     printer.MonitoringStatus = PrinterHealth.Evaluate(diagnostic);

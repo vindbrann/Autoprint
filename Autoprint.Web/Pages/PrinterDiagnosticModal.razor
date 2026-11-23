@@ -141,7 +141,7 @@
                         <RadzenText TextStyle="TextStyle.Subtitle2" Style="color: var(--rz-text-tertiary-color); font-weight: bold; text-transform: uppercase; margin: 0;">
                             Consommables
                         </RadzenText>
-                        <span class="diag-section-note">Seuil bas : @diagnostic.LowThresholdPercent %</span>
+                        <span class="diag-section-note">Seuil bas : @diagnostic.LowThresholdPercent % · délai d'approvisionnement : @diagnostic.SupplyLeadTimeDays j</span>
                     </div>
                     <RadzenStack Gap="1rem">
                         @foreach (var supply in consumables)
@@ -271,6 +271,7 @@
     .diag-pill-empty { background: var(--ap-danger-subtle); color: var(--ap-danger); }
     .diag-pill-unknown { background: var(--ap-surface-raised); color: var(--ap-text-muted); }
     .diag-forecast { margin-top: 4px; font-size: 12px; color: var(--ap-text-muted); }
+    .diag-pill-order { margin-top: 4px; background: var(--ap-warning-subtle); color: var(--ap-warning); }
 
     /* Jauge : barre + valeur à côté (pas superposée), lisible quelle que soit la couleur du consommable */
     .diag-gauge { display: flex; align-items: center; gap: 0.75rem; }
@@ -340,12 +341,16 @@
     private RenderFragment SupplyRow(TonerLevelResult supply) => __builder =>
     {
         var hex = !string.IsNullOrEmpty(supply.ColorHex) ? supply.ColorHex : GetColorHex(supply.Color);
-        var forecast = ForecastText(supply.EstimatedDaysRemaining);
+        var forecast = ForecastText(supply);
         <RadzenRow AlignItems="AlignItems.Center">
             <RadzenColumn Size="4">
                 <RadzenText TextStyle="TextStyle.Body2" Style="font-weight: bold; margin: 0; overflow-wrap: anywhere;">
                     @supply.Color
                 </RadzenText>
+                @if (supply.NeedsOrder)
+                {
+                    <span class="diag-pill diag-pill-order" title="Bas, vide, ou fin prévue dans moins que le délai d'approvisionnement">À commander</span>
+                }
             </RadzenColumn>
             <RadzenColumn Size="8">
                 @if (supply.HasLevel)
@@ -399,13 +404,35 @@
         _ => "info"
     };
 
-    /// <summary>Prévision de PredictiveService : null = pas assez de relevés, -99 = pas de baisse mesurable.</summary>
-    private static string? ForecastText(int? days)
+    /// <summary>
+    /// Prévision (#51) : jours restants et date estimée, avec la fiabilité quand elle n'est pas bonne ; sinon « Bas
+    /// depuis le… » et la durée moyenne observée d'un consommable. Rien sans assez de relevés.
+    /// </summary>
+    private static string? ForecastText(TonerLevelResult supply)
     {
-        if (days == null || days == -99) return null;
-        if (days <= 0) return "Épuisement imminent d'après les relevés";
-        var date = DateTime.Today.AddDays(days.Value);
-        return $"Environ {days} jour{(days > 1 ? "s" : "")} restant{(days > 1 ? "s" : "")}, vers le {date:dd/MM}";
+        string? lifetime = supply.AverageLifetimeDays is int life ? $"durée moyenne observée : {life} jours" : null;
+
+        if (supply.EstimatedDaysRemaining is int days)
+        {
+            string when = days <= 0
+                ? (supply.IsReceptacle ? "Plein d'un jour à l'autre" : "Épuisement imminent")
+                : $"{(supply.IsReceptacle ? "Plein dans environ" : "Environ")} {days} jour{(days > 1 ? "s" : "")}{(supply.IsReceptacle ? "" : (days > 1 ? " restants" : " restant"))}, vers le {DateTime.Today.AddDays(days):dd/MM}";
+            string? reliability = supply.ForecastConfidence switch
+            {
+                ForecastConfidence.Low => "estimation peu fiable (peu de relevés)",
+                ForecastConfidence.Medium => "fiabilité moyenne",
+                _ => null
+            };
+            return string.Join(" · ", new[] { when, reliability }.Where(x => x != null));
+        }
+
+        if (supply.LowSince is DateTime since)
+        {
+            string state = supply.State == SupplyState.Empty ? (supply.IsReceptacle ? "Plein" : "Vide") : (supply.IsReceptacle ? "Presque plein" : "Bas");
+            return string.Join(" · ", new[] { $"{state} depuis le {since.ToLocalTime():dd/MM}", lifetime }.Where(x => x != null));
+        }
+
+        return lifetime != null && !supply.HasLevel ? lifetime[0..1].ToUpper() + lifetime[1..] : null;
     }
 
     private string GetColorHex(string colorName)

@@ -52,6 +52,13 @@
                     <span class="ap-muted">%</span>
                 </div>
             </div>
+            <div class="ap-field">
+                <RadzenLabel Component="ProfileLeadTime"><ChildContent>Délai d'approvisionnement <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                    <RadzenNumeric Name="ProfileLeadTime" TValue="int?" @bind-Value="@profileEdit.SupplyLeadTimeDays" Min="1" Max="180" Placeholder="Réglage général" Style="width: 150px;" Disabled="@(!canWrite)" />
+                    <span class="ap-muted">jours</span>
+                </div>
+            </div>
         </div>
         <span class="ap-help">
             @if (IsAuto)
@@ -492,6 +499,7 @@
             Items = ProfileToEdit.Items != null ? ProfileToEdit.Items.ToList() : new List<SnmpProfileItem>(),
             Mode = ProfileToEdit.Mode,
             LowThresholdPercent = ProfileToEdit.LowThresholdPercent,
+            SupplyLeadTimeDays = ProfileToEdit.SupplyLeadTimeDays,
             Overrides = (ProfileToEdit.Overrides ?? new()).Select(o => new SnmpProfileOverride
             {
                 Key = o.Key, DisplayName = o.DisplayName, Hidden = o.Hidden, ColorHex = o.ColorHex, LowThresholdPercent = o.LowThresholdPercent

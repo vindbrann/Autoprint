@@ -430,6 +430,15 @@ else
                                 </div>
                             </div>
                         </div>
+                        <div class="ap-set-row">
+                            <div><h3>Délai d'approvisionnement</h3><p>Temps entre la commande et la réception d'un consommable. Un consommable dont la fin est prévue dans moins que ce délai est signalé « à commander ».</p></div>
+                            <div class="ap-ctrl">
+                                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                                    <RadzenNumeric TValue="int" @bind-Value="@model.Monitoring_SupplyLeadTimeDays" Min="1" Max="180" Style="width: 110px;" aria-label="Délai d'approvisionnement en jours" />
+                                    <span class="ap-muted">jours</span>
+                                </div>
+                            </div>
+                        </div>
                     </section>
                 </div>
             }
@@ -892,6 +901,7 @@ else
         public int Monitoring_EndHour { get; set; } = 18;
         public bool Monitoring_ScanOnWeekends { get; set; } = true;
         public int Monitoring_LowThresholdPercent { get; set; } = 20;
+        public int Monitoring_SupplyLeadTimeDays { get; set; } = 14;
         public bool Monitoring_IncludeOffline { get; set; } = true;
         public bool Monitoring_IncludeWarning { get; set; } = true;
         public bool Monitoring_IncludeCritical { get; set; } = true;
@@ -932,6 +942,7 @@ else
             model.Monitoring_EndHour = int.Parse(GV(s, "Monitoring_EndHour", "18"));
             model.Monitoring_ScanOnWeekends = bool.Parse(GV(s, "Monitoring_ScanOnWeekends", "true"));
             model.Monitoring_LowThresholdPercent = int.TryParse(GV(s, "Monitoring_LowThresholdPercent", "20"), out var lowPct) ? lowPct : 20;
+            model.Monitoring_SupplyLeadTimeDays = int.TryParse(GV(s, "Monitoring_SupplyLeadTimeDays", "14"), out var leadDays) ? leadDays : 14;
             model.Monitoring_IncludeOffline = bool.Parse(GV(s, "Monitoring_IncludeOffline", "true"));
             model.Monitoring_IncludeWarning = bool.Parse(GV(s, "Monitoring_IncludeWarning", "true"));
             model.Monitoring_IncludeCritical = bool.Parse(GV(s, "Monitoring_IncludeCritical", "true"));

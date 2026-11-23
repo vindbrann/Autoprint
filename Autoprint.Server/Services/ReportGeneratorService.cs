@@ -23,16 +23,14 @@ namespace Autoprint.Server.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ISnmpService _snmpService;
-        private readonly IPredictiveService _predictiveService;
 
         private readonly SecretProtector _secrets;
 
-        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService, IPredictiveService predictiveService, SecretProtector secrets)
+        public ReportGeneratorService(ApplicationDbContext context, ISnmpService snmpService, SecretProtector secrets)
         {
             _secrets = secrets;
             _context = context;
             _snmpService = snmpService;
-            _predictiveService = predictiveService;
         }
 
         private async Task<List<PrinterReportItem>> FetchReportDataAsync(ReportSchedule schedule)
@@ -157,17 +155,16 @@ namespace Autoprint.Server.Services
             var snmpProfiles = await SnmpCredentials.LoadProfilesAsync(_context);
             var lowThreshold = await MonitoringSettings.GetLowThresholdAsync(_context);
 
-            // Load toner history for all target printers in a single batch query
-            var histories = await _context.TonerHistories
-                .Where(h => printerIds.Contains(h.ImprimanteId))
-                .ToListAsync();
+            // #51 : historique des consommables des imprimantes du rapport, en une requête
+            var histories = await SupplyHistoryService.LoadAsync(_context, printerIds);
+            var globalLeadTime = await MonitoringSettings.GetLeadTimeAsync(_context);
 
             bool dbUpdated = false;
 
             // Run SNMP diagnostic query in parallel for all selected printers
             var tasks = printers.Select(async printer =>
             {
-                var printerHistory = histories.Where(h => h.ImprimanteId == printer.Id).ToList();
+                var printerHistory = histories.GetValueOrDefault(printer.Id) ?? new List<SupplyHistory>();
                 try
                 {
                     var diagnostic = await _snmpService.GetPrinterDiagnosticAsync(
@@ -179,13 +176,8 @@ namespace Autoprint.Server.Services
                     );
 
                     var toners = diagnostic.Toners ?? new List<TonerLevelResult>();
-                    foreach (var toner in toners)
-                    {
-                        var tonerHistory = printerHistory
-                            .Where(h => h.ComponentColor.Equals(toner.Color, StringComparison.OrdinalIgnoreCase))
-                            .ToList();
-                        toner.EstimatedDaysRemaining = _predictiveService.PredictDaysRemaining(tonerHistory);
-                    }
+                    if (diagnostic.PingSuccess)
+                        SupplyHistoryService.Enrich(diagnostic, printerHistory, MonitoringSettings.EffectiveLeadTime(printer.Modele?.SnmpProfile, globalLeadTime));
 
                     string resolvedSn = !string.IsNullOrWhiteSpace(diagnostic.SerialNumber)
                         ? diagnostic.SerialNumber.Trim()
@@ -320,10 +312,7 @@ namespace Autoprint.Server.Services
                     {
                         var predictionParts = item.Toners.Select(t =>
                         {
-                            var days = t.EstimatedDaysRemaining;
-                            if (days == null) return $"{t.Color}: Inconnu";
-                            if (days == -99) return $"{t.Color}: Stable / Faible usage";
-                            return $"{t.Color}: {days} jours";
+                            return $"{t.Color}: {ForecastText(t)}";
                         });
                         row.Add(string.Join(" | ", predictionParts));
                     }
@@ -435,8 +424,8 @@ namespace Autoprint.Server.Services
             if (metrics.Contains("Predictions"))
             {
                 int predictionThreshold = schedule.PredictionThresholdDays;
-                int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold));
-                extra.Add(($"Toners bientôt épuisés (≤ {predictionThreshold} jours)", nearExhaustionCount.ToString("N0"), nearExhaustionCount > 0 ? danger : text));
+                int nearExhaustionCount = data.Count(d => d.PingSuccess && d.Toners.Any(t => t.NeedsOrder || (t.EstimatedDaysRemaining.HasValue && t.EstimatedDaysRemaining.Value >= 0 && t.EstimatedDaysRemaining.Value <= predictionThreshold)));
+                extra.Add(($"Imprimantes avec un consommable à commander ou épuisé sous {predictionThreshold} jours", nearExhaustionCount.ToString("N0"), nearExhaustionCount > 0 ? danger : text));
             }
             if (extra.Count > 0) DrawTiles(extra);
             summaryY += 4;
@@ -524,7 +513,7 @@ namespace Autoprint.Server.Services
                             .Select(t =>
                             {
                                 var days = t.EstimatedDaysRemaining!.Value;
-                                return days == -99 ? $"{t.Color.Substring(0, 1)}:Stab" : $"{t.Color.Substring(0, 1)}:{days}j";
+                                return $"{t.Color.Substring(0, 1)}:{days}j";
                             })
                             .ToList();
                         if (list.Count > 0) val = string.Join(" ", list);
@@ -598,6 +587,31 @@ namespace Autoprint.Server.Services
             public List<PrinterAlert> Alerts { get; set; } = new();
             public List<TonerLevelResult> Toners { get; set; } = new();
             public List<PaperTrayResult> Trays { get; set; } = new();
+        }
+
+        // #51 : jours restants (date et fiabilité), « Bas depuis » pour un consommable sans niveau, « à commander »
+        private static string ForecastText(TonerLevelResult t)
+        {
+            string text;
+            if (t.EstimatedDaysRemaining is int days)
+            {
+                string reliability = t.ForecastConfidence switch
+                {
+                    ForecastConfidence.Good => "fiable",
+                    ForecastConfidence.Medium => "fiabilité moyenne",
+                    _ => "peu fiable"
+                };
+                text = $"{days} jours (vers le {DateTime.Today.AddDays(days):dd/MM}, {reliability})";
+            }
+            else if (t.LowSince is DateTime since)
+            {
+                text = $"{(t.State == SupplyState.Empty ? (t.IsReceptacle ? "Plein" : "Vide") : (t.IsReceptacle ? "Presque plein" : "Bas"))} depuis le {since.ToLocalTime():dd/MM}";
+            }
+            else
+            {
+                text = "Pas assez de relevés";
+            }
+            return t.NeedsOrder ? $"À commander : {text}" : text;
         }
 
         // #49 : niveau quand il est connu, sinon l'état (jamais un pourcentage inventé)

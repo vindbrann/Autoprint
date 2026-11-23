@@ -13,6 +13,27 @@ namespace Autoprint.Server.Services
         /// <summary>Seuil « bas » par défaut : 20 %, pour avoir le temps de commander et d'envoyer un consommable.</summary>
         public const int DefaultLowThresholdPercent = 20;
 
+        public const string LeadTimeKey = "Monitoring_SupplyLeadTimeDays";
+
+        /// <summary>Délai d'approvisionnement par défaut : 14 jours entre la commande et la réception d'un consommable (#51).</summary>
+        public const int DefaultLeadTimeDays = 14;
+
+        public static int ParseLeadTime(string? value)
+            => int.TryParse(value, out var v) && v is >= 1 and <= 180 ? v : DefaultLeadTimeDays;
+
+        public static async Task<int> GetLeadTimeAsync(ApplicationDbContext context, CancellationToken token = default)
+        {
+            var value = await context.ServerSettings.AsNoTracking()
+                .Where(s => s.Key == LeadTimeKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(token);
+            return ParseLeadTime(value);
+        }
+
+        /// <summary>Délai du profil s'il en a un, sinon réglage global.</summary>
+        public static int EffectiveLeadTime(SnmpProfile? profile, int globalLeadTime)
+            => profile?.SupplyLeadTimeDays is int d and >= 1 and <= 180 ? d : globalLeadTime;
+
         public static int ParseLowThreshold(string? value)
             => int.TryParse(value, out var v) && v is >= 1 and <= 99 ? v : DefaultLowThresholdPercent;
 
@@ -47,36 +68,12 @@ namespace Autoprint.Server.Services
             bool statusWarning = result.Status != null && (result.Status.Contains("Alerte") || result.Status.Contains("Inconnu"));
             if (statusWarning
                 || alerts.Any(a => a.Severity == AlertSeverity.Warning)
-                || (result.Toners ?? new List<TonerLevelResult>()).Any(t => t.NeedsAttention))
+                || (result.Toners ?? new List<TonerLevelResult>()).Any(t => t.NeedsAttention || t.NeedsOrder))
             {
                 return "Warning";
             }
 
             return "Ok";
-        }
-
-        /// <summary>Un relevé par jour et par consommable dont le niveau est connu (base des prévisions).</summary>
-        public static async Task AddDailyHistoryAsync(ApplicationDbContext context, int printerId, IEnumerable<TonerLevelResult>? supplies, CancellationToken token = default)
-        {
-            if (supplies == null) return;
-            var todayUtc = DateTime.UtcNow.Date;
-
-            foreach (var supply in supplies.Where(t => t.HasLevel))
-            {
-                bool alreadyLoggedToday = await context.TonerHistories
-                    .AnyAsync(h => h.ImprimanteId == printerId && h.ComponentColor == supply.Color && h.RecordedAt >= todayUtc, token);
-
-                if (!alreadyLoggedToday)
-                {
-                    context.TonerHistories.Add(new TonerHistory
-                    {
-                        ImprimanteId = printerId,
-                        ComponentColor = supply.Color,
-                        LevelPercent = supply.CurrentLevel,
-                        RecordedAt = DateTime.UtcNow
-                    });
-                }
-            }
         }
     }
 }

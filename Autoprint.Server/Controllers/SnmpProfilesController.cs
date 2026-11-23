@@ -161,6 +161,7 @@ namespace Autoprint.Server.Controllers
             // #50 : mode, seuil propre et modifications des éléments détectés
             existingProfile.Mode = profile.Mode;
             existingProfile.LowThresholdPercent = CleanThreshold(profile.LowThresholdPercent);
+            existingProfile.SupplyLeadTimeDays = CleanLeadTime(profile.SupplyLeadTimeDays);
             _context.SnmpProfileOverrides.RemoveRange(existingProfile.Overrides);
             existingProfile.Overrides = CleanOverrides(profile.Overrides);
 
@@ -189,6 +190,7 @@ namespace Autoprint.Server.Controllers
             var connexionError = await AppliquerConnexionAsync(profile, profile);
             if (connexionError != null) return BadRequest(connexionError);
             profile.LowThresholdPercent = CleanThreshold(profile.LowThresholdPercent);
+            profile.SupplyLeadTimeDays = CleanLeadTime(profile.SupplyLeadTimeDays);
             profile.Overrides = CleanOverrides(profile.Overrides);
             _context.SnmpProfiles.Add(profile);
 
@@ -245,6 +247,7 @@ namespace Autoprint.Server.Controllers
                 profile.Name,
                 profile.Mode,
                 profile.LowThresholdPercent,
+                profile.SupplyLeadTimeDays,
                 Overrides = profile.Overrides.Select(o => new { o.Key, o.DisplayName, o.Hidden, o.ColorHex, o.LowThresholdPercent }),
                 profile.OidTonerBlack,
                 profile.OidTonerCyan,
@@ -285,7 +288,8 @@ namespace Autoprint.Server.Controllers
                 OidTonerMagenta = importDto.OidTonerMagenta,
                 OidTonerYellow = importDto.OidTonerYellow,
                 OidPageCounter = importDto.OidPageCounter,
-                LowThresholdPercent = CleanThreshold(importDto.LowThresholdPercent)
+                LowThresholdPercent = CleanThreshold(importDto.LowThresholdPercent),
+                SupplyLeadTimeDays = CleanLeadTime(importDto.SupplyLeadTimeDays)
             };
 
             if (importDto.Items != null)
@@ -332,6 +336,7 @@ namespace Autoprint.Server.Controllers
         }
 
         private static int? CleanThreshold(int? value) => value is >= 1 and <= 99 ? value : null;
+        private static int? CleanLeadTime(int? value) => value is >= 1 and <= 180 ? value : null;
 
         // Une seule modification par élément, sans les lignes vides ; longueurs bornées comme en base
         private static List<SnmpProfileOverride> CleanOverrides(IEnumerable<SnmpProfileOverride>? overrides)

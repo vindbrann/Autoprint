@@ -80,6 +80,7 @@ namespace Autoprint.Server.Controllers
                         SnmpCredentialId = p.SnmpCredentialId,
                         Mode = p.Mode,
                         LowThresholdPercent = p.LowThresholdPercent,
+                        SupplyLeadTimeDays = p.SupplyLeadTimeDays,
                         Overrides = p.Overrides.Select(o => new SnmpProfileOverrideDto
                         {
                             Key = o.Key,
@@ -369,7 +370,8 @@ namespace Autoprint.Server.Controllers
                             SnmpVersion = p.SnmpVersion is 1 or 2 or 3 ? p.SnmpVersion : 2,
                             SnmpCommunityChiffree = p.SnmpCommunity, // déjà rechiffrée ci-dessus ; identifiant v3 rattaché après les identifiants
                             Mode = p.Mode ?? SnmpProfileMode.Manuel, // sauvegarde antérieure au mode automatique : converti après les champs
-                            LowThresholdPercent = p.LowThresholdPercent is >= 1 and <= 99 ? p.LowThresholdPercent : null
+                            LowThresholdPercent = p.LowThresholdPercent is >= 1 and <= 99 ? p.LowThresholdPercent : null,
+                            SupplyLeadTimeDays = p.SupplyLeadTimeDays is >= 1 and <= 180 ? p.SupplyLeadTimeDays : null
                         };
                         _context.SnmpProfiles.Add(profile);
                     }

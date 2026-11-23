@@ -60,7 +60,6 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<Autoprint.Server.Services.IReportGeneratorService, Autoprint.Server.Services.ReportGeneratorService>();
 builder.Services.AddScoped<ISyncSpoolerService, SyncSpoolerService>();
 builder.Services.AddScoped<Autoprint.Server.Services.ISnmpService, Autoprint.Server.Services.SnmpService>();
-builder.Services.AddScoped<Autoprint.Server.Services.IPredictiveService, Autoprint.Server.Services.PredictiveService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<Autoprint.Server.Services.DiscoveryService>();

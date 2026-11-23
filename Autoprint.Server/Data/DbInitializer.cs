@@ -212,6 +212,28 @@ namespace Autoprint.Server.Data
                             ALTER TABLE SnmpProfiles ADD Mode int NOT NULL CONSTRAINT DF_SnmpProfiles_Mode DEFAULT 0;
                         IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'LowThresholdPercent') IS NULL
                             ALTER TABLE SnmpProfiles ADD LowThresholdPercent int NULL;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'SupplyLeadTimeDays') IS NULL
+                            ALTER TABLE SnmpProfiles ADD SupplyLeadTimeDays int NULL;
+                        IF OBJECT_ID('Imprimantes') IS NOT NULL AND OBJECT_ID('SupplyHistories') IS NULL
+                        BEGIN
+                            CREATE TABLE SupplyHistories (
+                                Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                ImprimanteId int NOT NULL,
+                                SupplyKey nvarchar(120) NOT NULL,
+                                Name nvarchar(100) NOT NULL,
+                                Level int NOT NULL,
+                                State int NOT NULL,
+                                IsReceptacle bit NOT NULL,
+                                PageCounter bigint NOT NULL,
+                                IsReplacement bit NOT NULL,
+                                RecordedAt datetime2 NOT NULL,
+                                DateModification datetime2 NOT NULL CONSTRAINT DF_SupplyHistories_DateModification DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL CONSTRAINT DF_SupplyHistories_EstSupprime DEFAULT 0,
+                                CONSTRAINT FK_SupplyHistories_Imprimantes_ImprimanteId FOREIGN KEY (ImprimanteId) REFERENCES Imprimantes(Id) ON DELETE CASCADE
+                            );
+                            CREATE INDEX IX_SupplyHistories_ImprimanteId_RecordedAt ON SupplyHistories(ImprimanteId, RecordedAt);
+                        END
                         IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND OBJECT_ID('SnmpProfileOverrides') IS NULL
                         BEGIN
                             CREATE TABLE SnmpProfileOverrides (
@@ -493,6 +515,10 @@ namespace Autoprint.Server.Data
             if (!context.ServerSettings.Any(s => s.Key == "Monitoring_LowThresholdPercent"))
             {
                 context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_LowThresholdPercent", Value = "20", Description = "Seuil « bas » des consommables en % (1-99)", Type = "INT" });
+            }
+            if (!context.ServerSettings.Any(s => s.Key == "Monitoring_SupplyLeadTimeDays"))
+            {
+                context.ServerSettings.Add(new ServerSetting { Key = "Monitoring_SupplyLeadTimeDays", Value = "14", Description = "Délai d'approvisionnement des consommables en jours (1-180)", Type = "INT" });
             }
             if (!context.ServerSettings.Any(s => s.Key == "Monitoring_Enabled"))
             {

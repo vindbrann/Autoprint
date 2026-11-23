@@ -76,6 +76,7 @@ namespace Autoprint.Shared.DTOs
         // #50 : null dans les sauvegardes antérieures (profil alors converti comme au démarrage)
         public SnmpProfileMode? Mode { get; set; }
         public int? LowThresholdPercent { get; set; }
+        public int? SupplyLeadTimeDays { get; set; }
         public List<SnmpProfileOverrideDto> Overrides { get; set; } = new();
     }
 
