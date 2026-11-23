@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Autoprint.Server.Helpers;
 using Autoprint.Shared.DTOs;
 using Autoprint.Shared;
 using Lextm.SharpSnmpLib;
@@ -181,7 +182,7 @@ namespace Autoprint.Server.Services
 
                                     result.Toners.Add(new TonerLevelResult
                                     {
-                                        Color = item.Name,
+                                        Color = SnmpText.Repair(item.Name),
                                         CurrentLevel = computedLevel,
                                         MaxCapacity = 100,
                                         ColorHex = !string.IsNullOrWhiteSpace(item.ColorHex) ? item.ColorHex : GetDefaultColorHex(item.Name)
@@ -215,7 +216,7 @@ namespace Autoprint.Server.Services
 
                                     result.Trays.Add(new PaperTrayResult
                                     {
-                                        Name = item.Name,
+                                        Name = SnmpText.FormatTrayName(item.Name, item.Oid),
                                         CurrentLevel = trayComputed,
                                         MaxCapacity = 100
                                     });
@@ -250,7 +251,7 @@ namespace Autoprint.Server.Services
                                 case SnmpItemCategory.Maintenance:
                                     if (!string.IsNullOrWhiteSpace(strVal))
                                     {
-                                        result.Alerts.Add($"{item.Name} : {strVal}");
+                                        result.Alerts.Add($"{SnmpText.Repair(item.Name)} : {strVal}");
                                     }
                                     break;
                             }
@@ -666,9 +667,15 @@ namespace Autoprint.Server.Services
                     else
                     {
                         cat = SnmpItemCategory.Toner;
-                        if (!string.IsNullOrWhiteSpace(desc))
+                        var colorName = MapColorName(lowerDesc);
+                        if (colorName != null)
                         {
-                            finalName = $"Toner {MapColorName(lowerDesc)}";
+                            finalName = $"Toner {colorName}";
+                        }
+                        else if (!string.IsNullOrWhiteSpace(desc))
+                        {
+                            // Consommable sans couleur (unité de fusion, kit de maintenance…) : libellé de l'agent, sans préfixe « Toner »
+                            finalName = char.ToUpper(desc[0]) + desc.Substring(1);
                         }
                         else
                         {
@@ -698,22 +705,26 @@ namespace Autoprint.Server.Services
             try
             {
                 var trayDescsRaw = new List<Variable>();
+                var trayNamesRaw = new List<Variable>();
                 var trayLevelsRaw = new List<Variable>();
                 var trayMaxesRaw = new List<Variable>();
 
                 await Task.Run(() =>
                 {
-                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.12"), trayDescsRaw, 800); } catch { }
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.12"), trayDescsRaw, 800); } catch { } // prtInputMediaName
+                    try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.13"), trayNamesRaw, 800); } catch { } // prtInputName
                     try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.10"), trayLevelsRaw, 800); } catch { }
                     try { client.Walk(new ObjectIdentifier("1.3.6.1.2.1.43.8.2.1.9"), trayMaxesRaw, 800); } catch { }
                 });
 
                 const string trayDescPrefix = "1.3.6.1.2.1.43.8.2.1.12.";
+                const string trayNamePrefix = "1.3.6.1.2.1.43.8.2.1.13.";
                 const string trayLevelPrefix = "1.3.6.1.2.1.43.8.2.1.10.";
                 const string trayMaxPrefix = "1.3.6.1.2.1.43.8.2.1.9.";
 
                 // Filtrage strict : ne garder que les OIDs appartenant strictement à la table des bacs papier
                 var trayDescs = trayDescsRaw.Where(v => v.Id.ToString().StartsWith(trayDescPrefix)).ToList();
+                var trayNames = trayNamesRaw.Where(v => v.Id.ToString().StartsWith(trayNamePrefix)).ToList();
                 var trayLevels = trayLevelsRaw.Where(v => v.Id.ToString().StartsWith(trayLevelPrefix)).ToList();
                 var trayMaxes = trayMaxesRaw.Where(v => v.Id.ToString().StartsWith(trayMaxPrefix)).ToList();
 
@@ -727,12 +738,15 @@ namespace Autoprint.Server.Services
                     var descVar = trayDescs.FirstOrDefault(v => v.Id.ToString() == trayDescPrefix + idx);
                     var maxVar = trayMaxes.FirstOrDefault(v => v.Id.ToString() == trayMaxPrefix + idx);
 
-                    string trayName = "Bac Papier " + idx.Replace("1.", "");
-                    if (descVar != null && descVar.Data is OctetString descStr)
-                    {
-                        var decodedName = DecodeOctetString(descStr);
-                        if (!string.IsNullOrWhiteSpace(decodedName)) trayName = decodedName;
-                    }
+                    var nameVar = trayNames.FirstOrDefault(v => v.Id.ToString() == trayNamePrefix + idx);
+
+                    // Nom lisible : nom du bac donné par l'agent (« Tray 1 ») et format du média (« iso-a4-white » → « A4 »)
+                    string inputName = nameVar?.Data is OctetString nameStr ? DecodeOctetString(nameStr) : "";
+                    string media = descVar?.Data is OctetString descStr ? SnmpText.HumanizeMediaName(DecodeOctetString(descStr)) : "";
+                    string baseName = !string.IsNullOrWhiteSpace(inputName) ? inputName : $"Bac {SnmpText.TrayNumber(idx) ?? idx}";
+                    string trayName = !string.IsNullOrWhiteSpace(media) && !media.Equals(baseName, StringComparison.OrdinalIgnoreCase)
+                        ? $"{baseName} – {media}"
+                        : baseName;
 
                     int levelVal = levelVar != null ? ExtractInt(levelVar.Data) : -1;
                     int maxVal = maxVar != null ? ExtractInt(maxVar.Data) : -1;
@@ -931,26 +945,27 @@ namespace Autoprint.Server.Services
             };
         }
 
-        private string MapColorName(string desc)
+        /// <summary>Couleur d'un toner d'après la description de l'agent ; null si ce n'est pas un toner de couleur.</summary>
+        private static string? MapColorName(string desc)
         {
-            if (desc.Contains("black") || desc.Contains("noir") || desc.Contains("k ")) return "Noir";
-            if (desc.Contains("cyan") || desc.Contains("c ")) return "Cyan";
-            if (desc.Contains("magenta") || desc.Contains("m ")) return "Magenta";
-            if (desc.Contains("yellow") || desc.Contains("jaune") || desc.Contains("y ")) return "Jaune";
-
-            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(desc);
+            if (string.IsNullOrWhiteSpace(desc)) return null;
+            // Lettre isolée (« Toner K », « C Cartridge ») : un mot entier, pour ne pas prendre « kit » ou « unité de fusion »
+            bool Letter(char l) => System.Text.RegularExpressions.Regex.IsMatch(desc, $@"(^|[^a-z0-9]){l}([^a-z0-9]|$)");
+            if (desc.Contains("black") || desc.Contains("noir") || Letter('k')) return "Noir";
+            if (desc.Contains("cyan") || Letter('c')) return "Cyan";
+            if (desc.Contains("magenta") || Letter('m')) return "Magenta";
+            if (desc.Contains("yellow") || desc.Contains("jaune") || Letter('y')) return "Jaune";
+            return null;
         }
 
-        private string GetDefaultColorHex(string colorName)
+        private static string GetDefaultColorHex(string colorName)
         {
-            return colorName.ToLower() switch
-            {
-                "noir" => "#212529",
-                "cyan" => "#17a2b8",
-                "magenta" => "#e83e8c",
-                "jaune" => "#ffc107",
-                _ => "#6c757d"
-            };
+            var name = colorName.ToLowerInvariant();
+            if (name.Contains("noir") || name.Contains("black")) return "#212529";
+            if (name.Contains("cyan")) return "#17a2b8";
+            if (name.Contains("magenta")) return "#e83e8c";
+            if (name.Contains("jaune") || name.Contains("yellow")) return "#ffc107";
+            return "#6c757d";
         }
 
         private string DecodeOctetString(OctetString octetString)
@@ -972,22 +987,8 @@ namespace Autoprint.Server.Services
             byte[] cleanBytes = new byte[len];
             Array.Copy(bytes, cleanBytes, len);
 
-            try
-            {
-                var utf8 = new System.Text.UTF8Encoding(false, true);
-                return utf8.GetString(cleanBytes).Trim();
-            }
-            catch
-            {
-                try
-                {
-                    return System.Text.Encoding.GetEncoding("ISO-8859-1").GetString(cleanBytes).Trim();
-                }
-                catch
-                {
-                    return octetString.ToString().Trim();
-                }
-            }
+            // UTF-8, puis page de code DOS / Windows / ISO-8859-1 selon les octets (issue #46 : « Unité de fusion »)
+            return SnmpText.Decode(cleanBytes).Trim();
         }
 
         #endregion
