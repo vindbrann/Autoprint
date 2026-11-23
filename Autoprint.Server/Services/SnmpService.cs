@@ -77,10 +77,30 @@ namespace Autoprint.Server.Services
                 // Sans profil d'OID sur le modèle : détection automatique par la Printer MIB (#50, remplace les « valeurs
                 // standard » limitées au premier toner de B33) ; HasSnmpProfile reste faux pour que la console le signale
                 result.HasSnmpProfile = profile != null;
-                if (profile == null)
+
+                // Seuil « bas » propre au profil, sinon réglage global
+                if (profile?.LowThresholdPercent is int profileThreshold and >= 1 and <= 99) lowThresholdPercent = profileThreshold;
+                result.LowThresholdPercent = lowThresholdPercent;
+
+                // #50 : profil en mode automatique (ou pas de profil) : détection, modifications du profil, puis OID constructeur
+                if (profile == null || profile.Mode == SnmpProfileMode.Automatique)
                 {
                     if (await CollectFromPrinterMibAsync(client, StructureCacheKey(ipAddress, port, credentials), result, lowThresholdPercent))
                     {
+                        if (profile != null)
+                        {
+                            ApplyOverrides(result, profile.Overrides, lowThresholdPercent);
+
+                            var vendorItems = (profile.Items ?? new()).Where(i => !SnmpStandardOids.IsCoveredByAuto(i.Oid)).ToList();
+                            if (vendorItems.Count > 0)
+                            {
+                                var oids = vendorItems.SelectMany(i => i.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(i.OidMaxCapacity)
+                                    ? new[] { i.Oid.Trim(), i.OidMaxCapacity.Trim() } : new[] { i.Oid.Trim() });
+                                var values = await GetManyAsync(client, oids);
+                                if (values != null) ApplyProfileItems(result, vendorItems, values, lowThresholdPercent);
+                            }
+                        }
+
                         await AddStandardAlertsAsync(client, result);
                         return result;
                     }
@@ -122,90 +142,14 @@ namespace Autoprint.Server.Services
                     AddOidToQuery("1.3.6.1.2.1.1.3.0");
                     AddOidToQuery("1.3.6.1.2.1.43.5.1.1.17.1");
 
-                    // Envoi groupé en 1 seul paquet UDP
-                    IList<Variable>? snmpResponses = null;
-                    try
-                    {
-                        snmpResponses = await client.GetAsync(requestedVariables, 1500);
-                    }
-                    catch { }
+                    // Lecture par paquets ; en SNMPv1, un OID absent ne fait plus échouer les autres (#50)
+                    var responseDict = await GetManyAsync(client, addedOids);
 
-                    if (snmpResponses != null && snmpResponses.Any())
+                    if (responseDict != null && responseDict.Count > 0)
                     {
                         result.PingSuccess = true; // Si SNMP répond, la machine est forcément en ligne même si Ping était filtré
-                        var responseDict = snmpResponses.ToDictionary(v => v.Id.ToString(), v => v.Data, StringComparer.OrdinalIgnoreCase);
 
-                        foreach (var item in profile.Items.OrderBy(i => i.SortOrder))
-                        {
-                            if (!responseDict.TryGetValue(item.Oid, out var data) || IsNullOrNoSuch(data)) continue;
-
-                            int rawVal = ExtractInt(data);
-                            string strVal = ExtractString(data);
-
-                            switch (item.Category)
-                            {
-                                case SnmpItemCategory.Toner:
-                                    AddSupply(result, item, rawVal, responseDict, InferSupplyKind(item.Name), lowThresholdPercent);
-                                    break;
-
-                                case SnmpItemCategory.Tray:
-                                    {
-                                        int maxCap = -1;
-                                        if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(item.OidMaxCapacity)
-                                            && responseDict.TryGetValue(item.OidMaxCapacity.Trim(), out var maxData))
-                                        {
-                                            maxCap = ExtractInt(maxData);
-                                        }
-                                        var (trayLevel, trayState) = InterpretTrayLevel(rawVal, maxCap);
-                                        result.Trays.Add(new PaperTrayResult
-                                        {
-                                            Name = SnmpText.FormatTrayName(item.Name, item.Oid),
-                                            CurrentLevel = trayLevel,
-                                            MaxCapacity = 100,
-                                            State = trayState
-                                        });
-                                    }
-                                    break;
-
-                                case SnmpItemCategory.PageCounter:
-                                    if (long.TryParse(strVal.Replace(" ", "").Replace(",", "").Replace(".", ""), out long pc))
-                                    {
-                                        result.PageCounter = pc;
-                                    }
-                                    break;
-
-                                case SnmpItemCategory.Status:
-                                    if (int.TryParse(strVal, out int stCode))
-                                    {
-                                        result.Status = MapSnmpStatus(stCode);
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(strVal))
-                                    {
-                                        result.Status = strVal;
-                                    }
-                                    break;
-
-                                case SnmpItemCategory.SerialNumber:
-                                    if (!string.IsNullOrWhiteSpace(strVal))
-                                    {
-                                        result.SerialNumber = strVal.Trim();
-                                    }
-                                    break;
-
-                                case SnmpItemCategory.Maintenance when item.ValueType != SnmpValueType.String:
-                                    // #49 : un élément de maintenance qui a un niveau (photoconducteur, kit…) a une jauge, pas une alerte
-                                    AddSupply(result, item, rawVal, responseDict, SupplyKind.Maintenance, lowThresholdPercent);
-                                    break;
-
-                                case SnmpItemCategory.Console:
-                                case SnmpItemCategory.Maintenance:
-                                    if (!string.IsNullOrWhiteSpace(strVal))
-                                    {
-                                        AddAlert(result, AlertSeverity.Info, $"{SnmpText.Repair(item.Name)} : {strVal}");
-                                    }
-                                    break;
-                            }
-                        }
+                        ApplyProfileItems(result, profile.Items, responseDict, lowThresholdPercent);
 
                         // Récupération Numéro de Série standard (si pas déjà trouvé dans les items personnalisés)
                         if (string.IsNullOrEmpty(result.SerialNumber) && responseDict.TryGetValue("1.3.6.1.2.1.43.5.1.1.17.1", out var snData) && !IsNullOrNoSuch(snData))
@@ -883,6 +827,134 @@ namespace Autoprint.Server.Services
                 return str.Substring(lastDot + 1);
             }
             return "";
+        }
+
+        /// <summary>
+        /// Modifications du profil sur les éléments détectés (#50) : masquer, renommer, couleur, seuil propre (l'état est
+        /// alors recalculé depuis le niveau).
+        /// </summary>
+        internal static void ApplyOverrides(PrinterDiagnosticResult result, IEnumerable<SnmpProfileOverride>? overrides, int lowThresholdPercent)
+        {
+            if (overrides == null) return;
+            var byKey = overrides.Where(o => !string.IsNullOrWhiteSpace(o.Key))
+                                 .GroupBy(o => o.Key.Trim(), StringComparer.OrdinalIgnoreCase)
+                                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            if (byKey.Count == 0) return;
+
+            result.Toners.RemoveAll(t => t.Key != null && byKey.TryGetValue(t.Key, out var o) && o.Hidden);
+            result.Trays.RemoveAll(t => t.Key != null && byKey.TryGetValue(t.Key, out var o) && o.Hidden);
+
+            foreach (var t in result.Toners)
+            {
+                if (t.Key == null || !byKey.TryGetValue(t.Key, out var o)) continue;
+                if (!string.IsNullOrWhiteSpace(o.DisplayName)) t.Color = o.DisplayName.Trim();
+                if (!string.IsNullOrWhiteSpace(o.ColorHex)) t.ColorHex = o.ColorHex.Trim();
+                if (o.LowThresholdPercent is int th and >= 1 and <= 99 && t.HasLevel)
+                    t.State = t.CurrentLevel == 0 ? SupplyState.Empty : t.CurrentLevel <= th ? SupplyState.Low : SupplyState.Ok;
+            }
+            foreach (var t in result.Trays)
+            {
+                if (t.Key != null && byKey.TryGetValue(t.Key, out var o) && !string.IsNullOrWhiteSpace(o.DisplayName)) t.Name = o.DisplayName.Trim();
+            }
+        }
+
+        /// <summary>
+        /// Détection automatique sur une imprimante d'essai (écran du profil, #50) : description relue (pas de structure
+        /// mémorisée), sans les modifications du profil. Résultat vide (PingSuccess faux) si l'imprimante ne répond pas.
+        /// </summary>
+        public async Task<PrinterDiagnosticResult> DetectPrinterAsync(string ipAddress, int port, SnmpCredentials credentials, int lowThresholdPercent = MonitoringSettings.DefaultLowThresholdPercent)
+        {
+            var result = new PrinterDiagnosticResult { LowThresholdPercent = lowThresholdPercent, HasSnmpProfile = false };
+            if (!IPAddress.TryParse(ipAddress.Trim(), out var ip))
+            {
+                var addresses = await Dns.GetHostAddressesAsync(ipAddress.Trim());
+                ip = addresses.FirstOrDefault() ?? throw new InvalidOperationException($"Impossible de résoudre le nom d'hôte : {ipAddress}");
+            }
+            var client = new SnmpClient(new IPEndPoint(ip, port > 0 ? port : 161), credentials);
+            var key = StructureCacheKey(ipAddress, port, credentials);
+            StructureCache.TryRemove(key, out _);
+
+            if (!await CollectFromPrinterMibAsync(client, key, result, lowThresholdPercent))
+                throw new InvalidOperationException($"L'imprimante ({ipAddress}) ne répond pas sur le port SNMP {(port > 0 ? port : 161)} ({credentials.Describe()}). Vérifiez l'adresse et la connexion SNMP du profil.");
+
+            await AddStandardAlertsAsync(client, result);
+            return result;
+        }
+
+        /// <summary>Valeurs des champs d'un profil (mode manuel, ou OID propres au constructeur en mode automatique).</summary>
+        private void ApplyProfileItems(PrinterDiagnosticResult result, IEnumerable<SnmpProfileItem> items, IDictionary<string, ISnmpData> responseDict, int lowThresholdPercent)
+        {
+            foreach (var item in items.OrderBy(i => i.SortOrder))
+            {
+                if (!responseDict.TryGetValue(item.Oid, out var data) || IsNullOrNoSuch(data)) continue;
+
+                int rawVal = ExtractInt(data);
+                string strVal = ExtractString(data);
+
+                switch (item.Category)
+                {
+                    case SnmpItemCategory.Toner:
+                        AddSupply(result, item, rawVal, responseDict, InferSupplyKind(item.Name), lowThresholdPercent);
+                        break;
+
+                    case SnmpItemCategory.Tray:
+                        {
+                            int maxCap = -1;
+                            if (item.ValueType == SnmpValueType.RawWithMax && !string.IsNullOrWhiteSpace(item.OidMaxCapacity)
+                                && responseDict.TryGetValue(item.OidMaxCapacity.Trim(), out var maxData))
+                            {
+                                maxCap = ExtractInt(maxData);
+                            }
+                            var (trayLevel, trayState) = InterpretTrayLevel(rawVal, maxCap);
+                            result.Trays.Add(new PaperTrayResult
+                            {
+                                Name = SnmpText.FormatTrayName(item.Name, item.Oid),
+                                CurrentLevel = trayLevel,
+                                MaxCapacity = 100,
+                                State = trayState
+                            });
+                        }
+                        break;
+
+                    case SnmpItemCategory.PageCounter:
+                        if (long.TryParse(strVal.Replace(" ", "").Replace(",", "").Replace(".", ""), out long pc))
+                        {
+                            result.PageCounter = pc;
+                        }
+                        break;
+
+                    case SnmpItemCategory.Status:
+                        if (int.TryParse(strVal, out int stCode))
+                        {
+                            result.Status = MapSnmpStatus(stCode);
+                        }
+                        else if (!string.IsNullOrWhiteSpace(strVal))
+                        {
+                            result.Status = strVal;
+                        }
+                        break;
+
+                    case SnmpItemCategory.SerialNumber:
+                        if (!string.IsNullOrWhiteSpace(strVal))
+                        {
+                            result.SerialNumber = strVal.Trim();
+                        }
+                        break;
+
+                    case SnmpItemCategory.Maintenance when item.ValueType != SnmpValueType.String:
+                        // #49 : un élément de maintenance qui a un niveau (photoconducteur, kit…) a une jauge, pas une alerte
+                        AddSupply(result, item, rawVal, responseDict, SupplyKind.Maintenance, lowThresholdPercent);
+                        break;
+
+                    case SnmpItemCategory.Console:
+                    case SnmpItemCategory.Maintenance:
+                        if (!string.IsNullOrWhiteSpace(strVal))
+                        {
+                            AddAlert(result, AlertSeverity.Info, $"{SnmpText.Repair(item.Name)} : {strVal}");
+                        }
+                        break;
+                }
+            }
         }
 
         #region Niveaux, états et alertes (#49)

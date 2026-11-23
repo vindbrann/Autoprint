@@ -64,6 +64,7 @@ namespace Autoprint.Server.Controllers
                 
                 SnmpProfiles = await _context.SnmpProfiles
                     .Include(p => p.Items)
+                    .Include(p => p.Overrides)
                     .Select(p => new BackupSnmpProfileDto
                     {
                         Id = p.Id,
@@ -77,6 +78,16 @@ namespace Autoprint.Server.Controllers
                         SnmpVersion = p.SnmpVersion,
                         SnmpCommunity = p.SnmpCommunityChiffree,
                         SnmpCredentialId = p.SnmpCredentialId,
+                        Mode = p.Mode,
+                        LowThresholdPercent = p.LowThresholdPercent,
+                        Overrides = p.Overrides.Select(o => new SnmpProfileOverrideDto
+                        {
+                            Key = o.Key,
+                            DisplayName = o.DisplayName,
+                            Hidden = o.Hidden,
+                            ColorHex = o.ColorHex,
+                            LowThresholdPercent = o.LowThresholdPercent
+                        }).ToList(),
                         Items = p.Items.Select(i => new BackupSnmpProfileItemDto
                         {
                             Id = i.Id,
@@ -318,6 +329,7 @@ namespace Autoprint.Server.Controllers
                 _context.Pilotes.RemoveRange(_context.Pilotes);
 
                 _context.SnmpProfileItems.RemoveRange(_context.SnmpProfileItems);
+                _context.SnmpProfileOverrides.RemoveRange(_context.SnmpProfileOverrides);
                 _context.SnmpProfiles.RemoveRange(_context.SnmpProfiles);
                 _context.SnmpCredentials.RemoveRange(_context.SnmpCredentials);
                 _context.ReportSchedules.RemoveRange(_context.ReportSchedules);
@@ -355,7 +367,9 @@ namespace Autoprint.Server.Controllers
                             OidTonerYellow = p.OidTonerYellow,
                             OidPageCounter = p.OidPageCounter,
                             SnmpVersion = p.SnmpVersion is 1 or 2 or 3 ? p.SnmpVersion : 2,
-                            SnmpCommunityChiffree = p.SnmpCommunity // déjà rechiffrée ci-dessus ; identifiant v3 rattaché après les identifiants
+                            SnmpCommunityChiffree = p.SnmpCommunity, // déjà rechiffrée ci-dessus ; identifiant v3 rattaché après les identifiants
+                            Mode = p.Mode ?? SnmpProfileMode.Manuel, // sauvegarde antérieure au mode automatique : converti après les champs
+                            LowThresholdPercent = p.LowThresholdPercent is >= 1 and <= 99 ? p.LowThresholdPercent : null
                         };
                         _context.SnmpProfiles.Add(profile);
                     }
@@ -386,6 +400,33 @@ namespace Autoprint.Server.Controllers
                     }
                     await _context.SaveChangesAsync();
                     await DisableIdentityInsert("SnmpProfileItems");
+
+                    // #50 : modifications des éléments détectés ; profils d'une sauvegarde antérieure convertis comme au démarrage
+                    foreach (var p in backup.SnmpProfiles)
+                    {
+                        foreach (var o in p.Overrides ?? new())
+                        {
+                            if (string.IsNullOrWhiteSpace(o.Key)) continue;
+                            _context.SnmpProfileOverrides.Add(new SnmpProfileOverride
+                            {
+                                SnmpProfileId = p.Id,
+                                Key = o.Key.Trim(),
+                                DisplayName = o.DisplayName,
+                                Hidden = o.Hidden,
+                                ColorHex = o.ColorHex,
+                                LowThresholdPercent = o.LowThresholdPercent is >= 1 and <= 99 ? o.LowThresholdPercent : null
+                            });
+                        }
+                    }
+                    await _context.SaveChangesAsync();
+
+                    var legacyIds = backup.SnmpProfiles.Where(p => p.Mode == null).Select(p => p.Id).ToList();
+                    if (legacyIds.Count > 0)
+                    {
+                        foreach (var restored in await _context.SnmpProfiles.Include(x => x.Items).Include(x => x.Overrides).Where(x => legacyIds.Contains(x.Id)).ToListAsync())
+                            SnmpProfileConverter.Convert(restored);
+                        await _context.SaveChangesAsync();
+                    }
                 }
 
                 await EnableIdentityInsert("Emplacements");

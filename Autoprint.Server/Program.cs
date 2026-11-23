@@ -278,6 +278,7 @@ if (args.Contains("--migrate-only"))
             DbInitializer.Initialize(context);
             scope.ServiceProvider.GetRequiredService<SecretProtector>().EncryptPlaintextSecrets(context);
             scope.ServiceProvider.GetRequiredService<SecretProtector>().InitialiserConnexionSnmpPropre(context);
+            Autoprint.Server.Services.SnmpProfileConverter.ConvertAllOnce(context);
 
             Console.WriteLine("[MIGRATION_SUCCESS]");
             Environment.Exit(0);
@@ -418,6 +419,8 @@ using (var scope = app.Services.CreateScope())
         if (encrypted > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} secret(s) chiffré(s) en base.", encrypted);
         int propres = services.GetRequiredService<SecretProtector>().InitialiserConnexionSnmpPropre(context);
         if (propres > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} imprimante(s) gardent leur connexion SNMP propre (#40).", propres);
+        int autos = Autoprint.Server.Services.SnmpProfileConverter.ConvertAllOnce(context);
+        if (autos > 0) services.GetRequiredService<ILogger<Program>>().LogInformation("{Count} profil(s) SNMP passé(s) en mode automatique (#50).", autos);
     }
     catch (Exception ex)
     {

@@ -203,6 +203,39 @@ namespace Autoprint.Server.Data
                     Console.WriteLine($"[DbInitializer] Connexion SNMP des profils (SQL Server) en échec : {ex.Message}");
                 }
 
+                // #50 : mode automatique des profils SNMP, seuil propre et modifications des éléments détectés. Idempotent.
+                // Les profils existants reçoivent Mode = 0 (manuel) ; SnmpProfileConverter choisit ensuite leur mode.
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'Mode') IS NULL
+                            ALTER TABLE SnmpProfiles ADD Mode int NOT NULL CONSTRAINT DF_SnmpProfiles_Mode DEFAULT 0;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND COL_LENGTH('SnmpProfiles', 'LowThresholdPercent') IS NULL
+                            ALTER TABLE SnmpProfiles ADD LowThresholdPercent int NULL;
+                        IF OBJECT_ID('SnmpProfiles') IS NOT NULL AND OBJECT_ID('SnmpProfileOverrides') IS NULL
+                        BEGIN
+                            CREATE TABLE SnmpProfileOverrides (
+                                Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                SnmpProfileId int NOT NULL,
+                                [Key] nvarchar(50) NOT NULL,
+                                DisplayName nvarchar(100) NULL,
+                                Hidden bit NOT NULL CONSTRAINT DF_SnmpProfileOverrides_Hidden DEFAULT 0,
+                                ColorHex nvarchar(20) NULL,
+                                LowThresholdPercent int NULL,
+                                DateModification datetime2 NOT NULL CONSTRAINT DF_SnmpProfileOverrides_DateModification DEFAULT (GETUTCDATE()),
+                                ModifiePar nvarchar(100) NULL,
+                                EstSupprime bit NOT NULL CONSTRAINT DF_SnmpProfileOverrides_EstSupprime DEFAULT 0,
+                                CONSTRAINT FK_SnmpProfileOverrides_SnmpProfiles_SnmpProfileId FOREIGN KEY (SnmpProfileId) REFERENCES SnmpProfiles(Id) ON DELETE CASCADE
+                            );
+                            CREATE INDEX IX_SnmpProfileOverrides_SnmpProfileId ON SnmpProfileOverrides(SnmpProfileId);
+                        END
+                    ");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DbInitializer] Mode automatique des profils SNMP (SQL Server) en échec : {ex.Message}");
+                }
+
                 // Colonnes des migrations du 16/07/2026 (sans attribut [Migration], jamais appliquées par EF sur SQL Server)
                 // et colonnes de SnmpProfileItems absentes de la migration du 21/08/2026 (backlog B22). Scripts idempotents.
                 try

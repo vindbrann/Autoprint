@@ -457,6 +457,7 @@ namespace Autoprint.Server.Controllers
                 .Include(i => i.Modele)
                 .ThenInclude(m => m!.SnmpProfile)
                 .ThenInclude(p => p!.Items)
+                .Include(i => i.Modele).ThenInclude(m => m!.SnmpProfile).ThenInclude(p => p!.Overrides)
                 .FirstOrDefaultAsync(i => i.Id == id);
             if (printer == null) return NotFound();
 

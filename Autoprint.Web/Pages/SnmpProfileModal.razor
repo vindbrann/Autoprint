@@ -23,15 +23,46 @@
                 <RadzenDropDown Name="ProfileModel" TValue="int?" Data="@modelesDisponibles" TextProperty="Nom" ValueProperty="Id" Value="@selectedModeleId" ValueChanged="@OnModeleSelectionne" Style="width: 100%;" Placeholder="Aucun" AllowClear="true" AllowFiltering="true" />
             </div>
             <div class="ap-field">
-                <span class="rz-label">Impression</span>
-                <RadzenSelectBar TValue="bool" Value="@profileEdit.IsColor" ValueChanged="@OnColorModeChanged" Style="width: 100%;" Disabled="@(!canWrite)">
+                <span class="rz-label">Lecture</span>
+                <RadzenSelectBar TValue="SnmpProfileMode" @bind-Value="@profileEdit.Mode" Style="width: 100%;" Disabled="@(!canWrite)">
                     <Items>
-                        <RadzenSelectBarItem Text="Noir et blanc" Value="false" />
-                        <RadzenSelectBarItem Text="Couleur" Value="true" />
+                        <RadzenSelectBarItem Text="Automatique" Value="SnmpProfileMode.Automatique" />
+                        <RadzenSelectBarItem Text="Manuel" Value="SnmpProfileMode.Manuel" />
                     </Items>
                 </RadzenSelectBar>
             </div>
         </div>
+        <div class="ap-dlg-grid cols-3">
+            @if (!IsAuto)
+            {
+                <div class="ap-field">
+                    <span class="rz-label">Impression</span>
+                    <RadzenSelectBar TValue="bool" Value="@profileEdit.IsColor" ValueChanged="@OnColorModeChanged" Style="width: 100%;" Disabled="@(!canWrite)">
+                        <Items>
+                            <RadzenSelectBarItem Text="Noir et blanc" Value="false" />
+                            <RadzenSelectBarItem Text="Couleur" Value="true" />
+                        </Items>
+                    </RadzenSelectBar>
+                </div>
+            }
+            <div class="ap-field">
+                <RadzenLabel Component="ProfileThreshold"><ChildContent>Seuil « bas » <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
+                <div style="display: flex; align-items: center; gap: var(--ap-s2);">
+                    <RadzenNumeric Name="ProfileThreshold" TValue="int?" @bind-Value="@profileEdit.LowThresholdPercent" Min="1" Max="99" Placeholder="Réglage général" Style="width: 150px;" Disabled="@(!canWrite)" />
+                    <span class="ap-muted">%</span>
+                </div>
+            </div>
+        </div>
+        <span class="ap-help">
+            @if (IsAuto)
+            {
+                @:Automatique : tout ce que l'imprimante décrit (consommables, maintenance, bacs) est lu sans configuration ; vous pouvez renommer, masquer ou recolorer chaque élément, et ajouter des OID propres au constructeur.
+            }
+            else
+            {
+                @:Manuel : seuls les champs ci-dessous sont lus. À réserver aux imprimantes qui ne décrivent pas leurs consommables de façon standard.
+            }
+        </span>
     </div>
 
     @* #40 : connexion SNMP du profil, utilisée par le scan, « Lire les valeurs », « Lire cet OID » et la supervision des imprimantes du modèle *@
@@ -93,8 +124,19 @@
             </div>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: var(--ap-s2); align-items: center;">
-            <RadzenButton Text="Lire les valeurs" Icon="play_arrow" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@LancerTestDirect" IsBusy="@isTesting" BusyText="Lecture…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isScanning || !profileEdit.Items.Any())" />
-            <RadzenButton Text="Détecter les champs" Icon="search" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AutoDetecterOids" IsBusy="@isScanning" BusyText="Détection…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isTesting || !canWrite)" />
+            @if (IsAuto)
+            {
+                <RadzenButton Text="Lire l'imprimante" Icon="search" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@DetecterAuto" IsBusy="@isDetecting" BusyText="Lecture…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isTesting)" />
+                @if (VendorItems.Any())
+                {
+                    <RadzenButton Text="Lire les OID constructeur" Icon="play_arrow" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Click="@LancerTestDirect" IsBusy="@isTesting" BusyText="Lecture…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isDetecting)" />
+                }
+            }
+            else
+            {
+                <RadzenButton Text="Lire les valeurs" Icon="play_arrow" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@LancerTestDirect" IsBusy="@isTesting" BusyText="Lecture…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isScanning || !profileEdit.Items.Any())" />
+                <RadzenButton Text="Détecter les champs" Icon="search" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Click="@AutoDetecterOids" IsBusy="@isScanning" BusyText="Détection…" Disabled="@(string.IsNullOrWhiteSpace(testRequest.IpAddress) || isTesting || !canWrite)" />
+            }
             @if (string.IsNullOrWhiteSpace(testRequest.IpAddress))
             {
                 <span class="ap-help">Indiquez une adresse IP pour lire ou détecter</span>
@@ -102,6 +144,123 @@
         </div>
     </div>
 
+    @if (IsAuto)
+    {
+        <div class="ap-dlg-group">
+            <h3 style="margin: 0;">Éléments détectés <span class="ap-opt" style="font-weight: 400;">(@DetectedRows.Count)</span></h3>
+            @if (!DetectedRows.Any())
+            {
+                <div class="ap-name-note"><RadzenIcon Icon="info" />« Lire l'imprimante » sur une imprimante d'essai pour voir ce qu'elle décrit et le modifier. Sans modification, tout est affiché tel que l'imprimante le nomme.</div>
+            }
+            else
+            {
+                <div class="ap-grid-wrap">
+                    <table class="ap-detect-table">
+                        <thead>
+                            <tr><th>Élément</th><th>Nom affiché</th><th>Couleur</th><th>Seuil</th><th>Masquer</th><th>Valeur lue</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in DetectedRows)
+                            {
+                                var ov = FindOverride(row.Key);
+                                <tr class="@(ov?.Hidden == true ? "is-hidden" : "")">
+                                    <td>
+                                        <span style="font-weight: 500;">@row.AutoName</span>
+                                        <span class="ap-cell-sub">@row.KindLabel · <span class="ap-mono">@row.Key</span></span>
+                                    </td>
+                                    <td><RadzenTextBox Value="@ov?.DisplayName" ValueChanged="@((string v) => Override(row.Key).DisplayName = v)" Placeholder="@row.AutoName" Style="width: 100%; min-width: 140px;" Disabled="@(!canWrite)" aria-label="@($"Nom affiché pour {row.AutoName}")" /></td>
+                                    <td>
+                                        @if (row.HasColor)
+                                        {
+                                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                                <span class="ap-swatch" style="background: @(ov?.ColorHex ?? row.AutoColor);"></span>
+                                                <RadzenTextBox Value="@ov?.ColorHex" ValueChanged="@((string v) => Override(row.Key).ColorHex = v)" Placeholder="@row.AutoColor" Class="ap-mono" Style="width: 96px;" Disabled="@(!canWrite)" aria-label="@($"Couleur pour {row.AutoName}")" />
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (row.HasThreshold)
+                                        {
+                                            <RadzenNumeric TValue="int?" Value="@ov?.LowThresholdPercent" ValueChanged="@((int? v) => Override(row.Key).LowThresholdPercent = v)" Min="1" Max="99" Placeholder="—" Style="width: 80px;" Disabled="@(!canWrite)" aria-label="@($"Seuil pour {row.AutoName}")" />
+                                        }
+                                    </td>
+                                    <td><RadzenCheckBox TValue="bool" Value="@(ov?.Hidden ?? false)" ValueChanged="@((bool v) => Override(row.Key).Hidden = v)" Disabled="@(!canWrite)" aria-label="@($"Masquer {row.AutoName}")" /></td>
+                                    <td><span class="ap-mono" style="color: var(--ap-text-secondary);">@row.Value</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <span class="ap-help">Nom, couleur et seuil vides = valeurs de l'imprimante et réglage du profil. Les modifications s'appliquent à toutes les imprimantes du modèle.</span>
+            }
+        </div>
+
+        @* OID propres au constructeur (mode automatique) *@
+        <div class="ap-dlg-group">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s2);">
+            <h3 class="ap-grow" style="margin: 0;">OID propres au constructeur <span class="ap-opt" style="font-weight: 400;">(facultatif, @VendorItems.Count())</span></h3>
+            @if (canWrite)
+            {
+                <RadzenButton Icon="add" Text="Ajouter un champ" ButtonStyle="ButtonStyle.Base" Variant="Variant.Outlined" Size="ButtonSize.Small" Click="@(() => AjouterNouveauChamp(SnmpItemCategory.Toner))" />
+            }
+        </div>
+
+        @if (!VendorItems.Any())
+        {
+            <span class="ap-help">Pour une valeur que l'imprimante ne décrit pas de façon standard (compteur couleur, durée de vie d'un kit…). @(StandardItemsCount > 0 ? $"Les {StandardItemsCount} champs standard de ce profil sont lus automatiquement (gardés pour le mode manuel)." : "")</span>
+        }
+        else
+        {
+            <div class="ap-grid-wrap">
+                <RadzenDataGrid Data="@VendorItems.OrderBy(i => i.SortOrder)" TItem="SnmpProfileItem" AllowSorting="true" Density="Density.Compact" Style="width: 100%;">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Property="Name" Title="Champ" Width="200px">
+                            <Template Context="item">
+                                <span style="display: inline-flex; align-items: center; gap: 8px;">
+                                    @if (item.Category == SnmpItemCategory.Toner)
+                                    {
+                                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: @item.ColorHex; border: 1px solid var(--ap-border-strong);"></span>
+                                    }
+                                    <span style="font-weight: 500;">@item.Name</span>
+                                </span>
+                                <span class="ap-cell-sub">@FormatCategory(item.Category)</span>
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Property="Oid" Title="OID" Width="230px">
+                            <Template Context="item"><span class="ap-mono" style="color: var(--ap-text-secondary);">@item.Oid</span></Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Title="Valeur lue" Width="200px" Sortable="false">
+                            <Template Context="item">
+                                @if (testResults.TryGetValue(item.Oid, out var testRes))
+                                {
+                                    <span class="ap-mono" style="color: @(testRes.Success ? "var(--ap-success)" : "var(--ap-danger)");">@testRes.Value</span>
+                                }
+                                else
+                                {
+                                    <span class="ap-muted">—</span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="SnmpProfileItem" Title="" Width="96px" TextAlign="TextAlign.Right" Sortable="false">
+                            <Template Context="item">
+                                @if (canWrite)
+                                {
+                                    <span class="ap-row-actions">
+                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => EditerItem(item))" title="@($"Modifier {item.Name}")" aria-label="@($"Modifier {item.Name}")" />
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => SupprimerItem(item))" title="@($"Retirer {item.Name}")" aria-label="@($"Retirer {item.Name}")" />
+                                    </span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        }
+    </div>
+
+    }
+    else
+    {
     <div class="ap-dlg-group">
         <div style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--ap-s2);">
             <h3 class="ap-grow" style="margin: 0;">Champs lus <span class="ap-opt" style="font-weight: 400;">(@profileEdit.Items.Count)</span></h3>
@@ -165,6 +324,8 @@
         }
     </div>
 
+    }
+
     <div class="ap-dlg-footer">
         @if (profileEdit.Id != 0 && canDelete)
         {
@@ -178,6 +339,15 @@
         }
     </div>
 </div>
+
+<style>
+    .ap-detect-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ap-detect-table th { text-align: left; font-weight: 600; color: var(--ap-text-muted); padding: 6px 8px; border-bottom: 1px solid var(--ap-border); white-space: nowrap; }
+    .ap-detect-table td { padding: 6px 8px; border-bottom: 1px solid var(--ap-divider); vertical-align: middle; }
+    .ap-detect-table td .ap-cell-sub { display: block; }
+    .ap-detect-table tr.is-hidden td { opacity: 0.55; }
+    .ap-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--ap-border-strong); flex: none; }
+</style>
 
 @code {
     [Parameter] public SnmpProfile ProfileToEdit { get; set; } = new();
@@ -197,6 +367,106 @@
 
     private bool canWrite = false;
     private bool canDelete = false;
+
+    // #50 : mode automatique
+    private bool isDetecting = false;
+    private PrinterDiagnosticResult? detection;
+
+    private bool IsAuto => profileEdit.Mode == SnmpProfileMode.Automatique;
+
+    // Champs que la détection automatique ne lit pas (OID constructeur) ; les autres sont gardés pour le mode manuel
+    private IEnumerable<SnmpProfileItem> VendorItems => profileEdit.Items.Where(i => !SnmpStandardOids.IsCoveredByAuto(i.Oid));
+    private int StandardItemsCount => profileEdit.Items.Count(i => SnmpStandardOids.IsCoveredByAuto(i.Oid));
+
+    private sealed record DetectedRow(string Key, string AutoName, string KindLabel, string Value, bool HasColor, string AutoColor, bool HasThreshold);
+
+    // Éléments lus sur l'imprimante d'essai, plus les modifications enregistrées pour des éléments non vus sur celle-ci
+    private List<DetectedRow> DetectedRows
+    {
+        get
+        {
+            var rows = new List<DetectedRow>();
+            if (detection != null)
+            {
+                foreach (var t in detection.Toners.Where(t => t.Key != null))
+                {
+                    string kind = t.Kind == SupplyKind.Toner ? "Consommable" : t.IsReceptacle ? "Maintenance (réceptacle)" : "Maintenance";
+                    string value = t.HasLevel ? $"{t.CurrentLevel} %{(t.IsReceptacle ? " libre" : "")}" : StateLabel(t.State, t.IsReceptacle);
+                    rows.Add(new DetectedRow(t.Key!, t.Color, kind, value, t.Kind == SupplyKind.Toner, t.ColorHex, t.HasLevel || t.Kind == SupplyKind.Toner));
+                }
+                foreach (var b in detection.Trays.Where(b => b.Key != null))
+                {
+                    string value = b.HasLevel ? (b.CurrentLevel <= 100 ? $"{b.CurrentLevel} %" : $"{b.CurrentLevel} f.") : b.State == SupplyState.Ok ? "Papier présent" : StateLabel(b.State, false);
+                    rows.Add(new DetectedRow(b.Key!, b.Name, "Bac", value, false, "", false));
+                }
+            }
+            foreach (var o in profileEdit.Overrides.Where(o => rows.All(r => r.Key != o.Key) && !o.IsEmpty))
+                rows.Add(new DetectedRow(o.Key, o.DisplayName ?? o.Key, o.Key.StartsWith("input:") ? "Bac" : "Élément", "Non lu sur l'imprimante d'essai", !o.Key.StartsWith("input:"), o.ColorHex ?? "#6c757d", !o.Key.StartsWith("input:")));
+            return rows;
+        }
+    }
+
+    private static string StateLabel(SupplyState state, bool receptacle) => state switch
+    {
+        SupplyState.Ok => "OK",
+        SupplyState.Low => receptacle ? "Presque plein" : "Bas",
+        SupplyState.Empty => receptacle ? "Plein" : "Vide",
+        _ => "Inconnu"
+    };
+
+    private SnmpProfileOverride? FindOverride(string key) => profileEdit.Overrides.FirstOrDefault(o => o.Key == key);
+
+    // Créée à la première saisie ; les modifications vides sont retirées à l'enregistrement
+    private SnmpProfileOverride Override(string key)
+    {
+        var o = FindOverride(key);
+        if (o == null)
+        {
+            o = new SnmpProfileOverride { Key = key };
+            profileEdit.Overrides.Add(o);
+        }
+        return o;
+    }
+
+    private async Task DetecterAuto()
+    {
+        if (string.IsNullOrWhiteSpace(testRequest.IpAddress)) return;
+        if (ConnexionIncomplete()) return;
+        isDetecting = true;
+        AppliquerConnexion();
+        var req = new SnmpScanRequestDto
+        {
+            IpAddress = testRequest.IpAddress.Trim(),
+            Port = testRequest.Port > 0 ? testRequest.Port : 161,
+            Community = testRequest.Community,
+            Version = testRequest.Version,
+            CredentialId = testRequest.CredentialId,
+            ProfileId = testRequest.ProfileId
+        };
+        try
+        {
+            var res = await Http.PostAsJsonAsync("api/SnmpProfiles/detect", req);
+            if (res.IsSuccessStatusCode)
+            {
+                detection = await res.Content.ReadFromJsonAsync<PrinterDiagnosticResult>();
+                int count = (detection?.Toners.Count ?? 0) + (detection?.Trays.Count ?? 0);
+                if (count == 0)
+                    NotificationService.Notify(NotificationSeverity.Warning, "Lecture de l'imprimante", "L'imprimante répond mais ne décrit aucun consommable ni bac de façon standard : passez le profil en manuel.", 8000);
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Lecture de l'imprimante", await res.Content.ReadAsStringAsync(), 8000);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Erreur réseau", ex.Message, 8000);
+        }
+        finally
+        {
+            isDetecting = false;
+        }
+    }
 
     private List<Autoprint.Shared.DTOs.SnmpCredentialViewDto> listeCredentials = new();
 
@@ -219,7 +489,13 @@
             SnmpVersion = ProfileToEdit.SnmpVersion is 1 or 2 or 3 ? ProfileToEdit.SnmpVersion : 2,
             SnmpCredentialId = ProfileToEdit.SnmpCredentialId,
             HasSnmpCommunity = ProfileToEdit.HasSnmpCommunity,
-            Items = ProfileToEdit.Items != null ? ProfileToEdit.Items.ToList() : new List<SnmpProfileItem>()
+            Items = ProfileToEdit.Items != null ? ProfileToEdit.Items.ToList() : new List<SnmpProfileItem>(),
+            Mode = ProfileToEdit.Mode,
+            LowThresholdPercent = ProfileToEdit.LowThresholdPercent,
+            Overrides = (ProfileToEdit.Overrides ?? new()).Select(o => new SnmpProfileOverride
+            {
+                Key = o.Key, DisplayName = o.DisplayName, Hidden = o.Hidden, ColorHex = o.ColorHex, LowThresholdPercent = o.LowThresholdPercent
+            }).ToList()
         };
 
         try
@@ -241,7 +517,7 @@
                     }
                 }
             }
-            else
+            else if (!IsAuto)
             {
                 ReinitialiserPreset(false);
             }
@@ -316,6 +592,7 @@
     private void OnColorModeChanged(bool isColor)
     {
         profileEdit.IsColor = isColor;
+        if (IsAuto) return; // en automatique, les toners viennent de l'imprimante
         if (isColor)
         {
             if (!profileEdit.Items.Any(i => i.Name.ToLower().Contains("cyan")))
