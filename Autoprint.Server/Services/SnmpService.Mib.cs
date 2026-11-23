@@ -20,7 +20,7 @@ namespace Autoprint.Server.Services
         private const string OidLifeCount = "1.3.6.1.2.1.43.10.2.1.4.1.1";
 
         private const string SupplyColorant = "1.3.6.1.2.1.43.11.1.1.3";   // prtMarkerSuppliesColorantIndex
-        private const string SupplyClass = "1.3.6.1.2.1.43.11.1.1.4";      // 3 = réceptacle, 4 = consommable
+        private const string SupplyClass = "1.3.6.1.2.1.43.11.1.1.4";      // PrtMarkerSuppliesClassTC : 3 = consommable (se vide), 4 = réceptacle (se remplit)
         private const string SupplyType = "1.3.6.1.2.1.43.11.1.1.5";       // toner, opc, fuser, wasteToner…
         private const string SupplyDescription = "1.3.6.1.2.1.43.11.1.1.6";
         private const string SupplyUnit = "1.3.6.1.2.1.43.11.1.1.7";
@@ -32,6 +32,10 @@ namespace Autoprint.Server.Services
         private const string InputMedia = "1.3.6.1.2.1.43.8.2.1.12";
         private const string InputName = "1.3.6.1.2.1.43.8.2.1.13";
         private const string ConsoleText = "1.3.6.1.2.1.43.16.5.1.2";
+
+        // prtMarkerSuppliesClass (RFC 3805) : supplyThatIsConsumed(3), receptacleThatIsFilled(4)
+        private const int ConsumedClass = 3;
+        private const int ReceptacleClass = 4;
 
         private const int MibTimeoutMs = 1500;
         private const int OidsPerRequest = 16;
@@ -115,7 +119,7 @@ namespace Autoprint.Server.Services
                     ColorHex = s.ColorHex,
                     State = state,
                     Kind = s.Kind,
-                    IsReceptacle = s.Class == 3
+                    IsReceptacle = s.Class == ReceptacleClass
                 });
             }
 
@@ -170,7 +174,7 @@ namespace Autoprint.Server.Services
             foreach (var idx in supplyIndexes)
             {
                 int type = types.TryGetValue(idx, out var t) ? ExtractInt(t) : 2;
-                int cls = classes.TryGetValue(idx, out var c) ? ExtractInt(c) : 4;
+                int cls = classes.TryGetValue(idx, out var c) ? ExtractInt(c) : ConsumedClass;
                 int unit = units.TryGetValue(idx, out var u) ? ExtractInt(u) : 0;
                 string desc = descriptions.TryGetValue(idx, out var d) ? SnmpText.Repair(ExtractString(d)).Trim() : "";
 
