@@ -2,7 +2,7 @@
 
 Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la journée). Le détail technique de chaque correction est dans le [backlog](Docs/projet/BACKLOG_AMELIORATIONS.md).
 
-## Non publié
+## 26.11.24.1 — 24/11/2026
 
 ### Nouveautés
 
@@ -30,6 +30,13 @@ Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la jou
 - **Libellés SNMP accentués** (#46) : les textes envoyés par l'imprimante dans une page de code DOS ou Windows sont décodés correctement (« Unité de fusion » au lieu de « Unit� De Fusion »), y compris dans les profils déjà enregistrés.
 - **Uptime** : « 1 heure », « 1 jour » au singulier.
 - **Noms proposés par l'auto-découverte** (#46) : l'unité de fusion ou le kit de maintenance ne prennent plus le préfixe « Toner ». Les bacs portent leur nom et leur format (« Tray 1 – A4 ») au lieu du code brut `iso-a4-white`. Dans le diagnostic, les bacs déjà enregistrés avec ce code s'affichent « Bac 1 – A4 ».
+- **Rapport PDF** : les libellés du résumé ne débordent plus. Le tableau donne pour chaque imprimante le détail complet (consommables avec leur état et la prévision, bacs, alertes, éléments à commander, changements) au lieu de deux colonnes abrégées.
+- **Messagerie** : une adresse d'expéditeur vide est refusée à l'enregistrement. Avant, elle était acceptée, puis chaque envoi échouait.
+- **Profils SNMP** : la page explique pourquoi un profil est resté en lecture manuelle (niveaux lus à des OID propres au constructeur). Les catégories s'affichent en français.
+
+### À observer
+
+- La prévision par les pages et l'historique des consommables se construisent au fil des relevés de la supervision. Ils apparaissent après quelques jours, quand il y a assez de données.
 
 ## 26.11.22.1 — 22/11/2026
 
