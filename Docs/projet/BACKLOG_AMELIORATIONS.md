@@ -4,15 +4,70 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (19/11/2026)
+## ▶️ Point de reprise (23/11/2026)
 
-**Lot en cours : issues GitHub #40 à #43**, branche `feature/issues-40-43`. Décisions prises avec l'utilisateur le 19/11, en commentaire de chaque issue.
+**Publié** : 26.11.22.1 le 22/11, avec le lot #40 à #43 (voir plus bas).
+
+**Lot en cours : chantier SNMP #48**, fusionné dans `master` le 23/11 et **pas encore testé au labo** :
+- #46 : diagnostic lisible en thème sombre, libellés accentués et noms des bacs ;
+- #49 : états des consommables, alertes standard, maintenance avec jauge, seuil bas ;
+- #50 : collecteur automatique (Printer MIB), supervision en parallèle, profil comme couche de modifications, conversion des profils existants ;
+- #51 : historique par consommable, prévision par les pages, délai d'approvisionnement ;
+- #52 : consommables dans la liste du parc, vue « à commander », rapports.
+
+Ces travaux ont été vérifiés hors labo : compilation, tests de logique, agent SNMP simulé, base SQLite fabriquée. Plusieurs ont été faits sous Linux, sans compiler le client WPF. **Pas de release avant la campagne ci-dessous.**
+
+### ✅ Tests à faire en fin de campagne (chantier SNMP)
+
+Installeur et MSI de test construits depuis `master`. Simulateurs SIM-V2 / SIM-V3 du labo ; une vraie imprimante si possible.
+
+1. **Installeurs**
+   - [ ] Installeur serveur et MSI client construits depuis `master` ; le client WPF compile (jamais compilé pendant le chantier)
+   - [ ] Écran « Mise à jour détectée » : la phrase passe à la ligne (correctif de la 26.11.13.1, jamais vu à l'écran)
+2. **Mise à jour et conversion des profils (#50)**, le point le plus risqué
+   - [ ] **SQLite** et **SQL Server**, depuis la 26.11.22.1 avec des profils existants : démarrage sans erreur, colonnes et table d'historique ajoutées
+   - [ ] Profil sur OID standards : passé en mode automatique, noms personnalisés et couleurs conservés en modifications
+   - [ ] Profil avec des OID constructeur : resté en mode manuel, et la console le signale
+   - [ ] Historique `TonerHistories` repris quand le nom correspond à une clé
+   - [ ] Sauvegarde puis restauration au nouveau format ; une ancienne sauvegarde se restaure sans erreur
+3. **Collecteur automatique et supervision (#49, #50)**
+   - [ ] Imprimante sans profil : tous ses consommables et bacs, avec les bons noms, couleurs et types
+   - [ ] Valeur `-3` affichée « OK », jamais 100 % ; monochrome qui signale lowToner : toner « Bas »
+   - [ ] Photoconducteur ou kit avec niveau : jauge dans la section Maintenance, sans alerte
+   - [ ] Alertes `prtAlertTable` avec leur gravité ; le statut de supervision en découle
+   - [ ] SNMP v1 (au mieux, plus lent), v2c et v3 ; imprimante qui ne répond pas : abandon rapide, la supervision continue
+   - [ ] Supervision en parallèle : durée d'un passage sur tout le parc du labo, aucune erreur dans le journal Application
+   - [ ] Profil en mode automatique : renommer, masquer, changer la couleur, seuil propre ; « Tester sur une imprimante »
+4. **Historique et prévision (#51)**
+   - [ ] Seuil bas (20 %) et délai d'approvisionnement (14 j) modifiables en global et par profil
+   - [ ] Prévision affichée avec sa fiabilité seulement s'il y a assez de données ; « Bas depuis le JJ/MM » pour une imprimante qui ne donne qu'un état
+   - [ ] Changement de cartouche (niveau qui remonte sur le simulateur) détecté, prévision repartie de zéro
+   - [ ] Renommer un consommable ne coupe pas son historique
+5. **Parc, vue « à commander » et rapports (#52)**
+   - [ ] Liste du parc : colonne « Prochain consommable », pastille « à commander », tri et filtres
+   - [ ] Vue « Consommables à commander » sur tout le parc, export CSV
+   - [ ] Rapports PDF et CSV : mêmes états et prévisions que la console, métrique « Consommables à commander », changements sur la période
+   - [ ] Diagnostic : petit historique par consommable
+6. **Diagnostic (#46)**, clair et sombre (Ctrl+F5)
+   - [ ] Alertes lisibles, carte qui suit le fond de la modal ; jauges du toner noir à 100 %, 50 % et 0 % distinctes ; pourcentages lisibles
+   - [ ] Libellés accentués corrects (« Unité de fusion ») ; bacs nommés « Bac 1 – A4 », « Enveloppe DL »
+7. **Reportés du lot #40 à #43** (vérifiés sur la console locale le 19/11, jamais rejoués au labo)
+   - [ ] Parc (#43) : icône de diagnostic devant le nom sur chaque ligne ; colonne Actions limitée à Modifier et Archiver/Restaurer
+   - [ ] Parc (#43) : ordre au clavier ; lecteur d'écran « Diagnostic <nom> » ; diagnostic présent sans droit d'écriture
+   - [ ] Parc (#43) : message rouge d'erreur de synchro lisible ; icône toujours visible en largeur réduite
+   - [ ] Fiche imprimante (#42) : plus aucun « \serveur\ » ; libellés du nom et du partage selon l'option de nommage
+8. **Clôture**
+   - [ ] Résultats dans `RESULTATS_RECETTE_LABO.md`, CHANGELOG, puis release
+
+## ⏹️ Lot #40 à #43 (publié en 26.11.22.1)
+
+**Lot issues GitHub #40 à #43**, branche `feature/issues-40-43` (fusionnée). Décisions prises avec l'utilisateur le 19/11, en commentaire de chaque issue.
 - [x] #43 : diagnostic en icône teintée devant le nom (maquette validée)
 - [x] #42 : bandeau de la fiche imprimante sans « \serveur\ »
 - [x] #41 : audit par `EnumPrinters` (plus de WMI), arrêt sans rien modifier si la lecture échoue
 - [x] #40 : connexion SNMP dans le profil, suppression de l'identifiant SNMP du modèle. Choix technique : au lieu de rendre nullables les champs SNMP de l'imprimante (impossible proprement sous SQLite), indicateur `SnmpConnexionPropre` ; schéma fait par `DbInitializer` (scripts idempotents), migration EF d'alignement seulement
 
-### ✅ Tests à faire en fin de campagne (lot #40 à #43)
+### Tests du lot #40 à #43 (les cases non cochées sont reportées dans la campagne SNMP, § 7)
 
 1. **Console : parc d'imprimantes (#43)** (clair et sombre, Ctrl+F5)
    - [ ] Icône stéthoscope teintée devant le nom sur chaque ligne, même style quel que soit l'état ; clic : ouvre le diagnostic ; colonne Actions : Modifier et Archiver/Restaurer seulement
