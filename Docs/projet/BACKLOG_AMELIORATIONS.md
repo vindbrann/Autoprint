@@ -4,18 +4,18 @@ Ce fichier recense ce qui a été repéré **en dehors du plan de sécurité** (
 
 **Légende :** 🐞 Anomalie (ne marche pas comme prévu) · 🔧 Dette technique · 💡 Amélioration · 🔐 Sécurité hors périmètre des phases
 
-## ▶️ Point de reprise (23/11/2026)
+## ▶️ Point de reprise (24/11/2026)
 
-**Publié** : 26.11.22.1 le 22/11, avec le lot #40 à #43 (voir plus bas).
+**Publié** : 26.11.24.1 le 24/11, avec le chantier SNMP ci-dessous (campagne terminée le 24/11) ; 26.11.22.1 le 22/11, avec le lot #40 à #43.
 
-**Lot en cours : chantier SNMP #48**, fusionné dans `master` le 23/11 et **pas encore testé au labo** :
+**Chantier SNMP #48**, testé au labo le 24/11 et publié en 26.11.24.1 :
 - #46 : diagnostic lisible en thème sombre, libellés accentués et noms des bacs ;
 - #49 : états des consommables, alertes standard, maintenance avec jauge, seuil bas ;
 - #50 : collecteur automatique (Printer MIB), supervision en parallèle, profil comme couche de modifications, conversion des profils existants ;
 - #51 : historique par consommable, prévision par les pages, délai d'approvisionnement ;
 - #52 : consommables dans la liste du parc, vue « à commander », rapports.
 
-Ces travaux ont été vérifiés hors labo : compilation, tests de logique, agent SNMP simulé, base SQLite fabriquée. Plusieurs ont été faits sous Linux, sans compiler le client WPF. **Pas de release avant la campagne ci-dessous.**
+Ces travaux ont été vérifiés hors labo : compilation, tests de logique, agent SNMP simulé, base SQLite fabriquée. Plusieurs ont été faits sous Linux, sans compiler le client WPF. Restent à observer avec le temps : la prévision par les pages et l'historique affiché (§ 4, 5).
 
 ### ✅ Tests à faire en fin de campagne (chantier SNMP)
 
@@ -57,7 +57,7 @@ Installeur et MSI de test construits depuis `master`. Simulateurs SIM-V2 / SIM-V
    - [x] Parc (#43) : message rouge d'erreur de synchro lisible ; icône toujours visible en largeur réduite
    - [x] Fiche imprimante (#42) : plus aucun « \serveur\ » ; libellés du nom et du partage selon l'option de nommage
 8. **Clôture**
-   - [ ] Résultats dans `RESULTATS_RECETTE_LABO.md`, CHANGELOG, puis release
+   - [x] Résultats dans `RESULTATS_RECETTE_LABO.md`, CHANGELOG, puis release (26.11.24.1, 24/11/2026)
 
 ## ⏹️ Lot #40 à #43 (publié en 26.11.22.1)
 
