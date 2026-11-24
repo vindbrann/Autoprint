@@ -68,6 +68,10 @@
             else
             {
                 @:Manuel : seuls les champs ci-dessous sont lus. À réserver aux imprimantes qui ne décrivent pas leurs consommables de façon standard.
+                @if (SnmpStandardOids.HasVendorLevels(profileEdit))
+                {
+                    <br />@:Ce profil lit des niveaux à des OID propres au constructeur : il est resté en manuel à la conversion. Lisez l'imprimante d'essai ; si elle décrit ses consommables, vous pouvez passer en automatique.
+                }
             }
         </span>
     </div>
@@ -924,20 +928,7 @@
         profileEdit.Items.Remove(item);
     }
 
-    private string FormatCategory(SnmpItemCategory cat)
-    {
-        return cat switch
-        {
-            SnmpItemCategory.Toner => "Toner",
-            SnmpItemCategory.Tray => "Bac Papier",
-            SnmpItemCategory.PageCounter => "Compteur",
-            SnmpItemCategory.SerialNumber => "N° Série",
-            SnmpItemCategory.Status => "Statut",
-            SnmpItemCategory.Console => "Console LCD",
-            SnmpItemCategory.Maintenance => "Maintenance",
-            _ => cat.ToString()
-        };
-    }
+    private static string FormatCategory(SnmpItemCategory cat) => SnmpCategoryLabels.Of(cat);
 
     private BadgeStyle GetBadgeStyle(SnmpItemCategory cat)
     {

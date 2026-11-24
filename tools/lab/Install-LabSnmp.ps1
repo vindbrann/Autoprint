@@ -6,6 +6,13 @@
     Deux imprimantes simulées (données : tools\lab\snmpsim\data) :
       - 192.168.99.10:161 : SNMPv3 authPriv, utilisateur « autoprint.v3 », SHA-256 / AES-128 (numéro de série SIMV3-0001) ;
       - 192.168.99.11:161 (adresse ajoutée à SRV-AD) : v2c, communauté « parc » (numéro de série SIMV2-0002).
+    Deux imprimantes réalistes pour la Printer MIB (chantier SNMP #48), servies par communauté sur les deux adresses (v1 et v2c) :
+      - communauté « lexmark » : monochrome type Lexmark (toner qui ne donne qu'un état « -3 » + lowToner, libellé CP850
+        « Unité de fusion », kit photoconducteur, alerte, bac en code média) ;
+      - communauté « couleur » : 4 toners nommés par la table des colorants (dont un vide), récupérateur, unité de fusion en pages,
+        deux bacs, alertes critique et avertissement, compteur couleur propre au constructeur.
+    Données générées par tools\lab\snmpsim\make_data.py. Pour modifier un niveau (ex. changement de cartouche) : arrêter la tâche
+    planifiée et le processus python, modifier le fichier .snmprec, relancer la tâche.
     Les deux répondent aussi en v2c « public ». Les mots de passe v3 sont générés, enregistrés chiffrés dans
     %USERPROFILE%\.autoprint-lab\recette-secrets.xml (clés snmp.v3.auth, snmp.v3.priv) et jamais affichés ;
     sur SRV-AD, ils sont dans C:\SnmpSim\v3.txt (lisible par SYSTEM et les administrateurs seulement).

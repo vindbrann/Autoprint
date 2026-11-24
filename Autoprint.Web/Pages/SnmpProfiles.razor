@@ -39,7 +39,9 @@ else if (isLoading)
 else
 {
     <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-tertiary-color); margin-bottom: 1.5rem;">
-        Gérez les profils d'OIDs SNMP spécifiques pour les modèles d'imprimantes particuliers qui ne répondent pas aux OIDs standards.
+        Un profil indique comment lire les imprimantes d'un modèle. En lecture automatique, Autoprint lit tout ce que l'imprimante décrit ;
+        le profil ne garde que vos modifications (noms, couleurs, seuils, éléments masqués) et d'éventuels OID propres au constructeur.
+        La lecture manuelle est réservée aux imprimantes qui ne décrivent pas leurs consommables de façon standard.
     </RadzenText>
 
     <div class="ap-grid-wrap"><RadzenDataGrid Data="@profiles" TItem="SnmpProfile"
@@ -57,10 +59,15 @@ else
                     else
                     {
                         <RadzenBadge BadgeStyle="BadgeStyle.Light" Variant="Variant.Flat" Text="Manuel" />
+                        @if (SnmpStandardOids.HasVendorLevels(p))
+                        {
+                            @* #50 : la console dit pourquoi un profil est resté en manuel (campagne SNMP du 24/11) *@
+                            <div class="ap-help" style="margin-top: 4px; white-space: normal;">Niveaux lus à des OID propres au constructeur</div>
+                        }
                     }
                 </Template>
             </RadzenDataGridColumn>
-            <RadzenDataGridColumn TItem="SnmpProfile" Title="Détail" Sortable="false" Filterable="false">
+            <RadzenDataGridColumn TItem="SnmpProfile" Title="Détail" Sortable="false" Filterable="false" CssClass="ap-cell-wrap">
                 <Template Context="p">
                     @{
                         // #50 : en automatique, seuls comptent les modifications et les OID constructeur
@@ -80,7 +87,7 @@ else
                             }
                             @foreach (var item in shown.Take(6))
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@($"{item.Name} ({item.Category})")" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@($"{item.Name} ({SnmpCategoryLabels.Of(item.Category)})")" />
                             }
                             @if (shown.Count > 6)
                             {
