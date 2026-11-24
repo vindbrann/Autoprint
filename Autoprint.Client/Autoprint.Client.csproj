@@ -34,7 +34,7 @@
     </PackageReference>
 
     <!-- Explicit package overrides to resolve security vulnerabilities in transitive dependencies -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
   <ItemGroup>
