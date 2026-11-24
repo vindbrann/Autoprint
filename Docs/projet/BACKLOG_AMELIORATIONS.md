@@ -27,7 +27,7 @@ Installeur et MSI de test construits depuis `master`. Simulateurs SIM-V2 / SIM-V
 2. **Mise à jour et conversion des profils (#50)**, le point le plus risqué
    - [x] **SQLite** et **SQL Server**, depuis la 26.11.22.1 avec des profils existants : démarrage sans erreur, colonnes et table d'historique ajoutées
    - [x] Profil sur OID standards : passé en mode automatique, noms personnalisés et couleurs conservés en modifications
-   - [ ] Profil avec des OID constructeur : resté en mode manuel, et la console le signale
+   - [x] Profil avec des OID constructeur : resté en mode manuel, et la console le signale
    - [ ] Historique `TonerHistories` repris quand le nom correspond à une clé — **non testable au labo** : aucune base n'a d'ancien historique (0 ligne)
    - [x] Sauvegarde puis restauration au nouveau format ; une ancienne sauvegarde se restaure sans erreur
 3. **Collecteur automatique et supervision (#49, #50)**
@@ -53,7 +53,7 @@ Installeur et MSI de test construits depuis `master`. Simulateurs SIM-V2 / SIM-V
    - [x] Libellés accentués corrects (« Unité de fusion ») ; bacs nommés « Bac 1 – A4 », « Enveloppe DL »
 7. **Reportés du lot #40 à #43** (vérifiés sur la console locale le 19/11, jamais rejoués au labo)
    - [x] Parc (#43) : icône de diagnostic devant le nom sur chaque ligne ; colonne Actions limitée à Modifier et Archiver/Restaurer
-   - [ ] Parc (#43) : ordre au clavier ; lecteur d'écran « Diagnostic <nom> » ; diagnostic présent sans droit d'écriture
+   - [x] Parc (#43) : ordre au clavier ; lecteur d'écran « Diagnostic <nom> » ; diagnostic présent sans droit d'écriture
    - [x] Parc (#43) : message rouge d'erreur de synchro lisible ; icône toujours visible en largeur réduite
    - [x] Fiche imprimante (#42) : plus aucun « \serveur\ » ; libellés du nom et du partage selon l'option de nommage
 8. **Clôture**

@@ -132,6 +132,36 @@ namespace Autoprint.Shared
             if (o.StartsWith(InputLevelPrefix) && o.Length > InputLevelPrefix.Length) return "input:" + o.Substring(InputLevelPrefix.Length);
             return null;
         }
+
+        /// <summary>
+        /// Vrai si le profil lit des niveaux (toners, bacs, maintenance) à des OID propres au constructeur : c'est ce qui
+        /// le garde en mode manuel à la conversion (#50), et ce que la console explique (campagne SNMP du 24/11).
+        /// </summary>
+        public static bool HasVendorLevels(SnmpProfile profile)
+        {
+            bool vendorItems = profile.Items.Any(i =>
+                (i.Category is SnmpItemCategory.Toner or SnmpItemCategory.Tray || (i.Category == SnmpItemCategory.Maintenance && i.ValueType != SnmpValueType.String))
+                && KeyFor(i.Oid) == null);
+            bool vendorLegacy = new[] { profile.OidTonerBlack, profile.OidTonerCyan, profile.OidTonerMagenta, profile.OidTonerYellow, profile.OidPageCounter }
+                .Any(o => !string.IsNullOrWhiteSpace(o) && !IsCoveredByAuto(o));
+            return vendorItems || vendorLegacy;
+        }
+    }
+
+    /// <summary>Libellés français des catégories d'éléments de profil (la console affichait le nom technique, ex. « PageCounter »).</summary>
+    public static class SnmpCategoryLabels
+    {
+        public static string Of(SnmpItemCategory category) => category switch
+        {
+            SnmpItemCategory.Toner => "Toner",
+            SnmpItemCategory.Tray => "Bac papier",
+            SnmpItemCategory.PageCounter => "Compteur de pages",
+            SnmpItemCategory.Status => "État",
+            SnmpItemCategory.Console => "Écran",
+            SnmpItemCategory.Maintenance => "Maintenance",
+            SnmpItemCategory.SerialNumber => "N° de série",
+            _ => category.ToString()
+        };
     }
 
     public class SnmpProfileImportDto

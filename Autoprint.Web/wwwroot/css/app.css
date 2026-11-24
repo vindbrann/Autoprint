@@ -317,3 +317,6 @@ code {
 
 /* #52 : pastille « À commander » (liste du parc) */
 .ap-order-pill { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--ap-warning-subtle); color: var(--ap-warning); }
+
+/* Campagne SNMP du 24/11 : cellule dont le contenu (étiquettes) passe à la ligne au lieu d'être coupé */
+.ap-cell-wrap .rz-cell-data { white-space: normal; overflow: visible; text-overflow: clip; }

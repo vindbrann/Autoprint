@@ -34,15 +34,8 @@ namespace Autoprint.Server.Services
         /// </summary>
         public static bool Convert(SnmpProfile profile)
         {
-            var levelCategories = new[] { SnmpItemCategory.Toner, SnmpItemCategory.Tray };
-            bool vendorLevels = profile.Items.Any(i =>
-                (levelCategories.Contains(i.Category) || (i.Category == SnmpItemCategory.Maintenance && i.ValueType != SnmpValueType.String))
-                && SnmpStandardOids.KeyFor(i.Oid) == null);
-
-            bool vendorLegacy = new[] { profile.OidTonerBlack, profile.OidTonerCyan, profile.OidTonerMagenta, profile.OidTonerYellow, profile.OidPageCounter }
-                .Any(o => !string.IsNullOrWhiteSpace(o) && !SnmpStandardOids.IsCoveredByAuto(o));
-
-            if (vendorLevels || vendorLegacy)
+            // Même règle que l'explication affichée dans la console
+            if (SnmpStandardOids.HasVendorLevels(profile))
             {
                 profile.Mode = SnmpProfileMode.Manuel;
                 return false;

@@ -42,7 +42,7 @@ Version de test 26.11.23.1 construite depuis `master` (installeur, MSI client ; 
 | SNMPv3 (profil + identifiant) | ✅ | SIMV3-0001 lu en moins de 2 s ; imprimante injoignable abandonnée en 16 ms |
 | Profil automatique : renommer, recolorer, seuil propre, masquer ; « Lire l'imprimante » | ✅ | Seuil de 10 % : cyan à 18 % n'est plus « Bas » ; bac masqué absent ; lecture : noms de l'imprimante à côté des noms personnalisés |
 | Paramètres : seuil bas 20 %, délai 14 j | ✅ | |
-| Parc : « Prochain consommable », pastilles, tri, filtres ; vue « à commander » (4) et export CSV | ✅ | Clair et sombre ; icône de diagnostic visible en fenêtre étroite |
+| Parc : « Prochain consommable », pastilles, tri, filtres ; vue « à commander » (4) et export CSV | ✅ | Clair et sombre ; icône de diagnostic visible en fenêtre étroite ; ordre au clavier : case, diagnostic, reste de la ligne |
 | Diagnostic en clair et sombre (#46) | ✅ | Alertes lisibles, toner noir distinct, jauges lisibles |
 | Fiche imprimante (#42) | ✅ | Plus de « \serveur\ », connexion SNMP utilisée affichée |
 | Changement de cartouche simulé (jaune 0 → 100 %) | ✅ | Remplacement daté, plus « à commander », « bas depuis » effacé |
@@ -53,6 +53,7 @@ Version de test 26.11.23.1 construite depuis `master` (installeur, MSI client ; 
 Trouvé et corrigé pendant la campagne :
 - **PDF** : mise en page reprise (voir ci-dessus).
 - **Paramètres** : une adresse d'expéditeur vide était acceptée. Chaque envoi échouait ensuite (« The value cannot be an empty string (address) »). Elle est maintenant refusée avec un message.
+- **Page Profils SNMP** : un profil resté en manuel n'était pas expliqué (#50 le demandait). La page affiche maintenant « Niveaux lus à des OID propres au constructeur », avec la même règle que le convertisseur ; la fenêtre du profil le détaille. Les catégories s'affichent en français (« PageCounter » devient « Compteur de pages »), les étiquettes passent à la ligne, et le texte d'introduction explique la lecture automatique.
 - **Profils SNMP** : requête découpée (`AsSplitQuery`) pour lire éléments et modifications. Cela supprime l'avertissement d'Entity Framework.
 
 Observations :
