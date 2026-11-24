@@ -39,6 +39,7 @@ namespace Autoprint.Server.Controllers
             var profiles = await _context.SnmpProfiles
                 .Include(p => p.Items)
                 .Include(p => p.Overrides)
+                .AsSplitQuery()
                 .AsNoTracking()
                 .ToListAsync();
             foreach (var p in profiles) p.HasSnmpCommunity = !string.IsNullOrEmpty(p.SnmpCommunityChiffree);
@@ -52,6 +53,7 @@ namespace Autoprint.Server.Controllers
             var profile = await _context.SnmpProfiles
                 .Include(p => p.Items)
                 .Include(p => p.Overrides)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (profile == null) return NotFound();
@@ -140,6 +142,7 @@ namespace Autoprint.Server.Controllers
             var existingProfile = await _context.SnmpProfiles
                 .Include(p => p.Items)
                 .Include(p => p.Overrides)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (existingProfile == null) return NotFound();
@@ -238,6 +241,7 @@ namespace Autoprint.Server.Controllers
             var profile = await _context.SnmpProfiles
                 .Include(p => p.Items)
                 .Include(p => p.Overrides)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (profile == null) return NotFound();

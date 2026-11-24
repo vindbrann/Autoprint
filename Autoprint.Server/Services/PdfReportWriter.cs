@@ -69,6 +69,23 @@ namespace Autoprint.Server.Services
             return t.TrimEnd() + "…";
         }
 
+        /// <summary>Découpe <paramref name="text"/> en lignes d'au plus <paramref name="maxWidth"/> points, aux espaces
+        /// (un mot plus long que la largeur est raccourci avec « … »).</summary>
+        public List<string> Wrap(string text, float maxWidth, float size, bool bold = false)
+        {
+            var lines = new List<string>();
+            var current = "";
+            foreach (var word in (text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var candidate = current.Length == 0 ? word : current + " " + word;
+                if (MeasureText(candidate, size, bold) <= maxWidth) { current = candidate; continue; }
+                if (current.Length > 0) lines.Add(current);
+                current = MeasureText(word, size, bold) <= maxWidth ? word : Fit(word, maxWidth, size, bold);
+            }
+            if (current.Length > 0) lines.Add(current);
+            return lines;
+        }
+
         /// <summary>Texte aligné à droite sur <paramref name="rightX"/>.</summary>
         public void TextRight(string text, float rightX, float baselineY, float size, SKColor color, bool bold = false)
             => Text(text, rightX - MeasureText(text, size, bold), baselineY, size, color, bold);

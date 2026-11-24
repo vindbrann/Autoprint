@@ -156,6 +156,11 @@ namespace Autoprint.Server.Controllers
             if (!string.IsNullOrWhiteSpace(dto.AdLdapFilter) && LdapFilterNormalizer.Normalize(dto.AdLdapFilter) == null)
                 return BadRequest(LdapFilterError);
 
+            // Campagne SNMP : une adresse d'expéditeur vide était acceptée, puis chaque envoi (rapports, alertes,
+            // mot de passe oublié) échouait avec « The value cannot be an empty string (address) »
+            if (!string.IsNullOrWhiteSpace(dto.SmtpHost) && !System.Net.Mail.MailAddress.TryCreate(dto.SmtpFromAddress.Trim(), out _))
+                return BadRequest("Adresse de l'expéditeur invalide : indiquez une adresse e-mail (ex. autoprint@mondomaine.fr).");
+
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
 
             var modifiedCategories = new HashSet<string>();

@@ -29,6 +29,39 @@ Tests **[API]** joués par `tools/lab/Recette-Api.ps1` ; les autres à la main o
 
 **Fichiers locaux (hors dépôt, chiffrés pour le compte Windows)** dans `%USERPROFILE%\.autoprint-lab\` : `labadmin.cred`, `recette-secrets.xml` (comptes du labo, `sql.*`, `snmp.*`), `recette-secrets-sql.xml` / `-sqlauth.xml` / `-sqldistant.xml` / `-sm.xml` (comptes Autoprint par installation), `srv-print.cer`, `dl\` (SQL Server 2025 Express, Python portable avec snmpsim, installeurs 1.1.0 / 1.1.2 / 26.08.24.2), `snmpsim-venv\`.
 
+## Chantier SNMP #48 (#46, #49 à #52) — 24/11/2026
+
+Version de test 26.11.23.1 construite depuis `master` (installeur, MSI client ; le client WPF compile). Simulateur enrichi de deux imprimantes réalistes (`tools/lab/snmpsim/make_data.py` : Lexmark monochrome en v1, couleur en v2c). Console vérifiée depuis CLT-TEST (navigateur), API depuis CLT-TEST.
+
+| Test | Résultat | Détail |
+|---|---|---|
+| Mise à jour **SQLite** 26.11.22.1 → 26.11.23.1 (profils créés au format 26.11.22.1) | ✅ | 3 tables et 3 colonnes ajoutées sans erreur ; deux profils sur OID standards convertis en automatique, noms et couleurs conservés en modifications ; un compteur constructeur reste lu (il remplace le compteur standard, comme le profil le demande) |
+| Mise à jour **SQL Server** 26.11.11.1 → 26.11.23.1 (10 imprimantes) | ✅ | Profil standard → automatique ; profil avec toner à un OID constructeur → resté en manuel ; 10 imprimantes intactes |
+| Lexmark monochrome (v1) | ✅ | Toner « -3 » + lowToner : « Bas », « Niveau non communiqué », à commander, « Bas depuis le 24/11 » ; unité de fusion (libellé CP850 décodé) et kit PC en Maintenance avec jauge, sans alerte ; alerte de l'imprimante ; bac « MP Feeder – Enveloppe DL ». En 26.11.22.1 : toner à 100 %, fusion en alerte |
+| Couleur (v2c) | ✅ | 4 toners nommés par les colorants (jaune « Vide », cyan et magenta « Bas »), récupérateur, unité de fusion en pages (68 %), alertes critique et avertissement, bacs « Tray 1 – A4 », « Tray 2 – Letter ». En 26.11.22.1 : magenta et jaune absents |
+| SNMPv3 (profil + identifiant) | ✅ | SIMV3-0001 lu en moins de 2 s ; imprimante injoignable abandonnée en 16 ms |
+| Profil automatique : renommer, recolorer, seuil propre, masquer ; « Lire l'imprimante » | ✅ | Seuil de 10 % : cyan à 18 % n'est plus « Bas » ; bac masqué absent ; lecture : noms de l'imprimante à côté des noms personnalisés |
+| Paramètres : seuil bas 20 %, délai 14 j | ✅ | |
+| Parc : « Prochain consommable », pastilles, tri, filtres ; vue « à commander » (4) et export CSV | ✅ | Clair et sombre ; icône de diagnostic visible en fenêtre étroite |
+| Diagnostic en clair et sombre (#46) | ✅ | Alertes lisibles, toner noir distinct, jauges lisibles |
+| Fiche imprimante (#42) | ✅ | Plus de « \serveur\ », connexion SNMP utilisée affichée |
+| Changement de cartouche simulé (jaune 0 → 100 %) | ✅ | Remplacement daté, plus « à commander », « bas depuis » effacé |
+| Sauvegarde / restauration | ✅ | Nouveau format : modifications et mode conservés ; ancienne sauvegarde (sans modifications) : profils reconvertis |
+| Rapports CSV et PDF | ✅ après correctif | CSV : mêmes états et prévisions que la console. **PDF refait** : libellés des pavés qui débordaient, et seulement deux colonnes de mesures abrégées (« T:Bas F:64% K:… ») ; désormais une ligne d'identification puis le détail (consommables, bacs, alertes, à commander, changements) avec retour à la ligne |
+| MSI client 26.11.11.1 → 26.11.23.1 en SYSTEM | ✅ | Une entrée, réglages conservés |
+
+Trouvé et corrigé pendant la campagne :
+- **PDF** : mise en page reprise (voir ci-dessus).
+- **Paramètres** : une adresse d'expéditeur vide était acceptée. Chaque envoi échouait ensuite (« The value cannot be an empty string (address) »). Elle est maintenant refusée avec un message.
+- **Profils SNMP** : requête découpée (`AsSplitQuery`) pour lire éléments et modifications. Cela supprime l'avertissement d'Entity Framework.
+
+Observations :
+- Le premier diagnostic après le redémarrage du site a répondu une fois « SNMP muet », puis les suivants ont répondu normalement.
+- La prévision par les pages, l'historique affiché et la continuité de l'historique après un renommage demandent plusieurs jours de relevés. Le calcul est couvert par les tests de la PR #56.
+- L'ancien historique `TonerHistories` n'a pas pu être testé : aucune base du labo n'en contient.
+
+Labo : licences d'évaluation réarmées (10 jours) ; 22 vieux instantanés supprimés le 24/11.
+
 ## Lot issues #40 à #43 (branche `feature/issues-40-43`) — 22/11/2026
 
 Build de test (commit `fadd2f9`, puis correctif `dd23688`) déployé à chaud sur SRV-PRINT à partir des fichiers du MSI (installeur inchangé par ce lot). API jouée depuis le PC par l'IP (fichier hosts toujours vide).

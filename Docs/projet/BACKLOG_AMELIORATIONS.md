@@ -22,40 +22,40 @@ Ces travaux ont été vérifiés hors labo : compilation, tests de logique, agen
 Installeur et MSI de test construits depuis `master`. Simulateurs SIM-V2 / SIM-V3 du labo ; une vraie imprimante si possible.
 
 1. **Installeurs**
-   - [ ] Installeur serveur et MSI client construits depuis `master` ; le client WPF compile (jamais compilé pendant le chantier)
+   - [x] Installeur serveur et MSI client construits depuis `master` ; le client WPF compile (jamais compilé pendant le chantier)
    - [ ] Écran « Mise à jour détectée » : la phrase passe à la ligne (correctif de la 26.11.13.1, jamais vu à l'écran)
 2. **Mise à jour et conversion des profils (#50)**, le point le plus risqué
-   - [ ] **SQLite** et **SQL Server**, depuis la 26.11.22.1 avec des profils existants : démarrage sans erreur, colonnes et table d'historique ajoutées
-   - [ ] Profil sur OID standards : passé en mode automatique, noms personnalisés et couleurs conservés en modifications
+   - [x] **SQLite** et **SQL Server**, depuis la 26.11.22.1 avec des profils existants : démarrage sans erreur, colonnes et table d'historique ajoutées
+   - [x] Profil sur OID standards : passé en mode automatique, noms personnalisés et couleurs conservés en modifications
    - [ ] Profil avec des OID constructeur : resté en mode manuel, et la console le signale
-   - [ ] Historique `TonerHistories` repris quand le nom correspond à une clé
-   - [ ] Sauvegarde puis restauration au nouveau format ; une ancienne sauvegarde se restaure sans erreur
+   - [ ] Historique `TonerHistories` repris quand le nom correspond à une clé — **non testable au labo** : aucune base n'a d'ancien historique (0 ligne)
+   - [x] Sauvegarde puis restauration au nouveau format ; une ancienne sauvegarde se restaure sans erreur
 3. **Collecteur automatique et supervision (#49, #50)**
-   - [ ] Imprimante sans profil : tous ses consommables et bacs, avec les bons noms, couleurs et types
-   - [ ] Valeur `-3` affichée « OK », jamais 100 % ; monochrome qui signale lowToner : toner « Bas »
-   - [ ] Photoconducteur ou kit avec niveau : jauge dans la section Maintenance, sans alerte
-   - [ ] Alertes `prtAlertTable` avec leur gravité ; le statut de supervision en découle
-   - [ ] SNMP v1 (au mieux, plus lent), v2c et v3 ; imprimante qui ne répond pas : abandon rapide, la supervision continue
-   - [ ] Supervision en parallèle : durée d'un passage sur tout le parc du labo, aucune erreur dans le journal Application
-   - [ ] Profil en mode automatique : renommer, masquer, changer la couleur, seuil propre ; « Tester sur une imprimante »
+   - [x] Imprimante sans profil : tous ses consommables et bacs, avec les bons noms, couleurs et types
+   - [x] Valeur `-3` affichée « OK », jamais 100 % ; monochrome qui signale lowToner : toner « Bas »
+   - [x] Photoconducteur ou kit avec niveau : jauge dans la section Maintenance, sans alerte
+   - [x] Alertes `prtAlertTable` avec leur gravité ; le statut de supervision en découle
+   - [x] SNMP v1 (au mieux, plus lent), v2c et v3 ; imprimante qui ne répond pas : abandon rapide, la supervision continue
+   - [x] Supervision en parallèle : durée d'un passage sur tout le parc du labo, aucune erreur dans le journal Application
+   - [x] Profil en mode automatique : renommer, masquer, changer la couleur, seuil propre ; « Tester sur une imprimante »
 4. **Historique et prévision (#51)**
-   - [ ] Seuil bas (20 %) et délai d'approvisionnement (14 j) modifiables en global et par profil
-   - [ ] Prévision affichée avec sa fiabilité seulement s'il y a assez de données ; « Bas depuis le JJ/MM » pour une imprimante qui ne donne qu'un état
-   - [ ] Changement de cartouche (niveau qui remonte sur le simulateur) détecté, prévision repartie de zéro
-   - [ ] Renommer un consommable ne coupe pas son historique
+   - [x] Seuil bas (20 %) et délai d'approvisionnement (14 j) modifiables en global et par profil
+   - [x] Prévision affichée avec sa fiabilité seulement s'il y a assez de données ; « Bas depuis le JJ/MM » pour une imprimante qui ne donne qu'un état
+   - [x] Changement de cartouche (niveau qui remonte sur le simulateur) détecté, prévision repartie de zéro
+   - [ ] Renommer un consommable ne coupe pas son historique — à observer après quelques jours de relevés (l'historique est indexé par clé, pas par nom ; couvert par les tests de la PR #56)
 5. **Parc, vue « à commander » et rapports (#52)**
-   - [ ] Liste du parc : colonne « Prochain consommable », pastille « à commander », tri et filtres
-   - [ ] Vue « Consommables à commander » sur tout le parc, export CSV
-   - [ ] Rapports PDF et CSV : mêmes états et prévisions que la console, métrique « Consommables à commander », changements sur la période
-   - [ ] Diagnostic : petit historique par consommable
+   - [x] Liste du parc : colonne « Prochain consommable », pastille « à commander », tri et filtres
+   - [x] Vue « Consommables à commander » sur tout le parc, export CSV
+   - [x] Rapports PDF et CSV : mêmes états et prévisions que la console, métrique « Consommables à commander », changements sur la période
+   - [ ] Diagnostic : petit historique par consommable — à observer après quelques jours de relevés
 6. **Diagnostic (#46)**, clair et sombre (Ctrl+F5)
-   - [ ] Alertes lisibles, carte qui suit le fond de la modal ; jauges du toner noir à 100 %, 50 % et 0 % distinctes ; pourcentages lisibles
-   - [ ] Libellés accentués corrects (« Unité de fusion ») ; bacs nommés « Bac 1 – A4 », « Enveloppe DL »
+   - [x] Alertes lisibles, carte qui suit le fond de la modal ; jauges du toner noir à 100 %, 50 % et 0 % distinctes ; pourcentages lisibles
+   - [x] Libellés accentués corrects (« Unité de fusion ») ; bacs nommés « Bac 1 – A4 », « Enveloppe DL »
 7. **Reportés du lot #40 à #43** (vérifiés sur la console locale le 19/11, jamais rejoués au labo)
-   - [ ] Parc (#43) : icône de diagnostic devant le nom sur chaque ligne ; colonne Actions limitée à Modifier et Archiver/Restaurer
+   - [x] Parc (#43) : icône de diagnostic devant le nom sur chaque ligne ; colonne Actions limitée à Modifier et Archiver/Restaurer
    - [ ] Parc (#43) : ordre au clavier ; lecteur d'écran « Diagnostic <nom> » ; diagnostic présent sans droit d'écriture
-   - [ ] Parc (#43) : message rouge d'erreur de synchro lisible ; icône toujours visible en largeur réduite
-   - [ ] Fiche imprimante (#42) : plus aucun « \serveur\ » ; libellés du nom et du partage selon l'option de nommage
+   - [x] Parc (#43) : message rouge d'erreur de synchro lisible ; icône toujours visible en largeur réduite
+   - [x] Fiche imprimante (#42) : plus aucun « \serveur\ » ; libellés du nom et du partage selon l'option de nommage
 8. **Clôture**
    - [ ] Résultats dans `RESULTATS_RECETTE_LABO.md`, CHANGELOG, puis release
 
