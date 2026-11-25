@@ -76,7 +76,9 @@ namespace Autoprint.Server.Services
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         public static string Bind(string domain, string user, string password)
         {
-            using var entry = new System.DirectoryServices.DirectoryEntry($"LDAP://{domain}/RootDSE", user, password,
+            // Domaine saisi dans la console : relu et reconstruit (nom DNS seulement) avant d'entrer dans le chemin LDAP
+            string host = LdapPathBuilder.NormalizeDomain(domain) ?? throw new ArgumentException("Nom de domaine invalide.", nameof(domain));
+            using var entry = new System.DirectoryServices.DirectoryEntry("LDAP://" + host + "/RootDSE", user, password,
                 System.DirectoryServices.AuthenticationTypes.Secure | System.DirectoryServices.AuthenticationTypes.Sealing);
             entry.RefreshCache(); // force la liaison avec ce compte
             return entry.Properties["dnsHostName"].Count > 0 ? entry.Properties["dnsHostName"][0]?.ToString() ?? domain : domain;
@@ -95,7 +97,9 @@ namespace Autoprint.Server.Services
             try
             {
                 string sam = user.Contains('\\') ? user[(user.IndexOf('\\') + 1)..] : user.Contains('@') ? user[..user.IndexOf('@')] : user;
-                using var root = new System.DirectoryServices.DirectoryEntry($"LDAP://{domain}");
+                string? host = LdapPathBuilder.NormalizeDomain(domain);
+                if (host == null) return reason;
+                using var root = new System.DirectoryServices.DirectoryEntry("LDAP://" + host);
                 using var searcher = new System.DirectoryServices.DirectorySearcher(root,
                     $"(&(objectCategory=person)(objectClass=user)(sAMAccountName={SecurityHelper.EscapeLdapFilter(sam)}))", new[] { "distinguishedName" });
                 var found = searcher.FindOne();
