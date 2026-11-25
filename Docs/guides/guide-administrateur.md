@@ -53,7 +53,8 @@ Un rapport se crée en trois étapes :
 
 - **Utilisateurs** : des comptes locaux, ou des comptes de l'annuaire ajoutés à la main. Un compte local peut devoir changer son mot de passe à la prochaine connexion.
 - **Rôles et droits** : chaque rôle est une liste de droits par domaine (imprimantes, lieux, rapports, paramètres…). Le droit **Administration** donne tous les droits. Un utilisateur ne peut pas accorder un droit qu'il n'a pas lui-même.
-- **Active Directory** (**Paramètres > Active Directory**) : vous associez des groupes AD à des rôles. Un utilisateur du domaine se connecte avec son compte habituel et reçoit le rôle de son groupe. **Vérifier un compte** montre le résultat pour un utilisateur précis.
+- **Active Directory** (**Paramètres > Active Directory**) : vous associez des groupes AD à des rôles (**Rôles et droits**, liens AD). Un utilisateur du domaine se connecte avec son compte habituel et reçoit le rôle de son groupe, groupes imbriqués compris ; les rôles sont recalculés à chaque connexion. Le DN de base doit couvrir les utilisateurs **et** leurs groupes. **Vérifier un compte** montre si un utilisateur est couvert.
+- **Compte de service AD** : Autoprint l'utilise pour lire l'annuaire. S'il est refusé (mot de passe faux, compte verrouillé), les connexions AD affichent la raison et Autoprint cesse de le présenter à l'annuaire pendant 5 minutes, pour ne pas le verrouiller. Un nouveau mot de passe est essayé avant d'être enregistré.
 - **Protection contre les essais de mot de passe** : un compte local est bloqué 2 minutes après 5 échecs. Un compte de l'annuaire est bloqué 30 minutes après 3 échecs, pour ne pas verrouiller le compte Windows.
 - **Mot de passe oublié** : un compte local qui a une adresse e-mail reçoit un lien valable 30 minutes.
 

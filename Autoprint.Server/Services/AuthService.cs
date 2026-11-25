@@ -26,6 +26,8 @@ namespace Autoprint.Server.Services
     {
         public DirectoryUnavailableException(Exception inner)
             : base("Annuaire Active Directory injoignable : vos droits ne peuvent pas être vérifiés. Réessayez dans quelques minutes.", inner) { }
+
+        protected DirectoryUnavailableException(string message, Exception? inner) : base(message, inner) { }
     }
 
     public class AuthService : IAuthService
@@ -87,6 +89,9 @@ namespace Autoprint.Server.Services
                     bool isAuthenticated = false;
                     string effectiveLogin = request.Username;
 
+                    // Compte de service refusé il y a moins de 5 min, même mot de passe : on ne le présente plus à l'annuaire
+                    AdServiceAccount.ThrowIfPaused(servicePass);
+
                     try
                     {
                         if (request.Username.Contains("@"))
@@ -137,6 +142,8 @@ namespace Autoprint.Server.Services
                     }
                     catch (Exception ex)
                     {
+                        // Refus du compte de service (et non de l'utilisateur) : message explicite, pause, échec non compté
+                        AdServiceAccount.ThrowIfRejected(ex, servicePass);
                         Console.WriteLine($"[AuthService] Erreur Login AD : {ex.Message}");
                     }
 
@@ -211,6 +218,8 @@ namespace Autoprint.Server.Services
                 return new List<AdSearchResultDto>();
             }
 
+            AdServiceAccount.ThrowIfPaused(servicePass);
+
             return await Task.Run(() =>
             {
                 var results = new List<AdSearchResultDto>();
@@ -251,6 +260,7 @@ namespace Autoprint.Server.Services
                 }
                 catch (Exception ex)
                 {
+                    AdServiceAccount.ThrowIfRejected(ex, servicePass);
                     Console.WriteLine($"Erreur Recherche AD: {ex.Message}");
                 }
                 return results;
@@ -265,15 +275,13 @@ namespace Autoprint.Server.Services
 
             if (OperatingSystem.IsWindows())
             {
+                var settings = await _context.ServerSettings.ToListAsync();
+                string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
+                string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
+                string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
                 try
                 {
-                    var settings = await _context.ServerSettings.ToListAsync();
-                    string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
-                    string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
-
-                    string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                    string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
-
                     if (!string.IsNullOrEmpty(domain) && !string.IsNullOrEmpty(serviceUser) && !string.IsNullOrEmpty(servicePass))
                     {
                         string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
@@ -313,6 +321,8 @@ namespace Autoprint.Server.Services
                 }
                 catch (Exception ex)
                 {
+                    // Avant : ignoré, puis une deuxième liaison refusée pour les groupes (verrouillage plus rapide du compte)
+                    AdServiceAccount.ThrowIfRejected(ex, servicePass);
                     Console.WriteLine($"[SyncService] Erreur Sync AD: {ex.Message}");
                 }
             }
@@ -342,15 +352,13 @@ namespace Autoprint.Server.Services
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private async Task ApplyAdGroupMappings(User user)
         {
+            var settings = await _context.ServerSettings.ToListAsync();
+            string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
+            string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
+            string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
+            string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
             try
             {
-                var settings = await _context.ServerSettings.ToListAsync();
-                string domain = settings.FirstOrDefault(s => s.Key == "AdDomain")?.Value ?? _configuration["Ldap:Domain"] ?? "";
-                string baseDn = settings.FirstOrDefault(s => s.Key == "AdBaseDn")?.Value ?? "";
-
-                string serviceUser = settings.FirstOrDefault(s => s.Key == "AdServiceUser")?.Value ?? "";
-                string servicePass = _secrets.Unprotect(settings.FirstOrDefault(s => s.Key == "AdServicePassword")?.Value);
-
                 if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(serviceUser)) return;
 
                 string ldapPath = string.IsNullOrEmpty(baseDn) ? $"LDAP://{domain}" : $"LDAP://{domain}/{baseDn}";
@@ -369,7 +377,12 @@ namespace Autoprint.Server.Services
 
                 SearchResult? userResult = searcher.FindOne();
 
-                // Compte hors de la base de recherche (Base DN) : aucun groupe vérifiable, les rôles AD de groupe sont retirés
+                // Compte hors de la base de recherche (Base DN) : aucun groupe vérifiable, les rôles AD de groupe sont retirés.
+                // Les groupes sont cherchés dans la Base DN (choix voulu, pour cibler une grande forêt) : elle doit couvrir
+                // les utilisateurs ET leurs groupes.
+                // Identifiant (sAMAccountName) et nom (name) de chaque groupe : une association peut porter l'un ou l'autre
+                // (avant le 25/11/2026, la console enregistrait le nom, alors que seul l'identifiant était comparé : rôle jamais
+                // attribué dès que les deux diffèrent, ex. « Support Informatique » / « GG_Support »).
                 var adGroupNames = new List<string>();
                 if (userResult != null)
                 {
@@ -378,14 +391,13 @@ namespace Autoprint.Server.Services
                     using DirectorySearcher groupSearcher = new DirectorySearcher(entry);
                     groupSearcher.Filter = $"(&(objectClass=group)(member:1.2.840.113556.1.4.1941:={SecurityHelper.EscapeLdapFilter(userDn)}))";
                     groupSearcher.PropertiesToLoad.Add("sAMAccountName");
+                    groupSearcher.PropertiesToLoad.Add("name");
                     groupSearcher.PageSize = 1000;
 
                     foreach (SearchResult groupRes in groupSearcher.FindAll())
                     {
-                        if (groupRes.Properties["sAMAccountName"].Count > 0)
-                        {
-                            adGroupNames.Add(groupRes.Properties["sAMAccountName"][0].ToString()!);
-                        }
+                        foreach (var prop in new[] { "sAMAccountName", "name" })
+                            if (groupRes.Properties[prop].Count > 0) adGroupNames.Add(groupRes.Properties[prop][0].ToString()!);
                     }
                 }
 
@@ -433,6 +445,8 @@ namespace Autoprint.Server.Services
             {
                 // Annuaire injoignable : impossible de vérifier les groupes, donc de savoir si des droits ont été retirés.
                 // La connexion est refusée plutôt que d'accorder des rôles peut-être révoqués (backlog B13).
+                // Compte de service refusé : message explicite au lieu de « annuaire injoignable », et pause (anti-verrouillage).
+                AdServiceAccount.ThrowIfRejected(ex, servicePass);
                 Console.WriteLine($"[AD-SYNC-ERROR] {ex.Message}");
                 throw new DirectoryUnavailableException(ex);
             }

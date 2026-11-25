@@ -106,8 +106,19 @@
         isSearching = true; hasSearched = true; searchResults.Clear();
         try
         {
-            var res = await Http.GetFromJsonAsync<List<AdSearchResultDto>>($"api/Roles/ad/search?q={Uri.EscapeDataString(searchQuery ?? "")}&type={searchType}");
-            if (res != null) searchResults = res;
+            var resp = await Http.GetAsync($"api/Roles/ad/search?q={Uri.EscapeDataString(searchQuery ?? "")}&type={searchType}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var res = await resp.Content.ReadFromJsonAsync<List<AdSearchResultDto>>();
+                if (res != null) searchResults = res;
+            }
+            else
+            {
+                // Ex. compte de service refusé par l'annuaire : le serveur dit pourquoi (au lieu de « vérifiez la connexion »)
+                string msg = "Vérifiez la connexion au domaine.";
+                try { var err = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(); if (err.TryGetProperty("message", out var m)) msg = m.GetString() ?? msg; } catch { }
+                NotificationService.Notify(NotificationSeverity.Error, "Erreur AD", msg);
+            }
         }
         catch (Exception)
         {
@@ -121,7 +132,9 @@
         var dto = new CreateAdMappingDto
         {
             RoleId = RoleId,
-            AdIdentifier = (res.Type == AdMappingType.Group) ? res.Name : res.SamAccountName,
+            // Identifiant du groupe (sAMAccountName), celui que la connexion compare ; avant le 25/11/2026 : nom affiché
+            // (« Support Informatique » au lieu de « GG_Support »), rôle jamais attribué dès que les deux diffèrent
+            AdIdentifier = res.SamAccountName,
             MappingType = res.Type
         };
 
