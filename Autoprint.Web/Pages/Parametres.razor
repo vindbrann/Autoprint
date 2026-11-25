@@ -318,7 +318,7 @@ else
                     </section>
                     <section class="ap-card">
                         <div class="ap-set-row">
-                            <div><h3>Comptes autorisés</h3><p>Seuls les comptes trouvés sous ce DN de base et qui respectent le filtre peuvent se connecter.</p></div>
+                            <div><h3>Comptes autorisés</h3><p>Seuls les comptes trouvés sous ce DN de base et qui respectent le filtre peuvent se connecter. Les groupes associés aux rôles sont cherchés sous ce même DN de base : il doit couvrir les utilisateurs <strong>et</strong> leurs groupes.</p></div>
                             <div class="ap-ctrl">
                                 <div class="ap-field">
                                     <RadzenLabel Component="AdBaseDn"><ChildContent>DN de base <span class="ap-opt">(facultatif)</span></ChildContent></RadzenLabel>
@@ -366,7 +366,7 @@ else
                             </div>
                         </div>
                         <div class="ap-set-row">
-                            <div><h3>Vérifier un compte</h3><p>Indique si un compte est couvert par le DN de base et le filtre affichés.</p></div>
+                            <div><h3>Vérifier un compte</h3><p>Indique si un compte est couvert par le DN de base et le filtre affichés. Saisissez son identifiant de connexion (sAMAccountName).</p></div>
                             <div class="ap-ctrl">
                                 <div style="display: flex; gap: var(--ap-s2);">
                                     <RadzenTextBox @bind-Value="testAdQuery" Placeholder="Identifiant (ex. jdupont)" Style="flex: 1;" aria-label="Identifiant à vérifier" />

@@ -163,6 +163,23 @@ namespace Autoprint.Server.Controllers
 
             var currentSettings = await _context.ServerSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
 
+            // Compte de service AD (25/11/2026) : un mot de passe faux était enregistré sans contrôle, puis chaque connexion AD
+            // le présentait à l'annuaire jusqu'à verrouiller le compte. Il est maintenant essayé une fois avant l'enregistrement.
+            bool adPasswordTyped = !IsEmptyOrMasked(dto.AdServicePassword);
+            bool adAccountChanged = adPasswordTyped
+                || !string.Equals(currentSettings.GetValueOrDefault("AdServiceUser") ?? "", dto.AdServiceUser, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(currentSettings.GetValueOrDefault("AdDomain") ?? "", dto.AdDomain, StringComparison.OrdinalIgnoreCase);
+            if (OperatingSystem.IsWindows() && dto.AdUseServiceAccount && adAccountChanged
+                && !string.IsNullOrWhiteSpace(dto.AdDomain) && !string.IsNullOrWhiteSpace(dto.AdServiceUser))
+            {
+                string pass = adPasswordTyped ? dto.AdServicePassword : _secrets.Unprotect(currentSettings.GetValueOrDefault("AdServicePassword"));
+                if (!string.IsNullOrEmpty(pass))
+                {
+                    string? refus = CheckServiceAccount(dto.AdDomain, dto.AdServiceUser, pass);
+                    if (refus != null) return BadRequest(refus);
+                }
+            }
+
             var modifiedCategories = new HashSet<string>();
 
             var jsonBefore = new Dictionary<string, string>();
@@ -268,7 +285,34 @@ namespace Autoprint.Server.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            // Nouveau mot de passe ou nouveau compte de service : fin de la pause posée après un refus de l'annuaire
+            if (adAccountChanged) AdServiceAccount.Reset();
+
             return Ok(new { Message = "Configuration sauvegardée avec succès." });
+        }
+
+        /// <summary>
+        /// Essaie le compte de service auprès de l'annuaire. Motif du refus (mot de passe incorrect, compte verrouillé…),
+        /// ou null si le compte est accepté ou si l'annuaire est injoignable (l'enregistrement reste alors possible).
+        /// </summary>
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private static string? CheckServiceAccount(string domain, string serviceUser, string password)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(domain, @"^[A-Za-z0-9]([A-Za-z0-9.-]{0,252})$")) return "Nom de domaine invalide.";
+            string user = serviceUser.Contains('\\') || serviceUser.Contains('@') ? serviceUser : $"{serviceUser}@{domain}";
+            try
+            {
+                AdServiceAccount.Bind(domain, user, password);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                var reason = AdServiceAccount.RejectionReason(ex);
+                if (reason == null) return null;
+                reason = AdServiceAccount.Refine(reason, domain, user);
+                return $"Compte de service refusé par l'annuaire ({reason}) : rien n'a été enregistré. " +
+                       (AdServiceAccount.IsLocked(reason) ? "Déverrouillez le compte dans l'Active Directory, puis réessayez." : "Vérifiez le compte et son mot de passe.");
+            }
         }
 
         private async Task UpdateSetting(string key, string value)
@@ -328,16 +372,30 @@ namespace Autoprint.Server.Controllers
                     finalUser = $"{finalUser}@{dto.Domain}";
                 }
 
-                var options = ContextOptions.Negotiate | ContextOptions.Sealing;
-
-                using var context = dto.UseServiceAccount
-                    ? new PrincipalContext(contextType, dto.Domain, null, options, finalUser, finalPass)
-                    : new PrincipalContext(contextType, dto.Domain);
-
-                var server = context.ConnectedServer;
+                string server;
+                if (dto.UseServiceAccount)
+                {
+                    // Liaison LDAP directe : distingue un compte verrouillé ou désactivé d'un mot de passe faux
+                    server = AdServiceAccount.Bind(dto.Domain, finalUser, finalPass);
+                }
+                else
+                {
+                    using var context = new PrincipalContext(contextType, dto.Domain);
+                    server = context.ConnectedServer;
+                }
                 return Ok(new { Message = $"Succès ! Connecté au contrôleur : {server}" });
             }
-            catch (Exception ex) { return BadRequest($"Échec connexion AD : {ex.Message}"); }
+            catch (Exception ex)
+            {
+                // Verrouillé ou mot de passe faux : dit lequel (avant : « nom d'utilisateur ou mot de passe incorrect » même verrouillé)
+                var reason = AdServiceAccount.RejectionReason(ex);
+                if (reason != null && dto.UseServiceAccount)
+                {
+                    string who = dto.ServiceUser.Contains('\\') || dto.ServiceUser.Contains('@') ? dto.ServiceUser : $"{dto.ServiceUser}@{dto.Domain}";
+                    reason = AdServiceAccount.Refine(reason, dto.Domain, who);
+                }
+                return BadRequest(reason != null ? $"Échec : compte de service refusé par l'annuaire ({reason})." : $"Échec connexion AD : {ex.Message}");
+            }
         }
 
         [HttpPost("TestAdFilter")]
@@ -390,12 +448,19 @@ namespace Autoprint.Server.Controllers
                 searcher.SizeLimit = 1;
                 var result = searcher.FindOne();
 
-                if (result == null) return Ok(new { Success = false, Message = "Aucun objet trouvé." });
+                if (result == null)
+                    return Ok(new { Success = false, Message = string.IsNullOrWhiteSpace(dto.TestUserQuery)
+                        ? "Aucun objet trouvé avec ce DN de base et ce filtre."
+                        : $"Aucun compte « {dto.TestUserQuery.Trim()} » (identifiant de connexion, sAMAccountName) sous le DN de base « {dto.BaseDn} »{(string.IsNullOrWhiteSpace(dto.Filter) ? "" : " avec ce filtre")}. Vérifiez l'identifiant, le DN de base et le filtre." });
 
                 string name = result.Properties["name"].Count > 0 ? result.Properties["name"][0].ToString()! : "Inconnu";
                 return Ok(new { Success = true, Message = $"✅ SUCCÈS : Objet '{name}' trouvé !" });
             }
-            catch (Exception ex) { return Ok(new { Success = false, Message = $"💥 Erreur LDAP : {ex.Message}" }); }
+            catch (Exception ex)
+            {
+                var reason = AdServiceAccount.RejectionReason(ex);
+                return Ok(new { Success = false, Message = reason != null ? $"Compte de service refusé par l'annuaire ({reason}) : la recherche n'a pas pu être faite." : $"Erreur LDAP : {ex.Message}" });
+            }
         }
 
         private static bool IsEmptyOrMasked(string? value) => string.IsNullOrEmpty(value) || value == "●●●●●●●●";

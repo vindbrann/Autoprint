@@ -34,6 +34,23 @@ Le nom tapé dans le navigateur n'est pas dans la liste des noms acceptés. Ouvr
 
 Ce cas arrive après la réinstallation d'un serveur sous un nom déjà utilisé en HTTPS : le navigateur a mémorisé la règle HSTS et refuse de rester en HTTP. Dans Edge ou Chrome, ouvrez `edge://net-internals/#hsts` (ou `chrome://net-internals/#hsts`), puis supprimez le nom dans **Delete domain security policies**. Le mieux reste d'activer HTTPS tout de suite (voir [Installer le serveur](installation-serveur.md#2-activer-https)).
 
+### « Le compte de service d'Autoprint est refusé par l'annuaire »
+
+Les connexions AD échouent avec ce message : le compte de service a un mot de passe faux ou expiré, ou il est verrouillé ou désactivé dans l'AD.
+
+1. Connectez-vous avec le compte local `admin`.
+2. **Paramètres > Active Directory > Tester la connexion** donne le motif exact : mot de passe incorrect, compte verrouillé, désactivé ou mot de passe expiré.
+3. Si le compte est **verrouillé**, déverrouillez-le dans l'Active Directory (ou attendez la fin du verrouillage).
+4. Ressaisissez le mot de passe, **Tester la connexion**, puis enregistrez. Autoprint refuse d'enregistrer un mot de passe que l'annuaire rejette.
+
+Après un refus, Autoprint ne présente plus le compte à l'annuaire pendant 5 minutes, pour éviter de le verrouiller ; un nouvel enregistrement lève cette pause.
+
+### Un utilisateur AD se connecte mais n'a aucun droit
+
+- Il doit être membre (directement ou par un groupe imbriqué) d'un groupe associé à un rôle (**Rôles et droits**).
+- Le **DN de base** (**Paramètres > Active Directory**) doit couvrir l'utilisateur **et** ce groupe : un groupe placé hors du DN de base n'est pas trouvé.
+- Les rôles sont recalculés à chaque connexion : l'utilisateur doit se reconnecter après un changement de groupe.
+
 ### Mot de passe du compte `admin` perdu
 
 Sur le serveur, en administrateur :

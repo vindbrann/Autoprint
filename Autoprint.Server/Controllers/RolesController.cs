@@ -193,7 +193,8 @@ namespace Autoprint.Server.Controllers
             if (!OperatingSystem.IsWindows()) return Ok(new List<AdSearchResultDto>());
             // sansFiltre : recherche d'un groupe pour le filtre de connexion (Paramètres, Active Directory), réservée aux administrateurs des paramètres
             if (sansFiltre && !User.HasClaim("Permission", "SETTINGS_MANAGE")) return Forbid();
-            return Ok(await _authService.SearchAdAsync(q, type, applyLoginFilter: !sansFiltre));
+            try { return Ok(await _authService.SearchAdAsync(q, type, applyLoginFilter: !sansFiltre)); }
+            catch (AdServiceAccountRejectedException ex) { return StatusCode(503, new { message = ex.Message }); }
         }
 
         [HttpGet("{roleId}/admappings")]

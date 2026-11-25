@@ -68,7 +68,10 @@ Ce compte local reste le compte de secours, utile si l'annuaire Active Directory
 Dans **Paramètres** :
 
 1. **Sécurité > Noms acceptés par le serveur** : vérifiez que le nom public y figure. Le serveur refuse tout autre nom (erreur 400), sauf `localhost`.
-2. **Active Directory** : le domaine, un compte de service pour les recherches, puis les groupes AD autorisés et le rôle de chacun. Le bouton **Vérifier un compte** montre ce qu'obtiendrait un utilisateur donné.
+2. **Active Directory** : le domaine, un compte de service pour les recherches, puis les groupes AD autorisés et le rôle de chacun.
+   - Le **DN de base** limite la recherche dans l'annuaire : il doit couvrir les utilisateurs **et** les groupes associés aux rôles (par exemple l'OU qui contient vos OU « Utilisateurs » et « Groupes »).
+   - Le mot de passe du compte de service est essayé auprès de l'annuaire avant d'être enregistré.
+   - **Vérifier un compte** (identifiant de connexion, sAMAccountName) montre si un utilisateur est couvert par le DN de base et le filtre.
 3. **Messagerie (SMTP)** : le serveur d'envoi, puis **Envoyer un e-mail de test**. Il sert aux alertes, aux rapports et aux liens « mot de passe oublié ».
 4. **Maintenance** : faites une première **sauvegarde avec un mot de passe de protection** et rangez le fichier à part. C'est elle qui permet de reconstruire le serveur sur une autre machine (voir le [guide administrateur](guide-administrateur.md#sauvegarde-et-restauration)).
 5. **Sécurité > Clé d'API des postes clients** : copiez la clé. Elle sera demandée pour déployer le client.

@@ -2,6 +2,17 @@
 
 Les versions suivent le format `AA.M.J.N` (année, mois, jour, numéro de la journée). Le détail technique de chaque correction est dans le [backlog](Docs/projet/BACKLOG_AMELIORATIONS.md).
 
+## Non publié
+
+### Corrections
+
+- **Rôle AD non attribué** (B88) : un utilisateur membre d'un groupe associé à un rôle se connectait sans aucun droit quand le nom affiché du groupe différait de son identifiant (« Support Informatique » / « GG_Support »). Les associations existantes fonctionnent sans les refaire, et les nouvelles enregistrent l'identifiant.
+- **Compte de service AD** (B89) : un mot de passe refusé par l'annuaire n'est plus enregistré, et le motif est affiché. Avec un compte de service refusé (mot de passe changé, compte verrouillé), les connexions AD affichent la raison au lieu de « annuaire injoignable », et Autoprint cesse de le présenter à l'annuaire pendant 5 minutes pour ne pas le verrouiller. **Tester la connexion** distingue un compte verrouillé, désactivé ou expiré d'un mot de passe faux.
+
+### À savoir
+
+- Le **DN de base** limite aussi la recherche des groupes : il doit couvrir les utilisateurs **et** les groupes associés aux rôles. C'est voulu, pour cibler la recherche dans un grand annuaire ; la console et les guides le précisent maintenant.
+
 ## 26.11.24.1 — 24/11/2026
 
 ### Nouveautés
